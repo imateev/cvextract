@@ -3,10 +3,47 @@ import json
 import subprocess
 from zipfile import ZipFile
 from lxml import etree  # pip install lxml
+from docxtpl import DocxTemplate
 import sys
 from pathlib import Path
 
 # ---------- helpers ----------
+
+# Escape '&' only if it is NOT already an entity like &amp; or &#123; or &#x1F;
+_RAW_AMP = re.compile(r'&(?!amp;|lt;|gt;|apos;|quot;|#\d+;|#x[0-9A-Fa-f]+;)')
+
+def escape_raw_ampersands(s: str) -> str:
+    return _RAW_AMP.sub("&amp;", s)
+
+def escape_raw_ampersands_in_obj(obj):
+    """Recursively escape raw ampersands in strings inside dict/list structures."""
+    if isinstance(obj, str):
+        return escape_raw_ampersands(obj)
+    if isinstance(obj, list):
+        return [escape_raw_ampersands_in_obj(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: escape_raw_ampersands_in_obj(v) for k, v in obj.items()}
+    return obj
+
+_invalid_xml_chars = re.compile(
+    r"[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD]"
+)
+
+def contains_bad_xml_chars(s: str) -> bool:
+    return bool(_invalid_xml_chars.search(s))
+
+def scan_data_for_bad_chars(obj, path="root"):
+    hits = []
+    if isinstance(obj, str):
+        if contains_bad_xml_chars(obj):
+            hits.append((path, repr(obj[:200])))
+    elif isinstance(obj, list):
+        for i, x in enumerate(obj):
+            hits += scan_data_for_bad_chars(x, f"{path}[{i}]")
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            hits += scan_data_for_bad_chars(v, f"{path}.{k}")
+    return hits
 
 def clean_text(text: str) -> str:
     """Remove unwanted characters like *, > and collapse spaces."""
@@ -117,8 +154,10 @@ NS = {
 }
 
 SECTION_TITLES = {
+    "SKILLS.": "skills",
     "LANGUAGES.": "languages",
     "TOOLS.": "tools",
+    "CERTIFICATIONS.": "certifications",
     "INDUSTRIES.": "industries",
     "SPOKEN LANGUAGES.": "spoken_languages",
     "ACADEMIC BACKGROUND.": "academic_background",
@@ -291,20 +330,58 @@ def process_single_docx(docx_path: Path, out: Path | None = None):
     ok = verify_extracted_data(data, docx_path)
     return ok
 
-def apply_template_to_files(files: list[Path]):
-    print("\nApplying template to:")
-    for f in files:
-        print("  -", f.stem)
-    # TODO: actual template transformation
+def apply_template_to_single_file(docx_file: Path, template_path: Path):
+    json_path = docx_file.with_suffix(".json")
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # OPTIONAL: split name if needed
+    name_parts = data["identity"]["name"].split()
+    data["identity"]["first_name"] = name_parts[0]
+    data["identity"]["last_name"] = " ".join(name_parts[1:])
+    data = escape_raw_ampersands_in_obj(data)
+
+    tpl = DocxTemplate(template_path)
+    tpl.render(data)
+
+    output_path = docx_file.with_name(docx_file.stem + "_NEW.docx")
+    tpl.save(output_path)
+    return output_path
+
+def apply_template_to_files(files: list[Path], template_path: Path):
+    print("\nApplying template:")
+
+    success = []
+    failed = []
+
+    for docx_file in files:
+        try:
+            output_path = apply_template_to_single_file(docx_file, template_path)
+            print(f"🟢 {output_path.name}")
+            success.append(docx_file)
+
+        except Exception as e:
+            print(f"❌ Failed {docx_file.name}: {e}")
+            failed.append(docx_file)
+
+    print(f"\n🟢 {len(success)} generated, ❌ {len(failed)} failed")
+    return success, failed
+
 
 def main():
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  python resume_extract.py /path/to/file.docx [output.json]")
-        print("  python resume_extract.py /path/to/folder")
+        print("  python resume_extract.py <input.docx> <template.docx>")
+        print("  python resume_extract.py <folder> <template.docx>")
         sys.exit(1)
 
     src = Path(sys.argv[1])
+    template_path = Path(sys.argv[2])
+
+    if not template_path.is_file() or template_path.suffix.lower() != ".docx":
+        print(f"Template not found or not a .docx: {template_path}")
+        sys.exit(1)
 
     processed = 0
     successful_files = []
@@ -312,10 +389,9 @@ def main():
     if src.is_file():
         # Single file mode (optional second arg = explicit output path)
         processed = 1
-        out = Path(sys.argv[2]) if len(sys.argv) >= 3 else None
-        ok = process_single_docx(src, out)
+        ok = process_single_docx(src)
         if ok:
-            successful_files.append(src)
+            successful_files.append(src.with_suffix(".json"))
 
     elif src.is_dir():
         # Folder mode: process every .docx in the folder
@@ -325,7 +401,7 @@ def main():
                 try:
                     ok = process_single_docx(docx_file)
                     if ok:
-                        successful_files.append(docx_file)
+                        successful_files.append(docx_file.with_suffix(".json"))
                 except Exception as e:
                     print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
         print("✅ ✅ ✅ Done processing folder.")
@@ -339,7 +415,7 @@ def main():
     print(f"\n🟢 {success_count} of {processed} files successfully extracted — continue with transformation")
 
     if success_count > 0:
-        apply_template_to_files(successful_files)
+        apply_template_to_files(successful_files, template_path)
 
 if __name__ == "__main__":
     main()
