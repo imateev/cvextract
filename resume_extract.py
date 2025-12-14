@@ -368,7 +368,6 @@ def apply_template_to_files(files: list[Path], template_path: Path):
     print(f"\n🟢 {len(success)} generated, ❌ {len(failed)} failed")
     return success, failed
 
-
 def main():
     if len(sys.argv) < 2:
         print("Usage:")
@@ -391,7 +390,7 @@ def main():
         processed = 1
         ok = process_single_docx(src)
         if ok:
-            successful_files.append(src.with_suffix(".json"))
+            successful_files.append(src)
 
     elif src.is_dir():
         # Folder mode: process every .docx in the folder
@@ -401,7 +400,7 @@ def main():
                 try:
                     ok = process_single_docx(docx_file)
                     if ok:
-                        successful_files.append(docx_file.with_suffix(".json"))
+                        successful_files.append(docx_file)
                 except Exception as e:
                     print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
         print("✅ ✅ ✅ Done processing folder.")
