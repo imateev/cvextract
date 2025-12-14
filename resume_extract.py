@@ -281,6 +281,25 @@ def verify_extracted_data(data: dict, source: Path):
     if not any(sidebar.get(section) for section in sidebar):
         errors.append("sidebar")
 
+    # --- Sidebar completeness check (WARNING only) ---
+    expected_sidebar_sections = [
+        "languages",
+        "tools",
+        "industries",
+        "spoken_languages",
+        "academic_background",
+    ]
+
+    missing_sidebar_sections = [
+        section for section in expected_sidebar_sections
+        if not sidebar.get(section)
+    ]
+
+    if missing_sidebar_sections:
+        warnings.append(
+            "missing sidebar sections: " + ", ".join(missing_sidebar_sections)
+        )
+
     experiences = data.get("experiences", [])
     if not experiences:
         errors.append("experiences_empty")
@@ -307,14 +326,14 @@ def verify_extracted_data(data: dict, source: Path):
 
     # --- Output logic (one line per file) ---
     if errors:
-        print(f"❌ {name} ({'; '.join(errors)})")
+        print(f"❌ Extracted {name} ({'; '.join(errors)})")
         return False
 
     if warnings:
-        print(f"⚠️  {name} ({'; '.join(warnings)})")
+        print(f"⚠️  Extracted {name} ({'; '.join(warnings)})")
         return True
 
-    print(f"🟢 {name}")
+    print(f"🟢 Extracted {name}")
     return True
 
 def process_single_docx(docx_path: Path, out: Path | None = None):
@@ -330,91 +349,193 @@ def process_single_docx(docx_path: Path, out: Path | None = None):
     ok = verify_extracted_data(data, docx_path)
     return ok
 
-def apply_template_to_single_file(docx_file: Path, template_path: Path):
-    json_path = docx_file.with_suffix(".json")
+# ===================== MODES =====================
 
+def render_from_json(json_path: Path, template_path: Path, target_dir: Path) -> Path:
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # OPTIONAL: split name if needed
-    name_parts = data["identity"]["name"].split()
-    data["identity"]["first_name"] = name_parts[0]
-    data["identity"]["last_name"] = " ".join(name_parts[1:])
+    identity = data.setdefault("identity", {})
+    name_parts = (identity.get("name", "") or "").split()
+    identity["first_name"] = name_parts[0] if name_parts else ""
+    identity["last_name"] = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+
     data = escape_raw_ampersands_in_obj(data)
 
     tpl = DocxTemplate(template_path)
     tpl.render(data)
 
-    output_path = docx_file.with_name(docx_file.stem + "_NEW.docx")
-    tpl.save(output_path)
-    return output_path
+    out_docx = target_dir / f"{json_path.stem}_NEW.docx"
+    tpl.save(out_docx)
+    return out_docx
 
-def apply_template_to_files(files: list[Path], template_path: Path):
-    print("\nApplying template:")
 
-    success = []
-    failed = []
+def run_extract_mode(inputs: list[Path], target_dir: Path):
+    processed = 0
+    extracted_ok = 0
 
-    for docx_file in files:
+    for docx_file in inputs:
+        if docx_file.suffix.lower() != ".docx":
+            continue
+        processed += 1
         try:
-            output_path = apply_template_to_single_file(docx_file, template_path)
-            print(f"🟢 {output_path.name}")
-            success.append(docx_file)
-
+            out_json = target_dir / f"{docx_file.stem}.json"
+            ok = process_single_docx(docx_file, out=out_json)
+            if ok:
+                extracted_ok += 1
         except Exception as e:
-            print(f"❌ Failed {docx_file.name}: {e}")
-            failed.append(docx_file)
+            print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
 
-    print(f"\n🟢 {len(success)} generated, ❌ {len(failed)} failed")
-    return success, failed
+    print(f"\n🟢 Extracted {extracted_ok} of {processed} file(s) to JSON in: {target_dir}")
+
+
+def run_extract_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path):
+    processed = 0
+    extracted_ok = 0
+    rendered_ok = 0
+
+    json_dir = target_dir / "structured_data"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    for docx_file in inputs:
+        if docx_file.suffix.lower() != ".docx":
+            continue
+        processed += 1
+        try:
+            out_json = json_dir / f"{docx_file.stem}.json"
+            ok = process_single_docx(docx_file, out=out_json)
+            if ok:
+                extracted_ok += 1
+                try:
+                    out_docx = render_from_json(out_json, template_path, target_dir)
+                    print(f"✅ Rendered: {out_docx.name}")
+                    rendered_ok += 1
+                except Exception as e:
+                    print(f"❌ Failed rendering for {out_json.name}: {e}")
+        except Exception as e:
+            print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
+
+    print(
+        f"\n🟢 Extracted {extracted_ok} of {processed} file(s) to JSON "
+        f"and rendered {rendered_ok} DOCX file(s) into: {target_dir}"
+    )
+
+
+def run_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path):
+    processed = 0
+    rendered_ok = 0
+
+    for json_file in inputs:
+        if json_file.suffix.lower() != ".json":
+            continue
+        processed += 1
+        try:
+            out_docx = render_from_json(json_file, template_path, target_dir)
+            print(f"🟢 {out_docx.name}")
+            rendered_ok += 1
+        except Exception as e:
+            print(f"❌ Failed rendering for {json_file.name}: {e}")
+
+    print(f"\n🟢 Rendered {rendered_ok} of {processed} JSON file(s) into: {target_dir}")
+
+
+# ===================== MAIN =====================
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print("  python resume_extract.py <input.docx> <template.docx>")
-        print("  python resume_extract.py <folder> <template.docx>")
-        sys.exit(1)
+    import argparse
 
-    src = Path(sys.argv[1])
-    template_path = Path(sys.argv[2])
+    parser = argparse.ArgumentParser(
+        description="Extract CV data to JSON and optionally apply a DOCX template.",
+        epilog="""
+Examples:
+  Extract DOCX files to JSON only:
+    python resume_extract.py --mode extract --source cvs/ --template template.docx --target output/
 
+  Extract DOCX files and apply template:
+    python resume_extract.py --mode extract-apply --source cvs/ --template template.docx --target output/
+
+  Apply template to existing JSON files:
+    python resume_extract.py --mode apply --source extracted_json/ --template template.docx --target output/
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--mode",
+        required=True,
+        choices=["extract", "extract-apply", "apply"],
+        help="Operation mode",
+    )
+
+    parser.add_argument(
+        "--source",
+        required=True,
+        help="Input file or folder (.docx for extract*, .json for apply)",
+    )
+
+    parser.add_argument(
+        "--template",
+        required=True,
+        help="Template .docx (single file)",
+    )
+
+    parser.add_argument(
+        "--target",
+        required=True,
+        help="Target output directory",
+    )
+
+    args = parser.parse_args()
+
+    mode = args.mode
+    src = Path(args.source)
+    template_path = Path(args.template)
+    target_dir = Path(args.target)
+
+    # --- validate template ---
     if not template_path.is_file() or template_path.suffix.lower() != ".docx":
         print(f"Template not found or not a .docx: {template_path}")
         sys.exit(1)
 
-    processed = 0
-    successful_files = []
+    # --- validate target ---
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if not target_dir.is_dir():
+        print(f"Target is not a directory: {target_dir}")
+        sys.exit(1)
 
+    # --- collect inputs ---
     if src.is_file():
-        # Single file mode (optional second arg = explicit output path)
-        processed = 1
-        ok = process_single_docx(src)
-        if ok:
-            successful_files.append(src)
-
+        inputs = [src]
     elif src.is_dir():
-        # Folder mode: process every .docx in the folder
-        for docx_file in src.iterdir():
-            if docx_file.is_file() and docx_file.suffix.lower() == ".docx":
-                processed += 1
-                try:
-                    ok = process_single_docx(docx_file)
-                    if ok:
-                        successful_files.append(docx_file)
-                except Exception as e:
-                    print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
-        print("✅ ✅ ✅ Done processing folder.")
-
+        if mode in ("extract", "extract-apply"):
+            inputs = [
+                p for p in src.iterdir()
+                if p.is_file()
+                and p.suffix.lower() == ".docx"
+                and p.resolve() != template_path.resolve()
+            ]
+        else:
+            inputs = [
+                p for p in src.iterdir()
+                if p.is_file()
+                and p.suffix.lower() == ".json"
+            ]
     else:
         print(f"Path not found or not a file/folder: {src}")
         sys.exit(1)
-    
-    # final summary
-    success_count = len(successful_files)
-    print(f"\n🟢 {success_count} of {processed} files successfully extracted — continue with transformation")
 
-    if success_count > 0:
-        apply_template_to_files(successful_files, template_path)
+    if not inputs:
+        print("No matching input files found.")
+        sys.exit(1)
+
+    # --- dispatch ---
+    if mode == "extract":
+        run_extract_mode(inputs, target_dir)
+    elif mode == "extract-apply":
+        run_extract_apply_mode(inputs, template_path, target_dir)
+    else:
+        run_apply_mode(inputs, template_path, target_dir)
+
 
 if __name__ == "__main__":
     main()
