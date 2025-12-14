@@ -41,7 +41,7 @@ def strip_invalid_xml_1_0_chars(s: str) -> str:
     return "".join(out)
 
 def sanitize_for_xml_in_obj(obj: object) -> object:
-    def _sanitize(x):
+    def _sanitize(x: object) -> object:
         if isinstance(x, str):
             x = x.replace("\u00A0", " ")
             x = escape_raw_ampersands(x)
@@ -176,7 +176,7 @@ def parse_resume_from_docx_body(docx_path: str) -> tuple[str, list[dict]]:
     overview = " ".join(overview_parts).strip()
     return overview, experiences
 
-def dump_body_sample(docx_path: str, n: int = 25):
+def dump_body_sample(docx_path: str, n: int = 25) -> None:
     """Print a small sample of parsed body paragraphs for debugging."""
     print("---- BODY SAMPLE ----")
     try:
@@ -225,7 +225,7 @@ def extract_all_header_paragraphs(docx_path: str) -> list[str]:
                         paragraphs.append(para)
     return paragraphs
 
-def split_identity_and_sidebar(paragraphs) -> tuple[dict, dict]:
+def split_identity_and_sidebar(paragraphs: list[str]) -> tuple[dict, dict]:
     """
     paragraphs: ordered header paragraphs (strings).
     Returns:
@@ -414,7 +414,7 @@ def render_from_json(json_path: Path, template_path: Path, target_dir: Path) -> 
     tpl.save(out_docx)
     return out_docx
 
-def run_extract_mode(inputs: list[Path], target_dir: Path):
+def run_extract_mode(inputs: list[Path], target_dir: Path) -> None:
     processed = 0
     extracted_ok = 0
 
@@ -434,7 +434,7 @@ def run_extract_mode(inputs: list[Path], target_dir: Path):
     print(f"\n🟢 Extracted {extracted_ok} of {processed} file(s) to JSON in: {target_dir}")
 
 
-def run_extract_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path):
+def run_extract_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path) -> None:
     processed = 0
     extracted_ok = 0
     rendered_ok = 0
@@ -467,7 +467,7 @@ def run_extract_apply_mode(inputs: list[Path], template_path: Path, target_dir: 
     )
 
 
-def run_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path):
+def run_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path) -> None:
     processed = 0
     rendered_ok = 0
 
@@ -487,7 +487,7 @@ def run_apply_mode(inputs: list[Path], template_path: Path, target_dir: Path):
 
 # ===================== MAIN =====================
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
