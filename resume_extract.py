@@ -40,9 +40,8 @@ import argparse
 import json
 import logging
 import re
-import sys
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 from zipfile import ZipFile
@@ -53,11 +52,6 @@ from lxml import etree
 # ------------------------- Logging -------------------------
 
 # Remap level names
-logging.addLevelName(logging.WARNING, "war")
-logging.addLevelName(logging.ERROR,   "err")
-logging.addLevelName(logging.INFO,    "inf")
-logging.addLevelName(logging.DEBUG,   "deb")
-logging.addLevelName(logging.CRITICAL,"cri")
 
 LOG = logging.getLogger("resume_extract")
 
@@ -67,7 +61,6 @@ def setup_logging(debug: bool) -> None:
         level=level,
         format="%(levelname)s: %(message)s",
     )
-
 
 # ------------------------- XML parsing helpers -------------------------
 
@@ -96,7 +89,6 @@ def strip_invalid_xml_1_0_chars(s: str) -> str:
             out.append(ch)
     return "".join(out)
 
-
 def normalize_text_for_processing(s: str) -> str:
     """
     Normalize what we consider "text":
@@ -109,12 +101,10 @@ def normalize_text_for_processing(s: str) -> str:
     s = strip_invalid_xml_1_0_chars(s)
     return s
 
-
 def sanitize_for_xml_in_obj(obj: Any) -> Any:
     """
     Sanitize strings for insertion into docxtpl (XML-safe):
     - normalize NBSP
-    - escape raw '&'
     - strip invalid XML 1.0 chars
     """
     def _sanitize(x: Any) -> Any:
@@ -129,16 +119,13 @@ def sanitize_for_xml_in_obj(obj: Any) -> Any:
 
     return _sanitize(obj)
 
-
 _WS_RE = re.compile(r"\s+")
-
 
 def clean_text(text: str) -> str:
     """Collapse whitespace for clean JSON output."""
     text = normalize_text_for_processing(text)
     text = _WS_RE.sub(" ", text)
     return text.strip()
-
 
 # ------------------------- DOCX namespaces -------------------------
 
@@ -155,7 +142,6 @@ HEADER_NS = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
     "w10": "urn:schemas-microsoft-com:office:word",
 }
-
 
 # ------------------------- Patterns / section titles -------------------------
 
@@ -191,7 +177,6 @@ EXPECTED_SIDEBAR_SECTIONS = [
     "academic_background",
 ]
 
-
 # ------------------------- Data models -------------------------
 
 @dataclass(frozen=True)
@@ -209,12 +194,11 @@ class Identity:
             "last_name": self.last_name,
         }
 
-
 @dataclass
 class ExperienceBuilder:
     heading: str = ""
-    description_parts: List[str] = None  # type: ignore[assignment]
-    bullets: List[str] = None  # type: ignore[assignment]
+    description_parts: List[str] = field(default_factory=list)
+    bullets: List[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.description_parts is None:
@@ -229,13 +213,11 @@ class ExperienceBuilder:
             "bullets": self.bullets[:],
         }
 
-
 # ------------------------- DOCX body parsing -------------------------
 
 def _p_text(p: etree._Element) -> str:
     texts = [t.text for t in p.findall(".//w:t", DOCX_NS) if t.text]
     return normalize_text_for_processing("".join(texts)).strip()
-
 
 def _p_is_bullet(p: etree._Element) -> bool:
     # Word list formatting is usually in <w:numPr>
@@ -247,13 +229,11 @@ def _p_is_bullet(p: etree._Element) -> bool:
         return True
     return False
 
-
 def _p_style(p: etree._Element) -> str:
     pstyle = p.find(".//w:pPr/w:pStyle", DOCX_NS)
     if pstyle is None:
         return ""
     return pstyle.get(f"{{{W_NS}}}val", "") or ""
-
 
 def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]:
     """
@@ -268,7 +248,6 @@ def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]
         if not text:
             continue
         yield text, _p_is_bullet(p), _p_style(p)
-
 
 def parse_resume_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]:
     """
@@ -331,7 +310,6 @@ def parse_resume_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, An
     overview = " ".join(overview_parts).strip()
     return overview, experiences
 
-
 def dump_body_sample(docx_path: Path, n: int = 25) -> None:
     LOG.info("---- BODY SAMPLE ----")
     try:
@@ -343,7 +321,6 @@ def dump_body_sample(docx_path: Path, n: int = 25) -> None:
     except Exception as e:
         LOG.error("(failed to dump body sample: %s)", e)
     LOG.info("---------------------")
-
 
 # ------------------------- Header/sidebar parsing -------------------------
 
@@ -371,7 +348,6 @@ def _extract_paragraph_texts(root: etree._Element) -> List[str]:
 
     return paras
 
-
 def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
     """
     Collect header paragraphs from all header parts (word/header*.xml).
@@ -384,7 +360,6 @@ def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
                 root = etree.fromstring(xml_bytes, XML_PARSER)
                 paragraphs.extend(_extract_paragraph_texts(root))
     return paragraphs
-
 
 def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[str, List[str]]]:
     """
@@ -463,7 +438,6 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
 
     return identity, sections
 
-
 # ------------------------- High-level pipeline -------------------------
 
 def extract_resume_structure(docx_path: Path) -> Dict[str, Any]:
@@ -478,13 +452,11 @@ def extract_resume_structure(docx_path: Path) -> Dict[str, Any]:
         "experiences": experiences,
     }
 
-
 @dataclass(frozen=True)
 class VerificationResult:
     ok: bool
     errors: List[str]
     warnings: List[str]
-
 
 def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationResult:
     name = source.stem
@@ -533,7 +505,6 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
     LOG.info("🟢 Extracted %s", name)
     return VerificationResult(True, errors, warnings)
 
-
 def process_single_docx(docx_path: Path, out: Optional[Path]) -> VerificationResult:
     data = extract_resume_structure(docx_path)
 
@@ -545,7 +516,6 @@ def process_single_docx(docx_path: Path, out: Optional[Path]) -> VerificationRes
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     return verify_extracted_data(data, docx_path)
-
 
 # ------------------------- Rendering -------------------------
 
@@ -561,7 +531,6 @@ def render_from_json(json_path: Path, template_path: Path, target_dir: Path) -> 
     out_docx = target_dir / f"{json_path.stem}_NEW.docx"
     tpl.save(str(out_docx))
     return out_docx
-
 
 # ------------------------- Modes -------------------------
 
@@ -594,7 +563,6 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
         LOG.error("Strict mode enabled: warnings treated as failure.")
         return 2
     return 0 if extracted_ok == processed else 1
-
 
 def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, strict: bool, debug: bool) -> int:
     processed = 0
@@ -647,7 +615,6 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
         return 2
     return 0 if (extracted_ok == processed and rendered_ok == extracted_ok) else 1
 
-
 def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool) -> int:
     processed = 0
     rendered_ok = 0
@@ -669,7 +636,6 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
     LOG.info("🟢 Rendered %d of %d JSON file(s) into: %s", rendered_ok, processed, target_dir)
     return 0 if rendered_ok == processed else 1
 
-
 # ------------------------- CLI / main -------------------------
 
 def collect_inputs(src: Path, mode: str, template_path: Path) -> List[Path]:
@@ -688,7 +654,6 @@ def collect_inputs(src: Path, mode: str, template_path: Path) -> List[Path]:
         ]
 
     return [p for p in src.iterdir() if p.is_file() and p.suffix.lower() == ".json"]
-
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -716,7 +681,6 @@ Examples:
     parser.add_argument("--debug", action="store_true", help="Verbose logs + stack traces on failure.")
 
     return parser.parse_args(argv)
-
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
@@ -758,6 +722,5 @@ def main(argv: Optional[List[str]] = None) -> int:
         return run_extract_apply_mode(inputs, template_path, target_dir, strict=args.strict, debug=args.debug)
     return run_apply_mode(inputs, template_path, target_dir, debug=args.debug)
 
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
