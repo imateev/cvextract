@@ -350,7 +350,8 @@ def _extract_paragraph_texts(root: etree._Element) -> List[str]:
 
 def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
     """
-    Collect header paragraphs from all header parts (word/header*.xml).
+    Collect header paragraphs from all header parts (word/header*.xml),
+    de-duplicated while preserving order.
     """
     paragraphs: List[str] = []
     with ZipFile(docx_path) as z:
@@ -359,7 +360,15 @@ def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
                 xml_bytes = z.read(name)
                 root = etree.fromstring(xml_bytes, XML_PARSER)
                 paragraphs.extend(_extract_paragraph_texts(root))
-    return paragraphs
+
+    out: List[str] = []
+    seen = set()
+    for p in paragraphs:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
 
 def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[str, List[str]]]:
     """
