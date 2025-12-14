@@ -93,13 +93,16 @@ def normalize_text_for_processing(s: str) -> str:
     """
     Normalize what we consider "text":
     - convert NBSP to normal space
+    - replace soft hyphen with real hyphen
     - normalize newlines
     - strip invalid XML chars
     """
     s = s.replace("\u00A0", " ")
+    s = s.replace("\u00AD", "-")  # preserve "high-quality"
     s = s.replace("\r\n", "\n").replace("\r", "\n")
     s = strip_invalid_xml_1_0_chars(s)
     return s
+
 
 def sanitize_for_xml_in_obj(obj: Any) -> Any:
     """
@@ -210,9 +213,24 @@ class ExperienceBuilder:
 # ------------------------- DOCX body parsing -------------------------
 
 def _p_text(p: etree._Element) -> str:
-    texts = [t.text for t in p.findall(".//w:t", DOCX_NS) if t.text]
-    return normalize_text_for_processing("".join(texts)).strip()
+    """
+    Extract visible text from a <w:p> paragraph, including special Word hyphen nodes.
+    """
+    parts: List[str] = []
+    for node in p.iter():
+        tag = etree.QName(node).localname
 
+        if tag == "t" and node.text:
+            parts.append(node.text)
+        elif tag in ("noBreakHyphen", "softHyphen"):
+            parts.append("-")  # preserve high-quality style hyphens
+        elif tag in ("br", "cr"):
+            parts.append("\n")
+        elif tag == "tab":
+            parts.append("\t")
+
+    return normalize_text_for_processing("".join(parts)).strip()
+    
 def _p_is_bullet(p: etree._Element) -> bool:
     # Word list formatting is usually in <w:numPr>
     if p.find(".//w:pPr/w:numPr", DOCX_NS) is not None:
@@ -321,24 +339,32 @@ def dump_body_sample(docx_path: Path, n: int = 25) -> None:
 def _extract_paragraph_texts(root: etree._Element) -> List[str]:
     """
     Extract visible text paragraphs from a header XML root.
-    We prefer textbox content (w:txbxContent) but also fall back to direct w:p.
+    Prefer textbox content (w:txbxContent) but fall back to direct w:p.
+    Preserves line breaks inside paragraphs (w:br/w:cr) by splitting into lines.
     """
     paras: List[str] = []
 
     # 1) Textboxes (common for sidebars)
     for p in root.findall(".//w:txbxContent//w:p", HEADER_NS):
-        texts = [t.text for t in p.findall(".//w:t", HEADER_NS) if t.text]
-        s = normalize_text_for_processing("".join(texts)).strip()
-        if s:
-            paras.append(s)
+        s = _p_text(p)
+        if not s:
+            continue
+        for ln in s.split("\n"):
+            ln = ln.strip()
+            if ln:
+                paras.append(ln)
 
-    # 2) Fallback: normal header paragraphs not inside textboxes
+    # 2) Fallback: normal header paragraphs
+    # This is more speculative and breaks things if it is evalued to true for now
     if not paras:
         for p in root.findall(".//w:p", HEADER_NS):
-            texts = [t.text for t in p.findall(".//w:t", HEADER_NS) if t.text]
-            s = normalize_text_for_processing("".join(texts)).strip()
-            if s:
-                paras.append(s)
+            s = _p_text(p)
+            if not s:
+                continue
+            for ln in s.split("\n"):
+                ln = ln.strip()
+                if ln:
+                    paras.append(ln)
 
     return paras
 
