@@ -15,35 +15,41 @@ _RAW_AMP = re.compile(r'&(?!amp;|lt;|gt;|apos;|quot;|#\d+;|#x[0-9A-Fa-f]+;)')
 def escape_raw_ampersands(s: str) -> str:
     return _RAW_AMP.sub("&amp;", s)
 
-def escape_raw_ampersands_in_obj(obj):
-    """Recursively escape raw ampersands in strings inside dict/list structures."""
-    if isinstance(obj, str):
-        return escape_raw_ampersands(obj)
-    if isinstance(obj, list):
-        return [escape_raw_ampersands_in_obj(x) for x in obj]
-    if isinstance(obj, dict):
-        return {k: escape_raw_ampersands_in_obj(v) for k, v in obj.items()}
-    return obj
+def strip_invalid_xml_1_0_chars(s: str) -> str:
+    """
+    Remove characters that are invalid in XML 1.0.
+    Valid chars are:
+      #x9 | #xA | #xD |
+      [#x20-#xD7FF] |
+      [#xE000-#xFFFD] |
+      [#x10000-#x10FFFF]
+    """
+    out = []
+    for ch in s:
+        cp = ord(ch)
+        if (
+            cp == 0x9
+            or cp == 0xA
+            or cp == 0xD
+            or (0x20 <= cp <= 0xD7FF)
+            or (0xE000 <= cp <= 0xFFFD)
+            or (0x10000 <= cp <= 0x10FFFF)
+        ):
+            out.append(ch)
+    return "".join(out)
 
-_invalid_xml_chars = re.compile(
-    r"[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD]"
-)
+def sanitize_for_xml_in_obj(obj):
+    def _sanitize(x):
+        if isinstance(x, str):
+            x = escape_raw_ampersands(x)
+            return strip_invalid_xml_1_0_chars(x)
+        if isinstance(x, list):
+            return [_sanitize(i) for i in x]
+        if isinstance(x, dict):
+            return {k: _sanitize(v) for k, v in x.items()}
+        return x
 
-def contains_bad_xml_chars(s: str) -> bool:
-    return bool(_invalid_xml_chars.search(s))
-
-def scan_data_for_bad_chars(obj, path="root"):
-    hits = []
-    if isinstance(obj, str):
-        if contains_bad_xml_chars(obj):
-            hits.append((path, repr(obj[:200])))
-    elif isinstance(obj, list):
-        for i, x in enumerate(obj):
-            hits += scan_data_for_bad_chars(x, f"{path}[{i}]")
-    elif isinstance(obj, dict):
-        for k, v in obj.items():
-            hits += scan_data_for_bad_chars(v, f"{path}.{k}")
-    return hits
+    return _sanitize(obj)
 
 def clean_text(text: str) -> str:
     """Collapse whitespace (keep content as-is for manual review workflow)."""
@@ -80,7 +86,8 @@ def iter_document_paragraphs(docx_path: str):
     """
     with ZipFile(docx_path) as z:
         xml_bytes = z.read("word/document.xml")
-    root = etree.fromstring(xml_bytes)
+    parser = etree.XMLParser(recover=True, huge_tree=True)
+    root = etree.fromstring(xml_bytes, parser)
 
     for p in root.findall(".//w:body//w:p", DOCX_NS):
         text = _p_text(p)
@@ -88,12 +95,20 @@ def iter_document_paragraphs(docx_path: str):
             continue
         yield text, _p_is_bullet(p), _p_style(p)
 
+def finalize_exp(exp: dict) -> dict:
+    """Finalize experience object with stable key order."""
+    return {
+        "heading": exp.get("heading", ""),
+        "description": " ".join(exp.get("description_parts", [])).strip(),
+        "bullets": exp.get("bullets", []),
+    }
+
 def parse_resume_from_docx_body(docx_path: str):
     """
     Parse the main body directly from DOCX.
     Returns: overview (str), experiences (list of dicts).
     """
-    overview = ""
+    overview_parts = []
     experiences = []
     current_exp = None
     in_overview = False
@@ -130,15 +145,17 @@ def parse_resume_from_docx_body(docx_path: str):
             continue
 
         if in_overview:
-            overview += clean_text(line) + " "
+            overview_parts.append(clean_text(line))
             continue
 
         if in_experience:
-            if HEADING_PATTERN.search(line):
+            is_heading_style = style.lower().startswith("heading") and not is_bullet
+
+            if HEADING_PATTERN.search(line) or is_heading_style:
                 if current_exp:
-                    experiences.append(current_exp)
+                    experiences.append(finalize_exp(current_exp))
                 current_exp = {"heading": clean_text(line),
-                               "description": "",
+                               "description_parts": [],
                                "bullets": []}
                 continue
 
@@ -148,12 +165,13 @@ def parse_resume_from_docx_body(docx_path: str):
                 continue
 
             if current_exp:
-                current_exp["description"] += clean_text(line) + " "
+                current_exp["description_parts"].append(clean_text(line))
 
     if current_exp:
-        experiences.append(current_exp)
+        experiences.append(finalize_exp(current_exp))
 
-    return overview.strip(), experiences
+    overview = " ".join(overview_parts).strip()
+    return overview, experiences
 
 def dump_body_sample(docx_path: str, n: int = 25):
     """Print a small sample of parsed body paragraphs for debugging."""
@@ -194,7 +212,8 @@ def extract_all_header_paragraphs(docx_path: str):
         for name in sorted(z.namelist()):
             if name.startswith("word/header") and name.endswith(".xml"):
                 xml_bytes = z.read(name)
-                root = etree.fromstring(xml_bytes)
+                parser = etree.XMLParser(recover=True, huge_tree=True)
+                root = etree.fromstring(xml_bytes, parser)
 
                 # paragraphs inside text boxes
                 for p in root.findall(".//w:txbxContent//w:p", NS):
@@ -384,15 +403,14 @@ def render_from_json(json_path: Path, template_path: Path, target_dir: Path) -> 
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    data = escape_raw_ampersands_in_obj(data)
+    data = sanitize_for_xml_in_obj(data)
 
     tpl = DocxTemplate(template_path)
-    tpl.render(data)
+    tpl.render(data, autoescape=True)
 
     out_docx = target_dir / f"{json_path.stem}_NEW.docx"
     tpl.save(out_docx)
     return out_docx
-
 
 def run_extract_mode(inputs: list[Path], target_dir: Path):
     processed = 0
