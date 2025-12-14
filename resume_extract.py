@@ -8,6 +8,7 @@ from docxtpl import DocxTemplate
 from lxml import etree  # pip install lxml
 
 # ---------- helpers ----------
+XML_PARSER = etree.XMLParser(recover=True, huge_tree=True)
 
 # Escape '&' only if it is NOT already an entity like &amp; or &#123; or &#x1F;
 _RAW_AMP = re.compile(r'&(?!amp;|lt;|gt;|apos;|quot;|#\d+;|#x[0-9A-Fa-f]+;)')
@@ -41,6 +42,7 @@ def strip_invalid_xml_1_0_chars(s: str) -> str:
 def sanitize_for_xml_in_obj(obj):
     def _sanitize(x):
         if isinstance(x, str):
+            x = x.replace("\u00A0", " ")
             x = escape_raw_ampersands(x)
             return strip_invalid_xml_1_0_chars(x)
         if isinstance(x, list):
@@ -53,10 +55,24 @@ def sanitize_for_xml_in_obj(obj):
 
 def clean_text(text: str) -> str:
     """Collapse whitespace (keep content as-is for manual review workflow)."""
+    text = text.replace("\u00A0", " ")  # Word NBSP -> normal space
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 # ---------- 1. MAIN BODY via DOCX XML (no pandoc) ----------
+MONTH_NAME = (
+    r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
+    r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
+    r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+)
+
+HEADING_PATTERN = re.compile(
+    rf"{MONTH_NAME}\s+\d{{4}}\s*"
+    r"(?:--|[-–—])\s*"
+    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})",
+    re.IGNORECASE,
+)
+
 DOCX_NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
 }
@@ -86,8 +102,7 @@ def iter_document_paragraphs(docx_path: str):
     """
     with ZipFile(docx_path) as z:
         xml_bytes = z.read("word/document.xml")
-    parser = etree.XMLParser(recover=True, huge_tree=True)
-    root = etree.fromstring(xml_bytes, parser)
+    root = etree.fromstring(xml_bytes, XML_PARSER)
 
     for p in root.findall(".//w:body//w:p", DOCX_NS):
         text = _p_text(p)
@@ -98,7 +113,7 @@ def iter_document_paragraphs(docx_path: str):
 def finalize_exp(exp: dict) -> dict:
     """Finalize experience object with stable key order."""
     return {
-        "heading": exp.get("heading", ""),
+        "heading": exp.get("heading", "").strip(),
         "description": " ".join(exp.get("description_parts", [])).strip(),
         "bullets": exp.get("bullets", []),
     }
@@ -113,19 +128,6 @@ def parse_resume_from_docx_body(docx_path: str):
     current_exp = None
     in_overview = False
     in_experience = False
-
-    MONTH_NAME = (
-        r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
-        r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
-        r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
-    )
-
-    HEADING_PATTERN = re.compile(
-        rf"{MONTH_NAME}\s+\d{{4}}\s*"
-        r"(?:--|[-–—])\s*"
-        rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})",
-        re.IGNORECASE,
-    )
 
     for raw_text, is_bullet, style in iter_document_paragraphs(docx_path):
         line = raw_text.strip()
@@ -212,8 +214,7 @@ def extract_all_header_paragraphs(docx_path: str):
         for name in sorted(z.namelist()):
             if name.startswith("word/header") and name.endswith(".xml"):
                 xml_bytes = z.read(name)
-                parser = etree.XMLParser(recover=True, huge_tree=True)
-                root = etree.fromstring(xml_bytes, parser)
+                root = etree.fromstring(xml_bytes, XML_PARSER)
 
                 # paragraphs inside text boxes
                 for p in root.findall(".//w:txbxContent//w:p", NS):
@@ -299,7 +300,7 @@ def split_identity_and_sidebar(paragraphs):
 
 # ---------- 3. High-level pipeline & CLI ----------
 def extract_resume_structure(docx_path: str) -> dict:
-    # Main body via pandoc
+    # Main body via DOCX XML
     overview, experiences = parse_resume_from_docx_body(docx_path)
 
     # Header/sidebar via XML
