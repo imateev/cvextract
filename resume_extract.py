@@ -200,12 +200,6 @@ class ExperienceBuilder:
     description_parts: List[str] = field(default_factory=list)
     bullets: List[str] = field(default_factory=list)
 
-    def __post_init__(self) -> None:
-        if self.description_parts is None:
-            self.description_parts = []
-        if self.bullets is None:
-            self.bullets = []
-
     def finalize(self) -> Dict[str, Any]:
         return {
             "heading": self.heading.strip(),
@@ -732,4 +726,4 @@ def main(argv: Optional[List[str]] = None) -> int:
     return run_apply_mode(inputs, template_path, target_dir, debug=args.debug)
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
