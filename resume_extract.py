@@ -2,6 +2,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Iterator
 from zipfile import ZipFile
 
 from docxtpl import DocxTemplate
@@ -39,7 +40,7 @@ def strip_invalid_xml_1_0_chars(s: str) -> str:
             out.append(ch)
     return "".join(out)
 
-def sanitize_for_xml_in_obj(obj):
+def sanitize_for_xml_in_obj(obj: object) -> object:
     def _sanitize(x):
         if isinstance(x, str):
             x = x.replace("\u00A0", " ")
@@ -96,7 +97,7 @@ def _p_style(p) -> str:
         return ""
     return pstyle.get(f"{{{DOCX_NS['w']}}}val", "") or ""
 
-def iter_document_paragraphs(docx_path: str):
+def iter_document_paragraphs(docx_path: str) -> Iterator[tuple[str, bool, str]]:
     """
     Yield tuples: (text, is_bullet, style) for each body paragraph in document.xml.
     """
@@ -118,7 +119,7 @@ def finalize_exp(exp: dict) -> dict:
         "bullets": exp.get("bullets", []),
     }
 
-def parse_resume_from_docx_body(docx_path: str):
+def parse_resume_from_docx_body(docx_path: str) -> tuple[str, list[dict]]:
     """
     Parse the main body directly from DOCX.
     Returns: overview (str), experiences (list of dicts).
@@ -204,7 +205,7 @@ SECTION_TITLES = {
     "ACADEMIC BACKGROUND.": "academic_background",
 }
 
-def extract_all_header_paragraphs(docx_path: str):
+def extract_all_header_paragraphs(docx_path: str) -> list[str]:
     """
     Return a list of header paragraphs (strings), collected from all headers,
     looking specifically inside text boxes (w:txbxContent).
@@ -224,7 +225,7 @@ def extract_all_header_paragraphs(docx_path: str):
                         paragraphs.append(para)
     return paragraphs
 
-def split_identity_and_sidebar(paragraphs):
+def split_identity_and_sidebar(paragraphs) -> tuple[dict, dict]:
     """
     paragraphs: ordered header paragraphs (strings).
     Returns:
@@ -316,7 +317,7 @@ def extract_resume_structure(docx_path: str) -> dict:
     }
     return data
 
-def verify_extracted_data(data: dict, source: Path):
+def verify_extracted_data(data: dict, source: Path) -> bool:
     name = source.stem
     errors = []
     warnings = []
@@ -385,7 +386,7 @@ def verify_extracted_data(data: dict, source: Path):
     print(f"🟢 Extracted {name}")
     return True
 
-def process_single_docx(docx_path: Path, out: Path | None = None):
+def process_single_docx(docx_path: Path, out: Path | None = None) -> bool:
     """Process one .docx and write its JSON output."""
     data = extract_resume_structure(str(docx_path))
     
