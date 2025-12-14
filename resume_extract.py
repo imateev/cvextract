@@ -46,37 +46,51 @@ def scan_data_for_bad_chars(obj, path="root"):
     return hits
 
 def clean_text(text: str) -> str:
-    """Remove unwanted characters like *, > and collapse spaces."""
-    text = re.sub(r"[*>\\]", "", text)
+    """Collapse whitespace (keep content as-is for manual review workflow)."""
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
-# ---------- 1. MAIN BODY via pandoc (DOCX -> Markdown -> parsed) ----------
-def run_pandoc_to_markdown(docx_path: str) -> str:
-    """
-    Call pandoc to convert DOCX to Markdown and return the markdown text.
-    Requires pandoc installed and on PATH.
-    """
-    result = subprocess.run(
-        [
-            "pandoc",
-            docx_path,
-            "-t", "markdown",
-            "--wrap=none",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+# ---------- 1. MAIN BODY via DOCX XML (no pandoc) ----------
+DOCX_NS = {
+    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+}
 
-    if result.returncode != 0:
-        raise RuntimeError(f"pandoc failed: {result.stderr}")
+def _p_text(p) -> str:
+    """Extract visible text from a <w:p> paragraph."""
+    texts = [t.text for t in p.findall(".//w:t", DOCX_NS) if t.text]
+    return "".join(texts).strip()
 
-    return result.stdout
-
-def parse_resume_markdown(md_text: str):
+def _p_is_bullet(p) -> bool:
     """
-    Parse the markdown text from the main body.
+    Detect bullets/numbered list items in Word.
+    Word stores list formatting in <w:numPr>.
+    """
+    return p.find(".//w:pPr/w:numPr", DOCX_NS) is not None
+
+def _p_style(p) -> str:
+    """Return paragraph style id if present (e.g. Heading1)."""
+    pstyle = p.find(".//w:pPr/w:pStyle", DOCX_NS)
+    if pstyle is None:
+        return ""
+    return pstyle.get(f"{{{DOCX_NS['w']}}}val", "") or ""
+
+def iter_document_paragraphs(docx_path: str):
+    """
+    Yield tuples: (text, is_bullet, style) for each body paragraph in document.xml.
+    """
+    with ZipFile(docx_path) as z:
+        xml_bytes = z.read("word/document.xml")
+    root = etree.fromstring(xml_bytes)
+
+    for p in root.findall(".//w:body//w:p", DOCX_NS):
+        text = _p_text(p)
+        if not text:
+            continue
+        yield text, _p_is_bullet(p), _p_style(p)
+
+def parse_resume_from_docx_body(docx_path: str):
+    """
+    Parse the main body directly from DOCX.
     Returns: overview (str), experiences (list of dicts).
     """
     overview = ""
@@ -84,11 +98,6 @@ def parse_resume_markdown(md_text: str):
     current_exp = None
     in_overview = False
     in_experience = False
-
-    lines = [
-        line for line in md_text.splitlines()
-        if line.strip() != "" and not all(ch == ">" for ch in line.strip())
-    ]
 
     MONTH_NAME = (
         r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
@@ -103,49 +112,61 @@ def parse_resume_markdown(md_text: str):
         re.IGNORECASE,
     )
 
-    for raw_line in lines:
-        line = raw_line.strip()
+    for raw_text, is_bullet, style in iter_document_paragraphs(docx_path):
+        line = raw_text.strip()
         if not line:
             continue
 
-        upper = line.upper()
+        upper = line.strip(" .:").upper()
 
-        # Detect sections
-        if "OVERVIEW" in upper:
+        # Strict section detection
+        if upper == "OVERVIEW":
             in_overview = True
             in_experience = False
             continue
-        elif "PROFESSIONAL EXPERIENCE" in upper:
+        elif upper == "PROFESSIONAL EXPERIENCE":
             in_overview = False
             in_experience = True
             continue
 
-        # Capture Overview text
         if in_overview:
             overview += clean_text(line) + " "
             continue
 
-        # Capture Experience entries
         if in_experience:
-            # Detect new job heading (date range + title) by month name
             if HEADING_PATTERN.search(line):
                 if current_exp:
                     experiences.append(current_exp)
                 current_exp = {"heading": clean_text(line),
                                "description": "",
                                "bullets": []}
-            elif line.startswith("-"):
+                continue
+
+            if is_bullet:
                 if current_exp:
-                    bullet_text = clean_text(line.lstrip("- ").strip())
-                    current_exp["bullets"].append(bullet_text)
-            else:
-                if current_exp:
-                    current_exp["description"] += clean_text(line) + " "
+                    current_exp["bullets"].append(clean_text(line))
+                continue
+
+            if current_exp:
+                current_exp["description"] += clean_text(line) + " "
 
     if current_exp:
         experiences.append(current_exp)
 
     return overview.strip(), experiences
+
+def dump_body_sample(docx_path: str, n: int = 25):
+    """Print a small sample of parsed body paragraphs for debugging."""
+    print("---- BODY SAMPLE ----")
+    try:
+        for i, (txt, is_bullet, style) in enumerate(iter_document_paragraphs(docx_path)):
+            if i >= n:
+                break
+            flag = "•" if is_bullet else " "
+            print(f"{i:02d} [{flag}] {style:12s} | {txt[:160]}")
+    except Exception as e:
+        print(f"(failed to dump body sample: {e})")
+    print("---------------------")
 
 # ---------- 2. HEADER / SIDEBAR via XML (DOCX -> header paragraphs) ----------
 NS = {
@@ -170,7 +191,7 @@ def extract_all_header_paragraphs(docx_path: str):
     """
     paragraphs = []
     with ZipFile(docx_path) as z:
-        for name in z.namelist():
+        for name in sorted(z.namelist()):
             if name.startswith("word/header") and name.endswith(".xml"):
                 xml_bytes = z.read(name)
                 root = etree.fromstring(xml_bytes)
@@ -251,8 +272,7 @@ def split_identity_and_sidebar(paragraphs):
 # ---------- 3. High-level pipeline & CLI ----------
 def extract_resume_structure(docx_path: str) -> dict:
     # Main body via pandoc
-    md_text = run_pandoc_to_markdown(docx_path)
-    overview, experiences = parse_resume_markdown(md_text)
+    overview, experiences = parse_resume_from_docx_body(docx_path)
 
     # Header/sidebar via XML
     header_paragraphs = extract_all_header_paragraphs(docx_path)
@@ -385,6 +405,7 @@ def run_extract_mode(inputs: list[Path], target_dir: Path):
                 extracted_ok += 1
         except Exception as e:
             print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
+            dump_body_sample(str(docx_file), n=30)
 
     print(f"\n🟢 Extracted {extracted_ok} of {processed} file(s) to JSON in: {target_dir}")
 
@@ -414,6 +435,7 @@ def run_extract_apply_mode(inputs: list[Path], template_path: Path, target_dir: 
                     print(f"❌ Failed rendering for {out_json.name}: {e}")
         except Exception as e:
             print(f"❌ ❌ ❌ Error processing {docx_file}: {e}")
+            dump_body_sample(str(docx_file), n=30)
 
     print(
         f"\n🟢 Extracted {extracted_ok} of {processed} file(s) to JSON "
