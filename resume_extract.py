@@ -223,7 +223,7 @@ def split_identity_and_sidebar(paragraphs):
     sections = {v: [] for v in SECTION_TITLES.values()}
 
     if first_section_idx is None:
-        return {"title": "", "name": ""}, sections
+        return {"title": "", "full_name": "", "first_name":"", "last_name":""}, sections
 
     # ----- Identity block: everything before first sidebar heading -----
     raw_identity_lines = []
@@ -235,12 +235,21 @@ def split_identity_and_sidebar(paragraphs):
 
     if raw_identity_lines:
         title = raw_identity_lines[0]
-        name = " ".join(raw_identity_lines[1:]) if len(raw_identity_lines) > 1 else ""
+        full_name = " ".join(raw_identity_lines[1:]) if len(raw_identity_lines) > 1 else ""
     else:
         title = ""
-        name = ""
+        full_name = ""
 
-    identity = {"title": title, "name": name}
+    name_parts = full_name.split()
+    first_name = name_parts[0] if name_parts else ""
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+
+    identity = {
+        "title": title, 
+        "full_name": full_name, 
+        "first_name": first_name, 
+        "last_name": last_name,
+        }
 
     # ----- Sidebar sections: from first heading onward -----
     current_key = None
@@ -294,7 +303,7 @@ def verify_extracted_data(data: dict, source: Path):
 
     # --- 1. Critical checks (RED X) ---
     identity = data.get("identity", {})
-    if not identity.get("title") or not identity.get("name"):
+    if not identity.get("title") or not identity.get("full_name") or not identity.get("first_name") or not identity.get("last_name"):
         errors.append("identity")
 
     sidebar = data.get("sidebar", {})
@@ -374,11 +383,6 @@ def process_single_docx(docx_path: Path, out: Path | None = None):
 def render_from_json(json_path: Path, template_path: Path, target_dir: Path) -> Path:
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-
-    identity = data.setdefault("identity", {})
-    name_parts = (identity.get("name", "") or "").split()
-    identity["first_name"] = name_parts[0] if name_parts else ""
-    identity["last_name"] = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
 
     data = escape_raw_ampersands_in_obj(data)
 
