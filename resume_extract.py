@@ -212,23 +212,18 @@ class ExperienceBuilder:
 
 # ------------------------- DOCX body parsing -------------------------
 
-def _p_text(p: etree._Element) -> str:
-    """
-    Extract visible text from a <w:p> paragraph, including special Word hyphen nodes.
-    """
+def extract_text_from_w_p(p: etree._Element) -> str:
     parts: List[str] = []
     for node in p.iter():
         tag = etree.QName(node).localname
-
         if tag == "t" and node.text:
             parts.append(node.text)
         elif tag in ("noBreakHyphen", "softHyphen"):
-            parts.append("-")  # preserve high-quality style hyphens
+            parts.append("-")
         elif tag in ("br", "cr"):
             parts.append("\n")
         elif tag == "tab":
             parts.append("\t")
-
     return normalize_text_for_processing("".join(parts)).strip()
     
 def _p_is_bullet(p: etree._Element) -> bool:
@@ -256,7 +251,7 @@ def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]
     root = etree.fromstring(xml_bytes, XML_PARSER)
 
     for p in root.findall(".//w:body//w:p", DOCX_NS):
-        text = _p_text(p)
+        text = extract_text_from_w_p(p)
         if not text:
             continue
         yield text, _p_is_bullet(p), _p_style(p)
@@ -346,7 +341,7 @@ def _extract_paragraph_texts(root: etree._Element) -> List[str]:
 
     # 1) Textboxes (common for sidebars)
     for p in root.findall(".//w:txbxContent//w:p", HEADER_NS):
-        s = _p_text(p)
+        s = extract_text_from_w_p(p)
         if not s:
             continue
         for ln in s.split("\n"):
@@ -358,7 +353,7 @@ def _extract_paragraph_texts(root: etree._Element) -> List[str]:
     # This is more speculative and breaks things if it is evalued to true for now
     if not paras:
         for p in root.findall(".//w:p", HEADER_NS):
-            s = _p_text(p)
+            s = extract_text_from_w_p(p)
             if not s:
                 continue
             for ln in s.split("\n"):
