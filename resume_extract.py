@@ -1,11 +1,11 @@
-import re
 import json
-import subprocess
-from zipfile import ZipFile
-from lxml import etree  # pip install lxml
-from docxtpl import DocxTemplate
+import re
 import sys
 from pathlib import Path
+from zipfile import ZipFile
+
+from docxtpl import DocxTemplate
+from lxml import etree  # pip install lxml
 
 # ---------- helpers ----------
 
