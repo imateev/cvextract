@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import traceback
 from dataclasses import dataclass, field
@@ -129,6 +130,21 @@ def clean_text(text: str) -> str:
     text = normalize_text_for_processing(text)
     text = _WS_RE.sub(" ", text)
     return text.strip()
+
+def infer_source_root(inputs: List[Path]) -> Path:
+    """
+    Infer the root directory of the batch so we can preserve folder structure
+    in output without passing source explicitly.
+    - If a single file: use its parent as root.
+    - If multiple files: use common path of their parent folders.
+    """
+    if not inputs:
+        return Path(".")
+    if len(inputs) == 1:
+        return inputs[0].parent
+
+    parents = [str(p.parent.resolve()) for p in inputs]
+    return Path(os.path.commonpath(parents))
 
 # ------------------------- DOCX namespaces -------------------------
 
@@ -580,12 +596,17 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
     extracted_ok = 0
     had_warning = False
 
+    source_root = infer_source_root(inputs)
+    json_dir = target_dir / "structured_data"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    
     for docx_file in inputs:
         if docx_file.suffix.lower() != ".docx":
             continue
         processed += 1
         try:
-            out_json = target_dir / f"{docx_file.stem}.json"
+            rel_parent = docx_file.parent.resolve().relative_to(source_root)
+            out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
             result = process_single_docx(docx_file, out=out_json)
             if result.ok:
                 extracted_ok += 1
@@ -598,7 +619,7 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
             dump_body_sample(docx_file, n=30)
 
     LOG.info("")
-    LOG.info("🟢 Extracted %d of %d file(s) to JSON in: %s", extracted_ok, processed, target_dir)
+    LOG.info("🟢 Extracted %d of %d file(s) to JSON in: %s", extracted_ok, processed, json_dir)
 
     if strict and had_warning:
         LOG.error("Strict mode enabled: warnings treated as failure.")
@@ -611,22 +632,29 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
     rendered_ok = 0
     had_warning = False
 
+    source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
     json_dir.mkdir(parents=True, exist_ok=True)
+
+    documents_dir = target_dir / "documents"
+    documents_dir.mkdir(parents=True, exist_ok=True)
 
     for docx_file in inputs:
         if docx_file.suffix.lower() != ".docx":
             continue
         processed += 1
         try:
-            out_json = json_dir / f"{docx_file.stem}.json"
+            rel_parent = docx_file.parent.resolve().relative_to(source_root)
+            out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
             result = process_single_docx(docx_file, out=out_json)
             if result.ok:
                 extracted_ok += 1
                 if result.warnings:
                     had_warning = True
                 try:
-                    out_docx = render_from_json(out_json, template_path, target_dir)
+                    out_docx_dir = documents_dir / rel_parent
+                    out_docx_dir.mkdir(parents=True, exist_ok=True)
+                    out_docx = render_from_json(out_json, template_path, out_docx_dir)
                     LOG.info("✅ Rendered: %s", out_docx.name)
                     rendered_ok += 1
                 except Exception as e:
@@ -660,12 +688,18 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
     processed = 0
     rendered_ok = 0
 
+    source_root = infer_source_root(inputs)
+    documents_dir = target_dir / "documents"
+    
     for json_file in inputs:
         if json_file.suffix.lower() != ".json":
             continue
         processed += 1
         try:
-            out_docx = render_from_json(json_file, template_path, target_dir)
+            rel_parent = json_file.parent.resolve().relative_to(source_root)
+            out_docx_dir = documents_dir / rel_parent
+            out_docx_dir.mkdir(parents=True, exist_ok=True)
+            out_docx = render_from_json(json_file, template_path, target_dir=out_docx_dir)
             LOG.info("🟢 %s", out_docx.name)
             rendered_ok += 1
         except Exception as e:
@@ -688,13 +722,13 @@ def collect_inputs(src: Path, mode: str, template_path: Path) -> List[Path]:
 
     if mode in ("extract", "extract-apply"):
         return [
-            p for p in src.iterdir()
+            p for p in src.rglob("*.docx")
             if p.is_file()
-            and p.suffix.lower() == ".docx"
             and p.resolve() != template_path.resolve()
         ]
 
-    return [p for p in src.iterdir() if p.is_file() and p.suffix.lower() == ".json"]
+    return [p for p in src.rglob("*.json") if p.is_file()]
+
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
