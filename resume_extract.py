@@ -180,6 +180,11 @@ EXPECTED_SIDEBAR_SECTIONS = [
     "academic_background",
 ]
 
+ENVIRONMENT_PATTERN = re.compile(
+    r"^Environment\s*:\s*(.+)$",
+    re.IGNORECASE,
+)
+
 # ------------------------- Data models -------------------------
 
 @dataclass(frozen=True)
@@ -202,12 +207,14 @@ class ExperienceBuilder:
     heading: str = ""
     description_parts: List[str] = field(default_factory=list)
     bullets: List[str] = field(default_factory=list)
+    environment: List[str] = field(default_factory=list)
 
     def finalize(self) -> Dict[str, Any]:
         return {
             "heading": self.heading.strip(),
             "description": " ".join(self.description_parts).strip(),
             "bullets": self.bullets[:],
+            "environment": self.environment[:] or None,
         }
 
 # ------------------------- DOCX body parsing -------------------------
@@ -303,6 +310,13 @@ def parse_resume_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, An
             if HEADING_PATTERN.search(line) or is_heading_style:
                 flush_current()
                 current_exp = ExperienceBuilder(heading=clean_text(line))
+                continue
+
+            m_env = ENVIRONMENT_PATTERN.match(line)
+            if m_env and current_exp is not None:
+                techs_raw = m_env.group(1)
+                techs = [clean_text(t) for t in techs_raw.split(",") if clean_text(t)]
+                current_exp.environment.extend(techs)
                 continue
 
             if is_bullet:
@@ -508,12 +522,15 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
         heading = (exp.get("heading") or "").strip()
         desc = (exp.get("description") or "").strip()
         bullets = exp.get("bullets") or []
+        env = exp.get("environment")
         if not heading:
             issue_set.add("missing heading")
         if not desc:
             issue_set.add("missing description")
         if not bullets:
             issue_set.add("no bullets")
+        if env is not None and not isinstance(env, list):
+            warnings.append("invalid environment format")
 
     if issue_set:
         warnings.append("incomplete: " + "; ".join(sorted(issue_set)))
