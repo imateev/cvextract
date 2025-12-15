@@ -32,6 +32,13 @@ How it achieves this
 - Safe template rendering:
   - Sanitizes extracted strings to be XML-safe (handles raw ampersands, non-breaking spaces, and invalid XML 1.0 characters) before rendering.
   - Renders with docxtpl using auto-escaping and writes the output .docx to the target directory.
+
+Logging (refactor)
+- Exactly ONE log line per input file.
+- Two icons per line:
+  - Extract: 🟢 success, ⚠️ success-with-warnings, ❌ failure
+  - Apply: ✅ success, ❌ failure, ➖ not attempted / not applicable
+- Summary line at end.
 """
 
 from __future__ import annotations
@@ -52,16 +59,33 @@ from lxml import etree
 
 # ------------------------- Logging -------------------------
 
-# Remap level names
-
 LOG = logging.getLogger("resume_extract")
 
-def setup_logging(debug: bool) -> None:
+def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
     level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(levelname)s: %(message)s",
-    )
+
+    handlers: List[logging.Handler] = []
+
+    # Console output
+    console = logging.StreamHandler()
+    console.setLevel(level)
+    console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    handlers.append(console)
+
+    # Optional file output
+    if log_file:
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setLevel(logging.DEBUG)  # always full detail in file
+        file_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s | %(levelname)s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+        handlers.append(file_handler)
+
+    logging.basicConfig(level=level, handlers=handlers)
+
 
 # ------------------------- XML parsing helpers -------------------------
 
@@ -104,7 +128,6 @@ def normalize_text_for_processing(s: str) -> str:
     s = strip_invalid_xml_1_0_chars(s)
     return s
 
-
 def sanitize_for_xml_in_obj(obj: Any) -> Any:
     """
     Sanitize strings for insertion into docxtpl (XML-safe):
@@ -120,7 +143,6 @@ def sanitize_for_xml_in_obj(obj: Any) -> Any:
         if isinstance(x, dict):
             return {k: _sanitize(v) for k, v in x.items()}
         return x
-
     return _sanitize(obj)
 
 _WS_RE = re.compile(r"\s+")
@@ -142,14 +164,30 @@ def infer_source_root(inputs: List[Path]) -> Path:
         return Path(".")
     if len(inputs) == 1:
         return inputs[0].parent
-
     parents = [str(p.parent.resolve()) for p in inputs]
     return Path(os.path.commonpath(parents))
+
+def safe_relpath(p: Path, root: Path) -> str:
+    """Best-effort relative path for nicer logging."""
+    try:
+        return p.resolve().relative_to(root.resolve()).as_posix()
+    except Exception:
+        return p.name
+
+def fmt_issues(errors: List[str], warnings: List[str]) -> str:
+    """
+    Compact error/warning string for the one-line-per-file log.
+    """
+    parts: List[str] = []
+    if errors:
+        parts.append("errors: " + ", ".join(errors))
+    if warnings:
+        parts.append("warnings: " + ", ".join(warnings))
+    return " | ".join(parts) if parts else "-"
 
 # ------------------------- DOCX namespaces -------------------------
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-
 DOCX_NS = {"w": W_NS}
 
 # include other namespaces for shapes/textboxes commonly used in headers
@@ -233,6 +271,12 @@ class ExperienceBuilder:
             "environment": self.environment[:] or None,
         }
 
+@dataclass(frozen=True)
+class VerificationResult:
+    ok: bool
+    errors: List[str]
+    warnings: List[str]
+
 # ------------------------- DOCX body parsing -------------------------
 
 def extract_text_from_w_p(p: etree._Element) -> str:
@@ -248,7 +292,13 @@ def extract_text_from_w_p(p: etree._Element) -> str:
         elif tag == "tab":
             parts.append("\t")
     return normalize_text_for_processing("".join(parts)).strip()
-    
+
+def _p_style(p: etree._Element) -> str:
+    pstyle = p.find(".//w:pPr/w:pStyle", DOCX_NS)
+    if pstyle is None:
+        return ""
+    return pstyle.get(f"{{{W_NS}}}val", "") or ""
+
 def _p_is_bullet(p: etree._Element) -> bool:
     # Word list formatting is usually in <w:numPr>
     if p.find(".//w:pPr/w:numPr", DOCX_NS) is not None:
@@ -258,12 +308,6 @@ def _p_is_bullet(p: etree._Element) -> bool:
     if style.startswith("list") or "bullet" in style or "number" in style:
         return True
     return False
-
-def _p_style(p: etree._Element) -> str:
-    pstyle = p.find(".//w:pPr/w:pStyle", DOCX_NS)
-    if pstyle is None:
-        return ""
-    return pstyle.get(f"{{{W_NS}}}val", "") or ""
 
 def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]:
     """
@@ -380,7 +424,6 @@ def _extract_paragraph_texts(root: etree._Element) -> List[str]:
                 paras.append(ln)
 
     # 2) Fallback: normal header paragraphs
-    # This is more speculative and breaks things if it is evalued to true for now
     if not paras:
         for p in root.findall(".//w:p", HEADER_NS):
             s = extract_text_from_w_p(p)
@@ -414,15 +457,12 @@ def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
             out.append(p)
     return out
 
-
 def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[str, List[str]]]:
     """
     Given ordered header paragraphs, split into:
       identity: title + name
       sections: sidebar blocks keyed by SECTION_TITLES mapping
     """
-
-    # Base structure for sections
     sections: Dict[str, List[str]] = {v: [] for v in SECTION_TITLES.values()}
 
     # Locate first sidebar section heading
@@ -506,14 +546,10 @@ def extract_resume_structure(docx_path: Path) -> Dict[str, Any]:
         "experiences": experiences,
     }
 
-@dataclass(frozen=True)
-class VerificationResult:
-    ok: bool
-    errors: List[str]
-    warnings: List[str]
-
 def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationResult:
-    name = source.stem
+    """
+    Verify extracted data. Returns issues; does NOT log (so we can keep one log line per file).
+    """
     errors: List[str] = []
     warnings: List[str] = []
 
@@ -527,7 +563,7 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
 
     missing_sidebar_sections = [s for s in EXPECTED_SIDEBAR_SECTIONS if not sidebar.get(s)]
     if missing_sidebar_sections:
-        warnings.append("missing sidebar sections: " + ", ".join(missing_sidebar_sections))
+        warnings.append("missing sidebar: " + ", ".join(missing_sidebar_sections))
 
     experiences = data.get("experiences", []) or []
     if not experiences:
@@ -551,18 +587,10 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
     if issue_set:
         warnings.append("incomplete: " + "; ".join(sorted(issue_set)))
 
-    if errors:
-        LOG.error("❌ Extracted %s (%s)", name, "; ".join(errors))
-        return VerificationResult(False, errors, warnings)
+    ok = not errors
+    return VerificationResult(ok=ok, errors=errors, warnings=warnings)
 
-    if warnings:
-        LOG.warning("⚠️  Extracted %s (%s)", name, "; ".join(warnings))
-        return VerificationResult(True, errors, warnings)
-
-    LOG.info("🟢 Extracted %s", name)
-    return VerificationResult(True, errors, warnings)
-
-def process_single_docx(docx_path: Path, out: Optional[Path]) -> VerificationResult:
+def process_single_docx(docx_path: Path, out: Optional[Path]) -> Tuple[VerificationResult, Dict[str, Any]]:
     data = extract_resume_structure(docx_path)
 
     if out is None:
@@ -572,7 +600,7 @@ def process_single_docx(docx_path: Path, out: Optional[Path]) -> VerificationRes
     with out.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    return verify_extracted_data(data, docx_path)
+    return verify_extracted_data(data, docx_path), data
 
 # ------------------------- Rendering -------------------------
 
@@ -599,26 +627,50 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
     json_dir.mkdir(parents=True, exist_ok=True)
-    
+
     for docx_file in inputs:
         if docx_file.suffix.lower() != ".docx":
             continue
+
         processed += 1
+        rel_name = safe_relpath(docx_file, source_root)
+
+        extract_ok = False
+        errs: List[str] = []
+        warns: List[str] = []
+
         try:
             rel_parent = docx_file.parent.resolve().relative_to(source_root)
             out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
-            result = process_single_docx(docx_file, out=out_json)
-            if result.ok:
+
+            result, _data = process_single_docx(docx_file, out=out_json)
+            extract_ok = result.ok
+            errs = result.errors
+            warns = result.warnings
+
+            if extract_ok:
                 extracted_ok += 1
-            if result.warnings:
+            if warns:
                 had_warning = True
+
         except Exception as e:
-            LOG.error("❌ ❌ ❌ Error processing %s: %s", docx_file.name, e)
+            extract_ok = False
+            errs = [f"exception: {type(e).__name__}"]
+            warns = []
             if debug:
                 LOG.error(traceback.format_exc())
-            dump_body_sample(docx_file, n=30)
+                dump_body_sample(docx_file, n=30)
 
-    LOG.info("")
+        # Icons (extract-only mode => apply icon is ➖)
+        x_icon = "❌"
+        if extract_ok and warns:
+            x_icon = "⚠️ "
+        elif extract_ok:
+            x_icon = "🟢"
+
+        a_icon = "➖"
+        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
+
     LOG.info("🟢 Extracted %d of %d file(s) to JSON in: %s", extracted_ok, processed, json_dir)
 
     if strict and had_warning:
@@ -642,41 +694,77 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
     for docx_file in inputs:
         if docx_file.suffix.lower() != ".docx":
             continue
+
         processed += 1
+        rel_name = safe_relpath(docx_file, source_root)
+
+        extract_ok = False
+        apply_ok: Optional[bool] = None  # None => not attempted
+        errs: List[str] = []
+        warns: List[str] = []
+
         try:
             rel_parent = docx_file.parent.resolve().relative_to(source_root)
             out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
-            result = process_single_docx(docx_file, out=out_json)
-            if result.ok:
+
+            result, _data = process_single_docx(docx_file, out=out_json)
+            extract_ok = result.ok
+            errs = result.errors[:]
+            warns = result.warnings[:]
+
+            if extract_ok:
                 extracted_ok += 1
-                if result.warnings:
+                if warns:
                     had_warning = True
+
                 try:
                     out_docx_dir = documents_dir / rel_parent
                     out_docx_dir.mkdir(parents=True, exist_ok=True)
-                    out_docx = render_from_json(out_json, template_path, out_docx_dir)
-                    LOG.info("✅ Rendered: %s", out_docx.name)
+                    _out_docx = render_from_json(out_json, template_path, out_docx_dir)
+                    apply_ok = True
                     rendered_ok += 1
                 except Exception as e:
-                    LOG.error("❌ Failed rendering for %s: %s", out_json.name, e)
+                    apply_ok = False
+                    errs = errs + [f"render: {type(e).__name__}"]
                     if debug:
                         LOG.error(traceback.format_exc())
             else:
-                if result.warnings:
+                # Extraction failed => render not attempted
+                apply_ok = None
+                if warns:
                     had_warning = True
+
         except Exception as e:
-            LOG.error("❌ ❌ ❌ Error processing %s: %s", docx_file.name, e)
+            extract_ok = False
+            apply_ok = None
+            errs = [f"exception: {type(e).__name__}"]
+            warns = []
             if debug:
                 LOG.error(traceback.format_exc())
-            dump_body_sample(docx_file, n=30)
+                dump_body_sample(docx_file, n=30)
 
-    LOG.info("")
+        # Extract icon rules
+        x_icon = "❌"
+        if extract_ok and warns:
+            x_icon = "⚠️ "
+        elif extract_ok:
+            x_icon = "🟢"
+
+        # Apply icon rules (✅ success, ❌ fail, ➖ not attempted)
+        if apply_ok is None:
+            a_icon = "➖"
+        else:
+            a_icon = "✅" if apply_ok else "❌"
+
+        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
+
     LOG.info(
-        "🟢 Extracted %d of %d file(s) to JSON and rendered %d DOCX file(s) into: %s",
+        "🟢 Extracted %d of %d file(s) to JSON (%s) and rendered %d DOCX file(s) into: %s",
         extracted_ok,
         processed,
+        json_dir,
         rendered_ok,
-        target_dir,
+        documents_dir,
     )
 
     if strict and had_warning:
@@ -690,25 +778,38 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
 
     source_root = infer_source_root(inputs)
     documents_dir = target_dir / "documents"
-    
+    documents_dir.mkdir(parents=True, exist_ok=True)
+
     for json_file in inputs:
         if json_file.suffix.lower() != ".json":
             continue
+
         processed += 1
+        rel_name = safe_relpath(json_file, source_root)
+
+        apply_ok = False
+        errs: List[str] = []
+        warns: List[str] = []
+
         try:
             rel_parent = json_file.parent.resolve().relative_to(source_root)
             out_docx_dir = documents_dir / rel_parent
             out_docx_dir.mkdir(parents=True, exist_ok=True)
-            out_docx = render_from_json(json_file, template_path, target_dir=out_docx_dir)
-            LOG.info("🟢 %s", out_docx.name)
+
+            _out_docx = render_from_json(json_file, template_path, target_dir=out_docx_dir)
+            apply_ok = True
             rendered_ok += 1
         except Exception as e:
-            LOG.error("❌ Failed rendering for %s: %s", json_file.name, e)
+            apply_ok = False
+            errs = [f"render: {type(e).__name__}"]
             if debug:
                 LOG.error(traceback.format_exc())
 
-    LOG.info("")
-    LOG.info("🟢 Rendered %d of %d JSON file(s) into: %s", rendered_ok, processed, target_dir)
+        x_icon = "➖"
+        a_icon = "✅" if apply_ok else "❌"
+        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
+
+    LOG.info("🟢 Rendered %d of %d JSON file(s) into: %s", rendered_ok, processed, documents_dir)
     return 0 if rendered_ok == processed else 1
 
 # ------------------------- CLI / main -------------------------
@@ -728,7 +829,6 @@ def collect_inputs(src: Path, mode: str, template_path: Path) -> List[Path]:
         ]
 
     return [p for p in src.rglob("*.json") if p.is_file()]
-
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -754,12 +854,13 @@ Examples:
 
     parser.add_argument("--strict", action="store_true", help="Treat warnings as failure (non-zero exit code).")
     parser.add_argument("--debug", action="store_true", help="Verbose logs + stack traces on failure.")
-
+    parser.add_argument("--log-file", help="Optional path to a log file. If set, all output is also written there.",
+                        )
     return parser.parse_args(argv)
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
-    setup_logging(args.debug)
+    setup_logging(args.debug, log_file=args.log_file)
 
     mode: str = args.mode
     src = Path(args.source)
