@@ -185,6 +185,40 @@ def fmt_issues(errors: List[str], warnings: List[str]) -> str:
         parts.append("warnings: " + ", ".join(warnings))
     return " | ".join(parts) if parts else "-"
 
+_SPLIT_RE = re.compile(r"\s*(?:,|;|\||\u2022|\u00B7|\u2027|\u2219|\u25CF)\s*|\s{2,}")
+
+def normalize_sidebar_sections(sections: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    """
+    Normalize sidebar sections into clean lists.
+    Splits on:
+      - commas
+      - 2+ spaces
+    Preserves order, removes empties, de-dupes.
+    """
+    out: Dict[str, List[str]] = {}
+
+    for key, lines in (sections or {}).items():
+        items: List[str] = []
+        seen: set[str] = set()
+
+        for line in (lines or []):
+            line = clean_text(line)
+            if not line:
+                continue
+
+            parts = [clean_text(p) for p in _SPLIT_RE.split(line)]
+
+            for p in parts:
+                if not p:
+                    continue
+                if p not in seen:
+                    seen.add(p)
+                    items.append(p)
+
+        out[key] = items
+
+    return out
+
 # ------------------------- DOCX namespaces -------------------------
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -529,7 +563,8 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
             # avoid duplicates while preserving order
             if p_clean not in sections[current_key]:
                 sections[current_key].append(p_clean)
-
+    
+    sections = normalize_sidebar_sections(sections)
     return identity, sections
 
 # ------------------------- High-level pipeline -------------------------
