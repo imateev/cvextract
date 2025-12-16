@@ -30,8 +30,6 @@ from .docx_utils import (
     iter_document_paragraphs,
 )
 
-XML_PARSER = etree.XMLParser(recover=True, huge_tree=True)
-
 # ------------------------- Patterns / section titles -------------------------
 
 MONTH_NAME = (

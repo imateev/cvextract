@@ -1,6 +1,6 @@
 # cvextract/__init__.py
 
-from .core import (
+from .sidebar_parser import (
     extract_text_from_w_p,
     extract_all_header_paragraphs,
     split_identity_and_sidebar,

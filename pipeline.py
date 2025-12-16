@@ -257,9 +257,8 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
             out_docx_dir = documents_dir / rel_parent
             out_docx_dir.mkdir(parents=True, exist_ok=True)
 
-            _out_docx = render_from_json(json_file, template_path, target_dir=out_docx_dir)
+            _ = render_from_json(json_file, template_path, target_dir=out_docx_dir)
             apply_ok = True
-            rendered_ok += 1
         except Exception as e:
             apply_ok = False
             errs = [f"render: {type(e).__name__}"]

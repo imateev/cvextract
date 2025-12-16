@@ -1,6 +1,4 @@
 """
-cvextract.py
-
 Core extraction and rendering logic for the cvextract package.
 
 This module contains the low-level, reusable functionality to:
@@ -30,9 +28,8 @@ from .shared import (
 )
 from .docx_utils import (
     extract_text_from_w_p,
+    XML_PARSER,
 )
-
-XML_PARSER = etree.XMLParser(recover=True, huge_tree=True)
 
 # ------------------------- Patterns / section titles -------------------------
 

@@ -26,7 +26,6 @@ from lxml import etree
 from .logging_utils import LOG
 from .shared import (
     normalize_text_for_processing,
-    clean_text
 )
 
 XML_PARSER = etree.XMLParser(recover=True, huge_tree=True)
