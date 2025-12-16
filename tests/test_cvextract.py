@@ -1,9 +1,8 @@
 import importlib
+import pytest
+
 from pathlib import Path
 from zipfile import ZipFile
-
-
-import pytest
 
 # -------------------------
 # Helpers to build minimal DOCX-like zips
@@ -124,17 +123,19 @@ def _p_with_soft_hyphen_node() -> str:
 
 def test_normalize_text_replaces_nbsp_and_soft_hyphen_char():
     m = _load_module()
+    shared = importlib.import_module("cvextract.shared")
     s = "A\u00A0B high\u00ADquality"
-    out = m.normalize_text_for_processing(s)
+    out = shared.normalize_text_for_processing(s)
     assert out == "A B high-quality"
 
 def test_extract_text_from_w_p_handles_hyphen_nodes_breaks_and_tabs():
-    m = _load_module()
+    _ = _load_module()
+    du = importlib.import_module("cvextract.docx_utils")
     from lxml import etree
 
     xml = _p_with_special_nodes().encode("utf-8")
     p = etree.fromstring(xml)
-    out = m.extract_text_from_w_p(p)
+    out = du.extract_text_from_w_p(p)
 
     # Should preserve hyphen, tab, and newline
     assert out == "high-quality\tdata\nengineering"

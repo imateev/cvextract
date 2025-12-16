@@ -36,7 +36,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from .logging_utils import LOG, fmt_issues
-from .core import dump_body_sample, process_single_docx, render_from_json
+from .docx_utils import dump_body_sample
+from .pipeline_highlevel import process_single_docx
+from .render import render_from_json
 
 # ------------------------- Helper -------------------------
 
