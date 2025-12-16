@@ -1,54 +1,24 @@
-#!/usr/bin/env python3
 """
 cvextract.py
 
-A command-line tool that converts résumé/CV .docx files into a clean, structured JSON format and can optionally generate a new .docx by filling a Word template with that JSON.
+Core extraction and rendering logic for the cvextract package.
 
-What it does
-- Reads a .docx directly from its WordprocessingML (XML) parts to extract content reliably without external converters.
-- Produces a consistent JSON structure containing:
-  - identity: title, full name, first name, last name (from the document header)
-  - sidebar: categorized lists such as skills, languages, tools, certifications, industries, spoken languages, and academic background (from header/sidebar text boxes)
-  - overview: free-text overview section (from the main document body)
-  - experiences: a list of experience entries, each with a heading, description, and bullet points (from the main document body)
-
-Core functions / modes
-- extract:
-  - Scans one .docx or a folder of .docx files and writes one JSON file per résumé.
-- extract-apply:
-  - Extracts JSON as above, then renders a new .docx for each input by applying a docxtpl template.
-- apply:
-  - Takes existing JSON files and renders new .docx files using a docxtpl template.
-
-How it achieves this
-- DOCX parsing:
-  - Opens the .docx as a ZIP archive and parses:
-    - word/document.xml for the main body paragraphs, including list detection via Word numbering properties.
-    - word/header*.xml for header/sidebar content, prioritizing text inside text boxes (w:txbxContent), which is where sidebar layouts are typically stored.
-- Section recognition:
-  - Identifies “OVERVIEW” and “PROFESSIONAL EXPERIENCE” in the body to route content into the right fields.
-  - Detects experience entry boundaries using date-range headings (e.g., “Jan 2020 – Present”) and/or Word heading styles.
-  - Collects bullets and description text under each experience entry based on Word list formatting and paragraph grouping.
-- Safe template rendering:
-  - Sanitizes extracted strings to be XML-safe (handles raw ampersands, non-breaking spaces, and invalid XML 1.0 characters) before rendering.
-  - Renders with docxtpl using auto-escaping and writes the output .docx to the target directory.
-
-Logging (refactor)
-- Exactly ONE log line per input file.
-- Two icons per line:
-  - Extract: 🟢 success, ⚠️ success-with-warnings, ❌ failure
-  - Apply: ✅ success, ❌ failure, ➖ not attempted / not applicable
-- Summary line at end.
+This module contains the low-level, reusable functionality to:
+- Parse résumé/CV .docx files directly from their WordprocessingML (XML) parts
+- Normalize and sanitize extracted text for safe downstream processing
+- Identify and extract structured CV sections:
+  - identity (title, full name, first name, last name)
+  - sidebar sections (skills, languages, tools, certifications, etc.)
+  - overview text
+  - professional experience entries (heading, description, bullets, environment)
+- Convert extracted content into a clean, neutral JSON-compatible structure
+- Render new .docx documents from structured JSON using docxtpl templates
 """
 
 from __future__ import annotations
 
-import argparse
 import json
-import logging
-import os
 import re
-import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
@@ -57,35 +27,7 @@ from zipfile import ZipFile
 from docxtpl import DocxTemplate
 from lxml import etree
 
-# ------------------------- Logging -------------------------
-
-LOG = logging.getLogger("cvextract")
-
-def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
-    level = logging.DEBUG if debug else logging.INFO
-
-    handlers: List[logging.Handler] = []
-
-    # Console output
-    console = logging.StreamHandler()
-    console.setLevel(level)
-    console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    handlers.append(console)
-
-    # Optional file output
-    if log_file:
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
-        file_handler.setLevel(logging.DEBUG)  # always full detail in file
-        file_handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s | %(levelname)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-        )
-        handlers.append(file_handler)
-
-    logging.basicConfig(level=level, handlers=handlers)
-
+from .logging_utils import LOG
 
 # ------------------------- XML parsing helpers -------------------------
 
@@ -152,38 +94,6 @@ def clean_text(text: str) -> str:
     text = normalize_text_for_processing(text)
     text = _WS_RE.sub(" ", text)
     return text.strip()
-
-def infer_source_root(inputs: List[Path]) -> Path:
-    """
-    Infer the root directory of the batch so we can preserve folder structure
-    in output without passing source explicitly.
-    - If a single file: use its parent as root.
-    - If multiple files: use common path of their parent folders.
-    """
-    if not inputs:
-        return Path(".")
-    if len(inputs) == 1:
-        return inputs[0].parent
-    parents = [str(p.parent.resolve()) for p in inputs]
-    return Path(os.path.commonpath(parents))
-
-def safe_relpath(p: Path, root: Path) -> str:
-    """Best-effort relative path for nicer logging."""
-    try:
-        return p.resolve().relative_to(root.resolve()).as_posix()
-    except Exception:
-        return p.name
-
-def fmt_issues(errors: List[str], warnings: List[str]) -> str:
-    """
-    Compact error/warning string for the one-line-per-file log.
-    """
-    parts: List[str] = []
-    if errors:
-        parts.append("errors: " + ", ".join(errors))
-    if warnings:
-        parts.append("warnings: " + ", ".join(warnings))
-    return " | ".join(parts) if parts else "-"
 
 _SPLIT_RE = re.compile(r"\s*(?:,|;|\||\u2022|\u00B7|\u2027|\u2219|\u25CF)\s*|\s{2,}")
 
@@ -651,287 +561,3 @@ def render_from_json(json_path: Path, template_path: Path, target_dir: Path) -> 
     out_docx = target_dir / f"{json_path.stem}_NEW.docx"
     tpl.save(str(out_docx))
     return out_docx
-
-# ------------------------- Modes -------------------------
-
-def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: bool) -> int:
-    processed = 0
-    extracted_ok = 0
-    had_warning = False
-
-    source_root = infer_source_root(inputs)
-    json_dir = target_dir / "structured_data"
-    json_dir.mkdir(parents=True, exist_ok=True)
-
-    for docx_file in inputs:
-        if docx_file.suffix.lower() != ".docx":
-            continue
-
-        processed += 1
-        rel_name = safe_relpath(docx_file, source_root)
-
-        extract_ok = False
-        errs: List[str] = []
-        warns: List[str] = []
-
-        try:
-            rel_parent = docx_file.parent.resolve().relative_to(source_root)
-            out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
-
-            result, _data = process_single_docx(docx_file, out=out_json)
-            extract_ok = result.ok
-            errs = result.errors
-            warns = result.warnings
-
-            if extract_ok:
-                extracted_ok += 1
-            if warns:
-                had_warning = True
-
-        except Exception as e:
-            extract_ok = False
-            errs = [f"exception: {type(e).__name__}"]
-            warns = []
-            if debug:
-                LOG.error(traceback.format_exc())
-                dump_body_sample(docx_file, n=30)
-
-        # Icons (extract-only mode => apply icon is ➖)
-        x_icon = "❌"
-        if extract_ok and warns:
-            x_icon = "⚠️ "
-        elif extract_ok:
-            x_icon = "🟢"
-
-        a_icon = "➖"
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
-
-    LOG.info("🟢 Extracted %d of %d file(s) to JSON in: %s", extracted_ok, processed, json_dir)
-
-    if strict and had_warning:
-        LOG.error("Strict mode enabled: warnings treated as failure.")
-        return 2
-    return 0 if extracted_ok == processed else 1
-
-def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, strict: bool, debug: bool) -> int:
-    processed = 0
-    extracted_ok = 0
-    rendered_ok = 0
-    had_warning = False
-
-    source_root = infer_source_root(inputs)
-    json_dir = target_dir / "structured_data"
-    json_dir.mkdir(parents=True, exist_ok=True)
-
-    documents_dir = target_dir / "documents"
-    documents_dir.mkdir(parents=True, exist_ok=True)
-
-    for docx_file in inputs:
-        if docx_file.suffix.lower() != ".docx":
-            continue
-
-        processed += 1
-        rel_name = safe_relpath(docx_file, source_root)
-
-        extract_ok = False
-        apply_ok: Optional[bool] = None  # None => not attempted
-        errs: List[str] = []
-        warns: List[str] = []
-
-        try:
-            rel_parent = docx_file.parent.resolve().relative_to(source_root)
-            out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
-
-            result, _data = process_single_docx(docx_file, out=out_json)
-            extract_ok = result.ok
-            errs = result.errors[:]
-            warns = result.warnings[:]
-
-            if extract_ok:
-                extracted_ok += 1
-                if warns:
-                    had_warning = True
-
-                try:
-                    out_docx_dir = documents_dir / rel_parent
-                    out_docx_dir.mkdir(parents=True, exist_ok=True)
-                    _out_docx = render_from_json(out_json, template_path, out_docx_dir)
-                    apply_ok = True
-                    rendered_ok += 1
-                except Exception as e:
-                    apply_ok = False
-                    errs = errs + [f"render: {type(e).__name__}"]
-                    if debug:
-                        LOG.error(traceback.format_exc())
-            else:
-                # Extraction failed => render not attempted
-                apply_ok = None
-                if warns:
-                    had_warning = True
-
-        except Exception as e:
-            extract_ok = False
-            apply_ok = None
-            errs = [f"exception: {type(e).__name__}"]
-            warns = []
-            if debug:
-                LOG.error(traceback.format_exc())
-                dump_body_sample(docx_file, n=30)
-
-        # Extract icon rules
-        x_icon = "❌"
-        if extract_ok and warns:
-            x_icon = "⚠️ "
-        elif extract_ok:
-            x_icon = "🟢"
-
-        # Apply icon rules (✅ success, ❌ fail, ➖ not attempted)
-        if apply_ok is None:
-            a_icon = "➖"
-        else:
-            a_icon = "✅" if apply_ok else "❌"
-
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
-
-    LOG.info(
-        "🟢 Extracted %d of %d file(s) to JSON (%s) and rendered %d DOCX file(s) into: %s",
-        extracted_ok,
-        processed,
-        json_dir,
-        rendered_ok,
-        documents_dir,
-    )
-
-    if strict and had_warning:
-        LOG.error("Strict mode enabled: warnings treated as failure.")
-        return 2
-    return 0 if (extracted_ok == processed and rendered_ok == extracted_ok) else 1
-
-def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool) -> int:
-    processed = 0
-    rendered_ok = 0
-
-    source_root = infer_source_root(inputs)
-    documents_dir = target_dir / "documents"
-    documents_dir.mkdir(parents=True, exist_ok=True)
-
-    for json_file in inputs:
-        if json_file.suffix.lower() != ".json":
-            continue
-
-        processed += 1
-        rel_name = safe_relpath(json_file, source_root)
-
-        apply_ok = False
-        errs: List[str] = []
-        warns: List[str] = []
-
-        try:
-            rel_parent = json_file.parent.resolve().relative_to(source_root)
-            out_docx_dir = documents_dir / rel_parent
-            out_docx_dir.mkdir(parents=True, exist_ok=True)
-
-            _out_docx = render_from_json(json_file, template_path, target_dir=out_docx_dir)
-            apply_ok = True
-            rendered_ok += 1
-        except Exception as e:
-            apply_ok = False
-            errs = [f"render: {type(e).__name__}"]
-            if debug:
-                LOG.error(traceback.format_exc())
-
-        x_icon = "➖"
-        a_icon = "✅" if apply_ok else "❌"
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
-
-    LOG.info("🟢 Rendered %d of %d JSON file(s) into: %s", rendered_ok, processed, documents_dir)
-    return 0 if rendered_ok == processed else 1
-
-# ------------------------- CLI / main -------------------------
-
-def collect_inputs(src: Path, mode: str, template_path: Path) -> List[Path]:
-    if src.is_file():
-        return [src]
-
-    if not src.is_dir():
-        raise FileNotFoundError(f"Path not found or not a file/folder: {src}")
-
-    if mode in ("extract", "extract-apply"):
-        return [
-            p for p in src.rglob("*.docx")
-            if p.is_file()
-            and p.resolve() != template_path.resolve()
-        ]
-
-    return [p for p in src.rglob("*.json") if p.is_file()]
-
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Extract CV data to JSON and optionally apply a DOCX template.",
-        epilog="""
-Examples:
-  Extract DOCX files to JSON only:
-    python cvextract.py --mode extract --source cvs/ --template template.docx --target output/
-
-  Extract DOCX files and apply template:
-    python cvextract.py --mode extract-apply --source cvs/ --template template.docx --target output/
-
-  Apply template to existing JSON files:
-    python cvextract.py --mode apply --source extracted_json/ --template template.docx --target output/
-""",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    parser.add_argument("--mode", required=True, choices=["extract", "extract-apply", "apply"], help="Operation mode")
-    parser.add_argument("--source", required=True, help="Input file or folder (.docx for extract*, .json for apply)")
-    parser.add_argument("--template", required=True, help="Template .docx (single file)")
-    parser.add_argument("--target", required=True, help="Target output directory")
-
-    parser.add_argument("--strict", action="store_true", help="Treat warnings as failure (non-zero exit code).")
-    parser.add_argument("--debug", action="store_true", help="Verbose logs + stack traces on failure.")
-    parser.add_argument("--log-file", help="Optional path to a log file. If set, all output is also written there.",
-                        )
-    return parser.parse_args(argv)
-
-def main(argv: Optional[List[str]] = None) -> int:
-    args = parse_args(argv)
-    setup_logging(args.debug, log_file=args.log_file)
-
-    mode: str = args.mode
-    src = Path(args.source)
-    template_path = Path(args.template)
-    target_dir = Path(args.target)
-
-    # Validate template
-    if not template_path.is_file() or template_path.suffix.lower() != ".docx":
-        LOG.error("Template not found or not a .docx: %s", template_path)
-        return 1
-
-    # Validate target
-    target_dir.mkdir(parents=True, exist_ok=True)
-    if not target_dir.is_dir():
-        LOG.error("Target is not a directory: %s", target_dir)
-        return 1
-
-    # Collect inputs
-    try:
-        inputs = collect_inputs(src, mode, template_path)
-    except Exception as e:
-        LOG.error(str(e))
-        if args.debug:
-            LOG.error(traceback.format_exc())
-        return 1
-
-    if not inputs:
-        LOG.error("No matching input files found.")
-        return 1
-
-    # Dispatch
-    if mode == "extract":
-        return run_extract_mode(inputs, target_dir, strict=args.strict, debug=args.debug)
-    if mode == "extract-apply":
-        return run_extract_apply_mode(inputs, template_path, target_dir, strict=args.strict, debug=args.debug)
-    return run_apply_mode(inputs, template_path, target_dir, debug=args.debug)
-
-if __name__ == "__main__":
-    raise SystemExit(main())
