@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dependencies = [
+  "lxml",
+  "docxtpl",
+]
+name = "cvextract"
+version = "0.0.6"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
