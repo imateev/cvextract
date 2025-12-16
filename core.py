@@ -27,10 +27,8 @@ from .logging_utils import LOG
 from .shared import (
     clean_text,
     Identity, 
-    ExperienceBuilder,
 )
 from .docx_utils import (
-    iter_document_paragraphs,
     extract_text_from_w_p,
 )
 
@@ -50,24 +48,6 @@ HEADER_NS = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
     "w10": "urn:schemas-microsoft-com:office:word",
 }
-
-MONTH_NAME = (
-    r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
-    r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
-    r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
-)
-
-HEADING_PATTERN = re.compile(
-    rf"{MONTH_NAME}\s+\d{{4}}\s*"
-    r"(?:--|[-–—])\s*"
-    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})",
-    re.IGNORECASE,
-)
-
-ENVIRONMENT_PATTERN = re.compile(
-    r"^Environment\s*:\s*(.+)$",
-    re.IGNORECASE,
-)
 
 _SPLIT_RE = re.compile(r"\s*(?:,|;|\||\u2022|\u00B7|\u2027|\u2219|\u25CF)\s*|\s{2,}")
 

@@ -34,19 +34,6 @@ XML_PARSER = etree.XMLParser(recover=True, huge_tree=True)
 
 # ------------------------- Patterns / section titles -------------------------
 
-W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-DOCX_NS = {"w": W_NS}
-
-# include other namespaces for shapes/textboxes commonly used in headers
-HEADER_NS = {
-    "w": W_NS,
-    "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
-    "v": "urn:schemas-microsoft-com:vml",
-    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
-    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
-    "w10": "urn:schemas-microsoft-com:office:word",
-}
-
 MONTH_NAME = (
     r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
     r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
