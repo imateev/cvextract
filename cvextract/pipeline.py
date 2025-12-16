@@ -28,11 +28,11 @@ def infer_source_root(inputs: List[Path]) -> Path:
     - If multiple files: use common path of their parent folders.
     """
     if not inputs:
-        return Path(".")
+        return Path(".").resolve()
     if len(inputs) == 1:
-        return inputs[0].parent
-    parents = [str(p.parent.resolve()) for p in inputs]
-    return Path(os.path.commonpath(parents))
+        return inputs[0].parent.resolve()
+    parents = [p.parent.resolve() for p in inputs]
+    return Path(os.path.commonpath([str(p) for p in parents])).resolve()
 
 def safe_relpath(p: Path, root: Path) -> str:
     """Best-effort relative path for nicer logging."""
