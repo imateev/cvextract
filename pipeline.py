@@ -65,8 +65,9 @@ def safe_relpath(p: Path, root: Path) -> str:
 
 def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: bool) -> int:
     processed = 0
-    extracted_ok = 0
-    had_warning = False
+    fully_ok = 0
+    partial_ok = 0
+    failed = 0
 
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
@@ -91,12 +92,6 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
             extract_ok = result.ok
             errs = result.errors
             warns = result.warnings
-
-            if extract_ok:
-                extracted_ok += 1
-            if warns:
-                had_warning = True
-
         except Exception as e:
             extract_ok = False
             errs = [f"exception: {type(e).__name__}"]
@@ -115,16 +110,27 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
         a_icon = "➖"
         LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
 
-    LOG.info("🟢 Extracted %d of %d file(s) to JSON in: %s", extracted_ok, processed, json_dir)
+        if extract_ok:
+            if warns:
+                partial_ok += 1
+            else:
+                fully_ok += 1
+        else:
+            failed += 1
 
-    if strict and had_warning:
-        LOG.error("Strict mode enabled: warnings treated as failure.")
-        return 2
-    return 0 if extracted_ok == processed else 1
+    LOG.info(
+        "📊 Extract summary: %d fully successful, %d partially successful, %d failed (total %d). JSON in: %s", 
+        fully_ok, partial_ok, failed, processed, json_dir
+    )
+
+    return 0 if fully_ok == processed else 1
 
 def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, strict: bool, debug: bool) -> int:
     processed = 0
     extracted_ok = 0
+    fully_ok = 0
+    partial_ok = 0
+    failed = 0
     rendered_ok = 0
     had_warning = False
 
@@ -202,14 +208,22 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
 
         LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
 
+        if not extract_ok:
+            failed += 1
+        else:
+            # extract ok
+            if apply_ok is False:
+                partial_ok += 1
+            elif warns:
+                partial_ok += 1
+            else:
+                fully_ok += 1
+
     LOG.info(
-        "🟢 Extracted %d of %d file(s) to JSON (%s) and rendered %d DOCX file(s) into: %s",
-        extracted_ok,
-        processed,
-        json_dir,
-        rendered_ok,
-        documents_dir,
+        "📊 Extract+Apply summary: %d fully successful, %d partially successful, %d failed (total %d). JSON: %s | DOCX: %s",
+        fully_ok, partial_ok, failed, processed, json_dir, documents_dir
     )
+
 
     if strict and had_warning:
         LOG.error("Strict mode enabled: warnings treated as failure.")
@@ -218,7 +232,8 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
 
 def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool) -> int:
     processed = 0
-    rendered_ok = 0
+    fully_ok = 0
+    failed = 0
 
     source_root = infer_source_root(inputs)
     documents_dir = target_dir / "documents"
@@ -253,5 +268,14 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
         a_icon = "✅" if apply_ok else "❌"
         LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
 
-    LOG.info("🟢 Rendered %d of %d JSON file(s) into: %s", rendered_ok, processed, documents_dir)
-    return 0 if rendered_ok == processed else 1
+        if apply_ok:
+            fully_ok += 1
+        else:
+            failed += 1
+
+    LOG.info(
+        "📊 Apply summary: %d successful, %d failed (total %d). Output in: %s",
+        fully_ok, failed, processed, documents_dir
+    )
+
+    return 0 if fully_ok == processed else 1

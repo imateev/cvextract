@@ -514,6 +514,8 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
     if not experiences:
         errors.append("experiences_empty")
 
+    has_any_bullets = False
+    has_any_environment = False
     issue_set = set()
     for exp in experiences:
         heading = (exp.get("heading") or "").strip()
@@ -524,10 +526,15 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
             issue_set.add("missing heading")
         if not desc:
             issue_set.add("missing description")
-        if not bullets:
-            issue_set.add("no bullets")
+        if bullets:
+            has_any_bullets = True
+        if env:
+            has_any_environment = True
         if env is not None and not isinstance(env, list):
             warnings.append("invalid environment format")
+
+    if not has_any_bullets and not has_any_environment:
+        warnings.append("no bullets or environment in any experience")
 
     if issue_set:
         warnings.append("incomplete: " + "; ".join(sorted(issue_set)))
