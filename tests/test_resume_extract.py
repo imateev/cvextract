@@ -237,7 +237,7 @@ def test_header_parsing_splits_identity_and_sidebar_with_linebreaks(tmp_path: Pa
 
     # Both headings should be recognized as separate lines, not "SKILLS.LANGUAGES."
     assert sidebar["skills"] == []
-    assert sidebar["languages"] == ["Python • SQL"]
+    assert sidebar["languages"] == ["Python","SQL"]
 
 # -------------------------
 # End-to-end test
