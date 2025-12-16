@@ -57,13 +57,7 @@ class ExperienceBuilder:
             "bullets": self.bullets[:],
             "environment": self.environment[:] or None,
         }
-
-@dataclass(frozen=True)
-class VerificationResult:
-    ok: bool
-    errors: List[str]
-    warnings: List[str]
-
+    
 # ------------------------- High-level pipeline -------------------------
 
 def extract_cv_structure(docx_path: Path) -> Dict[str, Any]:
