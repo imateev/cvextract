@@ -25,7 +25,7 @@ def _write_docx_zip(path: Path, document_xml: str, headers: dict[str, str] | Non
 
 def _load_module():
     """
-    Import resume_extract.py that lives one directory above /tests.
+    Import cvextract.py that lives one directory above /tests.
     """
     import sys
     import importlib
@@ -34,7 +34,7 @@ def _load_module():
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 
-    return importlib.import_module("resume_extract")
+    return importlib.import_module("cvextract")
 
 # -------------------------
 # XML fixtures (minimal but valid for our parser)
@@ -152,7 +152,7 @@ def test_extract_text_from_w_p_handles_soft_hyphen_node():
 # Body parsing tests
 # -------------------------
 
-def test_parse_resume_from_docx_body_overview_and_experience(tmp_path: Path):
+def test_parse_cv_from_docx_body_overview_and_experience(tmp_path: Path):
     m = _load_module()
 
     doc_xml = _doc_xml([
@@ -167,14 +167,14 @@ def test_parse_resume_from_docx_body_overview_and_experience(tmp_path: Path):
     docx_path = tmp_path / "sample.docx"
     _write_docx_zip(docx_path, doc_xml)
 
-    overview, experiences = m.parse_resume_from_docx_body(docx_path)
+    overview, experiences = m.parse_cv_from_docx_body(docx_path)
     assert overview == "Cloud data engineering leader."
     assert len(experiences) == 1
     assert experiences[0]["heading"].startswith("Jan 2020")
     assert experiences[0]["description"] == "Built platforms."
     assert experiences[0]["bullets"] == ["Delivered results."]
 
-def test_parse_resume_heading_by_style(tmp_path: Path):
+def test_parse_cv_heading_by_style(tmp_path: Path):
     m = _load_module()
 
     doc_xml = _doc_xml([
@@ -187,7 +187,7 @@ def test_parse_resume_heading_by_style(tmp_path: Path):
     docx_path = tmp_path / "sample_style.docx"
     _write_docx_zip(docx_path, doc_xml)
 
-    overview, experiences = m.parse_resume_from_docx_body(docx_path)
+    overview, experiences = m.parse_cv_from_docx_body(docx_path)
     assert overview == ""
     assert len(experiences) == 1
     assert experiences[0]["heading"] == "Role Title — Company Y"
@@ -243,7 +243,7 @@ def test_header_parsing_splits_identity_and_sidebar_with_linebreaks(tmp_path: Pa
 # End-to-end test
 # -------------------------
 
-def test_extract_resume_structure_end_to_end(tmp_path: Path):
+def test_extract_cv_structure_end_to_end(tmp_path: Path):
     m = _load_module()
 
     doc_xml = _doc_xml([
@@ -265,7 +265,7 @@ def test_extract_resume_structure_end_to_end(tmp_path: Path):
     docx_path = tmp_path / "e2e.docx"
     _write_docx_zip(docx_path, doc_xml, headers={"word/header1.xml": hdr_xml})
 
-    data = m.extract_resume_structure(docx_path)
+    data = m.extract_cv_structure(docx_path)
 
     assert data["identity"]["full_name"] == "Rajesh Koothrappali"
     assert "high-quality" in data["overview"]  # from the <w:softHyphen/> node paragraph

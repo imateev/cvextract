@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-resume_extract.py
+cvextract.py
 
 A command-line tool that converts résumé/CV .docx files into a clean, structured JSON format and can optionally generate a new .docx by filling a Word template with that JSON.
 
@@ -59,7 +59,7 @@ from lxml import etree
 
 # ------------------------- Logging -------------------------
 
-LOG = logging.getLogger("resume_extract")
+LOG = logging.getLogger("cvextract")
 
 def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
     level = logging.DEBUG if debug else logging.INFO
@@ -357,7 +357,7 @@ def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]
             continue
         yield text, _p_is_bullet(p), _p_style(p)
 
-def parse_resume_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]:
+def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]:
     """
     Parse the main body directly from DOCX.
     Returns: overview (str), experiences (list of dicts).
@@ -569,8 +569,8 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
 
 # ------------------------- High-level pipeline -------------------------
 
-def extract_resume_structure(docx_path: Path) -> Dict[str, Any]:
-    overview, experiences = parse_resume_from_docx_body(docx_path)
+def extract_cv_structure(docx_path: Path) -> Dict[str, Any]:
+    overview, experiences = parse_cv_from_docx_body(docx_path)
     header_paragraphs = extract_all_header_paragraphs(docx_path)
     identity, sidebar = split_identity_and_sidebar(header_paragraphs)
 
@@ -626,7 +626,7 @@ def verify_extracted_data(data: Dict[str, Any], source: Path) -> VerificationRes
     return VerificationResult(ok=ok, errors=errors, warnings=warnings)
 
 def process_single_docx(docx_path: Path, out: Optional[Path]) -> Tuple[VerificationResult, Dict[str, Any]]:
-    data = extract_resume_structure(docx_path)
+    data = extract_cv_structure(docx_path)
 
     if out is None:
         out = docx_path.with_suffix(".json")
@@ -871,13 +871,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         epilog="""
 Examples:
   Extract DOCX files to JSON only:
-    python resume_extract.py --mode extract --source cvs/ --template template.docx --target output/
+    python cvextract.py --mode extract --source cvs/ --template template.docx --target output/
 
   Extract DOCX files and apply template:
-    python resume_extract.py --mode extract-apply --source cvs/ --template template.docx --target output/
+    python cvextract.py --mode extract-apply --source cvs/ --template template.docx --target output/
 
   Apply template to existing JSON files:
-    python resume_extract.py --mode apply --source extracted_json/ --template template.docx --target output/
+    python cvextract.py --mode apply --source extracted_json/ --template template.docx --target output/
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
