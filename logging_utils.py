@@ -1,18 +1,14 @@
 """
 Logging helpers for cvextract.
 
-Provides:
-- Centralized logger configuration
-- Optional file logging
-- Shared logger instance used across modules
+Defines the package logger and simple utilities for configuring
+console and optional file logging.
 """
 
 from __future__ import annotations
 
 import logging
 from typing import List, Optional
-
-# ------------------------- Logging -------------------------
 
 LOG = logging.getLogger("cvextract")
 

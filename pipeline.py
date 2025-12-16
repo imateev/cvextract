@@ -1,31 +1,9 @@
 """
-pipeline.py
+Batch pipeline runners.
 
-Batch-oriented orchestration layer for cvextract.
-
-Core functions / modes
-- extract:
-  - Scans one .docx or a folder of .docx files and writes one JSON file per résumé.
-- extract-apply:
-  - Extracts JSON as above, then renders a new .docx for each input by applying a docxtpl template.
-- apply:
-  - Takes existing JSON files and renders new .docx files using a docxtpl template.
-  
-Responsibilities:
-- Coordinate extraction and rendering across files or folders
-- Apply validation and collect warnings/errors
-- Enforce consistent logging behavior
-- Produce stable exit codes for automation and CI
-
-Logging guarantees:
-- Exactly ONE log line is emitted per input file
-- Two status icons are shown per file:
-  - Extract: 🟢 success, ⚠️ success-with-warnings, ❌ failure
-  - Apply:   ✅ success, ❌ failure, ➖ not attempted
-- A summary line is printed at the end of each run
-- Detailed stack traces are only printed in debug mode
-
-This module contains no argument parsing and no low-level DOCX parsing.
+Implements the CLI modes (extract / apply / extract+apply) over a list of input
+files, keeps folder structure in the output, and logs a one-line result per file
+plus a final summary.
 """
 
 from __future__ import annotations

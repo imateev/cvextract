@@ -1,16 +1,9 @@
 """
-Core extraction and rendering logic for the cvextract package.
+Header/sidebar parsing for CVs.
 
-This module contains the low-level, reusable functionality to:
-- Parse résumé/CV .docx files directly from their WordprocessingML (XML) parts
-- Normalize and sanitize extracted text for safe downstream processing
-- Identify and extract structured CV sections:
-  - identity (title, full name, first name, last name)
-  - sidebar sections (skills, languages, tools, certifications, etc.)
-  - overview text
-  - professional experience entries (heading, description, bullets, environment)
-- Convert extracted content into a clean, neutral JSON-compatible structure
-- Render new .docx documents from structured JSON using docxtpl templates
+Extracts text from DOCX header parts and converts it into:
+- identity (title + name)
+- sidebar sections (skills, languages, tools, etc.)
 """
 
 from __future__ import annotations

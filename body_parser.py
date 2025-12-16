@@ -1,18 +1,13 @@
 """
-cvextract.py
+Parse the main body of a CV from a DOCX file.
 
-Core extraction and rendering logic for the cvextract package.
+This module interprets paragraph-level text extracted from Word and converts
+it into structured CV data:
+- overview text
+- professional experience entries (heading, description, bullets, environment)
 
-This module contains the low-level, reusable functionality to:
-- Parse résumé/CV .docx files directly from their WordprocessingML (XML) parts
-- Normalize and sanitize extracted text for safe downstream processing
-- Identify and extract structured CV sections:
-  - identity (title, full name, first name, last name)
-  - sidebar sections (skills, languages, tools, certifications, etc.)
-  - overview text
-  - professional experience entries (heading, description, bullets, environment)
-- Convert extracted content into a clean, neutral JSON-compatible structure
-- Render new .docx documents from structured JSON using docxtpl templates
+Low-level DOCX/XML parsing is handled elsewhere; this module focuses only on
+CV-specific structure and rules.
 """
 
 from __future__ import annotations

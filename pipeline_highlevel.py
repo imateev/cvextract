@@ -1,30 +1,9 @@
 """
 High-level CV extraction pipeline.
 
-This module defines the public, end-to-end pipeline for extracting structured
-data from a CV stored as a DOCX file. It orchestrates lower-level parsing
-functions from `cvextract.core` and combines their outputs into a single,
-validated data structure suitable for serialization or downstream processing.
-
-Responsibilities
-----------------
-- Run the full extraction flow on a DOCX file:
-  - parse body content (overview + experiences)
-  - extract and interpret header content (identity + sidebar)
-- Assemble a normalized, JSON-serializable CV structure
-- Perform structural validation and consistency checks
-- Provide a simple, stable API for CLI and external consumers
-
-This module intentionally contains *no DOCX parsing logic itself*; all
-document-specific parsing is delegated to lower-level logic.
-
-Design Notes
-------------
-- Validation returns structured results instead of raising exceptions, allowing
-  batch processing with predictable error reporting.
-- Output is designed to be stable and human-readable (UTF-8, pretty-printed JSON).
-- This module is intended to be the primary integration point for the CLI and
-  any external consumers of `cvextract`.
+Orchestrates body parsing and sidebar parsing to produce a complete,
+structured representation of a CV, and provides basic validation and
+JSON output helpers.
 """
 
 from __future__ import annotations

@@ -1,22 +1,16 @@
+"""
+Shared models and text utilities.
+
+Defines common data structures (identity, experience, verification results)
+and text normalization helpers used across extraction, parsing, and rendering.
+"""
+
 from __future__ import annotations
 
 import re
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
-
-"""
-Shared text normalization and XML-safety utilities.
-
-This module contains low-level helpers that are reused across multiple parts
-of the project (e.g. rendering, parsing, validation). The functions here focus
-on normalizing text and ensuring compatibility with XML 1.0, which is required
-for DOCX generation and templating.
-
-All helpers are intentionally prefixed with an underscore to indicate that they
-are internal implementation details and not part of the public package API.
-"""
-# ------------------------- Data models -------------------------
 
 @dataclass(frozen=True)
 class Identity:
