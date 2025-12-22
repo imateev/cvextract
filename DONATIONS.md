@@ -1,6 +1,6 @@
 ## Donations
 
-### Any bitcoin donation is apriciated
+### Any bitcoin donation is appreciated
 bc1qekg5cw3nfe6eukyvn40p30n79lgar5lmart2jy
 
 ## Useful and friendly information for AI Assistants
