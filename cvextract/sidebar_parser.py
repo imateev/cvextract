@@ -45,13 +45,13 @@ _SPLIT_RE = re.compile(r"\s*(?:,|;|\||\u2022|\u00B7|\u2027|\u2219|\u25CF)\s*|\s{
 
 # Sidebar section headings as they appear in the DOCX
 SECTION_TITLES: Dict[str, str] = {
-    "SKILLS.": "skills",
-    "LANGUAGES.": "languages",
-    "TOOLS.": "tools",
-    "CERTIFICATIONS.": "certifications",
-    "INDUSTRIES.": "industries",
-    "SPOKEN LANGUAGES.": "spoken_languages",
-    "ACADEMIC BACKGROUND.": "academic_background",
+    "SKILLS": "skills",
+    "LANGUAGES": "languages",
+    "TOOLS": "tools",
+    "CERTIFICATIONS": "certifications",
+    "INDUSTRIES": "industries",
+    "SPOKEN LANGUAGES": "spoken_languages",
+    "ACADEMIC BACKGROUND": "academic_background",
 }
 
 def _normalize_sidebar_sections(sections: Dict[str, List[str]]) -> Dict[str, List[str]]:
@@ -146,28 +146,52 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
     """
     sections: Dict[str, List[str]] = {v: [] for v in SECTION_TITLES.values()}
 
-    # Locate first sidebar section heading
-    first_section_idx: Optional[int] = None
+    # Locate all sidebar section headings (accept with/without trailing dot)
+    heading_positions: List[Tuple[int, str]] = []  # (index, section_key)
     for i, p in enumerate(paragraphs):
-        if p.strip().upper() in SECTION_TITLES:
-            first_section_idx = i
-            break
+        upper = p.strip().upper()
+        upper_no_dot = upper.rstrip(".")
+        key = SECTION_TITLES.get(upper_no_dot)
+        if key:
+            heading_positions.append((i, key))
+
+    first_section_idx: Optional[int] = heading_positions[0][0] if heading_positions else None
+    last_section_idx: Optional[int] = heading_positions[-1][0] if heading_positions else None
 
     # No sidebar headings found
     if first_section_idx is None:
         identity = Identity(title="", full_name="", first_name="", last_name="")
         return identity, sections
 
-    # Identity block: everything before first sidebar heading; de-dup while preserving order
-    raw_identity_lines: List[str] = []
-    seen = set()
-    for p in paragraphs[:first_section_idx]:
-        p2 = clean_text(p)
-        if not p2:
-            continue
-        if p2 not in seen:
-            seen.add(p2)
-            raw_identity_lines.append(p2)
+    # Identity block:
+    #  - Prefer everything before first sidebar heading
+    #  - If empty, try the trailing lines after the last sidebar heading
+    def _unique_lines(lines: List[str]) -> List[str]:
+        out: List[str] = []
+        seen = set()
+        for p in lines:
+            p2 = clean_text(p)
+            if not p2:
+                continue
+            if p2 not in seen:
+                seen.add(p2)
+                out.append(p2)
+        return out
+
+    raw_identity_lines = _unique_lines(paragraphs[:first_section_idx])
+
+    # If identity is at the end, take the last 3 lines (title, first, last)
+    ident_tail_n = 0
+    if not raw_identity_lines and last_section_idx is not None:
+        trailing_all = [p for p in paragraphs[last_section_idx + 1:]]
+        trailing = _unique_lines(trailing_all)
+        if len(trailing) >= 3:
+            raw_identity_lines = trailing[-3:]
+            ident_tail_n = 3
+        elif len(trailing) >= 2:
+            # Fall back: assume title + full_name on one line
+            raw_identity_lines = trailing[-2:]
+            ident_tail_n = 2
 
     title = raw_identity_lines[0] if raw_identity_lines else ""
     full_name = " ".join(raw_identity_lines[1:]) if len(raw_identity_lines) > 1 else ""
@@ -183,27 +207,34 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
         last_name=last_name,
     )
 
-    # Sidebar sections: from first heading onward
+    # Sidebar sections: only between headings (avoid trailing identity lines)
     current_key: Optional[str] = None
     seen_sections = set()
 
-    for p in paragraphs[first_section_idx:]:
+    # Parse section contents from first heading to end, but exclude identity tail if present
+    end_idx_exclusive = len(paragraphs)
+    if ident_tail_n:
+        end_idx_exclusive = max(first_section_idx or 0, end_idx_exclusive - ident_tail_n)
+
+    for idx, p in enumerate(paragraphs[first_section_idx:end_idx_exclusive]):
         p_clean = clean_text(p)
         if not p_clean:
             continue
 
         upper = p_clean.upper()
+        upper_no_dot = upper.rstrip(".")
 
-        if upper in SECTION_TITLES:
-            key = SECTION_TITLES[upper]
+        # Accept headings with or without trailing dot
+        matched_key = SECTION_TITLES.get(upper_no_dot)
 
+        if matched_key:
             # If we've already seen this section heading once, treat later repeats as duplicates
-            if key in seen_sections:
+            if matched_key in seen_sections:
                 current_key = None
                 continue
 
-            current_key = key
-            seen_sections.add(key)
+            current_key = matched_key
+            seen_sections.add(matched_key)
             continue
 
         if current_key:

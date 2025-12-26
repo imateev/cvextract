@@ -34,3 +34,38 @@ def test_split_identity_and_sidebar_no_sidebar_headings():
     assert identity.full_name == ""
     # sidebar should still have keys (empty lists)
     assert isinstance(sidebar, dict)
+
+def test_split_identity_and_sidebar_without_dots():
+    """Test that section titles work both with and without trailing dots."""
+    paragraphs = [
+        "Senior Consultant",
+        "Ada Lovelace",
+        "SKILLS",  # Without dot
+        "Python, AWS",
+        "LANGUAGES",  # Without dot
+        "English",
+    ]
+    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+
+    assert identity.title == "Senior Consultant"
+    assert identity.full_name == "Ada Lovelace"
+    assert sidebar["skills"] == ["Python", "AWS"]
+    assert sidebar["languages"] == ["English"]
+
+def test_split_identity_and_sidebar_mixed_dots():
+    """Test that section titles can be mixed with and without dots."""
+    paragraphs = [
+        "Senior Consultant",
+        "Ada Lovelace",
+        "SKILLS.",  # With dot
+        "Python, AWS",
+        "LANGUAGES",  # Without dot
+        "English",
+        "TOOLS.",  # With dot
+        "Docker, K8s",
+    ]
+    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+
+    assert sidebar["skills"] == ["Python", "AWS"]
+    assert sidebar["languages"] == ["English"]
+    assert sidebar["tools"] == ["Docker", "K8s"]
