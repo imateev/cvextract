@@ -35,3 +35,26 @@ def test_verify_extracted_data_warns_missing_sidebar():
     res = verify_extracted_data(data)
     assert res.ok is True
     assert any("missing sidebar" in w for w in res.warnings)
+
+
+def test_compare_environment_separators_equivalent():
+    original = {
+        "experiences": [
+            {"environment": ["Java 17, Quarkus, Payara Enterprise, PostgreSQL"]},
+        ]
+    }
+    roundtrip = {
+        "experiences": [
+            {"environment": ["Java 17 • Quarkus • Payara Enterprise • PostgreSQL"]},
+        ]
+    }
+    res = compare_data_structures(original, roundtrip)
+    assert res.ok is True
+
+
+def test_compare_environment_separators_detects_real_diff():
+    original = {"experiences": [{"environment": ["Java", "Python"]}]}
+    roundtrip = {"experiences": [{"environment": ["Java", "Go"]}]}
+    res = compare_data_structures(original, roundtrip)
+    assert res.ok is False
+    assert any("environment mismatch" in e for e in res.errors)

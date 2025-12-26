@@ -60,7 +60,7 @@ def _extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool,
             dump_body_sample(docx_file, n=30)
         return False, [f"exception: {type(e).__name__}"], []
 
-def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debug: bool) -> tuple[bool, List[str], List[str], Optional[bool]]:
+def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debug: bool, *, skip_compare: bool = False, roundtrip_dir: Optional[Path] = None) -> tuple[bool, List[str], List[str], Optional[bool]]:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
     Returns (ok, errors, warnings, compare_ok).
@@ -69,18 +69,28 @@ def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debu
     try:
         out_docx = render_from_json(json_path, template_path, out_dir)
 
-        # Skip compare when explicitly requested (e.g., customer adjustment)
-        if os.environ.get("CVEXTRACT_SKIP_COMPARE"):
+        # Skip compare when explicitly requested by caller
+        if skip_compare:
             return True, [], [], None
 
         # Round-trip extraction from rendered DOCX
-        roundtrip_json = out_docx.with_suffix(".json")
+        if roundtrip_dir:
+            roundtrip_dir.mkdir(parents=True, exist_ok=True)
+            roundtrip_json = roundtrip_dir / (out_docx.stem + ".json")
+        else:
+            roundtrip_json = out_docx.with_suffix(".json")
         roundtrip_data = process_single_docx(out_docx, out=roundtrip_json)
 
         with json_path.open("r", encoding="utf-8") as f:
             original_data = json.load(f)
 
         cmp = compare_data_structures(original_data, roundtrip_data)
+        if not debug and roundtrip_dir is None:
+            try:
+                roundtrip_json.unlink(missing_ok=True)
+            except Exception:
+                pass
+
         if cmp.ok:
             return True, [], cmp.warnings, True
         return False, cmp.errors, cmp.warnings, False
@@ -187,15 +197,20 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
         if extract_ok:
             out_docx_dir = documents_dir / rel_parent
             out_docx_dir.mkdir(parents=True, exist_ok=True)
+            verify_dir = (target_dir / "verification_structured_data" / rel_parent)
             render_json = out_json
             # Optional: adjust JSON for customer before rendering
             adjust_url = adjust_url or os.environ.get("CVEXTRACT_ADJUST_URL")
             openai_model = openai_model or os.environ.get("OPENAI_MODEL")
+            skip_compare = False
+            dry_run = bool(os.environ.get("CVEXTRACT_ADJUST_DRY_RUN"))
             if adjust_url:
                 try:
                     with out_json.open("r", encoding="utf-8") as f:
                         original = json.load(f)
                     adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                    # Skip compare only if adjustment produced a different JSON
+                    skip_compare = adjusted != original
                     render_json = out_json.with_name(out_json.stem + ".adjusted.json")
                     render_json.parent.mkdir(parents=True, exist_ok=True)
                     with render_json.open("w", encoding="utf-8") as wf:
@@ -203,7 +218,21 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
                 except Exception:
                     # If adjust fails, proceed with original JSON
                     render_json = out_json
-            apply_ok, render_errs, apply_warns, compare_ok = _render_and_verify(render_json, template_path, out_docx_dir, debug)
+                    skip_compare = False
+            # If dry-run is enabled with adjustment, skip rendering
+            if dry_run and adjust_url:
+                apply_ok = None
+                compare_ok = None
+                render_errs = []
+            else:
+                apply_ok, render_errs, apply_warns, compare_ok = _render_and_verify(
+                    render_json,
+                    template_path,
+                    out_docx_dir,
+                    debug,
+                    skip_compare=skip_compare,
+                    roundtrip_dir=verify_dir,
+                )
             errs = render_errs
             if apply_warns:
                 had_warning = True
@@ -244,23 +273,41 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
         rel_parent = json_file.parent.resolve().relative_to(source_root)
         out_docx_dir = documents_dir / rel_parent
         out_docx_dir.mkdir(parents=True, exist_ok=True)
+        verify_dir = (target_dir / "verification_structured_data" / rel_parent)
 
         render_json = json_file
         # Optional: adjust JSON prior to rendering
         adjust_url = adjust_url or os.environ.get("CVEXTRACT_ADJUST_URL")
         openai_model = openai_model or os.environ.get("OPENAI_MODEL")
+        skip_compare = False
+        dry_run = bool(os.environ.get("CVEXTRACT_ADJUST_DRY_RUN"))
         if adjust_url:
             try:
                 with json_file.open("r", encoding="utf-8") as f:
                     original = json.load(f)
                 adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                skip_compare = adjusted != original
                 render_json = out_docx_dir / (json_file.stem + ".adjusted.json")
                 with render_json.open("w", encoding="utf-8") as wf:
                     json.dump(adjusted, wf, ensure_ascii=False, indent=2)
             except Exception:
                 render_json = json_file
-
-        apply_ok, errs, apply_warns, compare_ok = _render_and_verify(render_json, template_path, out_docx_dir, debug)
+                skip_compare = False
+        # If dry-run is enabled with adjustment, skip rendering
+        if dry_run and adjust_url:
+            apply_ok = None
+            errs = []
+            apply_warns = []
+            compare_ok = None
+        else:
+            apply_ok, errs, apply_warns, compare_ok = _render_and_verify(
+                render_json,
+                template_path,
+                out_docx_dir,
+                debug,
+                skip_compare=skip_compare,
+                roundtrip_dir=verify_dir,
+            )
         
         x_icon, a_icon, c_icon = _get_status_icons(False, bool(apply_warns), apply_ok, compare_ok)
         LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, fmt_issues(errs, apply_warns))

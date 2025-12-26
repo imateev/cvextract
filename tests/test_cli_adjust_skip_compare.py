@@ -17,11 +17,9 @@ def test_cli_sets_skip_compare_extract_apply(monkeypatch, tmp_path: Path):
 
     def fake_run_extract_apply(inputs, template_path, target_dir, strict, debug):
         # Assert environment variables set by CLI when adjust is requested
-        assert os.environ.get("CVEXTRACT_SKIP_COMPARE") == "1"
         assert os.environ.get("CVEXTRACT_ADJUST_URL") == "https://example.com/customer"
         assert os.environ.get("OPENAI_MODEL") == "gpt-4o-mini"
         # Clean up env to avoid leaking into other tests
-        os.environ.pop("CVEXTRACT_SKIP_COMPARE", None)
         os.environ.pop("CVEXTRACT_ADJUST_URL", None)
         os.environ.pop("OPENAI_MODEL", None)
         return 0
@@ -50,10 +48,8 @@ def test_cli_sets_skip_compare_apply(monkeypatch, tmp_path: Path):
     target = tmp_path / "output"
 
     def fake_run_apply(inputs, template_path, target_dir, debug):
-        assert os.environ.get("CVEXTRACT_SKIP_COMPARE") == "1"
         assert os.environ.get("CVEXTRACT_ADJUST_URL") == "https://example.com/customer"
         assert os.environ.get("OPENAI_MODEL") == "gpt-4o-mini"
-        os.environ.pop("CVEXTRACT_SKIP_COMPARE", None)
         os.environ.pop("CVEXTRACT_ADJUST_URL", None)
         os.environ.pop("OPENAI_MODEL", None)
         return 0

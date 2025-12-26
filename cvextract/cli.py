@@ -88,6 +88,7 @@ Examples:
     # Optional customer adjustment using OpenAI
     parser.add_argument("--adjust-for-customer", help="Optional URL to a customer page; when set, adjust JSON via OpenAI before rendering.")
     parser.add_argument("--openai-model", help="Optional OpenAI model to use (default from OPENAI_MODEL or 'gpt-4o-mini').")
+    parser.add_argument("--adjust-dry-run", action="store_true", help="Perform adjustment and write .adjusted.json, but skip rendering.")
     return parser.parse_args(argv)
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -131,10 +132,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Store optional adjust settings in environment for downstream pipeline
     if args.adjust_for_customer:
         os.environ["CVEXTRACT_ADJUST_URL"] = args.adjust_for_customer
-        # When adjusting for customer, skip roundtrip structural compare
-        os.environ["CVEXTRACT_SKIP_COMPARE"] = "1"
     if args.openai_model:
         os.environ["OPENAI_MODEL"] = args.openai_model
+    if args.adjust_dry_run:
+        os.environ["CVEXTRACT_ADJUST_DRY_RUN"] = "1"
 
     if mode == "extract":
         return run_extract_mode(inputs, target_dir, strict=args.strict, debug=args.debug)

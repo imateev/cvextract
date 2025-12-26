@@ -72,7 +72,7 @@ def adjust_for_customer(data: Dict[str, Any], customer_url: str, *, api_key: Opt
         "customer_url": customer_url,
         "customer_page_excerpt": page_text[:30000],  # cap content size
         "original_json": data,
-        "adjusted_json": data,
+        "adjusted_json": "",
     }
 
     try:

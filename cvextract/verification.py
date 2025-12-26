@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -76,6 +77,25 @@ class DiffResult:
     errors: List[str]
 
 
+def _normalize_environment_list(env: List[Any]) -> List[str]:
+    """Normalize environment lists by splitting on common separators and lowercasing."""
+    tokens: List[str] = []
+    for entry in env:
+        if isinstance(entry, str):
+            parts = re.split(r"[\u2022•·,;]|\s•\s|\s-\s|•", entry)
+            for part in parts:
+                cleaned = part.strip()
+                if cleaned:
+                    tokens.append(cleaned.lower())
+        else:
+            tokens.append(str(entry).strip().lower())
+    return sorted(tokens)
+
+
+def _is_environment_path(path: str) -> bool:
+    return path.endswith("environment")
+
+
 def _diff(a: Any, b: Any, path: str, errors: List[str]) -> None:
     # Strict type match
     if type(a) is not type(b):
@@ -94,6 +114,12 @@ def _diff(a: Any, b: Any, path: str, errors: List[str]) -> None:
         return
 
     if isinstance(a, list):
+        if _is_environment_path(path):
+            a_norm = _normalize_environment_list(a)
+            b_norm = _normalize_environment_list(b)
+            if a_norm != b_norm:
+                errors.append(f"environment mismatch at {path or '<root>'}: {a_norm} vs {b_norm}")
+            return
         if len(a) != len(b):
             errors.append(f"list length mismatch at {path or '<root>'}: {len(a)} vs {len(b)}")
             return

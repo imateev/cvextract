@@ -20,7 +20,7 @@ def test_render_and_verify_skips_compare(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False, skip_compare=True)
 
     assert ok is True
     assert errs == []

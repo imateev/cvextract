@@ -10,7 +10,7 @@ dependencies = [
   "openai",
 ]
 name = "cvextract"
-version = "0.0.6"
+version = "0.0.7"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
