@@ -13,6 +13,7 @@ import os
 import traceback
 from pathlib import Path
 from typing import List, Optional
+import os
 
 from .logging_utils import LOG, fmt_issues
 from .docx_utils import dump_body_sample
@@ -20,6 +21,7 @@ from .pipeline_highlevel import process_single_docx
 from .render import render_from_json
 from .shared import VerificationResult
 from .verification import verify_extracted_data, compare_data_structures
+from .customer_adjust import adjust_for_customer
 
 # ------------------------- Helper -------------------------
 
@@ -66,6 +68,10 @@ def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debu
     """
     try:
         out_docx = render_from_json(json_path, template_path, out_dir)
+
+        # Skip compare when explicitly requested (e.g., customer adjustment)
+        if os.environ.get("CVEXTRACT_SKIP_COMPARE"):
+            return True, [], [], None
 
         # Round-trip extraction from rendered DOCX
         roundtrip_json = out_docx.with_suffix(".json")
@@ -150,7 +156,7 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
 
     return 0 if failed == 0 else 1
 
-def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, strict: bool, debug: bool) -> int:
+def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, strict: bool, debug: bool, adjust_url: Optional[str] = None, openai_model: Optional[str] = None) -> int:
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
     documents_dir = target_dir / "documents"
@@ -181,7 +187,23 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
         if extract_ok:
             out_docx_dir = documents_dir / rel_parent
             out_docx_dir.mkdir(parents=True, exist_ok=True)
-            apply_ok, render_errs, apply_warns, compare_ok = _render_and_verify(out_json, template_path, out_docx_dir, debug)
+            render_json = out_json
+            # Optional: adjust JSON for customer before rendering
+            adjust_url = adjust_url or os.environ.get("CVEXTRACT_ADJUST_URL")
+            openai_model = openai_model or os.environ.get("OPENAI_MODEL")
+            if adjust_url:
+                try:
+                    with out_json.open("r", encoding="utf-8") as f:
+                        original = json.load(f)
+                    adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                    render_json = out_json.with_name(out_json.stem + ".adjusted.json")
+                    render_json.parent.mkdir(parents=True, exist_ok=True)
+                    with render_json.open("w", encoding="utf-8") as wf:
+                        json.dump(adjusted, wf, ensure_ascii=False, indent=2)
+                except Exception:
+                    # If adjust fails, proceed with original JSON
+                    render_json = out_json
+            apply_ok, render_errs, apply_warns, compare_ok = _render_and_verify(render_json, template_path, out_docx_dir, debug)
             errs = render_errs
             if apply_warns:
                 had_warning = True
@@ -207,7 +229,7 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
         return 2
     return 0 if (failed == 0 and partial_ok == 0) else 1
 
-def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool) -> int:
+def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool, adjust_url: Optional[str] = None, openai_model: Optional[str] = None) -> int:
     source_root = infer_source_root(inputs)
     documents_dir = target_dir / "documents"
     documents_dir.mkdir(parents=True, exist_ok=True)
@@ -223,7 +245,22 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
         out_docx_dir = documents_dir / rel_parent
         out_docx_dir.mkdir(parents=True, exist_ok=True)
 
-        apply_ok, errs, apply_warns, compare_ok = _render_and_verify(json_file, template_path, out_docx_dir, debug)
+        render_json = json_file
+        # Optional: adjust JSON prior to rendering
+        adjust_url = adjust_url or os.environ.get("CVEXTRACT_ADJUST_URL")
+        openai_model = openai_model or os.environ.get("OPENAI_MODEL")
+        if adjust_url:
+            try:
+                with json_file.open("r", encoding="utf-8") as f:
+                    original = json.load(f)
+                adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                render_json = out_docx_dir / (json_file.stem + ".adjusted.json")
+                with render_json.open("w", encoding="utf-8") as wf:
+                    json.dump(adjusted, wf, ensure_ascii=False, indent=2)
+            except Exception:
+                render_json = json_file
+
+        apply_ok, errs, apply_warns, compare_ok = _render_and_verify(render_json, template_path, out_docx_dir, debug)
         
         x_icon, a_icon, c_icon = _get_status_icons(False, bool(apply_warns), apply_ok, compare_ok)
         LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, fmt_issues(errs, apply_warns))

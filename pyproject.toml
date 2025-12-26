@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 dependencies = [
   "lxml",
   "docxtpl",
+  "requests",
+  "openai",
 ]
 name = "cvextract"
 version = "0.0.6"

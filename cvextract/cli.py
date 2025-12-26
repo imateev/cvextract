@@ -14,6 +14,7 @@ import argparse
 import traceback
 from pathlib import Path
 from typing import List, Optional
+import os
 
 from .logging_utils import LOG, setup_logging
 from .pipeline import run_apply_mode, run_extract_apply_mode, run_extract_mode
@@ -83,6 +84,10 @@ Examples:
     parser.add_argument("--debug", action="store_true", help="Verbose logs + stack traces on failure.")
     parser.add_argument("--log-file", help="Optional path to a log file. If set, all output is also written there.",
                         )
+
+    # Optional customer adjustment using OpenAI
+    parser.add_argument("--adjust-for-customer", help="Optional URL to a customer page; when set, adjust JSON via OpenAI before rendering.")
+    parser.add_argument("--openai-model", help="Optional OpenAI model to use (default from OPENAI_MODEL or 'gpt-4o-mini').")
     return parser.parse_args(argv)
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -123,11 +128,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     # Dispatch
+    # Store optional adjust settings in environment for downstream pipeline
+    if args.adjust_for_customer:
+        os.environ["CVEXTRACT_ADJUST_URL"] = args.adjust_for_customer
+        # When adjusting for customer, skip roundtrip structural compare
+        os.environ["CVEXTRACT_SKIP_COMPARE"] = "1"
+    if args.openai_model:
+        os.environ["OPENAI_MODEL"] = args.openai_model
+
     if mode == "extract":
         return run_extract_mode(inputs, target_dir, strict=args.strict, debug=args.debug)
     if mode == "extract-apply":
-        return run_extract_apply_mode(inputs, template_path, target_dir, strict=args.strict, debug=args.debug)
-    return run_apply_mode(inputs, template_path, target_dir, debug=args.debug)
+        return run_extract_apply_mode(
+            inputs, template_path, target_dir,
+            strict=args.strict, debug=args.debug,
+        )
+    return run_apply_mode(
+        inputs, template_path, target_dir,
+        debug=args.debug,
+    )
 
 if __name__ == "__main__":
     raise SystemExit(main())

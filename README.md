@@ -21,6 +21,28 @@ This is a command-line tool that converts résumé/CV .docx files into a clean, 
 - apply:
   - Takes existing JSON files and renders new .docx files using a docxtpl template.
 
+### Customer Adjustment (OpenAI)
+- Optional flag `--adjust-for-customer <url>` enriches the extracted JSON for a specific customer by:
+  - Fetching basic info from the provided URL
+  - Calling OpenAI with the original JSON to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
+  - Writing an `.adjusted.json` alongside the original and rendering from that adjusted JSON
+- Environment:
+  - `OPENAI_API_KEY`: required for adjustment
+  - `OPENAI_MODEL`: optional (defaults to `gpt-4o-mini`)
+- Roundtrip compare (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is requested; the compare icon shows as `➖`.
+
+#### Example
+```bash
+export OPENAI_API_KEY="sk-proj-..."
+python -m cvextract.cli \
+  --mode extract-apply \
+  --source /path/to/cvs \
+  --template /path/to/template.docx \
+  --target /path/to/output \
+  --adjust-for-customer https://example.com/customer \
+  --openai-model gpt-4o-mini
+```
+
 ### How it achieves this
 - DOCX parsing:
   - Opens the .docx as a ZIP archive and parses:
@@ -65,4 +87,5 @@ By separating the **CV content** from the **way it looks**, we gain several bene
 2. **Extracts structured content** into a JSON format
 3. **Validates the extracted information** (identity, sidebar, experiences, completeness)
 4. **Produces clean machine-readable CV data**
-5. *(Future step)* Applies this data to **new Word templates** to generate updated CVs
+5. **Applies this data to new Word templates** to generate updated CVs
+6. **(Optional)** Adjusts JSON for a target customer before rendering when the flag is used
