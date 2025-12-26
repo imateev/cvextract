@@ -95,224 +95,174 @@ def verify_extracted_data(data: dict) -> VerificationResult:
 
     ok = not errs
     return VerificationResult(ok=ok, errors=errs, warnings=warns)
+
+# ------------------------- Processing Helpers -------------------------
+
+def _extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool, List[str], List[str]]:
+    """Extract and verify a single DOCX. Returns (ok, errors, warnings)."""
+    try:
+        data = process_single_docx(docx_file, out=out_json)
+        result = verify_extracted_data(data)
+        return result.ok, result.errors, result.warnings
+    except Exception as e:
+        if debug:
+            LOG.error(traceback.format_exc())
+            dump_body_sample(docx_file, n=30)
+        return False, [f"exception: {type(e).__name__}"], []
+
+def _render_single(json_path: Path, template_path: Path, out_dir: Path, debug: bool) -> tuple[bool, List[str]]:
+    """Render a single JSON to DOCX. Returns (ok, errors)."""
+    try:
+        render_from_json(json_path, template_path, out_dir)
+        return True, []
+    except Exception as e:
+        if debug:
+            LOG.error(traceback.format_exc())
+        return False, [f"render: {type(e).__name__}"]
+
+def _get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[str, str]:
+    """Generate status icons for extract and apply steps."""
+    if extract_ok and has_warns:
+        x_icon = "⚠️ "
+    elif extract_ok:
+        x_icon = "🟢"
+    else:
+        x_icon = "❌"
+    
+    if apply_ok is None:
+        a_icon = "➖"
+    else:
+        a_icon = "✅" if apply_ok else "❌"
+    
+    return x_icon, a_icon
+
+def _categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
+    """Categorize result into (fully_ok, partial_ok, failed) counts."""
+    if not extract_ok:
+        return 0, 0, 1
+    if apply_ok is False or (apply_ok is None and has_warns):
+        return 0, 1, 0
+    if has_warns:
+        return 0, 1, 0
+    return 1, 0, 0
     
 # ------------------------- Modes -------------------------
 
 def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: bool) -> int:
-    processed = 0
-    fully_ok = 0
-    partial_ok = 0
-    failed = 0
-
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
     json_dir.mkdir(parents=True, exist_ok=True)
+
+    fully_ok = partial_ok = failed = 0
 
     for docx_file in inputs:
         if docx_file.suffix.lower() != ".docx":
             continue
 
-        processed += 1
         rel_name = safe_relpath(docx_file, source_root)
+        rel_parent = docx_file.parent.resolve().relative_to(source_root)
+        out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
+        out_json.parent.mkdir(parents=True, exist_ok=True)
 
-        extract_ok = False
-        errs: List[str] = []
-        warns: List[str] = []
-
-        try:
-            rel_parent = docx_file.parent.resolve().relative_to(source_root)
-            out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-
-            _data = process_single_docx(docx_file, out=out_json)
-            result = verify_extracted_data(_data)
-            extract_ok = result.ok
-            errs = result.errors
-            warns = result.warnings
-        except Exception as e:
-            extract_ok = False
-            errs = [f"exception: {type(e).__name__}"]
-            warns = []
-            if debug:
-                LOG.error(traceback.format_exc())
-                dump_body_sample(docx_file, n=30)
-
-        # Icons (extract-only mode => apply icon is ➖)
-        x_icon = "❌"
-        if extract_ok and warns:
-            x_icon = "⚠️ "
-        elif extract_ok:
-            x_icon = "🟢"
-
-        a_icon = "➖"
+        extract_ok, errs, warns = _extract_single(docx_file, out_json, debug)
+        
+        x_icon, a_icon = _get_status_icons(extract_ok, bool(warns), None)
         LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
 
-        if extract_ok:
-            if warns:
-                partial_ok += 1
-            else:
-                fully_ok += 1
-        else:
-            failed += 1
+        full, part, fail = _categorize_result(extract_ok, bool(warns), None)
+        fully_ok += full
+        partial_ok += part
+        failed += fail
 
+    total = fully_ok + partial_ok + failed
     LOG.info(
         "📊 Extract summary: %d fully successful, %d partially successful, %d failed (total %d). JSON in: %s", 
-        fully_ok, partial_ok, failed, processed, json_dir
+        fully_ok, partial_ok, failed, total, json_dir
     )
 
-    return 0 if fully_ok == processed else 1
+    return 0 if failed == 0 else 1
 
 def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, strict: bool, debug: bool) -> int:
-    processed = 0
-    extracted_ok = 0
-    fully_ok = 0
-    partial_ok = 0
-    failed = 0
-    rendered_ok = 0
-    had_warning = False
-
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
-    json_dir.mkdir(parents=True, exist_ok=True)
-
     documents_dir = target_dir / "documents"
+    json_dir.mkdir(parents=True, exist_ok=True)
     documents_dir.mkdir(parents=True, exist_ok=True)
+
+    fully_ok = partial_ok = failed = 0
+    had_warning = False
 
     for docx_file in inputs:
         if docx_file.suffix.lower() != ".docx":
             continue
 
-        processed += 1
         rel_name = safe_relpath(docx_file, source_root)
+        rel_parent = docx_file.parent.resolve().relative_to(source_root)
+        out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
+        out_json.parent.mkdir(parents=True, exist_ok=True)
 
-        extract_ok = False
-        apply_ok: Optional[bool] = None  # None => not attempted
-        errs: List[str] = []
-        warns: List[str] = []
+        # Extract
+        extract_ok, errs, warns = _extract_single(docx_file, out_json, debug)
+        if warns:
+            had_warning = True
 
-        try:
-            rel_parent = docx_file.parent.resolve().relative_to(source_root)
-            out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
+        # Render (only if extraction succeeded)
+        apply_ok = None
+        if extract_ok:
+            out_docx_dir = documents_dir / rel_parent
+            out_docx_dir.mkdir(parents=True, exist_ok=True)
+            apply_ok, render_errs = _render_single(out_json, template_path, out_docx_dir, debug)
+            errs = render_errs
 
-            data = process_single_docx(docx_file, out=out_json)
-            result = verify_extracted_data(data)
-            extract_ok = result.ok
-            errs = result.errors[:]
-            warns = result.warnings[:]
-
-            if extract_ok:
-                extracted_ok += 1
-                if warns:
-                    had_warning = True
-
-                try:
-                    out_docx_dir = documents_dir / rel_parent
-                    out_docx_dir.mkdir(parents=True, exist_ok=True)
-                    _out_docx = render_from_json(out_json, template_path, out_docx_dir)
-                    apply_ok = True
-                    rendered_ok += 1
-                except Exception as e:
-                    apply_ok = False
-                    errs = errs + [f"render: {type(e).__name__}"]
-                    if debug:
-                        LOG.error(traceback.format_exc())
-            else:
-                # Extraction failed => render not attempted
-                apply_ok = None
-                if warns:
-                    had_warning = True
-
-        except Exception as e:
-            extract_ok = False
-            apply_ok = None
-            errs = [f"exception: {type(e).__name__}"]
-            warns = []
-            if debug:
-                LOG.error(traceback.format_exc())
-                dump_body_sample(docx_file, n=30)
-
-        # Extract icon rules
-        x_icon = "❌"
-        if extract_ok and warns:
-            x_icon = "⚠️ "
-        elif extract_ok:
-            x_icon = "🟢"
-
-        # Apply icon rules (✅ success, ❌ fail, ➖ not attempted)
-        if apply_ok is None:
-            a_icon = "➖"
-        else:
-            a_icon = "✅" if apply_ok else "❌"
-
+        x_icon, a_icon = _get_status_icons(extract_ok, bool(warns), apply_ok)
         LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
 
-        if not extract_ok:
-            failed += 1
-        else:
-            # extract ok
-            if apply_ok is False:
-                partial_ok += 1
-            elif warns:
-                partial_ok += 1
-            else:
-                fully_ok += 1
+        full, part, fail = _categorize_result(extract_ok, bool(warns), apply_ok)
+        fully_ok += full
+        partial_ok += part
+        failed += fail
 
+    total = fully_ok + partial_ok + failed
     LOG.info(
         "📊 Extract+Apply summary: %d fully successful, %d partially successful, %d failed (total %d). JSON: %s | DOCX: %s",
-        fully_ok, partial_ok, failed, processed, json_dir, documents_dir
+        fully_ok, partial_ok, failed, total, json_dir, documents_dir
     )
-
 
     if strict and had_warning:
         LOG.error("Strict mode enabled: warnings treated as failure.")
         return 2
-    return 0 if (extracted_ok == processed and rendered_ok == extracted_ok) else 1
+    return 0 if (failed == 0 and partial_ok == 0) else 1
 
 def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool) -> int:
-    processed = 0
-    fully_ok = 0
-    failed = 0
-
     source_root = infer_source_root(inputs)
     documents_dir = target_dir / "documents"
     documents_dir.mkdir(parents=True, exist_ok=True)
+
+    fully_ok = failed = 0
 
     for json_file in inputs:
         if json_file.suffix.lower() != ".json":
             continue
 
-        processed += 1
         rel_name = safe_relpath(json_file, source_root)
+        rel_parent = json_file.parent.resolve().relative_to(source_root)
+        out_docx_dir = documents_dir / rel_parent
+        out_docx_dir.mkdir(parents=True, exist_ok=True)
 
-        apply_ok = False
-        errs: List[str] = []
-        warns: List[str] = []
-
-        try:
-            rel_parent = json_file.parent.resolve().relative_to(source_root)
-            out_docx_dir = documents_dir / rel_parent
-            out_docx_dir.mkdir(parents=True, exist_ok=True)
-
-            _ = render_from_json(json_file, template_path, target_dir=out_docx_dir)
-            apply_ok = True
-        except Exception as e:
-            apply_ok = False
-            errs = [f"render: {type(e).__name__}"]
-            if debug:
-                LOG.error(traceback.format_exc())
-
-        x_icon = "➖"
-        a_icon = "✅" if apply_ok else "❌"
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
+        apply_ok, errs = _render_single(json_file, template_path, out_docx_dir, debug)
+        
+        x_icon, a_icon = _get_status_icons(False, False, apply_ok)
+        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, []))
 
         if apply_ok:
             fully_ok += 1
         else:
             failed += 1
 
+    total = fully_ok + failed
     LOG.info(
         "📊 Apply summary: %d successful, %d failed (total %d). Output in: %s",
-        fully_ok, failed, processed, documents_dir
+        fully_ok, failed, total, documents_dir
     )
 
-    return 0 if fully_ok == processed else 1
+    return 0 if failed == 0 else 1
