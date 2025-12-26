@@ -1,13 +1,13 @@
 """Tests for customer_adjust module."""
 
 import json
+import logging
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from cvextract.customer_adjust import (
     adjust_for_customer,
     _fetch_customer_page,
-    _normalize_environment_list,
 )
 
 
@@ -100,6 +100,8 @@ class TestAdjustForCustomer:
 
     def test_adjust_for_customer_success(self, monkeypatch, caplog):
         """Test successful adjustment with OpenAI."""
+        caplog.set_level(logging.INFO)
+        
         mock_openai = Mock()
         mock_client = Mock()
         mock_completion = Mock()
