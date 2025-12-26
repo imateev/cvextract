@@ -1,0 +1,384 @@
+"""Tests for improved coverage of pipeline module critical paths."""
+
+import pytest
+import json
+import os
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock, call
+from cvextract.pipeline import (
+    _extract_single,
+    _categorize_result,
+    _get_status_icons,
+    _render_and_verify,
+    infer_source_root,
+)
+from cvextract.shared import VerificationResult
+
+
+class TestExtractSingle:
+    """Tests for _extract_single function."""
+
+    def test_extract_single_success(self, tmp_path):
+        """Test successful extraction."""
+        docx_path = tmp_path / "test.docx"
+        out_json = tmp_path / "out.json"
+        docx_path.touch()
+        
+        # Mock the extraction pipeline
+        mock_data = {
+            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "sidebar": {"languages": ["EN"]},
+            "overview": "Text",
+            "experiences": [{"heading": "Job", "description": "Work", "bullets": ["Item"]}],
+        }
+        
+        with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
+             patch("cvextract.pipeline.verify_extracted_data") as mock_verify:
+            
+            mock_extract.return_value = mock_data
+            mock_verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+            
+            ok, errors, warnings = _extract_single(docx_path, out_json, debug=False)
+            
+            assert ok is True
+            assert errors == []
+            assert warnings == []
+
+    def test_extract_single_invalid_data(self, tmp_path):
+        """Test verification failure with invalid data."""
+        docx_path = tmp_path / "test.docx"
+        out_json = tmp_path / "out.json"
+        docx_path.touch()
+        
+        mock_data = {"identity": {}}  # Missing required fields
+        
+        with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
+             patch("cvextract.pipeline.verify_extracted_data") as mock_verify:
+            
+            mock_extract.return_value = mock_data
+            mock_verify.return_value = VerificationResult(
+                ok=False, 
+                errors=["Missing identity fields"],
+                warnings=[]
+            )
+            
+            ok, errors, warnings = _extract_single(docx_path, out_json, debug=False)
+            
+            assert ok is False
+            assert "Missing identity fields" in errors
+
+    def test_extract_single_exception_no_debug(self, tmp_path):
+        """Test exception handling without debug mode."""
+        docx_path = tmp_path / "test.docx"
+        out_json = tmp_path / "out.json"
+        docx_path.touch()
+        
+        with patch("cvextract.pipeline.process_single_docx") as mock_extract:
+            mock_extract.side_effect = ValueError("Bad file")
+            
+            ok, errors, warnings = _extract_single(docx_path, out_json, debug=False)
+            
+            assert ok is False
+            assert any("exception" in e.lower() or "ValueError" in e for e in errors)
+
+    def test_extract_single_exception_with_debug(self, tmp_path):
+        """Test exception logging with debug mode enabled."""
+        docx_path = tmp_path / "test.docx"
+        out_json = tmp_path / "out.json"
+        docx_path.touch()
+        
+        with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
+             patch("cvextract.pipeline.dump_body_sample"):
+            
+            mock_extract.side_effect = ValueError("Bad file")
+            
+            ok, errors, warnings = _extract_single(docx_path, out_json, debug=True)
+            
+            assert ok is False
+
+    def test_extract_single_with_warnings(self, tmp_path):
+        """Test that warnings are preserved."""
+        docx_path = tmp_path / "test.docx"
+        out_json = tmp_path / "out.json"
+        docx_path.touch()
+        
+        mock_data = {
+            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "sidebar": {"languages": ["EN"]},
+            "overview": "Text",
+            "experiences": [],
+        }
+        
+        with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
+             patch("cvextract.pipeline.verify_extracted_data") as mock_verify:
+            
+            mock_extract.return_value = mock_data
+            mock_verify.return_value = VerificationResult(
+                ok=True,
+                errors=[],
+                warnings=["Warning message"]
+            )
+            
+            ok, errors, warnings = _extract_single(docx_path, out_json, debug=False)
+            
+            assert ok is True
+            assert "Warning message" in warnings
+
+
+class TestRenderAndVerify:
+    """Tests for _render_and_verify function."""
+
+    def test_render_and_verify_success(self, tmp_path):
+        """Test successful render and verify."""
+        json_path = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        out_dir = tmp_path / "out"
+        
+        json_path.write_text(json.dumps({
+            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": [],
+        }))
+        template_path.touch()
+        
+        rendered_docx = out_dir / "test.docx"
+        
+        with patch("cvextract.pipeline.render_from_json") as mock_render, \
+             patch("cvextract.pipeline.process_single_docx") as mock_process, \
+             patch("cvextract.pipeline.compare_data_structures") as mock_compare:
+            
+            mock_render.return_value = rendered_docx
+            mock_process.return_value = json.loads(json_path.read_text())
+            mock_compare.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+            
+            ok, errors, warns, compare_ok = _render_and_verify(
+                json_path, template_path, out_dir, debug=False
+            )
+            
+            assert ok is True
+            assert errors == []
+            assert compare_ok is True
+
+    def test_render_and_verify_skip_compare(self, tmp_path):
+        """Test skip_compare parameter."""
+        json_path = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        out_dir = tmp_path / "out"
+        
+        json_path.write_text(json.dumps({
+            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": [],
+        }))
+        template_path.touch()
+        
+        with patch("cvextract.pipeline.render_from_json") as mock_render:
+            mock_render.return_value = out_dir / "test.docx"
+            
+            ok, errors, warns, compare_ok = _render_and_verify(
+                json_path, template_path, out_dir, debug=False, skip_compare=True
+            )
+            
+            assert ok is True
+            assert compare_ok is None  # Not executed
+
+    def test_render_and_verify_with_roundtrip_dir(self, tmp_path):
+        """Test roundtrip_dir parameter."""
+        json_path = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        out_dir = tmp_path / "out"
+        roundtrip_dir = tmp_path / "roundtrip"
+        
+        test_data = {
+            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": [],
+        }
+        json_path.write_text(json.dumps(test_data))
+        template_path.touch()
+        
+        rendered_docx = out_dir / "test.docx"
+        
+        with patch("cvextract.pipeline.render_from_json") as mock_render, \
+             patch("cvextract.pipeline.process_single_docx") as mock_process, \
+             patch("cvextract.pipeline.compare_data_structures") as mock_compare:
+            
+            mock_render.return_value = rendered_docx
+            mock_process.return_value = test_data
+            mock_compare.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+            
+            ok, errors, warns, compare_ok = _render_and_verify(
+                json_path, template_path, out_dir, debug=False,
+                roundtrip_dir=roundtrip_dir
+            )
+            
+            assert ok is True
+            # Verify roundtrip_dir was created
+            assert roundtrip_dir.exists()
+
+    def test_render_and_verify_compare_failure(self, tmp_path):
+        """Test when comparison finds differences."""
+        json_path = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        out_dir = tmp_path / "out"
+        
+        json_path.write_text(json.dumps({
+            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": [],
+        }))
+        template_path.touch()
+        
+        rendered_docx = out_dir / "test.docx"
+        
+        with patch("cvextract.pipeline.render_from_json") as mock_render, \
+             patch("cvextract.pipeline.process_single_docx") as mock_process, \
+             patch("cvextract.pipeline.compare_data_structures") as mock_compare:
+            
+            mock_render.return_value = rendered_docx
+            mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
+            mock_compare.return_value = VerificationResult(
+                ok=False,
+                errors=["Mismatch detected"],
+                warnings=[]
+            )
+            
+            ok, errors, warns, compare_ok = _render_and_verify(
+                json_path, template_path, out_dir, debug=False
+            )
+            
+            assert ok is False
+            assert "Mismatch detected" in errors
+            assert compare_ok is False
+
+    def test_render_and_verify_render_exception(self, tmp_path):
+        """Test exception during rendering."""
+        json_path = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        out_dir = tmp_path / "out"
+        
+        json_path.write_text(json.dumps({}))
+        template_path.touch()
+        
+        with patch("cvextract.pipeline.render_from_json") as mock_render:
+            mock_render.side_effect = RuntimeError("Render failed")
+            
+            ok, errors, warns, compare_ok = _render_and_verify(
+                json_path, template_path, out_dir, debug=False
+            )
+            
+            assert ok is False
+            assert any("RuntimeError" in e for e in errors)
+            assert compare_ok is None
+
+
+class TestCategorizeResult:
+    """Tests for _categorize_result function."""
+
+    def test_categorize_extract_failed(self):
+        """Test when extraction failed."""
+        fully_ok, partial_ok, failed = _categorize_result(extract_ok=False, has_warns=False, apply_ok=None)
+        assert (fully_ok, partial_ok, failed) == (0, 0, 1)
+
+    def test_categorize_apply_failed(self):
+        """Test when apply failed."""
+        fully_ok, partial_ok, failed = _categorize_result(extract_ok=True, has_warns=False, apply_ok=False)
+        assert (fully_ok, partial_ok, failed) == (0, 1, 0)
+
+    def test_categorize_with_warnings(self):
+        """Test when result has warnings."""
+        fully_ok, partial_ok, failed = _categorize_result(extract_ok=True, has_warns=True, apply_ok=True)
+        assert (fully_ok, partial_ok, failed) == (0, 1, 0)
+
+    def test_categorize_fully_ok(self):
+        """Test fully successful result."""
+        fully_ok, partial_ok, failed = _categorize_result(extract_ok=True, has_warns=False, apply_ok=True)
+        assert (fully_ok, partial_ok, failed) == (1, 0, 0)
+
+    def test_categorize_apply_none_with_warns(self):
+        """Test when apply is None but has warnings."""
+        fully_ok, partial_ok, failed = _categorize_result(extract_ok=True, has_warns=True, apply_ok=None)
+        assert (fully_ok, partial_ok, failed) == (0, 1, 0)
+
+
+class TestGetStatusIcons:
+    """Tests for _get_status_icons function."""
+
+    def test_extract_ok_with_warnings(self):
+        """Test extract ok but with warnings."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=True, has_warns=True, apply_ok=True, compare_ok=True)
+        assert "⚠️" in x_icon  # Warning icon for extract
+
+    def test_extract_ok_no_warnings(self):
+        """Test extract ok without warnings."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
+        assert "🟢" in x_icon  # Green icon
+
+    def test_extract_failed(self):
+        """Test extract failed."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=False, has_warns=False, apply_ok=False, compare_ok=False)
+        assert "❌" in x_icon  # Fail icon
+
+    def test_apply_none(self):
+        """Test apply not executed."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
+        assert "➖" in a_icon  # Neutral icon for apply
+
+    def test_compare_ok(self):
+        """Test compare successful."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
+        assert "✅" in c_icon or "✓" in c_icon
+
+    def test_compare_failed(self):
+        """Test compare found differences."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=False)
+        assert "⚠️" in c_icon  # Warning for compare mismatch
+
+    def test_compare_none(self):
+        """Test compare not executed."""
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=None)
+        assert "➖" in c_icon
+
+
+class TestInferSourceRoot:
+    """Tests for infer_source_root function."""
+
+    def test_infer_from_single_file(self, tmp_path):
+        """Test inferring root from single JSON file."""
+        json_file = tmp_path / "data.json"
+        json_file.touch()
+        
+        root = infer_source_root([json_file])
+        assert root == tmp_path
+
+    def test_infer_from_nested_files(self, tmp_path):
+        """Test inferring root from nested JSON files."""
+        dir1 = tmp_path / "dir1"
+        dir2 = tmp_path / "dir2"
+        dir1.mkdir()
+        dir2.mkdir()
+        
+        file1 = dir1 / "data1.json"
+        file2 = dir2 / "data2.json"
+        file1.touch()
+        file2.touch()
+        
+        root = infer_source_root([file1, file2])
+        assert root == tmp_path
+
+    def test_infer_with_deeply_nested_files(self, tmp_path):
+        """Test inferring root with deeply nested files."""
+        deep_dir = tmp_path / "a" / "b" / "c"
+        deep_dir.mkdir(parents=True)
+        
+        file1 = tmp_path / "file1.json"
+        file2 = deep_dir / "file2.json"
+        file1.touch()
+        file2.touch()
+        
+        root = infer_source_root([file1, file2])
+        assert root == tmp_path
