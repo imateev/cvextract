@@ -30,7 +30,18 @@ def test_run_extract_mode_success(monkeypatch, tmp_path: Path):
     def fake_process_single_docx(_docx_path, out):
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text("{}", encoding="utf-8")
-        return VerificationResult(ok=True, errors=[], warnings=[]), {}
+        return {
+            "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+            "sidebar": {
+                "languages": ["Python"],
+                "tools": ["x"],
+                "industries": ["x"],
+                "spoken_languages": ["English"],
+                "academic_background": ["x"],
+            },
+            "overview": {},
+            "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
+        }
 
     monkeypatch.setattr(p, "process_single_docx", fake_process_single_docx)
 
@@ -44,7 +55,18 @@ def test_run_extract_apply_mode_render_failure(monkeypatch, tmp_path: Path):
     def fake_process_single_docx(_docx_path, out):
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text("{}", encoding="utf-8")
-        return VerificationResult(ok=True, errors=[], warnings=[]), {}
+        return {
+            "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+            "sidebar": {
+                "languages": ["Python"],
+                "tools": ["x"],
+                "industries": ["x"],
+                "spoken_languages": ["English"],
+                "academic_background": ["x"],
+            },
+            "overview": {},
+            "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
+        }
 
     def fake_render(*args, **kwargs):
         raise RuntimeError("boom")

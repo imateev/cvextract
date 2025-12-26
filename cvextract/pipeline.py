@@ -17,6 +17,7 @@ from .logging_utils import LOG, fmt_issues
 from .docx_utils import dump_body_sample
 from .pipeline_highlevel import process_single_docx
 from .render import render_from_json
+from .shared import VerificationResult
 
 # ------------------------- Helper -------------------------
 
@@ -40,6 +41,60 @@ def safe_relpath(p: Path, root: Path) -> str:
         return p.resolve().relative_to(root.resolve()).as_posix()
     except Exception:
         return p.name
+
+def verify_extracted_data(data: dict) -> VerificationResult:
+    """
+    Verify extracted CV data for completeness and validity.
+    Returns issues without logging (so we can keep one log line per file).
+    """
+    from typing import Dict, List
+    errs: List[str] = []
+    warns: List[str] = []
+
+    identity = data.get("identity", {}) or {}
+    if not identity.get("title") or not identity.get("full_name") or not identity.get("first_name") or not identity.get("last_name"):
+        errs.append("identity")
+
+    sidebar = data.get("sidebar", {}) or {}
+    if not any(sidebar.get(section) for section in sidebar):
+        errs.append("sidebar")
+
+    expected_sidebar = ["languages", "tools", "industries", "spoken_languages", "academic_background"]
+    missing_sidebar = [s for s in expected_sidebar if not sidebar.get(s)]
+    if missing_sidebar:
+        warns.append("missing sidebar: " + ", ".join(missing_sidebar))
+
+    experiences = data.get("experiences", []) or []
+    if not experiences:
+        errs.append("experiences_empty")
+
+    has_any_bullets = False
+    has_any_environment = False
+    issue_set = set()
+    for exp in experiences:
+        heading = (exp.get("heading") or "").strip()
+        desc = (exp.get("description") or "").strip()
+        bullets = exp.get("bullets") or []
+        env = exp.get("environment")
+        if not heading:
+            issue_set.add("missing heading")
+        if not desc:
+            issue_set.add("missing description")
+        if bullets:
+            has_any_bullets = True
+        if env:
+            has_any_environment = True
+        if env is not None and not isinstance(env, list):
+            warns.append("invalid environment format")
+
+    if not has_any_bullets and not has_any_environment:
+        warns.append("no bullets or environment in any experience")
+
+    if issue_set:
+        warns.append("incomplete: " + "; ".join(sorted(issue_set)))
+
+    ok = not errs
+    return VerificationResult(ok=ok, errors=errs, warnings=warns)
     
 # ------------------------- Modes -------------------------
 
@@ -67,8 +122,10 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
         try:
             rel_parent = docx_file.parent.resolve().relative_to(source_root)
             out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
+            out_json.parent.mkdir(parents=True, exist_ok=True)
 
-            result, _data = process_single_docx(docx_file, out=out_json)
+            _data = process_single_docx(docx_file, out=out_json)
+            result = verify_extracted_data(_data)
             extract_ok = result.ok
             errs = result.errors
             warns = result.warnings
@@ -137,7 +194,8 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
             rel_parent = docx_file.parent.resolve().relative_to(source_root)
             out_json = json_dir / rel_parent / f"{docx_file.stem}.json"
 
-            result, _data = process_single_docx(docx_file, out=out_json)
+            data = process_single_docx(docx_file, out=out_json)
+            result = verify_extracted_data(data)
             extract_ok = result.ok
             errs = result.errors[:]
             warns = result.warnings[:]
