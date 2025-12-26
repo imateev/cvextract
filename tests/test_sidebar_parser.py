@@ -69,3 +69,21 @@ def test_split_identity_and_sidebar_mixed_dots():
     assert sidebar["skills"] == ["Python", "AWS"]
     assert sidebar["languages"] == ["English"]
     assert sidebar["tools"] == ["Docker", "K8s"]
+
+
+def test_split_identity_and_sidebar_trailing_colons():
+    """Headings with trailing colons should be recognized."""
+    paragraphs = [
+        "Senior Consultant",
+        "Ada Lovelace",
+        "SKILLS:",
+        "Python; AWS",
+        "LANGUAGES:",
+        "English; French",
+    ]
+
+    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+
+    assert identity.full_name == "Ada Lovelace"
+    assert sidebar["skills"] == ["Python", "AWS"]
+    assert sidebar["languages"] == ["English", "French"]

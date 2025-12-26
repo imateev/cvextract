@@ -54,6 +54,22 @@ SECTION_TITLES: Dict[str, str] = {
     "ACADEMIC BACKGROUND": "academic_background",
 }
 
+# Normalize heading text (strip/clean + uppercase + trim trailing punctuation)
+def _normalize_heading(text: str) -> str:
+    cleaned = clean_text(text)
+    return cleaned.upper().rstrip(" .:;") if cleaned else ""
+
+
+def _iter_heading_positions(paragraphs: List[str]) -> List[Tuple[int, str]]:
+    """Return (index, section_key) for all recognized headings."""
+    positions: List[Tuple[int, str]] = []
+    for i, p in enumerate(paragraphs):
+        norm = _normalize_heading(p)
+        key = SECTION_TITLES.get(norm)
+        if key:
+            positions.append((i, key))
+    return positions
+
 def _normalize_sidebar_sections(sections: Dict[str, List[str]]) -> Dict[str, List[str]]:
     """
     Normalize sidebar sections into clean lists.
@@ -146,14 +162,8 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
     """
     sections: Dict[str, List[str]] = {v: [] for v in SECTION_TITLES.values()}
 
-    # Locate all sidebar section headings (accept with/without trailing dot)
-    heading_positions: List[Tuple[int, str]] = []  # (index, section_key)
-    for i, p in enumerate(paragraphs):
-        upper = p.strip().upper()
-        upper_no_dot = upper.rstrip(".")
-        key = SECTION_TITLES.get(upper_no_dot)
-        if key:
-            heading_positions.append((i, key))
+    # Locate all sidebar section headings (robust to trailing punctuation)
+    heading_positions = _iter_heading_positions(paragraphs)
 
     first_section_idx: Optional[int] = heading_positions[0][0] if heading_positions else None
     last_section_idx: Optional[int] = heading_positions[-1][0] if heading_positions else None
@@ -221,11 +231,8 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
         if not p_clean:
             continue
 
-        upper = p_clean.upper()
-        upper_no_dot = upper.rstrip(".")
-
-        # Accept headings with or without trailing dot
-        matched_key = SECTION_TITLES.get(upper_no_dot)
+        norm_heading = _normalize_heading(p_clean)
+        matched_key = SECTION_TITLES.get(norm_heading)
 
         if matched_key:
             # If we've already seen this section heading once, treat later repeats as duplicates
