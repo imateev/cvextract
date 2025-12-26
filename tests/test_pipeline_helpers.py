@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock
 import cvextract.pipeline as p
+from cvextract.shared import VerificationResult
 
 
 def test_extract_single_success(monkeypatch, tmp_path: Path):
@@ -68,74 +69,121 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     assert warns == []
 
 
-def test_render_single_success(monkeypatch, tmp_path: Path):
-    """Test successful rendering."""
+def test_render_and_verify_success(monkeypatch, tmp_path: Path):
+    """Test successful render with roundtrip verification."""
     json_file = tmp_path / "test.json"
-    json_file.write_text("{}", encoding="utf-8")
+    json_file.write_text('{"a": 1}', encoding="utf-8")
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
     out_dir.mkdir()
-    
+
     def fake_render(_json, _template, _out):
-        pass
-    
+        return _out / "test_NEW.docx"
+
+    def fake_process(_docx, out=None):
+        if out:
+            out.write_text('{"a": 1}', encoding="utf-8")
+        return {"a": 1}
+
+    def fake_compare(orig, new):
+        return VerificationResult(ok=True, errors=[], warnings=[])
+
     monkeypatch.setattr(p, "render_from_json", fake_render)
-    
-    ok, errs = p._render_single(json_file, template, out_dir, debug=False)
+    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    monkeypatch.setattr(p, "compare_data_structures", fake_compare)
+
+    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is True
     assert errs == []
+    assert warns == []
+    assert compare_ok is True
 
 
-def test_render_single_exception(monkeypatch, tmp_path: Path):
-    """Test rendering with exception."""
+def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
+    """Test rendering exceptions surface as errors."""
     json_file = tmp_path / "test.json"
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
-    
+
     def fake_render(_json, _template, _out):
         raise ValueError("render failed")
-    
+
     monkeypatch.setattr(p, "render_from_json", fake_render)
-    
-    ok, errs = p._render_single(json_file, template, out_dir, debug=False)
+
+    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is False
     assert len(errs) == 1
     assert "render: ValueError" in errs[0]
+    assert warns == []
+    assert compare_ok is None
+
+
+def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
+    """Test roundtrip mismatch surfaces as error."""
+    json_file = tmp_path / "test.json"
+    json_file.write_text('{"a": 1}', encoding="utf-8")
+    template = tmp_path / "template.docx"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    def fake_render(_json, _template, _out):
+        return _out / "test_NEW.docx"
+
+    def fake_process(_docx, out=None):
+        return {"a": 2}
+
+    def fake_compare(orig, new):
+        return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])
+
+    monkeypatch.setattr(p, "render_from_json", fake_render)
+    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    monkeypatch.setattr(p, "compare_data_structures", fake_compare)
+
+    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
+    assert ok is False
+    assert "value mismatch" in errs[0]
+    assert warns == []
+    assert compare_ok is False
 
 
 def test_get_status_icons_extract_success_no_warnings():
     """Test icons for successful extraction without warnings."""
-    x_icon, a_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=None)
+    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
     assert x_icon == "🟢"
     assert a_icon == "➖"
+    assert c_icon == "➖"
 
 
 def test_get_status_icons_extract_success_with_warnings():
     """Test icons for successful extraction with warnings."""
-    x_icon, a_icon = p._get_status_icons(extract_ok=True, has_warns=True, apply_ok=None)
+    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None)
     assert x_icon == "⚠️ "
     assert a_icon == "➖"
+    assert c_icon == "➖"
 
 
 def test_get_status_icons_extract_failed():
     """Test icons for failed extraction."""
-    x_icon, a_icon = p._get_status_icons(extract_ok=False, has_warns=False, apply_ok=None)
+    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=False, has_warns=False, apply_ok=None, compare_ok=None)
     assert x_icon == "❌"
     assert a_icon == "➖"
+    assert c_icon == "➖"
 
 
 def test_get_status_icons_apply_success():
     """Test icons for successful apply."""
-    x_icon, a_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=True)
+    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
     assert x_icon == "🟢"
     assert a_icon == "✅"
+    assert c_icon == "✅"
 
 
 def test_get_status_icons_apply_failed():
     """Test icons for failed apply."""
-    x_icon, a_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=False)
+    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=False, compare_ok=False)
     assert x_icon == "🟢"
     assert a_icon == "❌"
+    assert c_icon == "⚠️ "
 
 
 def test_categorize_result_extract_failed():

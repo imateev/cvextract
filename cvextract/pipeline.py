@@ -8,6 +8,7 @@ plus a final summary.
 
 from __future__ import annotations
 
+import json
 import os
 import traceback
 from pathlib import Path
@@ -18,6 +19,7 @@ from .docx_utils import dump_body_sample
 from .pipeline_highlevel import process_single_docx
 from .render import render_from_json
 from .shared import VerificationResult
+from .verification import verify_extracted_data, compare_data_structures
 
 # ------------------------- Helper -------------------------
 
@@ -42,60 +44,6 @@ def safe_relpath(p: Path, root: Path) -> str:
     except Exception:
         return p.name
 
-def verify_extracted_data(data: dict) -> VerificationResult:
-    """
-    Verify extracted CV data for completeness and validity.
-    Returns issues without logging (so we can keep one log line per file).
-    """
-    from typing import Dict, List
-    errs: List[str] = []
-    warns: List[str] = []
-
-    identity = data.get("identity", {}) or {}
-    if not identity.get("title") or not identity.get("full_name") or not identity.get("first_name") or not identity.get("last_name"):
-        errs.append("identity")
-
-    sidebar = data.get("sidebar", {}) or {}
-    if not any(sidebar.get(section) for section in sidebar):
-        errs.append("sidebar")
-
-    expected_sidebar = ["languages", "tools", "industries", "spoken_languages", "academic_background"]
-    missing_sidebar = [s for s in expected_sidebar if not sidebar.get(s)]
-    if missing_sidebar:
-        warns.append("missing sidebar: " + ", ".join(missing_sidebar))
-
-    experiences = data.get("experiences", []) or []
-    if not experiences:
-        errs.append("experiences_empty")
-
-    has_any_bullets = False
-    has_any_environment = False
-    issue_set = set()
-    for exp in experiences:
-        heading = (exp.get("heading") or "").strip()
-        desc = (exp.get("description") or "").strip()
-        bullets = exp.get("bullets") or []
-        env = exp.get("environment")
-        if not heading:
-            issue_set.add("missing heading")
-        if not desc:
-            issue_set.add("missing description")
-        if bullets:
-            has_any_bullets = True
-        if env:
-            has_any_environment = True
-        if env is not None and not isinstance(env, list):
-            warns.append("invalid environment format")
-
-    if not has_any_bullets and not has_any_environment:
-        warns.append("no bullets or environment in any experience")
-
-    if issue_set:
-        warns.append("incomplete: " + "; ".join(sorted(issue_set)))
-
-    ok = not errs
-    return VerificationResult(ok=ok, errors=errs, warnings=warns)
-
 # ------------------------- Processing Helpers -------------------------
 
 def _extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool, List[str], List[str]]:
@@ -110,18 +58,33 @@ def _extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool,
             dump_body_sample(docx_file, n=30)
         return False, [f"exception: {type(e).__name__}"], []
 
-def _render_single(json_path: Path, template_path: Path, out_dir: Path, debug: bool) -> tuple[bool, List[str]]:
-    """Render a single JSON to DOCX. Returns (ok, errors)."""
+def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debug: bool) -> tuple[bool, List[str], List[str], Optional[bool]]:
+    """
+    Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
+    Returns (ok, errors, warnings, compare_ok).
+    compare_ok is None if comparison did not run (e.g., render error).
+    """
     try:
-        render_from_json(json_path, template_path, out_dir)
-        return True, []
+        out_docx = render_from_json(json_path, template_path, out_dir)
+
+        # Round-trip extraction from rendered DOCX
+        roundtrip_json = out_docx.with_suffix(".json")
+        roundtrip_data = process_single_docx(out_docx, out=roundtrip_json)
+
+        with json_path.open("r", encoding="utf-8") as f:
+            original_data = json.load(f)
+
+        cmp = compare_data_structures(original_data, roundtrip_data)
+        if cmp.ok:
+            return True, [], cmp.warnings, True
+        return False, cmp.errors, cmp.warnings, False
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
-        return False, [f"render: {type(e).__name__}"]
+        return False, [f"render: {type(e).__name__}"], [], None
 
-def _get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[str, str]:
-    """Generate status icons for extract and apply steps."""
+def _get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool], compare_ok: Optional[bool]) -> tuple[str, str, str]:
+    """Generate status icons for extract, apply, and roundtrip compare steps."""
     if extract_ok and has_warns:
         x_icon = "⚠️ "
     elif extract_ok:
@@ -133,8 +96,13 @@ def _get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool
         a_icon = "➖"
     else:
         a_icon = "✅" if apply_ok else "❌"
-    
-    return x_icon, a_icon
+
+    if compare_ok is None:
+        c_icon = "➖"
+    else:
+        c_icon = "✅" if compare_ok else "⚠️ "
+
+    return x_icon, a_icon, c_icon
 
 def _categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
     """Categorize result into (fully_ok, partial_ok, failed) counts."""
@@ -166,8 +134,8 @@ def run_extract_mode(inputs: List[Path], target_dir: Path, strict: bool, debug: 
 
         extract_ok, errs, warns = _extract_single(docx_file, out_json, debug)
         
-        x_icon, a_icon = _get_status_icons(extract_ok, bool(warns), None)
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok, bool(warns), None, None)
+        LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, fmt_issues(errs, warns))
 
         full, part, fail = _categorize_result(extract_ok, bool(warns), None)
         fully_ok += full
@@ -208,16 +176,22 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
 
         # Render (only if extraction succeeded)
         apply_ok = None
+        compare_ok: Optional[bool] = None
+        apply_warns: List[str] = []
         if extract_ok:
             out_docx_dir = documents_dir / rel_parent
             out_docx_dir.mkdir(parents=True, exist_ok=True)
-            apply_ok, render_errs = _render_single(out_json, template_path, out_docx_dir, debug)
+            apply_ok, render_errs, apply_warns, compare_ok = _render_and_verify(out_json, template_path, out_docx_dir, debug)
             errs = render_errs
+            if apply_warns:
+                had_warning = True
 
-        x_icon, a_icon = _get_status_icons(extract_ok, bool(warns), apply_ok)
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, warns))
+        combined_warns = (warns or []) + (apply_warns or [])
 
-        full, part, fail = _categorize_result(extract_ok, bool(warns), apply_ok)
+        x_icon, a_icon, c_icon = _get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
+        LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, fmt_issues(errs, combined_warns))
+
+        full, part, fail = _categorize_result(extract_ok, bool(combined_warns), apply_ok)
         fully_ok += full
         partial_ok += part
         failed += fail
@@ -249,10 +223,10 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
         out_docx_dir = documents_dir / rel_parent
         out_docx_dir.mkdir(parents=True, exist_ok=True)
 
-        apply_ok, errs = _render_single(json_file, template_path, out_docx_dir, debug)
+        apply_ok, errs, apply_warns, compare_ok = _render_and_verify(json_file, template_path, out_docx_dir, debug)
         
-        x_icon, a_icon = _get_status_icons(False, False, apply_ok)
-        LOG.info("%s%s %s | %s", x_icon, a_icon, rel_name, fmt_issues(errs, []))
+        x_icon, a_icon, c_icon = _get_status_icons(False, bool(apply_warns), apply_ok, compare_ok)
+        LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, fmt_issues(errs, apply_warns))
 
         if apply_ok:
             fully_ok += 1
