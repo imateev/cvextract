@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .extractors import DocxCVExtractor
-from .sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
-from .body_parser import parse_cv_from_docx_body
 # ------------------------- Constants -------------------------
 
 # ------------------------- Data models -------------------------

@@ -1,7 +1,7 @@
 """Tests for edge cases in identity parsing."""
 
 import pytest
-import cvextract.sidebar_parser as sp
+import cvextract.extractors.sidebar_parser as sp
 
 class TestIdentity:
     """Tests for identity appearing at different positions in paragraphs."""

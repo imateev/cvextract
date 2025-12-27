@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-import cvextract.body_parser as bp
+import cvextract.extractors.body_parser as bp
 
 
 class TestCVBodyParsing:

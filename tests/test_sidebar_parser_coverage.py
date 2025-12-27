@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from zipfile import ZipFile
 
-from cvextract.sidebar_parser import (
+from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
     _extract_paragraph_texts,
