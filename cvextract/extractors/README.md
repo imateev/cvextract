@@ -62,7 +62,7 @@ To create a custom extractor:
 
 1. Import the base class:
    ```python
-   from cvextract.extractors.base import CVExtractor
+   from cvextract.extractors import CVExtractor
    ```
 
 2. Create your implementation:
@@ -113,7 +113,7 @@ with open("output.json", "w") as f:
 ### Creating a Mock Extractor for Testing
 
 ```python
-from cvextract.extractors.base import CVExtractor
+from cvextract.extractors import CVExtractor
 from pathlib import Path
 
 class MockCVExtractor(CVExtractor):

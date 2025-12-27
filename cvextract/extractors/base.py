@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 
 class CVExtractor(ABC):
@@ -51,7 +51,7 @@ class CVExtractor(ABC):
                         "heading": str,
                         "description": str,
                         "bullets": List[str],
-                        "environment": List[str] | None
+                        "environment": Optional[List[str]]
                     }
                 ]
             }
