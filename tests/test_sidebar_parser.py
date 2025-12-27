@@ -15,6 +15,22 @@ class TestSidebarNormalization:
         out = sp._normalize_sidebar_sections(sections)
         assert out["skills"] == ["Python", "AWS", "Azure", "Docker", "K8s"]
 
+    def test_normalize_with_empty_strings_filters_them_out(self):
+        """Empty strings after splitting should be filtered out."""
+        sections = {
+            "skills": ["Python,  ,  AWS", "  "],
+        }
+        out = sp._normalize_sidebar_sections(sections)
+        assert out["skills"] == ["Python", "AWS"]
+
+    def test_normalize_with_empty_parts_after_split_skips_them(self):
+        """When splitting produces empty parts, they should be skipped."""
+        sections = {
+            "languages": ["English,,,French", ";;German"],
+        }
+        out = sp._normalize_sidebar_sections(sections)
+        assert out["languages"] == ["English", "French", "German"]
+
 
 class TestIdentityAndSidebarParsing:
     """Tests for parsing identity and sidebar from paragraphs."""
