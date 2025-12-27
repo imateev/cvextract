@@ -112,34 +112,27 @@ class TestExtractCvStructure:
     """Tests for extract_cv_structure function."""
 
     def test_extract_cv_structure_integrates_all_parsers(self, tmp_path):
-        """Test extract_cv_structure calls and integrates all parser modules."""
+        """Test extract_cv_structure uses the DocxCVExtractor."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
         
-        mock_overview = "Overview text"
-        mock_experiences = [{"heading": "Job", "description": "desc"}]
-        mock_header_paragraphs = ["Name", "Title"]
-        mock_identity = Identity("Engineer", "John Doe", "John", "Doe")
-        mock_sidebar = {"languages": ["EN"], "tools": ["Python"]}
+        mock_data = {
+            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "sidebar": {"languages": ["EN"], "tools": ["Python"]},
+            "overview": "Overview text",
+            "experiences": [{"heading": "Job", "description": "desc"}],
+        }
         
-        with patch("cvextract.pipeline_highlevel.parse_cv_from_docx_body") as mock_body, \
-             patch("cvextract.pipeline_highlevel.extract_all_header_paragraphs") as mock_header, \
-             patch("cvextract.pipeline_highlevel.split_identity_and_sidebar") as mock_split:
-            
-            mock_body.return_value = (mock_overview, mock_experiences)
-            mock_header.return_value = mock_header_paragraphs
-            mock_split.return_value = (mock_identity, mock_sidebar)
+        with patch("cvextract.pipeline_highlevel.DocxCVExtractor") as mock_extractor_class:
+            mock_extractor = Mock()
+            mock_extractor.extract.return_value = mock_data
+            mock_extractor_class.return_value = mock_extractor
             
             result = extract_cv_structure(mock_docx)
             
-            assert result["identity"] == mock_identity.as_dict()
-            assert result["sidebar"] == mock_sidebar
-            assert result["overview"] == mock_overview
-            assert result["experiences"] == mock_experiences
-            
-            mock_body.assert_called_once_with(mock_docx)
-            mock_header.assert_called_once_with(mock_docx)
-            mock_split.assert_called_once_with(mock_header_paragraphs)
+            assert result == mock_data
+            mock_extractor_class.assert_called_once()
+            mock_extractor.extract.assert_called_once_with(mock_docx)
 
 
 class TestProcessSingleDocx:

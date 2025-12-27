@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .extractors import DocxCVExtractor
 from .sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
 from .body_parser import parse_cv_from_docx_body
 # ------------------------- Constants -------------------------
@@ -51,16 +52,14 @@ class ExperienceBuilder:
 # ------------------------- High-level pipeline -------------------------
 
 def extract_cv_structure(docx_path: Path) -> Dict[str, Any]:
-    overview, experiences = parse_cv_from_docx_body(docx_path)
-    header_paragraphs = extract_all_header_paragraphs(docx_path)
-    identity, sidebar = split_identity_and_sidebar(header_paragraphs)
-
-    return {
-        "identity": identity.as_dict(),
-        "sidebar": sidebar,
-        "overview": overview,
-        "experiences": experiences,
-    }
+    """
+    Extract CV structure from a DOCX file using the default extractor.
+    
+    This function maintains backward compatibility while using the new
+    pluggable extractor architecture.
+    """
+    extractor = DocxCVExtractor()
+    return extractor.extract(docx_path)
 
 def process_single_docx(docx_path: Path, out: Optional[Path] = None) -> Dict[str, Any]:
     """Extract CV structure and optionally write to JSON. Returns extracted data dict."""
