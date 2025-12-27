@@ -10,6 +10,7 @@ from cvextract.customer_adjust import (
     _fetch_customer_page,
     _research_company_profile,
     _load_research_schema,
+    _url_to_cache_filename,
 )
 
 
@@ -71,6 +72,76 @@ class TestFetchCustomerPage:
         
         result = _fetch_customer_page("https://example.com")
         assert result == ""
+
+
+class TestUrlToCacheFilename:
+    """Tests for _url_to_cache_filename helper."""
+
+    def test_url_to_cache_filename_basic(self):
+        """Test basic URL conversion."""
+        result = _url_to_cache_filename("https://example.com")
+        assert result.startswith("example.com-")
+        assert result.endswith(".research.json")
+        assert len(result) > len("example.com-.research.json")
+
+    def test_url_to_cache_filename_removes_protocol(self):
+        """Test that protocol is removed."""
+        result1 = _url_to_cache_filename("https://example.com")
+        result2 = _url_to_cache_filename("http://example.com")
+        # Same domain should produce same base name (though hash might differ due to full URL)
+        assert "example.com" in result1
+        assert "example.com" in result2
+
+    def test_url_to_cache_filename_removes_www(self):
+        """Test that www prefix is removed."""
+        result = _url_to_cache_filename("https://www.example.com")
+        assert result.startswith("example.com-")
+
+    def test_url_to_cache_filename_removes_path(self):
+        """Test that path is removed from domain."""
+        result = _url_to_cache_filename("https://example.com/path/to/page")
+        assert result.startswith("example.com-")
+
+    def test_url_to_cache_filename_removes_query(self):
+        """Test that query string is removed from domain."""
+        result = _url_to_cache_filename("https://example.com?query=value")
+        assert result.startswith("example.com-")
+
+    def test_url_to_cache_filename_removes_port(self):
+        """Test that port is removed from domain."""
+        result = _url_to_cache_filename("https://example.com:8080")
+        assert result.startswith("example.com-")
+
+    def test_url_to_cache_filename_deterministic(self):
+        """Test that same URL always produces same filename."""
+        url = "https://example.com/page"
+        result1 = _url_to_cache_filename(url)
+        result2 = _url_to_cache_filename(url)
+        assert result1 == result2
+
+    def test_url_to_cache_filename_different_urls(self):
+        """Test that different URLs produce different filenames."""
+        url1 = "https://example.com"
+        url2 = "https://different.com"
+        result1 = _url_to_cache_filename(url1)
+        result2 = _url_to_cache_filename(url2)
+        assert result1 != result2
+
+    def test_url_to_cache_filename_same_domain_different_paths(self):
+        """Test that different paths on same domain produce different filenames."""
+        url1 = "https://example.com/page1"
+        url2 = "https://example.com/page2"
+        result1 = _url_to_cache_filename(url1)
+        result2 = _url_to_cache_filename(url2)
+        # Same domain but different full URLs should have different hashes
+        assert result1 != result2
+
+    def test_url_to_cache_filename_safe_characters(self):
+        """Test that filename contains only safe characters."""
+        result = _url_to_cache_filename("https://example.com")
+        # Check that filename is filesystem-safe (no special chars except - and .)
+        import re
+        assert re.match(r'^[a-z0-9._-]+\.research\.json$', result)
 
 
 class TestAdjustForCustomer:

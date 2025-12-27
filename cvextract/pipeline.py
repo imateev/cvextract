@@ -21,7 +21,7 @@ from .pipeline_highlevel import process_single_docx
 from .render import render_from_json
 from .shared import VerificationResult
 from .verification import verify_extracted_data, compare_data_structures
-from .customer_adjust import adjust_for_customer
+from .customer_adjust import adjust_for_customer, _url_to_cache_filename
 
 # ------------------------- Helper -------------------------
 
@@ -210,10 +210,10 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
                 try:
                     with out_json.open("r", encoding="utf-8") as f:
                         original = json.load(f)
-                    # Pass cache_path for research results
+                    # Pass cache_path for research results (company-specific, not CV-specific)
                     research_cache_dir = research_dir / rel_parent
                     research_cache_dir.mkdir(parents=True, exist_ok=True)
-                    research_cache = research_cache_dir / (out_json.stem + ".research.json")
+                    research_cache = research_cache_dir / _url_to_cache_filename(adjust_url)
                     adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                     # Skip compare only if adjustment produced a different JSON
                     skip_compare = adjusted != original
@@ -293,10 +293,10 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
             try:
                 with json_file.open("r", encoding="utf-8") as f:
                     original = json.load(f)
-                # Pass cache_path for research results
+                # Pass cache_path for research results (company-specific, not CV-specific)
                 research_cache_dir = research_dir / rel_parent
                 research_cache_dir.mkdir(parents=True, exist_ok=True)
-                research_cache = research_cache_dir / (json_file.stem + ".research.json")
+                research_cache = research_cache_dir / _url_to_cache_filename(adjust_url)
                 adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                 skip_compare = adjusted != original
                 render_json = out_docx_dir / (json_file.stem + ".adjusted.json")

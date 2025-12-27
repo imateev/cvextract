@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import os
 import json
+import hashlib
+import re
 from typing import Any, Dict, Optional
 from pathlib import Path
 
@@ -31,6 +33,39 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 LOG = logging.getLogger("cvextract")
+
+
+def _url_to_cache_filename(url: str) -> str:
+    """
+    Convert a URL to a safe, deterministic filename for caching.
+    
+    Uses the domain name from the URL and a hash to ensure uniqueness
+    while keeping the filename readable and filesystem-safe.
+    
+    Args:
+        url: The company URL
+    
+    Returns:
+        A safe filename like "example.com-abc123.research.json"
+    """
+    # Extract domain from URL
+    # Remove protocol
+    domain = re.sub(r'^https?://', '', url.lower())
+    # Remove www. prefix if present
+    domain = re.sub(r'^www\.', '', domain)
+    # Remove path, query, and fragment
+    domain = domain.split('/')[0].split('?')[0].split('#')[0]
+    # Remove port if present
+    domain = domain.split(':')[0]
+    
+    # Create a short hash for uniqueness (in case of different URLs for same domain)
+    url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
+    
+    # Create safe filename
+    safe_domain = re.sub(r'[^a-z0-9.-]', '_', domain)
+    
+    return f"{safe_domain}-{url_hash}.research.json"
+
 
 # Load research schema
 _SCHEMA_PATH = Path(__file__).parent.parent / "research_schema.json"
