@@ -11,3 +11,6 @@ __pycache__/
 
 # Research cache files
 *.research.json
+
+# Build artifacts
+*.egg-info/

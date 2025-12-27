@@ -1,4 +1,0 @@
-lxml
-docxtpl
-requests
-openai
