@@ -62,6 +62,11 @@ def _fetch_customer_page(url: str) -> str:
         return ""
 
 
+def _validate_research_data(data: Any) -> bool:
+    """Validate that research data has required fields."""
+    return isinstance(data, dict) and "name" in data and "domains" in data
+
+
 def _research_company_profile(
     customer_url: str, 
     api_key: str, 
@@ -86,7 +91,7 @@ def _research_company_profile(
             with open(cache_path, "r", encoding="utf-8") as f:
                 cached_data = json.load(f)
             # Basic validation that it's a dict with required fields
-            if isinstance(cached_data, dict) and "name" in cached_data and "domains" in cached_data:
+            if _validate_research_data(cached_data):
                 LOG.info("Using cached company research from %s", cache_path)
                 return cached_data
         except Exception as e:
@@ -166,7 +171,7 @@ WEBSITE CONTENT (first 30000 chars):
                 return None
             
             # Basic validation
-            if "name" not in research_data or "domains" not in research_data:
+            if not _validate_research_data(research_data):
                 LOG.warning("Company research: missing required fields")
                 return None
             
@@ -232,18 +237,19 @@ def adjust_for_customer(
     client = OpenAI(api_key=api_key)
 
     # Step 2: Build enhanced system prompt using structured research data
-    tech_signals_text = ""
+    tech_signals_parts = []
     if research_data.get("technology_signals"):
-        tech_signals_text = "\n\nKey Technology Signals:"
+        tech_signals_parts.append("\n\nKey Technology Signals:")
         for signal in research_data["technology_signals"]:
             tech = signal.get("technology", "Unknown")
             interest = signal.get("interest_level", "unknown")
             confidence = signal.get("confidence", 0)
             evidence = signal.get("signals", [])
-            tech_signals_text += f"\n- {tech} (interest: {interest}, confidence: {confidence:.2f})"
+            tech_signals_parts.append(f"\n- {tech} (interest: {interest}, confidence: {confidence:.2f})")
             if evidence:
-                tech_signals_text += f"\n  Evidence: {'; '.join(evidence[:2])}"
+                tech_signals_parts.append(f"\n  Evidence: {'; '.join(evidence[:2])}")
     
+    tech_signals_text = "".join(tech_signals_parts)
     domains_text = ", ".join(research_data.get("domains", []))
     company_name = research_data.get("name", "the company")
     company_desc = research_data.get("description", "")
