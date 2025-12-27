@@ -1,14 +1,14 @@
 """Tests for edge cases in identity parsing."""
 
+import pytest
 import cvextract.sidebar_parser as sp
 
-
-class TestIdentityAtEnd:
-    """Tests for identity appearing at the end of paragraphs."""
-
-    def test_parse_with_identity_at_end_extracts_correctly(self):
-        """Identity lines at the end of paragraphs should be parsed correctly."""
-        paragraphs = [
+class TestIdentity:
+    """Tests for identity appearing at different positions in paragraphs."""
+    
+    @pytest.mark.parametrize("paragraphs", [
+        [
+            # Identity at end
             "Languages",
             "C# • PowerShell",
             "Tools",
@@ -19,12 +19,29 @@ class TestIdentityAtEnd:
             "German • English",
             "Academic background",
             "Some University",
-            # Identity at end
             "Software Engineer",
             "Homer",
             "Simpson",
-        ]
-
+        ],
+        [
+            # Identity at beginning
+            "Software Engineer",
+            "Homer",
+            "Simpson",
+            "Languages",
+            "C# • PowerShell",
+            "Tools",
+            "NET • ASP.NET",
+            "Industries",
+            "Insurance",
+            "Spoken languages",
+            "German • English",
+            "Academic background",
+            "Some University",
+        ],
+    ])
+    def test_parse_with_identity_at_different_positions(self, paragraphs):
+        """Test that identity is extracted correctly regardless of position."""
         identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
 
         assert identity.title == "Software Engineer"
