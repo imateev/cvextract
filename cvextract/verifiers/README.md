@@ -184,15 +184,17 @@ result = verifier.verify(source_data, target_data=target_data)
 
 ## Integration with Existing Pipeline
 
-The verifiers integrate with the existing pipeline through wrapper functions in `verification.py` that maintain backward compatibility:
+The verifiers are now used directly throughout the codebase:
 
 ```python
-# Legacy function signatures are maintained
-from cvextract.verification import verify_extracted_data, compare_data_structures
+# Use verifiers directly from cvextract.verifiers
+from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
 
-# These now use the new verifier architecture internally
-result = verify_extracted_data(cv_data)
-result = compare_data_structures(original_data, roundtrip_data)
+# Verify extracted CV data
+result = ExtractedDataVerifier().verify(cv_data)
+
+# Compare two CV data structures
+result = ComparisonVerifier().verify(original_data, target_data=roundtrip_data)
 ```
 
 ## Examples
