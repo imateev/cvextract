@@ -17,8 +17,7 @@ import os
 
 from .logging_utils import LOG, fmt_issues
 from .docx_utils import dump_body_sample
-from .pipeline_highlevel import process_single_docx
-from .render import render_from_json
+from .pipeline_highlevel import process_single_docx, render_cv_data
 from .shared import VerificationResult
 from .verification import verify_extracted_data, compare_data_structures
 from .customer_adjust import adjust_for_customer, _url_to_cache_filename
@@ -67,7 +66,15 @@ def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debu
     compare_ok is None if comparison did not run (e.g., render error).
     """
     try:
-        out_docx = render_from_json(json_path, template_path, out_dir)
+        # Load CV data from JSON
+        with json_path.open("r", encoding="utf-8") as f:
+            cv_data = json.load(f)
+        
+        # Determine output path
+        out_docx = out_dir / f"{json_path.stem}_NEW.docx"
+        
+        # Render using the new renderer interface
+        render_cv_data(cv_data, template_path, out_docx)
 
         # Skip compare when explicitly requested by caller
         if skip_compare:
@@ -81,8 +88,7 @@ def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debu
             roundtrip_json = out_docx.with_suffix(".json")
         roundtrip_data = process_single_docx(out_docx, out=roundtrip_json)
 
-        with json_path.open("r", encoding="utf-8") as f:
-            original_data = json.load(f)
+        original_data = cv_data
 
         cmp = compare_data_structures(original_data, roundtrip_data)
         if not debug and roundtrip_dir is None:
