@@ -33,7 +33,7 @@ class TestExtractSingle:
         }
         
         with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
-             patch("cvextract.pipeline.verify_extracted_data") as mock_verify:
+             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
             
             mock_extract.return_value = mock_data
             mock_verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
@@ -53,7 +53,7 @@ class TestExtractSingle:
         mock_data = {"identity": {}}  # Missing required fields
         
         with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
-             patch("cvextract.pipeline.verify_extracted_data") as mock_verify:
+             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
             
             mock_extract.return_value = mock_data
             mock_verify.return_value = VerificationResult(
@@ -110,7 +110,7 @@ class TestExtractSingle:
         }
         
         with patch("cvextract.pipeline.process_single_docx") as mock_extract, \
-             patch("cvextract.pipeline.verify_extracted_data") as mock_verify:
+             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
             
             mock_extract.return_value = mock_data
             mock_verify.return_value = VerificationResult(
@@ -146,7 +146,7 @@ class TestRenderAndVerify:
         
         with patch("cvextract.pipeline.render_cv_data") as mock_render, \
              patch("cvextract.pipeline.process_single_docx") as mock_process, \
-             patch("cvextract.pipeline.compare_data_structures") as mock_compare:
+             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = json.loads(json_path.read_text())
@@ -204,7 +204,7 @@ class TestRenderAndVerify:
         
         with patch("cvextract.pipeline.render_cv_data") as mock_render, \
              patch("cvextract.pipeline.process_single_docx") as mock_process, \
-             patch("cvextract.pipeline.compare_data_structures") as mock_compare:
+             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = test_data
@@ -237,7 +237,7 @@ class TestRenderAndVerify:
         
         with patch("cvextract.pipeline.render_cv_data") as mock_render, \
              patch("cvextract.pipeline.process_single_docx") as mock_process, \
-             patch("cvextract.pipeline.compare_data_structures") as mock_compare:
+             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}

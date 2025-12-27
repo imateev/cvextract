@@ -19,7 +19,7 @@ from .logging_utils import LOG, fmt_issues
 from .extractors.docx_utils import dump_body_sample
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .shared import VerificationResult
-from .verification import verify_extracted_data, compare_data_structures
+from .verifiers import ExtractedDataVerifier, ComparisonVerifier
 from .customer_adjust import adjust_for_customer, _url_to_cache_filename
 
 # ------------------------- Helper -------------------------
@@ -51,7 +51,7 @@ def _extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool,
     """Extract and verify a single DOCX. Returns (ok, errors, warnings)."""
     try:
         data = process_single_docx(docx_file, out=out_json)
-        result = verify_extracted_data(data)
+        result = ExtractedDataVerifier().verify(data)
         return result.ok, result.errors, result.warnings
     except Exception as e:
         if debug:
@@ -90,7 +90,7 @@ def _render_and_verify(json_path: Path, template_path: Path, out_dir: Path, debu
 
         original_data = cv_data
 
-        cmp = compare_data_structures(original_data, roundtrip_data)
+        cmp = ComparisonVerifier().verify(original_data, target_data=roundtrip_data)
         if not debug and roundtrip_dir is None:
             try:
                 roundtrip_json.unlink(missing_ok=True)

@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock
 import cvextract.pipeline as p
+from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
 from cvextract.shared import VerificationResult
 
 
@@ -85,12 +86,16 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
             out.write_text('{"a": 1}', encoding="utf-8")
         return {"a": 1}
 
-    def fake_compare(orig, new):
+    def fake_compare(orig, target_data):
         return VerificationResult(ok=True, errors=[], warnings=[])
+
+    # Mock the ComparisonVerifier instance method
+    comparison_verifier = ComparisonVerifier()
+    comparison_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    monkeypatch.setattr(p, "compare_data_structures", fake_compare)
+    monkeypatch.setattr("cvextract.verifiers.ComparisonVerifier", lambda: comparison_verifier)
 
     ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is True
@@ -133,12 +138,16 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     def fake_process(_docx, out=None):
         return {"a": 2}
 
-    def fake_compare(orig, new):
+    def fake_compare(orig, target_data):
         return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])
+
+    # Mock the ComparisonVerifier instance method
+    comparison_verifier = ComparisonVerifier()
+    comparison_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    monkeypatch.setattr(p, "compare_data_structures", fake_compare)
+    monkeypatch.setattr("cvextract.verifiers.ComparisonVerifier", lambda: comparison_verifier)
 
     ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is False
@@ -234,7 +243,8 @@ def test_verify_extracted_data_missing_identity():
         "sidebar": {"languages": ["EN"]},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    result = p.verify_extracted_data(data)
+    verifier = ExtractedDataVerifier()
+    result = verifier.verify(data)
     assert result.ok is False
     assert "identity" in result.errors
 
@@ -246,7 +256,8 @@ def test_verify_extracted_data_empty_sidebar():
         "sidebar": {},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    result = p.verify_extracted_data(data)
+    verifier = ExtractedDataVerifier()
+    result = verifier.verify(data)
     assert result.ok is False
     assert "sidebar" in result.errors
 
@@ -258,7 +269,8 @@ def test_verify_extracted_data_no_experiences():
         "sidebar": {"languages": ["EN"]},
         "experiences": [],
     }
-    result = p.verify_extracted_data(data)
+    verifier = ExtractedDataVerifier()
+    result = verifier.verify(data)
     assert result.ok is False
     assert "experiences_empty" in result.errors
 
@@ -271,6 +283,7 @@ def test_verify_extracted_data_invalid_environment():
                    "spoken_languages": ["EN"], "academic_background": ["x"]},
         "experiences": [{"heading": "h", "description": "d", "bullets": ["b"], "environment": "not-a-list"}],
     }
-    result = p.verify_extracted_data(data)
+    verifier = ExtractedDataVerifier()
+    result = verifier.verify(data)
     assert result.ok is True
     assert any("invalid environment format" in w for w in result.warnings)

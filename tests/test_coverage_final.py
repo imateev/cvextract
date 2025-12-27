@@ -6,11 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from zipfile import ZipFile
 
-from cvextract.verification import (
-    compare_json_files,
-    compare_data_structures,
-)
-from cvextract.verifiers.comparison_verifier import ComparisonVerifier
+from cvextract.verifiers import ComparisonVerifier, FileComparisonVerifier
 from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
@@ -94,7 +90,7 @@ class TestNormalizeEnvironmentList:
 
 
 class TestCompareJsonFiles:
-    """Tests for compare_json_files function."""
+    """Tests for FileComparisonVerifier."""
 
     def test_compare_identical_json_files(self, tmp_path):
         """Test comparing identical JSON files."""
@@ -113,7 +109,8 @@ class TestCompareJsonFiles:
         with file2.open("w") as f:
             json.dump(data, f)
         
-        result = compare_json_files(file1, file2)
+        verifier = FileComparisonVerifier()
+        result = verifier.verify({}, source_file=file1, target_file=file2)
         assert result.ok is True
         assert result.errors == []
 
@@ -140,20 +137,22 @@ class TestCompareJsonFiles:
         with file2.open("w") as f:
             json.dump(data2, f)
         
-        result = compare_json_files(file1, file2)
+        verifier = FileComparisonVerifier()
+        result = verifier.verify({}, source_file=file1, target_file=file2)
         assert result.ok is False
         assert len(result.errors) > 0
 
 
 class TestCompareDataStructures:
-    """Tests for compare_data_structures function."""
+    """Tests for ComparisonVerifier."""
 
     def test_compare_primitive_value_mismatch(self):
         """Test detection of primitive value mismatches."""
         original = {"key": "value1"}
         new = {"key": "value2"}
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)
 
@@ -162,7 +161,8 @@ class TestCompareDataStructures:
         original = {"key": "string"}
         new = {"key": 123}
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("type mismatch" in err for err in result.errors)
 
@@ -171,7 +171,8 @@ class TestCompareDataStructures:
         original = {"items": [1, 2, 3]}
         new = {"items": [1, 2]}
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("list length mismatch" in err for err in result.errors)
 
@@ -180,7 +181,8 @@ class TestCompareDataStructures:
         original = {"a": {"b": {"c": 1}}}
         new = {"a": {"b": {"c": 2}}}
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)
 
@@ -189,7 +191,8 @@ class TestCompareDataStructures:
         original = {"a": 1, "b": 2}
         new = {"a": 1}
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("missing key" in err for err in result.errors)
 
@@ -198,7 +201,8 @@ class TestCompareDataStructures:
         original = {"a": 1}
         new = {"a": 1, "b": 2}
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("extra key" in err for err in result.errors)
 
@@ -223,7 +227,8 @@ class TestCompareDataStructures:
             ]
         }
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         # Should be OK because environment is normalized and equivalent
         assert result.ok is True
 
@@ -246,7 +251,8 @@ class TestCompareDataStructures:
             ]
         }
         
-        result = compare_data_structures(original, new)
+        verifier = ComparisonVerifier()
+        result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("environment mismatch" in err for err in result.errors)
 
