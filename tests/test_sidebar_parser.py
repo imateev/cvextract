@@ -1,89 +1,99 @@
-import pytest
+"""Tests for sidebar/header parsing functionality."""
 
+import pytest
 import cvextract.sidebar_parser as sp
 
-def test_normalize_sidebar_sections_splits_and_dedupes():
-    sections = {
-        "skills": ["Python, Python", "AWS  · Azure", "Docker;K8s"],
-    }
-    out = sp._normalize_sidebar_sections(sections)
-    assert out["skills"] == ["Python", "AWS", "Azure", "Docker", "K8s"]
 
-def test_split_identity_and_sidebar_basic():
-    paragraphs = [
-        "Senior Consultant",
-        "Ada Lovelace",
-        "SKILLS.",
-        "Python, AWS",
-        "LANGUAGES.",
-        "English",
-    ]
-    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+class TestSidebarNormalization:
+    """Tests for normalizing sidebar section data."""
 
-    assert identity.title == "Senior Consultant"
-    assert identity.full_name == "Ada Lovelace"
-    assert identity.first_name == "Ada"
-    assert identity.last_name == "Lovelace"
-
-    assert sidebar["skills"] == ["Python", "AWS"]
-    assert sidebar["languages"] == ["English"]
-
-def test_split_identity_and_sidebar_no_sidebar_headings():
-    paragraphs = ["Senior Consultant", "Ada Lovelace"]
-    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
-    assert identity.full_name == ""
-    # sidebar should still have keys (empty lists)
-    assert isinstance(sidebar, dict)
-
-def test_split_identity_and_sidebar_without_dots():
-    """Test that section titles work both with and without trailing dots."""
-    paragraphs = [
-        "Senior Consultant",
-        "Ada Lovelace",
-        "SKILLS",  # Without dot
-        "Python, AWS",
-        "LANGUAGES",  # Without dot
-        "English",
-    ]
-    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
-
-    assert identity.title == "Senior Consultant"
-    assert identity.full_name == "Ada Lovelace"
-    assert sidebar["skills"] == ["Python", "AWS"]
-    assert sidebar["languages"] == ["English"]
-
-def test_split_identity_and_sidebar_mixed_dots():
-    """Test that section titles can be mixed with and without dots."""
-    paragraphs = [
-        "Senior Consultant",
-        "Ada Lovelace",
-        "SKILLS.",  # With dot
-        "Python, AWS",
-        "LANGUAGES",  # Without dot
-        "English",
-        "TOOLS.",  # With dot
-        "Docker, K8s",
-    ]
-    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
-
-    assert sidebar["skills"] == ["Python", "AWS"]
-    assert sidebar["languages"] == ["English"]
-    assert sidebar["tools"] == ["Docker", "K8s"]
+    def test_normalize_with_multiple_separators_splits_and_deduplicates(self):
+        """Skills with commas, bullets, semicolons should be split and duplicates removed."""
+        sections = {
+            "skills": ["Python, Python", "AWS  · Azure", "Docker;K8s"],
+        }
+        out = sp._normalize_sidebar_sections(sections)
+        assert out["skills"] == ["Python", "AWS", "Azure", "Docker", "K8s"]
 
 
-def test_split_identity_and_sidebar_trailing_colons():
-    """Headings with trailing colons should be recognized."""
-    paragraphs = [
-        "Senior Consultant",
-        "Ada Lovelace",
-        "SKILLS:",
-        "Python; AWS",
-        "LANGUAGES:",
-        "English; French",
-    ]
+class TestIdentityAndSidebarParsing:
+    """Tests for parsing identity and sidebar from paragraphs."""
 
-    identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+    def test_parse_with_standard_format_extracts_identity_and_sections(self):
+        """Standard format with title, name, and sections should be parsed correctly."""
+        paragraphs = [
+            "Senior Consultant",
+            "Ada Lovelace",
+            "SKILLS.",
+            "Python, AWS",
+            "LANGUAGES.",
+            "English",
+        ]
+        identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
 
-    assert identity.full_name == "Ada Lovelace"
-    assert sidebar["skills"] == ["Python", "AWS"]
-    assert sidebar["languages"] == ["English", "French"]
+        assert identity.title == "Senior Consultant"
+        assert identity.full_name == "Ada Lovelace"
+        assert identity.first_name == "Ada"
+        assert identity.last_name == "Lovelace"
+
+        assert sidebar["skills"] == ["Python", "AWS"]
+        assert sidebar["languages"] == ["English"]
+
+    def test_parse_with_no_sidebar_headings_returns_empty_identity(self):
+        """When no sidebar section headings exist, should return empty identity."""
+        paragraphs = ["Senior Consultant", "Ada Lovelace"]
+        identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+        assert identity.full_name == ""
+        assert isinstance(sidebar, dict)
+
+    def test_parse_with_headings_without_dots_recognizes_sections(self):
+        """Section titles without trailing dots should still be recognized."""
+        paragraphs = [
+            "Senior Consultant",
+            "Ada Lovelace",
+            "SKILLS",  # Without dot
+            "Python, AWS",
+            "LANGUAGES",  # Without dot
+            "English",
+        ]
+        identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+
+        assert identity.title == "Senior Consultant"
+        assert identity.full_name == "Ada Lovelace"
+        assert sidebar["skills"] == ["Python", "AWS"]
+        assert sidebar["languages"] == ["English"]
+
+    def test_parse_with_mixed_dot_formats_handles_both(self):
+        """Section titles can be mixed with and without dots in same document."""
+        paragraphs = [
+            "Senior Consultant",
+            "Ada Lovelace",
+            "SKILLS.",  # With dot
+            "Python, AWS",
+            "LANGUAGES",  # Without dot
+            "English",
+            "TOOLS.",  # With dot
+            "Docker, K8s",
+        ]
+        identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+
+        assert sidebar["skills"] == ["Python", "AWS"]
+        assert sidebar["languages"] == ["English"]
+        assert sidebar["tools"] == ["Docker", "K8s"]
+
+    def test_parse_with_trailing_colons_recognizes_headings(self):
+        """Headings with trailing colons should be recognized as section markers."""
+        paragraphs = [
+            "Senior Consultant",
+            "Ada Lovelace",
+            "SKILLS:",
+            "Python; AWS",
+            "LANGUAGES:",
+            "English; French",
+        ]
+
+        identity, sidebar = sp.split_identity_and_sidebar(paragraphs)
+
+        assert identity.full_name == "Ada Lovelace"
+        assert sidebar["skills"] == ["Python", "AWS"]
+        assert sidebar["languages"] == ["English", "French"]
