@@ -170,8 +170,10 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
     documents_dir = target_dir / "documents"
+    research_dir = target_dir / "research_data"
     json_dir.mkdir(parents=True, exist_ok=True)
     documents_dir.mkdir(parents=True, exist_ok=True)
+    research_dir.mkdir(parents=True, exist_ok=True)
 
     fully_ok = partial_ok = failed = 0
     had_warning = False
@@ -209,7 +211,9 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
                     with out_json.open("r", encoding="utf-8") as f:
                         original = json.load(f)
                     # Pass cache_path for research results
-                    research_cache = out_docx_dir / (out_json.stem + ".research.json")
+                    research_cache_dir = research_dir / rel_parent
+                    research_cache_dir.mkdir(parents=True, exist_ok=True)
+                    research_cache = research_cache_dir / (out_json.stem + ".research.json")
                     adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                     # Skip compare only if adjustment produced a different JSON
                     skip_compare = adjusted != original
@@ -263,7 +267,9 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
 def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool, adjust_url: Optional[str] = None, openai_model: Optional[str] = None) -> int:
     source_root = infer_source_root(inputs)
     documents_dir = target_dir / "documents"
+    research_dir = target_dir / "research_data"
     documents_dir.mkdir(parents=True, exist_ok=True)
+    research_dir.mkdir(parents=True, exist_ok=True)
 
     fully_ok = failed = 0
 
@@ -288,7 +294,9 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
                 with json_file.open("r", encoding="utf-8") as f:
                     original = json.load(f)
                 # Pass cache_path for research results
-                research_cache = out_docx_dir / (json_file.stem + ".research.json")
+                research_cache_dir = research_dir / rel_parent
+                research_cache_dir.mkdir(parents=True, exist_ok=True)
+                research_cache = research_cache_dir / (json_file.stem + ".research.json")
                 adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                 skip_compare = adjusted != original
                 render_json = out_docx_dir / (json_file.stem + ".adjusted.json")
