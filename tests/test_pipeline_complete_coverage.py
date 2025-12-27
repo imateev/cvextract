@@ -577,3 +577,27 @@ class TestRunApplyModeComplete:
             
             # Should return 1 because there's at least one failure
             assert rc == 1
+
+    def test_basic_flow_without_adjustment(self, tmp_path):
+        """Test basic apply mode flow without customer adjustment to ensure loop body is covered."""
+        json_file = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        target_dir = tmp_path / "output"
+        
+        test_data = {"identity": {"title": "T"}, "sidebar": {}, "overview": "", "experiences": []}
+        json_file.write_text(json.dumps(test_data))
+        template_path.touch()
+        
+        # Mock only the dependencies, not the entire flow
+        with patch("cvextract.pipeline._render_and_verify") as mock_render:
+            mock_render.return_value = (True, [], [], True)
+            
+            # Run without any adjustment URL
+            rc = run_apply_mode([json_file], template_path, target_dir, debug=False)
+            
+            # Verify the loop body executed
+            assert mock_render.called
+            # Verify render was called with the original json_file (no adjustment)
+            call_args = mock_render.call_args[0]
+            assert call_args[0] == json_file
+            assert rc == 0
