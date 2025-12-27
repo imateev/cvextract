@@ -6,6 +6,23 @@ from pathlib import Path
 from cvextract.renderers import CVRenderer, DocxCVRenderer
 
 
+@pytest.fixture
+def real_docx_template(tmp_path):
+    """Create a real DOCX template file for integration testing."""
+    from docx import Document
+    
+    template_path = tmp_path / "template.docx"
+    doc = Document()
+    
+    # Add some template placeholders that match our CV schema
+    doc.add_paragraph("{{ identity.full_name }}")
+    doc.add_paragraph("{{ identity.title }}")
+    doc.add_paragraph("{{ overview }}")
+    
+    doc.save(str(template_path))
+    return template_path
+
+
 class TestCVRendererInterface:
     """Tests for the CVRenderer abstract interface."""
 
@@ -343,3 +360,110 @@ class TestDocxCVRendererFullRendering:
         
         assert result == output_path
         assert output_path.parent.exists()
+
+
+class TestDocxCVRendererIntegration:
+    """Integration tests with real DOCX files (minimal mocking)."""
+    
+    def test_render_with_real_docx_template(self, real_docx_template, tmp_path):
+        """Test rendering with an actual DOCX template file."""
+        output_path = tmp_path / "output.docx"
+        
+        cv_data = {
+            "identity": {
+                "title": "Senior Software Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": {
+                "languages": ["Python", "JavaScript"],
+                "tools": ["Docker", "Kubernetes"],
+                "industries": ["Finance", "Technology"],
+                "spoken_languages": ["English", "Spanish"],
+                "academic_background": ["BS Computer Science"]
+            },
+            "overview": "Experienced software engineer with 10+ years in the industry.",
+            "experiences": [
+                {
+                    "heading": "2020-Present | Senior Engineer at Tech Corp",
+                    "description": "Leading development of cloud infrastructure",
+                    "bullets": ["Architected microservices", "Improved performance by 40%"],
+                    "environment": ["Python", "AWS", "Docker"]
+                }
+            ]
+        }
+        
+        renderer = DocxCVRenderer()
+        result = renderer.render(cv_data, real_docx_template, output_path)
+        
+        # Verify output file was created
+        assert result == output_path
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
+        
+        # Verify it's a valid DOCX file by trying to open it
+        from docx import Document
+        doc = Document(str(output_path))
+        text = '\n'.join([p.text for p in doc.paragraphs])
+        
+        # Verify the data was rendered into the template
+        assert "John Doe" in text
+        assert "Senior Software Engineer" in text
+        assert "Experienced software engineer" in text
+    
+    def test_render_handles_special_characters(self, real_docx_template, tmp_path):
+        """Test that special characters are properly sanitized and rendered."""
+        output_path = tmp_path / "output.docx"
+        
+        cv_data = {
+            "identity": {
+                "title": "Engineer\u00A0with\u00ADtitle",  # Non-breaking space and soft hyphen
+                "full_name": "Test User & Associates",  # Ampersand
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {},
+            "overview": "Overview with special\u00A0chars and & symbols",
+            "experiences": []
+        }
+        
+        renderer = DocxCVRenderer()
+        result = renderer.render(cv_data, real_docx_template, output_path)
+        
+        # Should not raise an error
+        assert result == output_path
+        assert output_path.exists()
+        
+        # Verify the file is readable
+        from docx import Document
+        doc = Document(str(output_path))
+        text = '\n'.join([p.text for p in doc.paragraphs])
+        
+        # Verify content is present (sanitized)
+        assert "Test User" in text
+        assert "Engineer" in text
+    
+    def test_render_with_empty_data(self, real_docx_template, tmp_path):
+        """Test rendering with minimal/empty CV data."""
+        output_path = tmp_path / "output.docx"
+        
+        cv_data = {
+            "identity": {
+                "title": "",
+                "full_name": "",
+                "first_name": "",
+                "last_name": ""
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        renderer = DocxCVRenderer()
+        result = renderer.render(cv_data, real_docx_template, output_path)
+        
+        # Should handle empty data gracefully
+        assert result == output_path
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
