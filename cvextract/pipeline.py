@@ -20,7 +20,7 @@ from .extractors.docx_utils import dump_body_sample
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .shared import VerificationResult
 from .verifiers import ExtractedDataVerifier, ComparisonVerifier
-from .customer_adjust import adjust_for_customer, _url_to_cache_filename
+from .ml_adjustment import adjust_for_customer, _url_to_cache_filename
 
 # ------------------------- Helper -------------------------
 
