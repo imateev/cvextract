@@ -32,6 +32,9 @@ def test_render_from_json_sanitizes_and_saves(monkeypatch, tmp_path: Path):
 def test_render_cv_data_with_external_data(monkeypatch, tmp_path: Path):
     """Test that render_cv_data accepts data as a parameter."""
     template_path = tmp_path / "tpl.docx"
+    # Create a dummy template file
+    template_path.write_text("dummy")
+    
     output_path = tmp_path / "out" / "result.docx"
     
     cv_data = {
@@ -64,6 +67,8 @@ def test_render_cv_data_with_external_template(monkeypatch, tmp_path: Path):
     # Create a custom template path
     custom_template = tmp_path / "templates" / "custom.docx"
     custom_template.parent.mkdir(parents=True, exist_ok=True)
+    # Create a dummy template file
+    custom_template.write_text("dummy")
     
     output_path = tmp_path / "out" / "result.docx"
     

@@ -5,10 +5,10 @@ import cvextract.pipeline as p
 
 def test_render_and_verify_skips_compare(monkeypatch, tmp_path: Path):
     # Arrange: fake render returns a path; skipping compare means we won't call process_single_docx
-    def fake_render(_json, _template, out_dir):
-        return out_dir / "doc_NEW.docx"
+    def fake_render(_cv_data, _template, output_path):
+        return output_path
 
-    monkeypatch.setattr(p, "render_from_json", fake_render)
+    monkeypatch.setattr(p, "render_cv_data", fake_render)
 
     # Set skip compare env and call helper
     monkeypatch.setenv("CVEXTRACT_SKIP_COMPARE", "1")

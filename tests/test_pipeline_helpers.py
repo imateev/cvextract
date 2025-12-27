@@ -77,8 +77,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_render(_json, _template, _out):
-        return _out / "test_NEW.docx"
+    def fake_render(_cv_data, _template, output_path):
+        return output_path
 
     def fake_process(_docx, out=None):
         if out:
@@ -88,7 +88,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     def fake_compare(orig, new):
         return VerificationResult(ok=True, errors=[], warnings=[])
 
-    monkeypatch.setattr(p, "render_from_json", fake_render)
+    monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "compare_data_structures", fake_compare)
 
@@ -102,13 +102,14 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
 def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     """Test rendering exceptions surface as errors."""
     json_file = tmp_path / "test.json"
+    json_file.write_text('{"a": 1}', encoding="utf-8")
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
 
-    def fake_render(_json, _template, _out):
+    def fake_render(_cv_data, _template, _output_path):
         raise ValueError("render failed")
 
-    monkeypatch.setattr(p, "render_from_json", fake_render)
+    monkeypatch.setattr(p, "render_cv_data", fake_render)
 
     ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is False
@@ -126,8 +127,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_render(_json, _template, _out):
-        return _out / "test_NEW.docx"
+    def fake_render(_cv_data, _template, output_path):
+        return output_path
 
     def fake_process(_docx, out=None):
         return {"a": 2}
@@ -135,7 +136,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     def fake_compare(orig, new):
         return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])
 
-    monkeypatch.setattr(p, "render_from_json", fake_render)
+    monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "compare_data_structures", fake_compare)
 

@@ -142,9 +142,9 @@ class TestRenderAndVerify:
         }))
         template_path.touch()
         
-        rendered_docx = out_dir / "test.docx"
+        rendered_docx = out_dir / "test_NEW.docx"
         
-        with patch("cvextract.pipeline.render_from_json") as mock_render, \
+        with patch("cvextract.pipeline.render_cv_data") as mock_render, \
              patch("cvextract.pipeline.process_single_docx") as mock_process, \
              patch("cvextract.pipeline.compare_data_structures") as mock_compare:
             
@@ -174,8 +174,8 @@ class TestRenderAndVerify:
         }))
         template_path.touch()
         
-        with patch("cvextract.pipeline.render_from_json") as mock_render:
-            mock_render.return_value = out_dir / "test.docx"
+        with patch("cvextract.pipeline.render_cv_data") as mock_render:
+            mock_render.return_value = out_dir / "test_NEW.docx"
             
             ok, errors, warns, compare_ok = _render_and_verify(
                 json_path, template_path, out_dir, debug=False, skip_compare=True
@@ -200,9 +200,9 @@ class TestRenderAndVerify:
         json_path.write_text(json.dumps(test_data))
         template_path.touch()
         
-        rendered_docx = out_dir / "test.docx"
+        rendered_docx = out_dir / "test_NEW.docx"
         
-        with patch("cvextract.pipeline.render_from_json") as mock_render, \
+        with patch("cvextract.pipeline.render_cv_data") as mock_render, \
              patch("cvextract.pipeline.process_single_docx") as mock_process, \
              patch("cvextract.pipeline.compare_data_structures") as mock_compare:
             
@@ -233,9 +233,9 @@ class TestRenderAndVerify:
         }))
         template_path.touch()
         
-        rendered_docx = out_dir / "test.docx"
+        rendered_docx = out_dir / "test_NEW.docx"
         
-        with patch("cvextract.pipeline.render_from_json") as mock_render, \
+        with patch("cvextract.pipeline.render_cv_data") as mock_render, \
              patch("cvextract.pipeline.process_single_docx") as mock_process, \
              patch("cvextract.pipeline.compare_data_structures") as mock_compare:
             
@@ -264,7 +264,7 @@ class TestRenderAndVerify:
         json_path.write_text(json.dumps({}))
         template_path.touch()
         
-        with patch("cvextract.pipeline.render_from_json") as mock_render:
+        with patch("cvextract.pipeline.render_cv_data") as mock_render:
             mock_render.side_effect = RuntimeError("Render failed")
             
             ok, errors, warns, compare_ok = _render_and_verify(
