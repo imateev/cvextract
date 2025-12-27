@@ -21,7 +21,7 @@ from .pipeline_highlevel import process_single_docx
 from .render import render_from_json
 from .shared import VerificationResult
 from .verification import verify_extracted_data, compare_data_structures
-from .customer_adjust import adjust_for_customer
+from .customer_adjust import adjust_for_customer, _url_to_cache_filename
 
 # ------------------------- Helper -------------------------
 
@@ -170,8 +170,10 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
     source_root = infer_source_root(inputs)
     json_dir = target_dir / "structured_data"
     documents_dir = target_dir / "documents"
+    research_dir = target_dir / "research_data"
     json_dir.mkdir(parents=True, exist_ok=True)
     documents_dir.mkdir(parents=True, exist_ok=True)
+    research_dir.mkdir(parents=True, exist_ok=True)
 
     fully_ok = partial_ok = failed = 0
     had_warning = False
@@ -208,7 +210,11 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
                 try:
                     with out_json.open("r", encoding="utf-8") as f:
                         original = json.load(f)
-                    adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                    # Pass cache_path for research results (company-specific, not CV-specific)
+                    research_cache_dir = research_dir / rel_parent
+                    research_cache_dir.mkdir(parents=True, exist_ok=True)
+                    research_cache = research_cache_dir / _url_to_cache_filename(adjust_url)
+                    adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                     # Skip compare only if adjustment produced a different JSON
                     skip_compare = adjusted != original
                     render_json = out_json.with_name(out_json.stem + ".adjusted.json")
@@ -261,7 +267,9 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
 def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, debug: bool, adjust_url: Optional[str] = None, openai_model: Optional[str] = None) -> int:
     source_root = infer_source_root(inputs)
     documents_dir = target_dir / "documents"
+    research_dir = target_dir / "research_data"
     documents_dir.mkdir(parents=True, exist_ok=True)
+    research_dir.mkdir(parents=True, exist_ok=True)
 
     fully_ok = failed = 0
 
@@ -285,7 +293,11 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
             try:
                 with json_file.open("r", encoding="utf-8") as f:
                     original = json.load(f)
-                adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                # Pass cache_path for research results (company-specific, not CV-specific)
+                research_cache_dir = research_dir / rel_parent
+                research_cache_dir.mkdir(parents=True, exist_ok=True)
+                research_cache = research_cache_dir / _url_to_cache_filename(adjust_url)
+                adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                 skip_compare = adjusted != original
                 render_json = out_docx_dir / (json_file.stem + ".adjusted.json")
                 with render_json.open("w", encoding="utf-8") as wf:
