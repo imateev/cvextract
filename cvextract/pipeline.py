@@ -208,7 +208,9 @@ def run_extract_apply_mode(inputs: List[Path], template_path: Path, target_dir: 
                 try:
                     with out_json.open("r", encoding="utf-8") as f:
                         original = json.load(f)
-                    adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                    # Pass cache_path for research results
+                    research_cache = out_docx_dir / (out_json.stem + ".research.json")
+                    adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                     # Skip compare only if adjustment produced a different JSON
                     skip_compare = adjusted != original
                     render_json = out_json.with_name(out_json.stem + ".adjusted.json")
@@ -285,7 +287,9 @@ def run_apply_mode(inputs: List[Path], template_path: Path, target_dir: Path, de
             try:
                 with json_file.open("r", encoding="utf-8") as f:
                     original = json.load(f)
-                adjusted = adjust_for_customer(original, adjust_url, model=openai_model)
+                # Pass cache_path for research results
+                research_cache = out_docx_dir / (json_file.stem + ".research.json")
+                adjusted = adjust_for_customer(original, adjust_url, model=openai_model, cache_path=research_cache)
                 skip_compare = adjusted != original
                 render_json = out_docx_dir / (json_file.stem + ".adjusted.json")
                 with render_json.open("w", encoding="utf-8") as wf:

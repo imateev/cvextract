@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import json
 from typing import Any, Dict, Optional
+from pathlib import Path
 
 import logging
 
@@ -31,6 +32,23 @@ except Exception:  # pragma: no cover
 
 LOG = logging.getLogger("cvextract")
 
+# Load research schema
+_SCHEMA_PATH = Path(__file__).parent.parent / "research_schema.json"
+_RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
+
+def _load_research_schema() -> Optional[Dict[str, Any]]:
+    """Load the research schema from file."""
+    global _RESEARCH_SCHEMA
+    if _RESEARCH_SCHEMA is not None:
+        return _RESEARCH_SCHEMA
+    try:
+        with open(_SCHEMA_PATH, "r", encoding="utf-8") as f:
+            _RESEARCH_SCHEMA = json.load(f)
+        return _RESEARCH_SCHEMA
+    except Exception as e:
+        LOG.warning("Failed to load research schema: %s", e)
+        return None
+
 
 def _fetch_customer_page(url: str) -> str:
     if not requests:
@@ -44,10 +62,157 @@ def _fetch_customer_page(url: str) -> str:
         return ""
 
 
-def adjust_for_customer(data: Dict[str, Any], customer_url: str, *, api_key: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+def _research_company_profile(
+    customer_url: str, 
+    api_key: str, 
+    model: str, 
+    cache_path: Optional[Path] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Research a company profile from its URL using OpenAI.
+    
+    Args:
+        customer_url: The company website URL
+        api_key: OpenAI API key
+        model: OpenAI model to use
+        cache_path: Optional path to cache file (e.g., <cv_name>.research.json)
+    
+    Returns:
+        Dict containing company profile data, or None if research fails
+    """
+    # Check cache first
+    if cache_path and cache_path.exists():
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached_data = json.load(f)
+            # Basic validation that it's a dict with required fields
+            if isinstance(cached_data, dict) and "name" in cached_data and "domains" in cached_data:
+                LOG.info("Using cached company research from %s", cache_path)
+                return cached_data
+        except Exception as e:
+            LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
+    
+    # No valid cache, perform research
+    if not OpenAI:
+        LOG.warning("Company research skipped: OpenAI unavailable")
+        return None
+    
+    # Fetch page content
+    page_text = _fetch_customer_page(customer_url)
+    if not page_text:
+        LOG.warning("Company research skipped: could not fetch page content")
+        return None
+    
+    # Load schema
+    schema = _load_research_schema()
+    if not schema:
+        LOG.warning("Company research skipped: schema not available")
+        return None
+    
+    # Build research prompt
+    research_prompt = f"""You are an expert company research and profiling system.
+
+Given the company website URL below, analyze the company using only information that can be reasonably inferred from the website content and general business knowledge.
+
+URL:
+{customer_url}
+
+TASK:
+Generate a single JSON object that conforms EXACTLY to the following JSON Schema:
+- Include only fields defined in the schema
+- Do not add extra fields
+- Omit fields if information is unavailable
+- Use conservative inference and assign confidence values where applicable
+- If making inferences, ensure they are supported by observable signals (e.g., website language, products, use cases)
+
+OUTPUT RULES:
+- Output VALID JSON only
+- Do NOT include markdown, comments, or explanations
+- Do NOT wrap the JSON in code fences
+- Ensure all enums and data types match the schema
+- Ensure confidence values are between 0 and 1
+
+SEMANTIC GUIDELINES:
+- "domains" should reflect the company's primary business areas (industries, sectors, or problem spaces)
+- "technology_signals" should represent inferred or observed technology relevance, not guaranteed usage
+- "interest_level" reflects importance to the business, not maturity
+- "signals" should briefly state the evidence for the inference
+
+JSON SCHEMA:
+{json.dumps(schema, indent=2)}
+
+WEBSITE CONTENT (first 30000 chars):
+{page_text[:30000]}"""
+    
+    try:
+        client = OpenAI(api_key=api_key)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "user", "content": research_prompt}
+            ],
+            temperature=0.2,
+        )
+        content = completion.choices[0].message.content if completion.choices else None
+        if not content:
+            LOG.warning("Company research: empty completion")
+            return None
+        
+        # Parse JSON response
+        try:
+            research_data = json.loads(content)
+            if not isinstance(research_data, dict):
+                LOG.warning("Company research: response is not a dict")
+                return None
+            
+            # Basic validation
+            if "name" not in research_data or "domains" not in research_data:
+                LOG.warning("Company research: missing required fields")
+                return None
+            
+            # Cache the result
+            if cache_path:
+                try:
+                    cache_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(cache_path, "w", encoding="utf-8") as f:
+                        json.dump(research_data, f, ensure_ascii=False, indent=2)
+                    LOG.info("Cached company research to %s", cache_path)
+                except Exception as e:
+                    LOG.warning("Failed to cache research (%s)", type(e).__name__)
+            
+            LOG.info("Successfully researched company profile")
+            return research_data
+            
+        except json.JSONDecodeError:
+            LOG.warning("Company research: invalid JSON response")
+            return None
+            
+    except Exception as e:
+        LOG.warning("Company research error (%s)", type(e).__name__)
+        return None
+
+
+def adjust_for_customer(
+    data: Dict[str, Any], 
+    customer_url: str, 
+    *, 
+    api_key: Optional[str] = None, 
+    model: Optional[str] = None,
+    cache_path: Optional[Path] = None
+) -> Dict[str, Any]:
     """
     Use OpenAI to adjust extracted JSON for a specific customer.
     Returns a new dict; on any error, returns the original data unchanged.
+    
+    Args:
+        data: The extracted CV data
+        customer_url: URL to the customer's website
+        api_key: Optional OpenAI API key (defaults to OPENAI_API_KEY env var)
+        model: Optional OpenAI model (defaults to OPENAI_MODEL env var or 'gpt-4o-mini')
+        cache_path: Optional path to cache research results (e.g., <cv_name>.research.json)
+    
+    Returns:
+        Adjusted CV data dict, or original data if adjustment fails
     """
     api_key = api_key or os.environ.get("OPENAI_API_KEY")
     model = model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
@@ -56,21 +221,56 @@ def adjust_for_customer(data: Dict[str, Any], customer_url: str, *, api_key: Opt
         LOG.warning("Customer adjust skipped: OpenAI unavailable or API key missing.")
         return data
 
-    # Fetch page content to enrich the prompt
-    page_text = _fetch_customer_page(customer_url)
+    # Step 1: Research company profile
+    research_data = _research_company_profile(customer_url, api_key, model, cache_path)
+    
+    # If research fails, skip adjustment entirely
+    if not research_data:
+        LOG.warning("Customer adjust skipped: company research failed")
+        return data
 
     client = OpenAI(api_key=api_key)
 
-    system_prompt = (
-        "You are a helpful assistant that adjusts JSON resumes for a target customer. "
-        "Given a JSON representing a CV, return a modified JSON that keeps the same schema and keys, "
-        "but reorders bullets, highlights relevant tools/industries, and adjusts descriptions to better match the customer's domain. "
-        "Do not invent experience or add new keys. Keep types identical. Return ONLY raw JSON. Put that raw JSON response in the payload under adjusted_json."
-    )
+    # Step 2: Build enhanced system prompt using structured research data
+    tech_signals_text = ""
+    if research_data.get("technology_signals"):
+        tech_signals_text = "\n\nKey Technology Signals:"
+        for signal in research_data["technology_signals"]:
+            tech = signal.get("technology", "Unknown")
+            interest = signal.get("interest_level", "unknown")
+            confidence = signal.get("confidence", 0)
+            evidence = signal.get("signals", [])
+            tech_signals_text += f"\n- {tech} (interest: {interest}, confidence: {confidence:.2f})"
+            if evidence:
+                tech_signals_text += f"\n  Evidence: {'; '.join(evidence[:2])}"
+    
+    domains_text = ", ".join(research_data.get("domains", []))
+    company_name = research_data.get("name", "the company")
+    company_desc = research_data.get("description", "")
+    
+    system_prompt = f"""You are a helpful assistant that adjusts JSON resumes for a target customer.
+
+CUSTOMER PROFILE:
+Company: {company_name}
+Description: {company_desc}
+Business Domains: {domains_text}{tech_signals_text}
+
+TASK:
+Given a JSON representing a CV, return a modified JSON that keeps the same schema and keys, 
+but reorders bullets, highlights relevant tools/industries, and adjusts descriptions to better 
+match the customer's domain and technology interests.
+
+RULES:
+- Do not invent experience or add new keys
+- Keep types identical
+- Prioritize experience and skills relevant to the customer's domains and technology signals
+- Emphasize technologies with high interest_level
+- Return ONLY raw JSON
+- Put that raw JSON response in the payload under adjusted_json"""
 
     user_payload = {
         "customer_url": customer_url,
-        "customer_page_excerpt": page_text[:30000],  # cap content size
+        "company_profile": research_data,
         "original_json": data,
         "adjusted_json": "",
     }
