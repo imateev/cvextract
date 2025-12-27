@@ -139,6 +139,8 @@ SEMANTIC GUIDELINES:
 - "signals" should briefly state the evidence for the inference from public sources
 - "acquisition_history" should include past acquisitions and ownership changes from public business databases (e.g., Northdata, Crunchbase, etc.)
 - "rebranded_from" should list previous company names if the company has been rebranded
+- "owned_products" should list concrete products/services the company owns, develops, or sells (not abstract technologies)
+- "used_products" should list concrete products, tools, and platforms the company uses in their tech stack or operations (not abstract technologies)
 
 JSON SCHEMA:
 {json.dumps(schema, indent=2)}"""

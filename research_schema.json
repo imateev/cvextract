@@ -140,6 +140,52 @@
       "description": "Past names for the same company, showing rebranding history.",
       "items": { "type": "string" },
       "uniqueItems": true
+    },
+    "owned_products": {
+      "type": "array",
+      "description": "Concrete products and services that the company owns, develops, or sells.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the product or service."
+          },
+          "category": {
+            "type": "string",
+            "description": "Product category (e.g., software, hardware, SaaS, consulting)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of what the product does."
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
+    },
+    "used_products": {
+      "type": "array",
+      "description": "Concrete products, tools, and platforms that the company uses in their operations or tech stack.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the product, tool, or platform."
+          },
+          "category": {
+            "type": "string",
+            "description": "Product category (e.g., CRM, cloud platform, database, analytics)."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "How the company uses this product."
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false
