@@ -29,6 +29,17 @@ The rendering logic is implemented using a pluggable architecture (`cvextract/re
 
 See `cvextract/renderers/README.md` for details on creating custom renderers.
 
+### Pluggable Verifiers
+The verification logic is implemented using a pluggable architecture (`cvextract/verifiers/`) that allows:
+- **Interchangeable implementations**: Easy to swap or customize verification logic
+- **Schema validation**: Validates against cv_schema.json
+- **Completeness checks**: Verifies extracted data for required fields
+- **Roundtrip comparison**: Compares source and target data structures
+- **External parameters**: Source and target data can be passed from outside
+- **Testing flexibility**: Mock verifiers for testing without real data
+
+See `cvextract/verifiers/README.md` for details on creating custom verifiers.
+
 
 ### What it does
 - Reads a .docx directly from its WordprocessingML (XML) parts to extract content reliably without external converters.
