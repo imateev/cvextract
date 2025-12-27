@@ -5,7 +5,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 # Import implementation functions directly
-from cvextract.docx_utils import extract_text_from_w_p
+from cvextract.extractors.docx_utils import extract_text_from_w_p
 from cvextract.extractors.body_parser import parse_cv_from_docx_body
 from cvextract.extractors.sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
 from cvextract.pipeline_highlevel import extract_cv_structure
@@ -122,7 +122,7 @@ def test_normalize_text_replaces_nbsp_and_soft_hyphen_char():
 
 def test_extract_text_from_w_p_handles_hyphen_nodes_breaks_and_tabs():
     
-    du = importlib.import_module("cvextract.docx_utils")
+    du = importlib.import_module("cvextract.extractors.docx_utils")
     from lxml import etree
 
     xml = _p_with_special_nodes().encode("utf-8")

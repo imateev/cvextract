@@ -11,7 +11,7 @@ from cvextract.extractors.sidebar_parser import (
     _extract_paragraph_texts,
     _iter_heading_positions,
 )
-from cvextract.docx_utils import XML_PARSER, HEADER_NS
+from cvextract.extractors.docx_utils import XML_PARSER, HEADER_NS
 from lxml import etree
 
 

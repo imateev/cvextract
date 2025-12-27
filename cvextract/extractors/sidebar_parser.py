@@ -19,7 +19,7 @@ from ..shared import (
     clean_text,
     Identity, 
 )
-from ..docx_utils import (
+from .docx_utils import (
     extract_text_from_w_p,
     XML_PARSER,
 )
