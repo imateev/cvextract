@@ -45,7 +45,10 @@ class DocxCVRenderer(CVRenderer):
         if not template_path.exists():
             raise FileNotFoundError(f"Template file not found: {template_path}")
 
-        if not template_path.is_file() or template_path.suffix.lower() != ".docx":
+        if not template_path.is_file():
+            raise ValueError(f"Template path is not a file: {template_path}")
+        
+        if template_path.suffix.lower() != ".docx":
             raise ValueError(f"Template must be a .docx file: {template_path}")
 
         # Sanitize data for XML safety
