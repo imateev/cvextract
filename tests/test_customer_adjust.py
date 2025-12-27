@@ -386,8 +386,8 @@ class TestResearchCompanyProfile:
         cache_file = tmp_path / "test.research.json"
         cache_file.write_text("invalid json")
         
-        # Mock the research to fail after cache fails
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        # Mock the research to fail after cache fails (schema unavailable)
+        monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value=None))
         
         result = _research_company_profile(
             "https://example.com",
@@ -412,22 +412,8 @@ class TestResearchCompanyProfile:
         assert result is None
         assert "OpenAI unavailable" in caplog.text
 
-    def test_research_company_profile_page_fetch_fails(self, caplog, monkeypatch):
-        """Test when page fetch fails."""
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
-        
-        result = _research_company_profile(
-            "https://example.com",
-            "test-key",
-            "gpt-4o-mini"
-        )
-        
-        assert result is None
-        assert "could not fetch page content" in caplog.text
-
     def test_research_company_profile_schema_load_fails(self, caplog, monkeypatch):
         """Test when schema loading fails."""
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value=None))
         
         result = _research_company_profile(
@@ -466,7 +452,6 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="<html>content</html>"))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
@@ -495,7 +480,6 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
@@ -519,7 +503,6 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
@@ -543,7 +526,7 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
+        monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
@@ -567,7 +550,6 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
@@ -587,7 +569,7 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
+        monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(

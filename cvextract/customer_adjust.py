@@ -102,12 +102,6 @@ def _research_company_profile(
         LOG.warning("Company research skipped: OpenAI unavailable")
         return None
     
-    # Fetch page content
-    page_text = _fetch_customer_page(customer_url)
-    if not page_text:
-        LOG.warning("Company research skipped: could not fetch page content")
-        return None
-    
     # Load schema
     schema = _load_research_schema()
     if not schema:
@@ -117,7 +111,7 @@ def _research_company_profile(
     # Build research prompt
     research_prompt = f"""You are an expert company research and profiling system.
 
-Given the company website URL below, analyze the company using only information that can be reasonably inferred from the website content and general business knowledge.
+Given the company website URL below, use it as a starting point to gather available public information about the company to fill out the profile. Use your knowledge of publicly available information, business databases, industry trends, and other public sources to research the company.
 
 URL:
 {customer_url}
@@ -128,7 +122,8 @@ Generate a single JSON object that conforms EXACTLY to the following JSON Schema
 - Do not add extra fields
 - Omit fields if information is unavailable
 - Use conservative inference and assign confidence values where applicable
-- If making inferences, ensure they are supported by observable signals (e.g., website language, products, use cases)
+- Base your research on publicly available information about the company
+- If making inferences, ensure they are supported by observable signals from public sources
 
 OUTPUT RULES:
 - Output VALID JSON only
@@ -139,15 +134,12 @@ OUTPUT RULES:
 
 SEMANTIC GUIDELINES:
 - "domains" should reflect the company's primary business areas (industries, sectors, or problem spaces)
-- "technology_signals" should represent inferred or observed technology relevance, not guaranteed usage
+- "technology_signals" should represent inferred or observed technology relevance based on public information
 - "interest_level" reflects importance to the business, not maturity
-- "signals" should briefly state the evidence for the inference
+- "signals" should briefly state the evidence for the inference from public sources
 
 JSON SCHEMA:
-{json.dumps(schema, indent=2)}
-
-WEBSITE CONTENT (first 30000 chars):
-{page_text[:30000]}"""
+{json.dumps(schema, indent=2)}"""
     
     try:
         client = OpenAI(api_key=api_key)
