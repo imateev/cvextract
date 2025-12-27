@@ -8,3 +8,6 @@ __pycache__/
 .vscode/
 
 .coverage
+
+# Research cache files
+*.research.json

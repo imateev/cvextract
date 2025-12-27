@@ -1,0 +1,4 @@
+lxml
+docxtpl
+requests
+openai
