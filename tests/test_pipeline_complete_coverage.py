@@ -601,3 +601,40 @@ class TestRunApplyModeComplete:
             call_args = mock_render.call_args[0]
             assert call_args[0] == json_file
             assert rc == 0
+
+    def test_adjustment_path_with_file_operations(self, tmp_path):
+        """Test adjustment path ensuring all file I/O operations are covered."""
+        json_file = tmp_path / "test.json"
+        template_path = tmp_path / "template.docx"
+        target_dir = tmp_path / "output"
+        
+        test_data = {"identity": {"title": "T"}, "sidebar": {}, "overview": "", "experiences": []}
+        json_file.write_text(json.dumps(test_data))
+        template_path.touch()
+        
+        adjusted_data = {"identity": {"title": "T Adjusted"}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        # Mock adjust_for_customer but allow file operations to proceed
+        with patch("cvextract.pipeline.adjust_for_customer") as mock_adjust, \
+             patch("cvextract.pipeline._render_and_verify") as mock_render:
+            
+            mock_adjust.return_value = adjusted_data
+            mock_render.return_value = (True, [], [], True)
+            
+            rc = run_apply_mode([json_file], template_path, target_dir, 
+                              debug=False, adjust_url="https://example.com")
+            
+            # Verify adjust_for_customer was called with cache_path
+            assert mock_adjust.called
+            call_kwargs = mock_adjust.call_args[1]
+            assert "cache_path" in call_kwargs
+            
+            # Verify the adjusted.json file was created
+            expected_adjusted = target_dir / "documents" / (json_file.stem + ".adjusted.json")
+            assert expected_adjusted.exists()
+            
+            # Verify render was called with the adjusted json
+            render_call_args = mock_render.call_args[0]
+            assert ".adjusted.json" in str(render_call_args[0])
+            
+            assert rc == 0
