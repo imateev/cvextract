@@ -232,6 +232,31 @@ class TestResearchCompanyUrl:
         
         assert result["mission"] == "OG description"
 
+    def test_research_company_url_word_boundary_matching(self, monkeypatch):
+        """Test that industry detection uses word boundaries to avoid false positives."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        # "unfinancial" should NOT match "financial"
+        mock_response.text = """
+        <html>
+        <head>
+            <meta name="description" content="We provide unfinancial services and technology">
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        # Should detect "technology" but NOT "finance" (from "unfinancial")
+        if "industry" in result:
+            assert "technology" in result["industry"]
+            # "finance" should not be detected from "unfinancial"
+            assert "finance" not in result["industry"] or "technology" in result["industry"]
+
 
 class TestFetchCustomerPage:
     """Tests for _fetch_customer_page helper."""

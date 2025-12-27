@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import json
+import re
 from typing import Any, Dict, Optional
 
 import logging
@@ -35,6 +36,17 @@ except Exception:  # pragma: no cover
     HTMLParser = None  # type: ignore
 
 LOG = logging.getLogger("cvextract")
+
+
+# Industry keywords for inference - module-level constant
+_INDUSTRY_KEYWORDS = {
+    "technology": ["software", "tech", "cloud", "ai", "machine learning", "data"],
+    "finance": ["financial", "banking", "investment", "fintech"],
+    "healthcare": ["health", "medical", "pharmaceutical", "biotech"],
+    "retail": ["retail", "ecommerce", "e-commerce", "shopping"],
+    "consulting": ["consulting", "advisory", "professional services"],
+    "education": ["education", "learning", "training"],
+}
 
 
 class _MetaParser(HTMLParser):
@@ -68,7 +80,11 @@ class _MetaParser(HTMLParser):
             
     def handle_data(self, data):
         if self.in_title and data.strip():
-            self.title = data.strip()
+            # Concatenate title parts in case there are multiple text nodes
+            if self.title:
+                self.title += " " + data.strip()
+            else:
+                self.title = data.strip()
 
 
 def _research_company_url(url: str) -> Dict[str, Any]:
@@ -131,20 +147,14 @@ def _research_company_url(url: str) -> Dict[str, Any]:
         description = parser.meta_data.get("description", "").lower()
         combined = f"{keywords} {description}"
         
-        # Simple industry inference based on common terms
-        industry_keywords = {
-            "technology": ["software", "tech", "cloud", "ai", "machine learning", "data"],
-            "finance": ["financial", "banking", "investment", "fintech"],
-            "healthcare": ["health", "medical", "pharmaceutical", "biotech"],
-            "retail": ["retail", "ecommerce", "e-commerce", "shopping"],
-            "consulting": ["consulting", "advisory", "professional services"],
-            "education": ["education", "learning", "training"],
-        }
-        
+        # Industry inference using word boundary matching to avoid false positives
         detected_industries = []
-        for industry, terms in industry_keywords.items():
-            if any(term in combined for term in terms):
-                detected_industries.append(industry)
+        for industry, terms in _INDUSTRY_KEYWORDS.items():
+            for term in terms:
+                # Use word boundary matching to avoid false positives like "unfinancial"
+                if re.search(r'\b' + re.escape(term) + r'\b', combined):
+                    detected_industries.append(industry)
+                    break  # Only add industry once
         
         if detected_industries:
             research_data["industry"] = ", ".join(detected_industries[:3])  # limit to top 3
