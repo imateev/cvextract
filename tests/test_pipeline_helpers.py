@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock
-import cvextract.pipeline as p
+import cvextract.pipeline_helpers as p
 from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
 from cvextract.shared import VerificationResult
 
@@ -24,7 +24,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p._extract_single(docx, out_json, debug=False)
+    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
     assert ok is True
     assert errs == []
     assert len(warns) == 0
@@ -46,7 +46,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p._extract_single(docx, out_json, debug=False)
+    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
     assert ok is True
     assert errs == []
     assert len(warns) > 0
@@ -63,7 +63,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p._extract_single(docx, out_json, debug=False)
+    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
     assert ok is False
     assert len(errs) == 1
     assert "exception: RuntimeError" in errs[0]
@@ -97,7 +97,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr("cvextract.verifiers.ComparisonVerifier", lambda: comparison_verifier)
 
-    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is True
     assert errs == []
     assert warns == []
@@ -116,7 +116,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
 
-    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is False
     assert len(errs) == 1
     assert "render: ValueError" in errs[0]
@@ -149,7 +149,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr("cvextract.verifiers.ComparisonVerifier", lambda: comparison_verifier)
 
-    ok, errs, warns, compare_ok = p._render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is False
     assert "value mismatch" in errs[0]
     assert warns == []
@@ -158,7 +158,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
 
 def test_get_status_icons_extract_success_no_warnings():
     """Test icons for successful extraction without warnings."""
-    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
+    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
     assert x_icon == "🟢"
     assert a_icon == "➖"
     assert c_icon == "➖"
@@ -166,7 +166,7 @@ def test_get_status_icons_extract_success_no_warnings():
 
 def test_get_status_icons_extract_success_with_warnings():
     """Test icons for successful extraction with warnings."""
-    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None)
+    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None)
     assert x_icon == "⚠️ "
     assert a_icon == "➖"
     assert c_icon == "➖"
@@ -174,7 +174,7 @@ def test_get_status_icons_extract_success_with_warnings():
 
 def test_get_status_icons_extract_failed():
     """Test icons for failed extraction."""
-    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=False, has_warns=False, apply_ok=None, compare_ok=None)
+    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=False, has_warns=False, apply_ok=None, compare_ok=None)
     assert x_icon == "❌"
     assert a_icon == "➖"
     assert c_icon == "➖"
@@ -182,7 +182,7 @@ def test_get_status_icons_extract_failed():
 
 def test_get_status_icons_apply_success():
     """Test icons for successful apply."""
-    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
+    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
     assert x_icon == "🟢"
     assert a_icon == "✅"
     assert c_icon == "✅"
@@ -190,7 +190,7 @@ def test_get_status_icons_apply_success():
 
 def test_get_status_icons_apply_failed():
     """Test icons for failed apply."""
-    x_icon, a_icon, c_icon = p._get_status_icons(extract_ok=True, has_warns=False, apply_ok=False, compare_ok=False)
+    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=False, compare_ok=False)
     assert x_icon == "🟢"
     assert a_icon == "❌"
     assert c_icon == "⚠️ "
@@ -198,7 +198,7 @@ def test_get_status_icons_apply_failed():
 
 def test_categorize_result_extract_failed():
     """Test categorization when extraction fails."""
-    full, part, fail = p._categorize_result(extract_ok=False, has_warns=False, apply_ok=None)
+    full, part, fail = p.categorize_result(extract_ok=False, has_warns=False, apply_ok=None)
     assert full == 0
     assert part == 0
     assert fail == 1
@@ -206,7 +206,7 @@ def test_categorize_result_extract_failed():
 
 def test_categorize_result_extract_success_no_warnings_no_apply():
     """Test categorization for successful extraction without apply."""
-    full, part, fail = p._categorize_result(extract_ok=True, has_warns=False, apply_ok=None)
+    full, part, fail = p.categorize_result(extract_ok=True, has_warns=False, apply_ok=None)
     assert full == 1
     assert part == 0
     assert fail == 0
@@ -214,7 +214,7 @@ def test_categorize_result_extract_success_no_warnings_no_apply():
 
 def test_categorize_result_extract_success_with_warnings():
     """Test categorization for extraction with warnings."""
-    full, part, fail = p._categorize_result(extract_ok=True, has_warns=True, apply_ok=None)
+    full, part, fail = p.categorize_result(extract_ok=True, has_warns=True, apply_ok=None)
     assert full == 0
     assert part == 1
     assert fail == 0
@@ -222,7 +222,7 @@ def test_categorize_result_extract_success_with_warnings():
 
 def test_categorize_result_apply_failed():
     """Test categorization when apply fails."""
-    full, part, fail = p._categorize_result(extract_ok=True, has_warns=False, apply_ok=False)
+    full, part, fail = p.categorize_result(extract_ok=True, has_warns=False, apply_ok=False)
     assert full == 0
     assert part == 1
     assert fail == 0
@@ -230,7 +230,7 @@ def test_categorize_result_apply_failed():
 
 def test_categorize_result_fully_successful():
     """Test categorization for fully successful run."""
-    full, part, fail = p._categorize_result(extract_ok=True, has_warns=False, apply_ok=True)
+    full, part, fail = p.categorize_result(extract_ok=True, has_warns=False, apply_ok=True)
     assert full == 1
     assert part == 0
     assert fail == 0

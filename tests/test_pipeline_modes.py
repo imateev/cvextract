@@ -1,6 +1,7 @@
 import pytest
 
 from pathlib import Path
+from unittest.mock import Mock, patch
 import cvextract.pipeline as p
 from cvextract.shared import VerificationResult
 
@@ -43,7 +44,7 @@ def test_run_extract_mode_success(monkeypatch, tmp_path: Path):
             "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
         }
 
-    monkeypatch.setattr(p, "process_single_docx", fake_process_single_docx)
+    monkeypatch.setattr("cvextract.pipeline_helpers.process_single_docx", fake_process_single_docx)
 
     rc = p.run_extract_mode([docx], target_dir=tmp_path / "target", strict=False, debug=False)
     assert rc == 0
@@ -71,10 +72,70 @@ def test_run_extract_apply_mode_render_failure(monkeypatch, tmp_path: Path):
     def fake_render(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(p, "process_single_docx", fake_process_single_docx)
-    monkeypatch.setattr(p, "render_cv_data", fake_render)
+    monkeypatch.setattr("cvextract.pipeline_helpers.process_single_docx", fake_process_single_docx)
+    monkeypatch.setattr("cvextract.pipeline_helpers.render_cv_data", fake_render)
 
     rc = p.run_extract_apply_mode([docx], template_path=tmp_path / "tpl.docx", target_dir=tmp_path / "target", strict=False, debug=False)
     # Return code is 0 if failed == 0 AND partial_ok == 0; since this returns rc=0, both must be 0
     # This means the file was processed but returned early (likely due to extract_ok check)
     assert rc == 0
+
+
+# Merged tests from test_pipeline_modes_coverage.py
+
+class TestRunExtractMode:
+    """Tests for run_extract_mode function."""
+
+    def test_run_extract_mode_success_with_mocks(self, tmp_path):
+        """Test successful extract mode with JSON outputs."""
+        docx_file = tmp_path / "test.docx"
+        target_dir = tmp_path / "output"
+        docx_file.touch()
+        target_dir.mkdir()
+        
+        mock_data = {
+            "identity": {"title": "E", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "sidebar": {"languages": ["EN"]},
+            "overview": "Text",
+            "experiences": [],
+        }
+        
+        with patch("cvextract.pipeline_helpers.extract_single") as mock_extract:
+            mock_extract.return_value = (True, [], [])
+            
+            rc = p.run_extract_mode([docx_file], target_dir, strict=False, debug=False)
+            assert rc == 0
+
+    def test_run_extract_mode_with_failure(self, tmp_path):
+        """Test extract mode when extraction fails."""
+        docx_file = tmp_path / "test.docx"
+        target_dir = tmp_path / "output"
+        docx_file.touch()
+        target_dir.mkdir()
+        
+        with patch("cvextract.pipeline_helpers.extract_single") as mock_extract:
+            mock_extract.return_value = (False, ["Error"], [])
+            
+            rc = p.run_extract_mode([docx_file], target_dir, strict=False, debug=False)
+            assert rc == 1
+
+    def test_run_extract_mode_nonexistent_file(self, tmp_path):
+        """Test extract mode with non-existent file."""
+        missing_file = tmp_path / "missing.docx"
+        target_dir = tmp_path / "output"
+        target_dir.mkdir()
+        
+        rc = p.run_extract_mode([missing_file], target_dir, strict=False, debug=False)
+        # Should skip missing files or return error depending on strict mode
+        assert rc in [0, 1]
+
+    def test_run_extract_mode_strict_missing_file(self, tmp_path):
+        """Test extract mode strict mode with missing file."""
+        missing_file = tmp_path / "missing.docx"
+        target_dir = tmp_path / "output"
+        target_dir.mkdir()
+        
+        rc = p.run_extract_mode([missing_file], target_dir, strict=True, debug=False)
+        # Strict mode should fail on missing file
+        assert rc == 1
+
