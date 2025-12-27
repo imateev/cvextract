@@ -232,7 +232,7 @@ class TestPipelineEdgeCases:
         def fake_extract(*args):
             pytest.fail("Should not extract non-.docx files")
         
-        monkeypatch.setattr(pipeline, "_extract_single", fake_extract)
+        monkeypatch.setattr(helpers, "extract_single", fake_extract)
         
         rc = pipeline.run_extract_mode([src_dir / "file.txt"], tmp_path / "out", False, False)
         # Should succeed with 0 inputs processed
@@ -248,7 +248,7 @@ class TestPipelineEdgeCases:
         def fake_render(*args, **kwargs):
             pytest.fail("Should not render non-.json files")
         
-        monkeypatch.setattr(pipeline, "_render_and_verify", fake_render)
+        monkeypatch.setattr(helpers, "render_and_verify", fake_render)
         
         template = tmp_path / "tpl.docx"
         rc = pipeline.run_apply_mode([src_dir / "file.txt"], template, tmp_path / "out", False)

@@ -52,6 +52,11 @@ def test_run_extract_mode_success(monkeypatch, tmp_path: Path):
 def test_run_extract_apply_mode_render_failure(monkeypatch, tmp_path: Path):
     docx = tmp_path / "a.docx"
     docx.write_text("x")
+    
+    # Clear any adjust-related env vars to prevent interference
+    monkeypatch.delenv("CVEXTRACT_ADJUST_URL", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("CVEXTRACT_ADJUST_DRY_RUN", raising=False)
 
     def fake_process_single_docx(_docx_path, out):
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -76,9 +81,8 @@ def test_run_extract_apply_mode_render_failure(monkeypatch, tmp_path: Path):
     monkeypatch.setattr("cvextract.pipeline_helpers.render_cv_data", fake_render)
 
     rc = p.run_extract_apply_mode([docx], template_path=tmp_path / "tpl.docx", target_dir=tmp_path / "target", strict=False, debug=False)
-    # Return code is 0 if failed == 0 AND partial_ok == 0; since this returns rc=0, both must be 0
-    # This means the file was processed but returned early (likely due to extract_ok check)
-    assert rc == 0
+    # When rendering fails after successful extraction, should return 1 (partial failure)
+    assert rc == 1
 
 
 # Merged tests from test_pipeline_modes_coverage.py
@@ -100,7 +104,7 @@ class TestRunExtractMode:
             "experiences": [],
         }
         
-        with patch("cvextract.pipeline_helpers.extract_single") as mock_extract:
+        with patch("cvextract.pipeline_extract.extract_single") as mock_extract:
             mock_extract.return_value = (True, [], [])
             
             rc = p.run_extract_mode([docx_file], target_dir, strict=False, debug=False)
@@ -113,7 +117,7 @@ class TestRunExtractMode:
         docx_file.touch()
         target_dir.mkdir()
         
-        with patch("cvextract.pipeline_helpers.extract_single") as mock_extract:
+        with patch("cvextract.pipeline_extract.extract_single") as mock_extract:
             mock_extract.return_value = (False, ["Error"], [])
             
             rc = p.run_extract_mode([docx_file], target_dir, strict=False, debug=False)

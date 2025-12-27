@@ -88,7 +88,7 @@ class TestExtractSingle:
         docx_path.touch()
         
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.pipeline.dump_body_sample"):
+             patch("cvextract.pipeline_helpers.dump_body_sample"):
             
             mock_extract.side_effect = ValueError("Bad file")
             
