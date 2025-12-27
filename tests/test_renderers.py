@@ -181,3 +181,165 @@ class TestRendererWithExternalParameters:
         output = renderer.render(cv_data, custom_template, tmp_path / "output.docx")
         
         assert "custom_template.docx" in output.read_text()
+
+
+class TestDocxCVRendererFullRendering:
+    """Tests for complete rendering flow with DocxCVRenderer."""
+
+    def test_render_with_valid_template_creates_output(self, tmp_path, monkeypatch):
+        """Test successful rendering with a valid template."""
+        from cvextract.renderers import docx_renderer
+        
+        # Mock DocxTemplate
+        class MockTemplate:
+            def __init__(self, path):
+                self.path = path
+                self.rendered_data = None
+                self.rendered_autoescape = None
+                self.saved_path = None
+            
+            def render(self, data, autoescape=False):
+                self.rendered_data = data
+                self.rendered_autoescape = autoescape
+            
+            def save(self, path):
+                self.saved_path = path
+        
+        mock_tpl = MockTemplate("")
+        monkeypatch.setattr(docx_renderer, "DocxTemplate", lambda path: mock_tpl)
+        
+        # Create a valid template file
+        template_path = tmp_path / "template.docx"
+        template_path.write_text("dummy template")
+        
+        output_path = tmp_path / "output" / "result.docx"
+        
+        cv_data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "Test User",
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {
+                "languages": ["Python"],
+                "tools": ["Docker"],
+                "industries": ["Tech"],
+                "spoken_languages": ["English"],
+                "academic_background": ["BS CS"]
+            },
+            "overview": "Test overview",
+            "experiences": [
+                {
+                    "heading": "2020-Present | Engineer",
+                    "description": "Working on stuff",
+                    "bullets": ["Built things", "Fixed bugs"],
+                    "environment": ["Python", "AWS"]
+                }
+            ]
+        }
+        
+        renderer = DocxCVRenderer()
+        result = renderer.render(cv_data, template_path, output_path)
+        
+        # Verify output
+        assert result == output_path
+        assert output_path.parent.exists()
+        assert mock_tpl.rendered_data is not None
+        assert mock_tpl.rendered_autoescape is True
+        assert mock_tpl.saved_path == str(output_path)
+
+    def test_render_sanitizes_data(self, tmp_path, monkeypatch):
+        """Test that render sanitizes data before rendering."""
+        from cvextract.renderers import docx_renderer
+        
+        # Mock DocxTemplate
+        class MockTemplate:
+            def __init__(self, path):
+                self.rendered_data = None
+            
+            def render(self, data, autoescape=False):
+                self.rendered_data = data
+            
+            def save(self, path):
+                pass
+        
+        mock_tpl = MockTemplate("")
+        monkeypatch.setattr(docx_renderer, "DocxTemplate", lambda path: mock_tpl)
+        
+        template_path = tmp_path / "template.docx"
+        template_path.write_text("dummy")
+        output_path = tmp_path / "output.docx"
+        
+        # Data with characters that need sanitization
+        cv_data = {
+            "identity": {
+                "title": "Engineer\u00A0",  # Non-breaking space
+                "full_name": "Test\u00ADUser",  # Soft hyphen
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {},
+            "overview": "Overview with special chars\u00A0\u00AD",
+            "experiences": []
+        }
+        
+        renderer = DocxCVRenderer()
+        renderer.render(cv_data, template_path, output_path)
+        
+        # Verify sanitization was called (data should be different after sanitization)
+        assert mock_tpl.rendered_data is not None
+        # The sanitized data should have replaced non-breaking spaces and soft hyphens
+        assert "\u00A0" not in str(mock_tpl.rendered_data)
+
+    def test_render_with_directory_template_raises_value_error(self, tmp_path):
+        """Test that render raises ValueError when template is a directory."""
+        renderer = DocxCVRenderer()
+        
+        # Create a directory instead of a file
+        template_dir = tmp_path / "template.docx"
+        template_dir.mkdir()
+        
+        cv_data = {
+            "identity": {"title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        with pytest.raises(ValueError, match="not a file"):
+            renderer.render(cv_data, template_dir, tmp_path / "output.docx")
+
+    def test_render_creates_output_directory_if_needed(self, tmp_path, monkeypatch):
+        """Test that render creates output directory if it doesn't exist."""
+        from cvextract.renderers import docx_renderer
+        
+        # Mock DocxTemplate
+        class MockTemplate:
+            def render(self, data, autoescape=False):
+                pass
+            
+            def save(self, path):
+                pass
+        
+        monkeypatch.setattr(docx_renderer, "DocxTemplate", lambda path: MockTemplate())
+        
+        template_path = tmp_path / "template.docx"
+        template_path.write_text("dummy")
+        
+        # Output path in a non-existent directory
+        output_path = tmp_path / "nested" / "deep" / "output.docx"
+        assert not output_path.parent.exists()
+        
+        cv_data = {
+            "identity": {"title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        renderer = DocxCVRenderer()
+        result = renderer.render(cv_data, template_path, output_path)
+        
+        assert result == output_path
+        assert output_path.parent.exists()
