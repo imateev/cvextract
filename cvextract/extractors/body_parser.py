@@ -21,7 +21,7 @@ from ..shared import (
     clean_text,
     ExperienceBuilder,
 )
-from ..docx_utils import (
+from .docx_utils import (
     iter_document_paragraphs,
 )
 

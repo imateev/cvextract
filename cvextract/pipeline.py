@@ -16,7 +16,7 @@ from typing import List, Optional
 import os
 
 from .logging_utils import LOG, fmt_issues
-from .docx_utils import dump_body_sample
+from .extractors.docx_utils import dump_body_sample
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .shared import VerificationResult
 from .verification import verify_extracted_data, compare_data_structures

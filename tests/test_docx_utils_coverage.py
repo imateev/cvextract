@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, MagicMock
 from xml.etree import ElementTree as etree
 from lxml import etree as lxml_etree
 
-from cvextract.docx_utils import (
+from cvextract.extractors.docx_utils import (
     dump_body_sample,
     extract_text_from_w_p,
     _p_style,

@@ -18,8 +18,8 @@ from zipfile import ZipFile
 
 from lxml import etree
 
-from .logging_utils import LOG
-from .shared import (
+from ..logging_utils import LOG
+from ..shared import (
     normalize_text_for_processing,
 )
 
