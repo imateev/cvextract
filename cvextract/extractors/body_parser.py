@@ -12,6 +12,7 @@ CV-specific structure and rules.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -19,12 +20,28 @@ from typing import Any, Dict, List, Optional, Tuple
 from lxml import etree
 from ..shared import (
     clean_text,
-    ExperienceBuilder,
 )
 from .docx_utils import (
     iter_document_paragraphs,
 )
 
+# ------------------------- Models -------------------------
+
+@dataclass
+class ExperienceBuilder:
+    heading: str = ""
+    description_parts: List[str] = field(default_factory=list)
+    bullets: List[str] = field(default_factory=list)
+    environment: List[str] = field(default_factory=list)
+
+    def finalize(self) -> Dict[str, Any]:
+        return {
+            "heading": self.heading.strip(),
+            "description": " ".join(self.description_parts).strip(),
+            "bullets": self.bullets[:],
+            "environment": self.environment[:] or None,
+        }
+    
 # ------------------------- Patterns / section titles -------------------------
 
 MONTH_NAME = (

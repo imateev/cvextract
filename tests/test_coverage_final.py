@@ -10,8 +10,8 @@ from cvextract.verifiers import ComparisonVerifier, FileComparisonVerifier
 from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
+    Identity,
 )
-from cvextract.pipeline_highlevel import Identity
 
 
 class TestIsEnvironmentPath:

@@ -14,40 +14,6 @@ from typing import Any, Dict, List, Optional
 
 from .extractors import DocxCVExtractor
 from .renderers import DocxCVRenderer
-
-# ------------------------- Constants -------------------------
-
-# ------------------------- Data models -------------------------
-
-@dataclass(frozen=True)
-class Identity:
-    title: str
-    full_name: str
-    first_name: str
-    last_name: str
-
-    def as_dict(self) -> Dict[str, str]:
-        return {
-            "title": self.title,
-            "full_name": self.full_name,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-        }
-
-@dataclass
-class ExperienceBuilder:
-    heading: str = ""
-    description_parts: List[str] = field(default_factory=list)
-    bullets: List[str] = field(default_factory=list)
-    environment: List[str] = field(default_factory=list)
-
-    def finalize(self) -> Dict[str, Any]:
-        return {
-            "heading": self.heading.strip(),
-            "description": " ".join(self.description_parts).strip(),
-            "bullets": self.bullets[:],
-            "environment": self.environment[:] or None,
-        }
     
 # ------------------------- High-level pipeline -------------------------
 
