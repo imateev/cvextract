@@ -12,7 +12,7 @@ from cvextract.verification import (
     compare_json_files,
     compare_data_structures,
 )
-from cvextract.sidebar_parser import (
+from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
 )

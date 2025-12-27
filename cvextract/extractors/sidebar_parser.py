@@ -14,12 +14,12 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from zipfile import ZipFile
 
 from lxml import etree
-from .logging_utils import LOG
-from .shared import (
+from ..logging_utils import LOG
+from ..shared import (
     clean_text,
     Identity, 
 )
-from .docx_utils import (
+from ..docx_utils import (
     extract_text_from_w_p,
     XML_PARSER,
 )

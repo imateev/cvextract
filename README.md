@@ -5,6 +5,21 @@ This project is an internal CV transformation pipeline designed to help the reso
 ### Tool summary
 This is a command-line tool that converts résumé/CV .docx files into a clean, structured JSON format and can optionally generate a new .docx by filling a Word template with that JSON.
 
+### CV Data Schema
+The extracted data conforms to a well-defined JSON schema (`cv_schema.json`) that ensures consistency and interoperability. The schema defines the structure for:
+- **identity**: Personal information (title, names)
+- **sidebar**: Categorized skills, tools, languages, etc.
+- **overview**: Professional summary
+- **experiences**: Work history with details
+
+### Pluggable Extractors
+The extraction logic is implemented using a pluggable architecture (`cvextract/extractors/`) that allows:
+- **Interchangeable implementations**: Easy to swap or customize extraction logic
+- **Support for multiple formats**: Current DOCX support can be extended to PDF, HTML, etc.
+- **Testing flexibility**: Mock extractors for testing without real documents
+
+See `cvextract/extractors/README.md` for details on creating custom extractors.
+
 ### What it does
 - Reads a .docx directly from its WordprocessingML (XML) parts to extract content reliably without external converters.
 - Produces a consistent JSON structure containing:

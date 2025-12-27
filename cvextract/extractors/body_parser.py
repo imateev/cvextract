@@ -17,11 +17,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from lxml import etree
-from .shared import (
+from ..shared import (
     clean_text,
     ExperienceBuilder,
 )
-from .docx_utils import (
+from ..docx_utils import (
     iter_document_paragraphs,
 )
 
