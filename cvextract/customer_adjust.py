@@ -257,12 +257,59 @@ def adjust_for_customer(
     company_name = research_data.get("name", "the company")
     company_desc = research_data.get("description", "")
     
+    # Build acquisition history text
+    acquisition_text = ""
+    if research_data.get("acquisition_history"):
+        acquisition_text = "\n\nAcquisition History:"
+        for acq in research_data["acquisition_history"]:
+            owner = acq.get("owner", "Unknown")
+            year = acq.get("year", "")
+            notes = acq.get("notes", "")
+            acquisition_text += f"\n- Owned by {owner}"
+            if year:
+                acquisition_text += f" ({year})"
+            if notes:
+                acquisition_text += f": {notes}"
+    
+    # Build rebranding history text
+    rebrand_text = ""
+    if research_data.get("rebranded_from"):
+        rebrand_text = f"\n\nPrevious Names: {', '.join(research_data['rebranded_from'])}"
+    
+    # Build owned products text
+    owned_products_text = ""
+    if research_data.get("owned_products"):
+        owned_products_text = "\n\nOwned Products/Services:"
+        for product in research_data["owned_products"]:
+            name = product.get("name", "Unknown")
+            category = product.get("category", "")
+            description = product.get("description", "")
+            owned_products_text += f"\n- {name}"
+            if category:
+                owned_products_text += f" ({category})"
+            if description:
+                owned_products_text += f": {description}"
+    
+    # Build used products text
+    used_products_text = ""
+    if research_data.get("used_products"):
+        used_products_text = "\n\nProducts/Tools Used by Company:"
+        for product in research_data["used_products"]:
+            name = product.get("name", "Unknown")
+            category = product.get("category", "")
+            purpose = product.get("purpose", "")
+            used_products_text += f"\n- {name}"
+            if category:
+                used_products_text += f" ({category})"
+            if purpose:
+                used_products_text += f": {purpose}"
+    
     system_prompt = f"""You are a helpful assistant that adjusts JSON resumes for a target customer.
 
 CUSTOMER PROFILE:
 Company: {company_name}
 Description: {company_desc}
-Business Domains: {domains_text}{tech_signals_text}
+Business Domains: {domains_text}{tech_signals_text}{acquisition_text}{rebrand_text}{owned_products_text}{used_products_text}
 
 TASK:
 Given a JSON representing a CV, return a modified JSON that keeps the same schema and keys, 
