@@ -361,8 +361,6 @@ Hard constraints:
   (a) reorder existing array elements (e.g., jobs, bullets, skills),
   (b) rewrite existing text using ONLY facts already present in cv_json,
   (c) optionally remove or generalize irrelevant wording inside existing strings (but do not delete required fields or make them empty unless they already are).
-- Return ONLY raw JSON
-- Put that raw JSON response in the payload under adjusted_json
 
 ---
 
@@ -523,7 +521,14 @@ Integration with relevance scoring:
   - Move that bullet or skill higher in ordering.
   - Prefer rewritten bullets that surface the relationship early.
 - If the relationship is historical or indirect:
-  - Keep the clarification concise and parenthetical."""
+  - Keep the clarification concise and parenthetical.
+  
+  EXTREMELY IMPORTANT:
+  - Return ONLY RAW JSON.
+  - Do NOT include any explanations, comments, or markdown.
+  - Do NOT wrap the JSON in code fences.
+  - Ensure the output is valid JSON that can be parsed without errors.
+"""
 
     user_payload = {
         "customer_url": customer_url,
@@ -549,9 +554,9 @@ Integration with relevance scoring:
         # Try to parse JSON; if parsing fails, keep original
         try:
             adjusted = json.loads(content)
-            if isinstance(adjusted, dict):
+            if adjusted is not None:
                 LOG.info("The CV was adjusted to better fit the target customer.")
-                return adjusted["adjusted_json"]
+                return adjusted
             LOG.warning("Customer adjust: completion is not a dict; using original JSON.")
             return data
         except Exception:

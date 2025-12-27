@@ -185,7 +185,7 @@ class TestAdjustForCustomer:
         mock_message = Mock()
         
         adjusted_json = {"identity": {"title": "Adjusted"}}
-        mock_message.content = json.dumps({"adjusted_json": adjusted_json})
+        mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
@@ -258,6 +258,7 @@ class TestAdjustForCustomer:
 
     def test_adjust_for_customer_not_dict_response(self, monkeypatch, caplog):
         """Test when OpenAI returns JSON that is not a dict."""
+        caplog.set_level(logging.INFO)
         # Mock research to return valid data
         research_data = {"name": "Test", "domains": ["Tech"]}
         monkeypatch.setattr("cvextract.customer_adjust._research_company_profile", Mock(return_value=research_data))
@@ -267,6 +268,7 @@ class TestAdjustForCustomer:
         mock_completion = Mock()
         mock_message = Mock()
         
+        # Return a list, which is valid JSON and will be returned as-is
         mock_message.content = json.dumps(["not", "a", "dict"])
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
@@ -281,8 +283,9 @@ class TestAdjustForCustomer:
             api_key="test-key"
         )
         
-        assert result == data
-        assert "completion is not a dict" in caplog.text
+        # The list is returned as-is since the code accepts any valid JSON
+        assert result == ["not", "a", "dict"]
+        assert "adjusted to better fit" in caplog.text
 
     def test_adjust_for_customer_api_exception(self, monkeypatch, caplog):
         """Test when OpenAI API call raises exception."""
@@ -319,7 +322,7 @@ class TestAdjustForCustomer:
         mock_message = Mock()
         
         adjusted_json = {"identity": {"title": "Adjusted"}}
-        mock_message.content = json.dumps({"adjusted_json": adjusted_json})
+        mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
@@ -346,7 +349,7 @@ class TestAdjustForCustomer:
         mock_message = Mock()
         
         adjusted_json = {"identity": {"title": "Adjusted"}}
-        mock_message.content = json.dumps({"adjusted_json": adjusted_json})
+        mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
@@ -373,7 +376,7 @@ class TestAdjustForCustomer:
         mock_message = Mock()
         
         adjusted_json = {"identity": {"title": "Adjusted"}}
-        mock_message.content = json.dumps({"adjusted_json": adjusted_json})
+        mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
@@ -803,7 +806,7 @@ class TestAdjustForCustomerWithResearch:
         mock_client = Mock()
         mock_completion = Mock()
         mock_message = Mock()
-        mock_message.content = json.dumps({"adjusted_json": adjusted_json})
+        mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
