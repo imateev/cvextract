@@ -73,11 +73,14 @@ class TestFormatPrompt:
         assert result is None
 
     def test_format_prompt_missing_variable(self):
-        """Test formatting with missing variables returns None."""
+        """Test formatting with missing required variables returns None."""
+        # system_prompt requires: company_name, company_desc, domains_text,
+        # tech_signals_text, acquisition_text, rebrand_text, 
+        # owned_products_text, used_products_text
         result = format_prompt(
             "system_prompt",
             company_name="Test Corp"
-            # Missing other required variables
+            # Missing: company_desc, domains_text, tech_signals_text, etc.
         )
         assert result is None
 

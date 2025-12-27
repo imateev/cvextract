@@ -713,7 +713,6 @@ class TestResearchCompanyProfile:
         
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster._load_research_schema", Mock(return_value={"type": "object"}))
-        monkeypatch.setattr("cvextract.ml_adjustment.adjuster._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
             "https://example.com",
@@ -755,7 +754,6 @@ class TestResearchCompanyProfile:
         mock_openai.return_value = mock_client
         
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.ml_adjustment.adjuster._load_research_schema", Mock(return_value={"type": "object"}))
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster._load_research_schema", Mock(return_value={"type": "object"}))
         
         result = _research_company_profile(
