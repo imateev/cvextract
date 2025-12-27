@@ -20,6 +20,16 @@ The extraction logic is implemented using a pluggable architecture (`cvextract/e
 
 See `cvextract/extractors/README.md` for details on creating custom extractors.
 
+### Pluggable Renderers
+The rendering logic is implemented using a pluggable architecture (`cvextract/renderers/`) that allows:
+- **Interchangeable implementations**: Easy to swap or customize rendering logic
+- **Support for multiple formats**: Current DOCX support can be extended to PDF, HTML, etc.
+- **External parameters**: Templates and structured data can be passed from outside
+- **Testing flexibility**: Mock renderers for testing without real templates
+
+See `cvextract/renderers/README.md` for details on creating custom renderers.
+
+
 ### What it does
 - Reads a .docx directly from its WordprocessingML (XML) parts to extract content reliably without external converters.
 - Produces a consistent JSON structure containing:
