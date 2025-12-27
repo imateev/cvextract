@@ -889,8 +889,9 @@ class TestMLAdjuster:
         assert adjuster.model == "gpt-4"
         assert adjuster.api_key == "test-key"
 
-    def test_mladjuster_adjust_no_api_key(self, caplog):
+    def test_mladjuster_adjust_no_api_key(self, caplog, monkeypatch):
         """Test adjust when no API key is available."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         from cvextract.ml_adjustment import MLAdjuster
         adjuster = MLAdjuster(api_key=None)
         
