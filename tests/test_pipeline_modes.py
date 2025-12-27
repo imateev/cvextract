@@ -72,7 +72,7 @@ def test_run_extract_apply_mode_render_failure(monkeypatch, tmp_path: Path):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(p, "process_single_docx", fake_process_single_docx)
-    monkeypatch.setattr(p, "render_from_json", fake_render)
+    monkeypatch.setattr(p, "render_cv_data", fake_render)
 
     rc = p.run_extract_apply_mode([docx], template_path=tmp_path / "tpl.docx", target_dir=tmp_path / "target", strict=False, debug=False)
     # Return code is 0 if failed == 0 AND partial_ok == 0; since this returns rc=0, both must be 0
