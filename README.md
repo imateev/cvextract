@@ -6,7 +6,7 @@ This project is an internal CV transformation pipeline designed to help the reso
 This is a command-line tool that converts résumé/CV .docx files into a clean, structured JSON format and can optionally generate a new .docx by filling a Word template with that JSON.
 
 ### CV Data Schema
-The extracted data conforms to a well-defined JSON schema (`cv_schema.json`) that ensures consistency and interoperability. The schema defines the structure for:
+The extracted data conforms to a well-defined JSON schema (see `cvextract/contracts/cv_schema.json`) that ensures consistency and interoperability. The schema defines the structure for:
 - **identity**: Personal information (title, names)
 - **sidebar**: Categorized skills, tools, languages, etc.
 - **overview**: Professional summary
@@ -32,7 +32,7 @@ See `cvextract/renderers/README.md` for details on creating custom renderers.
 ### Pluggable Verifiers
 The verification logic is implemented using a pluggable architecture (`cvextract/verifiers/`) that allows:
 - **Interchangeable implementations**: Easy to swap or customize verification logic
-- **Schema validation**: Validates against cv_schema.json
+- **Schema validation**: Validates against cvextract/contracts/cv_schema.json
 - **Completeness checks**: Verifies extracted data for required fields
 - **Roundtrip comparison**: Compares source and target data structures
 - **External parameters**: Source and target data can be passed from outside

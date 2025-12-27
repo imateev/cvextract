@@ -30,8 +30,8 @@ class SchemaVerifier(CVVerifier):
             schema_path: Path to cv_schema.json. If None, uses default location.
         """
         if schema_path is None:
-            # Default to cv_schema.json in repository root
-            schema_path = Path(__file__).parent.parent.parent / "cv_schema.json"
+            # Default to cv_schema.json in contracts directory
+            schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
         
         self.schema_path = schema_path
         self._schema: Optional[Dict[str, Any]] = None
