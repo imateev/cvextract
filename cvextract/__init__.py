@@ -1,10 +1,10 @@
 # cvextract/__init__.py
 
-from .extractors import (
+from .extractors.sidebar_parser import (
     extract_all_header_paragraphs,
     split_identity_and_sidebar,
-    parse_cv_from_docx_body,
 )
+from .extractors.body_parser import parse_cv_from_docx_body
 from .docx_utils import extract_text_from_w_p
 from .render import render_from_json
 from .pipeline_highlevel import extract_cv_structure
