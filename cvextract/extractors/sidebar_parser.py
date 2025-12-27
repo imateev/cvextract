@@ -8,6 +8,7 @@ Extracts text from DOCX header parts and converts it into:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
@@ -17,13 +18,29 @@ from lxml import etree
 from ..logging_utils import LOG
 from ..shared import (
     clean_text,
-    Identity, 
 )
 from .docx_utils import (
     extract_text_from_w_p,
     XML_PARSER,
 )
 
+# ------------------------- Models -------------------------
+
+@dataclass(frozen=True)
+class Identity:
+    title: str
+    full_name: str
+    first_name: str
+    last_name: str
+
+    def as_dict(self) -> Dict[str, str]:
+        return {
+            "title": self.title,
+            "full_name": self.full_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+        }
+    
 # ------------------------- Patterns / section titles -------------------------
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
