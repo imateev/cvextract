@@ -137,6 +137,8 @@ SEMANTIC GUIDELINES:
 - "technology_signals" should represent inferred or observed technology relevance based on public information
 - "interest_level" reflects importance to the business, not maturity
 - "signals" should briefly state the evidence for the inference from public sources
+- "acquisition_history" should include past acquisitions and ownership changes from public business databases (e.g., Northdata, Crunchbase, etc.)
+- "rebranded_from" should list previous company names if the company has been rebranded
 
 JSON SCHEMA:
 {json.dumps(schema, indent=2)}"""

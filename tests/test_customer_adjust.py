@@ -470,6 +470,55 @@ class TestResearchCompanyProfile:
             cached = json.load(f)
         assert cached == research_data
 
+    def test_research_company_profile_with_acquisition_and_rebrand_data(self, tmp_path, caplog, monkeypatch):
+        """Test successful company research with acquisition history and rebranding info."""
+        caplog.set_level(logging.INFO)
+        cache_file = tmp_path / "test.research.json"
+        
+        research_data = {
+            "name": "NewCo Inc",
+            "domains": ["Technology", "Consulting"],
+            "acquisition_history": [
+                {
+                    "owner": "BigTech Corp",
+                    "year": 2020,
+                    "notes": "Acquired for $100M"
+                },
+                {
+                    "owner": "StartupVentures",
+                    "year": 2015
+                }
+            ],
+            "rebranded_from": ["OldName Systems", "Legacy Corp"]
+        }
+        
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
+        mock_message.content = json.dumps(research_data)
+        mock_completion.choices = [Mock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
+        monkeypatch.setattr("cvextract.customer_adjust._load_research_schema", Mock(return_value={"type": "object"}))
+        
+        result = _research_company_profile(
+            "https://example.com",
+            "test-key",
+            "gpt-4o-mini",
+            cache_file
+        )
+        
+        assert result == research_data
+        assert "acquisition_history" in result
+        assert len(result["acquisition_history"]) == 2
+        assert result["acquisition_history"][0]["owner"] == "BigTech Corp"
+        assert "rebranded_from" in result
+        assert len(result["rebranded_from"]) == 2
+        assert "Successfully researched company profile" in caplog.text
+
     def test_research_company_profile_empty_completion(self, caplog, monkeypatch):
         """Test when OpenAI returns empty completion."""
         mock_openai = Mock()

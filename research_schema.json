@@ -109,6 +109,37 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "acquisition_history": {
+      "type": "array",
+      "description": "Historic ownership information for the company, including past acquisitions and owners.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Name of the company or entity that owned/acquired this company."
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1600,
+            "maximum": 2100,
+            "description": "Year when the acquisition occurred."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional details about the acquisition or ownership."
+          }
+        },
+        "required": ["owner"],
+        "additionalProperties": false
+      }
+    },
+    "rebranded_from": {
+      "type": "array",
+      "description": "Past names for the same company, showing rebranding history.",
+      "items": { "type": "string" },
+      "uniqueItems": true
     }
   },
   "additionalProperties": false
