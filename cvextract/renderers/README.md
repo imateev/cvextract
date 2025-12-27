@@ -57,7 +57,7 @@ All renderers accept data conforming to the CV schema defined in `cv_schema.json
 - **overview**: Free-text overview section
 - **experiences**: List of professional experience entries (heading, description, bullets, environment)
 
-See `cv_schema.json` in the repository root for the complete JSON schema definition.
+See `cv_schema.json` in the cvextract/contracts/ directory for the complete JSON schema definition.
 
 ## Creating a Custom Renderer
 

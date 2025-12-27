@@ -70,7 +70,7 @@ def _url_to_cache_filename(url: str) -> str:
 
 
 # Load research schema
-_SCHEMA_PATH = Path(__file__).parent.parent / "research_schema.json"
+_SCHEMA_PATH = Path(__file__).parent.parent / "contracts" / "research_schema.json"
 _RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
 
 
