@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: cvextract
-Version: 0.0.7
-Requires-Dist: lxml
-Requires-Dist: docxtpl
-Requires-Dist: requests
-Requires-Dist: openai

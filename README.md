@@ -24,12 +24,17 @@ This is a command-line tool that converts résumé/CV .docx files into a clean, 
 ### Customer Adjustment (OpenAI)
 - Optional flag `--adjust-for-customer <url>` enriches the extracted JSON for a specific customer by:
   - Fetching basic info from the provided URL
-  - Calling OpenAI with the original JSON to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
+  - Researching the company URL to extract structured metadata:
+    - **Industry**: Automatically inferred from keywords and description (e.g., technology, finance, healthcare)
+    - **Mission**: Extracted from meta description or Open Graph tags
+    - **Focus**: Derived from page title and keywords
+  - Calling OpenAI with the original JSON and research data to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
   - Writing an `.adjusted.json` alongside the original and rendering from that adjusted JSON
 - Environment:
   - `OPENAI_API_KEY`: required for adjustment
   - `OPENAI_MODEL`: optional (defaults to `gpt-4o-mini`)
 - Roundtrip compare (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is requested; the compare icon shows as `➖`.
+- The URL research step gracefully handles failures and continues with available data.
 
 #### Example
 ```bash
@@ -88,4 +93,5 @@ By separating the **CV content** from the **way it looks**, we gain several bene
 3. **Validates the extracted information** (identity, sidebar, experiences, completeness)
 4. **Produces clean machine-readable CV data**
 5. **Applies this data to new Word templates** to generate updated CVs
-6. **(Optional)** Adjusts JSON for a target customer before rendering when the flag is used
+6. **(Optional)** Researches the target customer URL to extract industry, mission, and focus metadata
+7. **(Optional)** Adjusts JSON for a target customer using AI-powered optimization before rendering when the flag is used

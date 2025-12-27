@@ -8,7 +8,229 @@ from unittest.mock import Mock, patch, MagicMock
 from cvextract.customer_adjust import (
     adjust_for_customer,
     _fetch_customer_page,
+    _research_company_url,
 )
+
+
+class TestResearchCompanyUrl:
+    """Tests for _research_company_url helper."""
+
+    def test_research_company_url_success_full_metadata(self, monkeypatch):
+        """Test successful research with full metadata extraction."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = """
+        <html>
+        <head>
+            <title>Tech Company - Cloud Solutions</title>
+            <meta name="description" content="We provide cloud-based software solutions">
+            <meta name="keywords" content="software, cloud, technology">
+            <meta property="og:description" content="Leading provider of cloud technology">
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        assert "mission" in result
+        assert "focus" in result
+        assert "industry" in result
+        assert result["mission"] == "Leading provider of cloud technology"
+        assert "Tech Company - Cloud Solutions" in result["focus"]
+        assert "technology" in result["industry"]
+        
+    def test_research_company_url_partial_metadata(self, monkeypatch):
+        """Test research with only some metadata available."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = """
+        <html>
+        <head>
+            <title>Finance Corp</title>
+            <meta name="description" content="Banking and financial services">
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        assert "mission" in result
+        assert "focus" in result
+        assert "industry" in result
+        assert result["mission"] == "Banking and financial services"
+        assert "finance" in result["industry"]
+        
+    def test_research_company_url_no_metadata(self, monkeypatch):
+        """Test research when no useful metadata is found."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>Simple page</body></html>"
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        # Should return empty dict when no metadata found
+        assert result == {}
+        
+    def test_research_company_url_http_error(self, monkeypatch):
+        """Test research when HTTP status is not 200."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        assert result == {}
+        
+    def test_research_company_url_request_exception(self, monkeypatch):
+        """Test research when requests raises an exception."""
+        mock_requests = Mock()
+        mock_requests.get.side_effect = Exception("Network error")
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        assert result == {}
+        
+    def test_research_company_url_no_requests_lib(self, monkeypatch):
+        """Test research when requests library is not available."""
+        monkeypatch.setattr("cvextract.customer_adjust.requests", None)
+        
+        result = _research_company_url("https://example.com")
+        assert result == {}
+        
+    def test_research_company_url_empty_response(self, monkeypatch):
+        """Test research when response text is empty."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = ""
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        assert result == {}
+        
+    def test_research_company_url_malformed_html(self, monkeypatch):
+        """Test research with malformed HTML that parser can handle."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = """
+        <html>
+        <head>
+            <title>Healthcare Services
+            <meta name="description" content="Medical and healthcare">
+        </head>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        # Should handle malformed HTML gracefully
+        assert isinstance(result, dict)
+        
+    def test_research_company_url_caps_mission_length(self, monkeypatch):
+        """Test that mission is capped at 500 chars."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        long_description = "x" * 1000
+        mock_response.text = f"""
+        <html>
+        <head>
+            <meta name="description" content="{long_description}">
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        assert "mission" in result
+        assert len(result["mission"]) == 500
+        
+    def test_research_company_url_caps_focus_length(self, monkeypatch):
+        """Test that focus is capped at 500 chars."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        long_title = "x" * 600
+        mock_response.text = f"""
+        <html>
+        <head>
+            <title>{long_title}</title>
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        assert "focus" in result
+        assert len(result["focus"]) == 500
+        
+    def test_research_company_url_multiple_industries(self, monkeypatch):
+        """Test detection of multiple industries."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = """
+        <html>
+        <head>
+            <meta name="description" content="Healthcare technology software and consulting services">
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        assert "industry" in result
+        # Should detect technology, healthcare, and consulting
+        assert "technology" in result["industry"] or "healthcare" in result["industry"] or "consulting" in result["industry"]
+        
+    def test_research_company_url_prefers_og_description(self, monkeypatch):
+        """Test that og:description is preferred over regular description."""
+        mock_requests = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = """
+        <html>
+        <head>
+            <meta name="description" content="Regular description">
+            <meta property="og:description" content="OG description">
+        </head>
+        </html>
+        """
+        mock_requests.get.return_value = mock_response
+        
+        monkeypatch.setattr("cvextract.customer_adjust.requests", mock_requests)
+        
+        result = _research_company_url("https://example.com")
+        
+        assert result["mission"] == "OG description"
 
 
 class TestFetchCustomerPage:
@@ -115,6 +337,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={"industry": "tech"}))
         
         data = {"identity": {"title": "Original"}}
         result = adjust_for_customer(
@@ -138,6 +361,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         
         data = {"identity": {"title": "Original"}}
         result = adjust_for_customer(
@@ -163,6 +387,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         
         data = {"identity": {"title": "Original"}}
         result = adjust_for_customer(
@@ -188,6 +413,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         
         data = {"identity": {"title": "Original"}}
         result = adjust_for_customer(
@@ -208,6 +434,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         
         data = {"identity": {"title": "Original"}}
         result = adjust_for_customer(
@@ -234,6 +461,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         monkeypatch.delenv("OPENAI_MODEL", raising=False)
         
         data = {"identity": {"title": "Original"}}
@@ -258,6 +486,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         monkeypatch.setenv("OPENAI_MODEL", "gpt-4-turbo")
         
         data = {"identity": {"title": "Original"}}
@@ -282,6 +511,7 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=""))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         monkeypatch.setenv("OPENAI_MODEL", "gpt-4-turbo")
         
         data = {"identity": {"title": "Original"}}
@@ -312,6 +542,7 @@ class TestAdjustForCustomer:
         long_text = "x" * 50000
         monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value=long_text))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value={}))
         
         data = {"identity": {"title": "Original"}}
         adjust_for_customer(data, "https://example.com", api_key="test-key")
@@ -322,3 +553,40 @@ class TestAdjustForCustomer:
         user_msg = messages[1]["content"]
         payload = json.loads(user_msg)
         assert len(payload["customer_page_excerpt"]) <= 30000
+
+    def test_adjust_for_customer_includes_research_data(self, monkeypatch):
+        """Test that research data is included in OpenAI payload."""
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
+        
+        adjusted_json = {"identity": {"title": "Adjusted"}}
+        mock_message.content = json.dumps({"adjusted_json": adjusted_json})
+        mock_completion.choices = [Mock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        research_data = {
+            "industry": "technology",
+            "mission": "Cloud solutions provider",
+            "focus": "AI and machine learning"
+        }
+        
+        monkeypatch.setattr("cvextract.customer_adjust.OpenAI", mock_openai)
+        monkeypatch.setattr("cvextract.customer_adjust._fetch_customer_page", Mock(return_value="content"))
+        monkeypatch.setattr("cvextract.customer_adjust._research_company_url", Mock(return_value=research_data))
+        
+        data = {"identity": {"title": "Original"}}
+        adjust_for_customer(data, "https://example.com", api_key="test-key")
+        
+        # Verify research data is included in the payload
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        messages = call_kwargs["messages"]
+        user_msg = messages[1]["content"]
+        payload = json.loads(user_msg)
+        
+        assert "company_research" in payload
+        assert payload["company_research"] == research_data
+        assert payload["company_research"]["industry"] == "technology"
+        assert payload["company_research"]["mission"] == "Cloud solutions provider"
