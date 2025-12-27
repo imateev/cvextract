@@ -7,11 +7,10 @@ from unittest.mock import Mock, patch, MagicMock
 from zipfile import ZipFile
 
 from cvextract.verification import (
-    _is_environment_path,
-    _normalize_environment_list,
     compare_json_files,
     compare_data_structures,
 )
+from cvextract.verifiers.comparison_verifier import ComparisonVerifier
 from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
@@ -22,67 +21,75 @@ from cvextract.pipeline_highlevel import Identity
 class TestIsEnvironmentPath:
     """Tests for _is_environment_path helper."""
 
+    def setup_method(self):
+        """Setup a ComparisonVerifier instance for testing."""
+        self.verifier = ComparisonVerifier()
+
     def test_is_environment_path_true(self):
         """Test detection of environment path."""
-        assert _is_environment_path("experiences[0].environment") is True
-        assert _is_environment_path("experience.environment") is True
-        assert _is_environment_path(".environment") is True
+        assert self.verifier._is_environment_path("experiences[0].environment") is True
+        assert self.verifier._is_environment_path("experience.environment") is True
+        assert self.verifier._is_environment_path(".environment") is True
 
     def test_is_environment_path_false(self):
         """Test non-environment paths."""
-        assert _is_environment_path("experiences[0].description") is False
-        assert _is_environment_path("title") is False
-        assert _is_environment_path("sidebar") is False
+        assert self.verifier._is_environment_path("experiences[0].description") is False
+        assert self.verifier._is_environment_path("title") is False
+        assert self.verifier._is_environment_path("sidebar") is False
 
 
 class TestNormalizeEnvironmentList:
     """Tests for _normalize_environment_list function."""
 
+    def setup_method(self):
+        """Setup a ComparisonVerifier instance for testing."""
+        self.verifier = ComparisonVerifier()
+
     def test_normalize_single_items(self):
         """Test normalization of single items."""
-        result = _normalize_environment_list(["Python", "Java"])
+        result = self.verifier._normalize_environment_list(["Python", "Java"])
         assert result == ["java", "python"]  # sorted, lowercased
 
     def test_normalize_comma_separated(self):
         """Test comma-separated values in single entry."""
-        result = _normalize_environment_list(["Python, Java, Go"])
+        result = self.verifier._normalize_environment_list(["Python, Java, Go"])
         assert "python" in result and "java" in result and "go" in result
 
     def test_normalize_bullet_separated(self):
         """Test bullet-separated values."""
-        result = _normalize_environment_list(["Python • Java • Go"])
+        result = self.verifier._normalize_environment_list(["Python • Java • Go"])
         assert "python" in result and "java" in result and "go" in result
 
     def test_normalize_semicolon_separated(self):
         """Test semicolon-separated values."""
-        result = _normalize_environment_list(["Python; Java; Go"])
+        result = self.verifier._normalize_environment_list(["Python; Java; Go"])
         assert "python" in result and "java" in result and "go" in result
 
     def test_normalize_spaced_bullet(self):
         """Test space-separated bullet notation."""
-        result = _normalize_environment_list(["Python • Java • Go"])
+        result = self.verifier._normalize_environment_list(["Python • Java • Go"])
         assert "python" in result and "java" in result and "go" in result
 
     def test_normalize_spaced_dash(self):
         """Test space-separated dash notation."""
-        result = _normalize_environment_list(["Python - Java - Go"])
+        result = self.verifier._normalize_environment_list(["Python - Java - Go"])
         assert "python" in result and "java" in result and "go" in result
 
     def test_normalize_non_string_entries(self):
         """Test handling of non-string entries."""
-        result = _normalize_environment_list(["Python", 123, None])
+        result = self.verifier._normalize_environment_list(["Python", 123, None])
         assert "python" in result
         # Non-strings are converted to string and lowercased
         assert any("123" in str(x).lower() for x in result)
 
     def test_normalize_empty_list(self):
         """Test empty list normalization."""
-        result = _normalize_environment_list([])
+        result = self.verifier._normalize_environment_list([])
         assert result == []
 
     def test_normalize_whitespace_handling(self):
         """Test that extra whitespace is stripped."""
-        result = _normalize_environment_list(["  Python  ", "  Java  "])
+        result = self.verifier._normalize_environment_list(["  Python  ", "  Java  "])
         assert "python" in result and "java" in result
 
 
