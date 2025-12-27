@@ -245,7 +245,14 @@ def adjust_for_customer(
             interest = signal.get("interest_level", "unknown")
             confidence = signal.get("confidence", 0)
             evidence = signal.get("signals", [])
-            tech_signals_parts.append(f"\n- {tech} (interest: {interest}, confidence: {confidence:.2f})")
+            
+            # Format confidence safely
+            try:
+                conf_str = f"{float(confidence):.2f}"
+            except (TypeError, ValueError):
+                conf_str = "0.00"
+            
+            tech_signals_parts.append(f"\n- {tech} (interest: {interest}, confidence: {conf_str})")
             if evidence:
                 tech_signals_parts.append(f"\n  Evidence: {'; '.join(evidence[:2])}")
     
