@@ -35,6 +35,11 @@ def execute_pipeline(config: UserConfig) -> int:
     
     Returns exit code (0 = success, 1 = failure, 2 = strict mode warnings).
     """
+    # Check if parallel mode is enabled
+    if config.parallel:
+        from .cli_parallel import execute_parallel_pipeline
+        return execute_parallel_pipeline(config)
+    
     # Determine input source
     if config.extract:
         source = config.extract.source
@@ -193,22 +198,23 @@ def execute_pipeline(config: UserConfig) -> int:
     LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
              fmt_issues(extract_errs, combined_warns))
     
-    # Log summary
-    if config.extract and config.apply:
-        LOG.info(
-            "📊 Extract+Apply complete. JSON: %s | DOCX: %s",
-            json_dir, documents_dir
-        )
-    elif config.extract:
-        LOG.info(
-            "📊 Extract complete. JSON in: %s",
-            json_dir
-        )
-    else:
-        LOG.info(
-            "📊 Apply complete. Output in: %s",
-            documents_dir
-        )
+    # Log summary (unless suppressed for parallel mode)
+    if not config.suppress_summary:
+        if config.extract and config.apply:
+            LOG.info(
+                "📊 Extract+Apply complete. JSON: %s | DOCX: %s",
+                json_dir, documents_dir
+            )
+        elif config.extract:
+            LOG.info(
+                "📊 Extract complete. JSON in: %s",
+                json_dir
+            )
+        else:
+            LOG.info(
+                "📊 Apply complete. Output in: %s",
+                documents_dir
+            )
     
     # Return exit code
     if config.strict and combined_warns:

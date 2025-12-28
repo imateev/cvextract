@@ -531,3 +531,101 @@ class TestMainErrorHandling:
         
         assert rc == 1
         assert "Traceback" in caplog.text or "Test error" in caplog.text
+
+
+class TestParallelParsing:
+    """Tests for parallel stage argument parsing."""
+    
+    def test_parse_parallel_stage_with_input(self):
+        """Parallel stage with input parameter should be parsed correctly."""
+        config = cli.gather_user_requirements([
+            "--parallel", "input=/path/to/directory",
+            "--extract",
+            "--target", "/path/to/output"
+        ])
+        assert config.parallel is not None
+        assert config.parallel.input == Path("/path/to/directory")
+        assert config.parallel.n == 1  # Default value
+    
+    def test_parse_parallel_stage_with_input_and_n(self):
+        """Parallel stage with both input and n parameters should be parsed."""
+        config = cli.gather_user_requirements([
+            "--parallel", "input=/path/to/directory", "n=10",
+            "--extract",
+            "--target", "/path/to/output"
+        ])
+        assert config.parallel.input == Path("/path/to/directory")
+        assert config.parallel.n == 10
+    
+    def test_parallel_without_input_raises_error(self):
+        """Parallel stage without input parameter should raise error."""
+        with pytest.raises(ValueError, match="requires 'input' parameter"):
+            cli.gather_user_requirements([
+                "--parallel",
+                "--extract",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_parallel_with_invalid_n_raises_error(self):
+        """Parallel stage with invalid n parameter should raise error."""
+        with pytest.raises(ValueError, match="must be a valid integer"):
+            cli.gather_user_requirements([
+                "--parallel", "input=/path/to/directory", "n=invalid",
+                "--extract",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_parallel_with_negative_n_raises_error(self):
+        """Parallel stage with negative n parameter should raise error."""
+        with pytest.raises(ValueError, match="must be >= 1"):
+            cli.gather_user_requirements([
+                "--parallel", "input=/path/to/directory", "n=-5",
+                "--extract",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_parallel_with_zero_n_raises_error(self):
+        """Parallel stage with zero n parameter should raise error."""
+        with pytest.raises(ValueError, match="must be >= 1"):
+            cli.gather_user_requirements([
+                "--parallel", "input=/path/to/directory", "n=0",
+                "--extract",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_parallel_with_extract_no_source_allowed(self):
+        """When parallel is present, extract can be specified without source."""
+        config = cli.gather_user_requirements([
+            "--parallel", "input=/path/to/directory", "n=5",
+            "--extract",
+            "--target", "/path/to/output"
+        ])
+        assert config.parallel is not None
+        assert config.extract is not None
+        # Source will be a placeholder
+        assert config.extract.source == Path(".")
+    
+    def test_parallel_with_all_stages(self):
+        """Parallel can be combined with extract, adjust, and apply stages."""
+        config = cli.gather_user_requirements([
+            "--parallel", "input=/path/to/directory", "n=5",
+            "--extract",
+            "--adjust", "customer-url=https://example.com",
+            "--apply", "template=/path/to/template.docx",
+            "--target", "/path/to/output"
+        ])
+        assert config.parallel is not None
+        assert config.extract is not None
+        assert config.adjust is not None
+        assert config.apply is not None
+    
+    def test_parallel_only_stage(self):
+        """Parallel can be used as the only stage."""
+        config = cli.gather_user_requirements([
+            "--parallel", "input=/path/to/directory",
+            "--target", "/path/to/output"
+        ])
+        assert config.parallel is not None
+        assert config.extract is None
+        assert config.adjust is None
+        assert config.apply is None

@@ -6,10 +6,11 @@ relevant to a target customer, using OpenAI to research companies and
 adjust CV content accordingly.
 """
 
-from .adjuster import MLAdjuster, adjust_for_customer, _url_to_cache_filename
+from .adjuster import MLAdjuster, adjust_for_customer, _url_to_cache_filename, _research_company_profile
 
 __all__ = [
     "MLAdjuster",
     "adjust_for_customer",
     "_url_to_cache_filename",
+    "_research_company_profile",
 ]
