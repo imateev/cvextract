@@ -91,7 +91,7 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
         return None
 
 
-def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bool, str]:
+def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bool, str, int]:
     """
     Wrapper to process a single file through the existing pipeline.
     
@@ -100,7 +100,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
         config: User configuration with parallel settings
     
     Returns:
-        Tuple of (success: bool, message: str)
+        Tuple of (success: bool, message: str, exit_code: int)
     """
     try:
         # Create a new config for this specific file
@@ -115,24 +115,26 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             parallel=None,  # No nested parallel processing
             strict=config.strict,
             debug=config.debug,
-            log_file=config.log_file
+            log_file=config.log_file,
+            suppress_summary=True  # Suppress summary in parallel mode
         )
         
         # Execute the pipeline for this file
+        # Each file will log its status line, but not the summary
         exit_code = execute_pipeline(file_config)
         
         if exit_code == 0:
-            return (True, "Success")
+            return (True, "", exit_code)
         elif exit_code == 2:
-            return (True, "Success with warnings (strict mode)")
+            return (True, "warnings (strict mode)", exit_code)
         else:
-            return (False, "Pipeline execution failed")
+            return (False, "pipeline execution failed", exit_code)
             
     except Exception as e:
         error_msg = str(e)
         if config.debug:
             error_msg = traceback.format_exc()
-        return (False, error_msg)
+        return (False, error_msg, 1)
 
 
 def execute_parallel_pipeline(config: UserConfig) -> int:
@@ -186,7 +188,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     warning_count = 0
     failed_files = []
     
-    # Process files in parallel
+    # Process files in parallel (but logging is serialized)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         # Submit all tasks
         future_to_file = {
@@ -198,17 +200,12 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         for future in as_completed(future_to_file):
             file_path = future_to_file[future]
             try:
-                success, message = future.result()
+                success, message, exit_code = future.result()
                 if success:
-                    if "warnings" in message.lower():
-                        LOG.info("✓ %s | %s", file_path.name, message)
-                        success_count += 1
+                    success_count += 1
+                    if exit_code == 2:
                         warning_count += 1
-                    else:
-                        LOG.info("✓ %s", file_path.name)
-                        success_count += 1
                 else:
-                    LOG.error("✗ %s | %s", file_path.name, message)
                     failed_count += 1
                     failed_files.append(str(file_path))
             except Exception as e:

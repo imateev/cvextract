@@ -119,10 +119,11 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
         
         assert success
-        assert message == "Success"
+        assert message == ""
+        assert exit_code == 0
         mock_execute.assert_called_once()
     
     @patch('cvextract.cli_parallel.execute_pipeline')
@@ -141,10 +142,11 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
         
         assert success
         assert "warnings" in message.lower()
+        assert exit_code == 2
     
     @patch('cvextract.cli_parallel.execute_pipeline')
     def test_process_single_file_failure(self, mock_execute, tmp_path: Path, mock_docx: Path):
@@ -162,10 +164,11 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
         
         assert not success
         assert "failed" in message.lower()
+        assert exit_code == 1
     
     @patch('cvextract.cli_parallel.execute_pipeline')
     def test_process_single_file_exception(self, mock_execute, tmp_path: Path, mock_docx: Path):
@@ -183,10 +186,11 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
         
         assert not success
         assert "Test error" in message
+        assert exit_code == 1
 
 
 class TestExecuteParallelPipeline:
@@ -195,7 +199,7 @@ class TestExecuteParallelPipeline:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_all_success(self, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with all files succeeding."""
-        mock_process.return_value = (True, "Success")
+        mock_process.return_value = (True, "", 0)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -219,11 +223,11 @@ class TestExecuteParallelPipeline:
         """Test parallel pipeline with some files failing."""
         # Alternate between success and failure
         mock_process.side_effect = [
-            (True, "Success"),
-            (False, "Error"),
-            (True, "Success"),
-            (False, "Error"),
-            (True, "Success"),
+            (True, "", 0),
+            (False, "Error", 1),
+            (True, "", 0),
+            (False, "Error", 1),
+            (True, "", 0),
         ]
         
         config = UserConfig(
@@ -298,7 +302,7 @@ class TestExecuteParallelPipeline:
     def test_parallel_pipeline_with_adjust(self, mock_research, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with adjust stage performs upfront research."""
         mock_research.return_value = tmp_path / "research.json"
-        mock_process.return_value = (True, "Success")
+        mock_process.return_value = (True, "", 0)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -326,7 +330,7 @@ class TestExecuteParallelPipeline:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_strict_mode_with_warnings(self, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline in strict mode with warnings returns exit code 2."""
-        mock_process.return_value = (True, "Success with warnings (strict mode)")
+        mock_process.return_value = (True, "warnings (strict mode)", 2)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),

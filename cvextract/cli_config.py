@@ -61,6 +61,7 @@ class UserConfig:
     strict: bool = False
     debug: bool = False
     log_file: Optional[str] = None
+    suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
     
     @property
     def has_extract(self) -> bool:
