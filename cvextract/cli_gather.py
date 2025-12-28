@@ -79,27 +79,27 @@ def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
         description="Extract CV data to JSON and optionally apply a DOCX template.",
         epilog="""
 Examples:
-  Extract DOCX files to JSON only:
+  Extract DOCX file to JSON only:
     python -m cvextract.cli \\
-      --extract source=cvs/ \\
+      --extract source=cv.docx \\
       --target output/
 
   Extract and apply a template:
     python -m cvextract.cli \\
-      --extract source=cvs/ \\
+      --extract source=cv.docx \\
       --apply template=template.docx \\
       --target output/
 
   Extract, adjust, and apply:
     python -m cvextract.cli \\
-      --extract source=cvs/ \\
+      --extract source=cv.docx \\
       --adjust customer-url=https://example.com \\
       --apply template=template.docx \\
       --target output/
 
-  Apply a template to existing JSON files:
+  Apply a template to existing JSON file:
     python -m cvextract.cli \\
-      --apply template=template.docx data=extracted_json/ \\
+      --apply template=template.docx data=extracted.json \\
       --target output/
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -108,13 +108,13 @@ Examples:
     # Stage-based arguments
     parser.add_argument("--extract", nargs='*', metavar="PARAM",
                         help="Extract stage: Extract CV data from DOCX to JSON. "
-                             "Parameters: source=<path> [output=<path>]")
+                             "Parameters: source=<file> (single DOCX file, not directory) [output=<path>]")
     parser.add_argument("--adjust", nargs='*', metavar="PARAM",
                         help="Adjust stage: Adjust CV data for customer using AI. "
-                             "Parameters: customer-url=<url> [data=<path>] [output=<path>] [openai-model=<model>] [dry-run]")
+                             "Parameters: customer-url=<url> [data=<file>] (single JSON file) [output=<path>] [openai-model=<model>] [dry-run]")
     parser.add_argument("--apply", nargs='*', metavar="PARAM",
                         help="Apply stage: Apply CV data to DOCX template. "
-                             "Parameters: template=<path> [data=<path>] [output=<path>]")
+                             "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
 
     # Global arguments
     parser.add_argument("--target", required=True, help="Target output directory")
