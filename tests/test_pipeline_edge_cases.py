@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock
 import cvextract.cli as cli
 import cvextract.pipeline as pipeline
+import cvextract.pipeline_helpers as helpers
 
 
 class TestCliEdgeCases:
@@ -158,14 +159,14 @@ class TestPipelineEdgeCases:
 
     def test_categorize_result_extract_fail(self):
         """Test _categorize_result when extract fails."""
-        full, part, fail = pipeline._categorize_result(
+        full, part, fail = helpers.categorize_result(
             extract_ok=False, has_warns=False, apply_ok=None
         )
         assert (full, part, fail) == (0, 0, 1)
 
     def test_categorize_result_apply_false_no_warns(self):
         """Test _categorize_result when apply fails without warns."""
-        full, part, fail = pipeline._categorize_result(
+        full, part, fail = helpers.categorize_result(
             extract_ok=True, has_warns=False, apply_ok=False
         )
         # When apply fails, it's partial (not fully failed)
@@ -173,21 +174,21 @@ class TestPipelineEdgeCases:
 
     def test_categorize_result_success(self):
         """Test _categorize_result for successful result."""
-        full, part, fail = pipeline._categorize_result(
+        full, part, fail = helpers.categorize_result(
             extract_ok=True, has_warns=False, apply_ok=True
         )
         assert (full, part, fail) == (1, 0, 0)
 
     def test_categorize_result_with_warns(self):
         """Test _categorize_result with warnings."""
-        full, part, fail = pipeline._categorize_result(
+        full, part, fail = helpers.categorize_result(
             extract_ok=True, has_warns=True, apply_ok=None
         )
         assert (full, part, fail) == (0, 1, 0)
 
     def test_get_status_icons_all_success(self):
         """Test status icons for complete success."""
-        x, a, c = pipeline._get_status_icons(
+        x, a, c = helpers.get_status_icons(
             extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True
         )
         assert x == "🟢"
@@ -196,7 +197,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_all_failures(self):
         """Test status icons for complete failure."""
-        x, a, c = pipeline._get_status_icons(
+        x, a, c = helpers.get_status_icons(
             extract_ok=False, has_warns=False, apply_ok=False, compare_ok=False
         )
         assert x == "❌"
@@ -205,7 +206,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_extract_warn(self):
         """Test status icons when extract has warning."""
-        x, a, c = pipeline._get_status_icons(
+        x, a, c = helpers.get_status_icons(
             extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None
         )
         assert x == "⚠️ "
@@ -214,7 +215,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_none_values(self):
         """Test status icons with None values for apply/compare."""
-        x, a, c = pipeline._get_status_icons(
+        x, a, c = helpers.get_status_icons(
             extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None
         )
         assert x == "🟢"
@@ -231,7 +232,7 @@ class TestPipelineEdgeCases:
         def fake_extract(*args):
             pytest.fail("Should not extract non-.docx files")
         
-        monkeypatch.setattr(pipeline, "_extract_single", fake_extract)
+        monkeypatch.setattr(helpers, "extract_single", fake_extract)
         
         rc = pipeline.run_extract_mode([src_dir / "file.txt"], tmp_path / "out", False, False)
         # Should succeed with 0 inputs processed
@@ -247,7 +248,7 @@ class TestPipelineEdgeCases:
         def fake_render(*args, **kwargs):
             pytest.fail("Should not render non-.json files")
         
-        monkeypatch.setattr(pipeline, "_render_and_verify", fake_render)
+        monkeypatch.setattr(helpers, "render_and_verify", fake_render)
         
         template = tmp_path / "tpl.docx"
         rc = pipeline.run_apply_mode([src_dir / "file.txt"], template, tmp_path / "out", False)
