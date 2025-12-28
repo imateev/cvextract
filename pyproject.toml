@@ -14,3 +14,5 @@ version = "0.3.2"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+[tool.coverage.run]
+omit = ["*/tests/*"]
