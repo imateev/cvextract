@@ -397,40 +397,40 @@ class TestInputCollection:
         assert len(inputs) == 1
         assert inputs[0] == docx
 
-    def test_collect_from_directory_excludes_template_file(self, tmp_path: Path):
-        """When source is directory in extract mode, should find all DOCX files except template."""
+    def test_collect_from_directory_raises_error(self, tmp_path: Path):
+        """When source is directory, should raise ValueError with clear message."""
         (tmp_path / "a.docx").write_text("x")
         (tmp_path / "b.docx").write_text("y")
         template = tmp_path / "template.docx"
         template.write_text("t")
         
-        inputs = cli._collect_inputs(tmp_path, is_extraction=True, template_path=template)
-        assert len(inputs) == 2
-        assert template not in inputs
+        with pytest.raises(ValueError, match="Directories are not supported"):
+            cli._collect_inputs(tmp_path, is_extraction=True, template_path=template)
 
-    def test_collect_in_apply_mode_finds_json_files(self, tmp_path: Path):
-        """When in render mode, should collect JSON files instead of DOCX."""
+    def test_collect_in_apply_mode_rejects_directory(self, tmp_path: Path):
+        """When in render mode with directory, should raise ValueError."""
         (tmp_path / "a.json").write_text("{}")
         (tmp_path / "b.json").write_text("{}")
         template = tmp_path / "template.docx"
         
-        inputs = cli._collect_inputs(tmp_path, is_extraction=False, template_path=template)
-        assert len(inputs) == 2
+        with pytest.raises(ValueError, match="Directories are not supported"):
+            cli._collect_inputs(tmp_path, is_extraction=False, template_path=template)
 
-    def test_collect_from_nested_directories_finds_all_files(self, tmp_path: Path):
-        """When source has nested subdirectories, should recursively find all matching files."""
-        sub1 = tmp_path / "sub1"
-        sub2 = tmp_path / "sub2"
-        sub1.mkdir()
-        sub2.mkdir()
+    def test_collect_from_single_json_file(self, tmp_path: Path):
+        """When source is a single JSON file, should return it in a list."""
+        json_file = tmp_path / "test.json"
+        json_file.write_text("{}")
         
-        (sub1 / "a.docx").write_text("x")
-        (sub2 / "b.docx").write_text("y")
-        template = tmp_path / "template.docx"
-        template.write_text("t")
+        inputs = cli._collect_inputs(json_file, is_extraction=False, template_path=None)
+        assert len(inputs) == 1
+        assert inputs[0] == json_file
+
+    def test_collect_nonexistent_file_raises_error(self, tmp_path: Path):
+        """When source doesn't exist, should raise FileNotFoundError."""
+        nonexistent = tmp_path / "nonexistent.docx"
         
-        inputs = cli._collect_inputs(tmp_path, is_extraction=True, template_path=template)
-        assert len(inputs) == 2
+        with pytest.raises(FileNotFoundError, match="Path not found"):
+            cli._collect_inputs(nonexistent, is_extraction=True, template_path=None)
 
 
 class TestMainFunction:

@@ -465,32 +465,18 @@ class TestExecutePipelineAdjust:
         mock_render.assert_called_once()
 
 
-class TestExecutePipelineMultipleFiles:
-    """Tests for execute_pipeline with multiple input files."""
+class TestExecutePipelineDirectoryRejection:
+    """Tests for execute_pipeline when directory is provided instead of single file."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
-    @patch('cvextract.cli_execute.extract_single')
-    def test_multiple_files_mixed_results(self, mock_extract, mock_collect, tmp_path: Path):
-        """Test processing multiple files with mixed success/failure."""
-        docx1 = tmp_path / "a.docx"
-        docx2 = tmp_path / "b.docx"
-        docx3 = tmp_path / "c.docx"
-        
-        for docx in [docx1, docx2, docx3]:
-            with zipfile.ZipFile(docx, 'w') as zf:
-                zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
-        mock_collect.return_value = [docx1, docx2, docx3]
-        
-        # First succeeds, second fails, third succeeds with warnings
-        mock_extract.side_effect = [
-            (True, [], []),
-            (False, ["error"], []),
-            (True, [], ["warning"])
-        ]
+    def test_directory_in_extract_mode_returns_error(self, tmp_path: Path):
+        """Test that providing a directory in extract mode returns error code 1."""
+        docx_dir = tmp_path / "cvs"
+        docx_dir.mkdir()
+        (docx_dir / "a.docx").write_text("x")
+        (docx_dir / "b.docx").write_text("y")
         
         config = UserConfig(
-            extract=ExtractStage(source=tmp_path, output=None),
+            extract=ExtractStage(source=docx_dir, output=None),
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
@@ -500,8 +486,31 @@ class TestExecutePipelineMultipleFiles:
         )
         
         exit_code = execute_pipeline(config)
-        assert exit_code == 1  # Has failures
-        assert mock_extract.call_count == 3
+        assert exit_code == 1
+
+    def test_directory_in_apply_mode_returns_error(self, tmp_path: Path):
+        """Test that providing a directory in apply mode returns error code 1."""
+        json_dir = tmp_path / "jsons"
+        json_dir.mkdir()
+        (json_dir / "a.json").write_text("{}")
+        (json_dir / "b.json").write_text("{}")
+        
+        template = tmp_path / "template.docx"
+        with zipfile.ZipFile(template, 'w') as zf:
+            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
+        
+        config = UserConfig(
+            extract=None,
+            adjust=None,
+            apply=ApplyStage(template=template, data=json_dir, output=None),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_pipeline(config)
+        assert exit_code == 1
 
 
 class TestExecutePipelineDebugMode:
@@ -556,15 +565,12 @@ class TestExecutePipelineDebugMode:
 
 
 class TestExecutePipelineSkipNonMatchingFiles:
-    """Tests that non-matching file extensions are skipped."""
+    """Tests that non-matching file extensions return appropriate errors."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
-    def test_skip_non_docx_for_extract(self, mock_collect, tmp_path: Path):
-        """Test that non-DOCX files are skipped during extraction."""
+    def test_non_docx_for_extract_returns_error(self, tmp_path: Path):
+        """Test that non-DOCX files return error during extraction."""
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("not a docx")
-        
-        mock_collect.return_value = [txt_file]
         
         config = UserConfig(
             extract=ExtractStage(source=txt_file, output=None),
@@ -577,22 +583,23 @@ class TestExecutePipelineSkipNonMatchingFiles:
         )
         
         exit_code = execute_pipeline(config)
-        # All files skipped, so it's considered success
-        assert exit_code == 0
+        # Should return error code 1 for wrong file type
+        assert exit_code == 1
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.render_and_verify')
-    def test_skip_non_json_for_apply(self, mock_render, mock_collect, tmp_path: Path, mock_template: Path):
-        """Test that non-JSON files are skipped during apply-only mode."""
+    def test_non_json_for_apply_returns_error(self, mock_render, tmp_path: Path):
+        """Test that non-JSON files return error during apply-only mode."""
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("not json")
         
-        mock_collect.return_value = [txt_file]
+        template = tmp_path / "template.docx"
+        with zipfile.ZipFile(template, 'w') as zf:
+            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
         
         config = UserConfig(
             extract=None,
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=txt_file, output=None),
+            apply=ApplyStage(template=template, data=txt_file, output=None),
             target_dir=tmp_path / "out",
             strict=False,
             debug=False,
@@ -600,6 +607,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
         )
         
         exit_code = execute_pipeline(config)
-        # All files skipped
-        assert exit_code == 0
+        # Should return error code 1 for wrong file type
+        assert exit_code == 1
         mock_render.assert_not_called()
