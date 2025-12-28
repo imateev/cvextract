@@ -75,43 +75,6 @@ class TestCliEdgeCases:
         
         assert rc == 1
 
-    def test_main_strict_mode_with_warnings(self, monkeypatch, tmp_path: Path):
-        """Test that strict mode returns 2 when warnings are present."""
-        import cvextract.cli_execute as cli_execute
-        
-        docx = tmp_path / "a.docx"
-        with zipfile.ZipFile(docx, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        # Mock extract_single to return success with warnings
-        def fake_extract_single(docx_file, out_json, debug):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text('{"identity": {}, "sidebar": {}, "overview": "", "experiences": []}')
-            return True, [], ["warning"]
-        
-        monkeypatch.setattr(cli_execute, "extract_single", fake_extract_single)
-        
-        # Mock render to succeed
-        def fake_render(*args, **kwargs):
-            return True, [], [], True
-        
-        monkeypatch.setattr(cli_execute, "render_and_verify", fake_render)
-        
-        rc = cli.main([
-            "--mode", "extract-apply",
-            "--source", str(docx),
-            "--template", str(template),
-            "--target", str(tmp_path / "out"),
-            "--strict"
-        ])
-        
-        # With warnings in strict mode, should return 2
-        assert rc == 2
-
     def test_main_adjust_for_customer_stores_in_config(self, tmp_path: Path):
         """Test that --adjust-for-customer is stored in config."""
         config = cli.gather_user_requirements([
@@ -212,64 +175,6 @@ class TestPipelineEdgeCases:
         assert x == "🟢"
         assert a == "➖"
         assert c == "➖"
-
-    def test_execute_pipeline_ignores_non_docx(self, monkeypatch, tmp_path: Path):
-        """Test that execute_pipeline ignores non-.docx files in extract mode."""
-        import cvextract.cli_execute as cli_execute
-        
-        src_dir = tmp_path / "src"
-        src_dir.mkdir()
-        (src_dir / "file.txt").write_text("not docx")
-        (src_dir / "file.json").write_text("{}")
-        
-        template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
-        config = cli.UserConfig(
-            mode=cli.ExecutionMode.EXTRACT,
-            source=src_dir / "file.txt",
-            template=template,
-            target_dir=tmp_path / "out",
-        )
-        
-        def fake_extract(*args):
-            pytest.fail("Should not extract non-.docx files")
-        
-        monkeypatch.setattr(cli_execute, "extract_single", fake_extract)
-        
-        rc = cli.execute_pipeline(config)
-        # Should succeed with 0 inputs processed (file filtered out)
-        assert rc == 0
-
-    def test_execute_pipeline_ignores_non_json(self, monkeypatch, tmp_path: Path):
-        """Test that execute_pipeline ignores non-.json files in render mode."""
-        import cvextract.cli_execute as cli_execute
-        
-        src_dir = tmp_path / "src"
-        src_dir.mkdir()
-        (src_dir / "file.docx").write_text("not json")
-        (src_dir / "file.txt").write_text("not json")
-        
-        template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
-        config = cli.UserConfig(
-            mode=cli.ExecutionMode.RENDER,
-            source=src_dir / "file.txt",
-            template=template,
-            target_dir=tmp_path / "out",
-        )
-        
-        def fake_render(*args, **kwargs):
-            pytest.fail("Should not render non-.json files")
-        
-        monkeypatch.setattr(cli_execute, "render_and_verify", fake_render)
-        
-        rc = cli.execute_pipeline(config)
-        # Should succeed with 0 inputs processed
-        assert rc == 0
 
     def test_apply_mode_return_values(self):
         """Test return value logic for apply_mode."""

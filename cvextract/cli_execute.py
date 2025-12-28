@@ -7,20 +7,19 @@ Subsystems receive explicit input/output paths.
 
 from __future__ import annotations
 
-import json
 import traceback
 from pathlib import Path
 from typing import List, Optional
 
 from .cli_config import ExecutionMode, UserConfig
 from .cli_prepare import _collect_inputs
+from .cli_step_extract import process_extraction
+from .cli_step_adjust import process_adjustment
+from .cli_step_render import process_rendering
 from .logging_utils import LOG, fmt_issues
-from .ml_adjustment import adjust_for_customer, _url_to_cache_filename
 from .pipeline_helpers import (
     infer_source_root,
     safe_relpath,
-    extract_single,
-    render_and_verify,
     get_status_icons,
     categorize_result,
 )
@@ -85,22 +84,16 @@ def execute_pipeline(config: UserConfig) -> int:
         
         # Step 1: Extract (if needed)
         if config.mode.needs_extraction:
-            if input_file.suffix.lower() != ".docx":
-                continue
-            
             out_json = json_dir / rel_parent / f"{input_file.stem}.json"
-            out_json.parent.mkdir(parents=True, exist_ok=True)
+            extract_ok, extract_errs, extract_warns, step_had_warning = process_extraction(
+                input_file, out_json, rel_name, config
+            )
             
-            extract_ok, extract_errs, extract_warns = extract_single(input_file, out_json, config.debug)
-            if extract_warns:
+            if step_had_warning:
                 had_warning = True
             
             # If extraction failed and we need to render, skip rendering
             if not extract_ok and config.mode.needs_rendering:
-                x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
-                LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, 
-                         fmt_issues(extract_errs, extract_warns))
-                
                 full, part, fail = categorize_result(extract_ok, bool(extract_warns), None)
                 fully_ok += full
                 partial_ok += part
@@ -113,66 +106,19 @@ def execute_pipeline(config: UserConfig) -> int:
             out_json = input_file
         
         # Step 2: Adjust (if needed)
-        render_json = out_json
-        if config.mode.needs_adjustment and config.adjust_url:
-            try:
-                with out_json.open("r", encoding="utf-8") as f:
-                    original = json.load(f)
-                
-                # Pass cache_path for research results (company-specific, not CV-specific)
-                research_cache_dir = research_dir / rel_parent
-                research_cache_dir.mkdir(parents=True, exist_ok=True)
-                research_cache = research_cache_dir / _url_to_cache_filename(config.adjust_url)
-                
-                adjusted = adjust_for_customer(
-                    original, 
-                    config.adjust_url, 
-                    model=config.openai_model, 
-                    cache_path=research_cache
-                )
-                
-                # Save adjusted JSON
-                if config.mode.needs_extraction:
-                    adjusted_json = out_json.with_name(out_json.stem + ".adjusted.json")
-                else:
-                    # For apply modes, save in documents dir
-                    out_docx_dir = documents_dir / rel_parent
-                    out_docx_dir.mkdir(parents=True, exist_ok=True)
-                    adjusted_json = out_docx_dir / (input_file.stem + ".adjusted.json")
-                
-                adjusted_json.parent.mkdir(parents=True, exist_ok=True)
-                with adjusted_json.open("w", encoding="utf-8") as wf:
-                    json.dump(adjusted, wf, ensure_ascii=False, indent=2)
-                
-                render_json = adjusted_json
-            except Exception as e:
-                # If adjust fails, proceed with original JSON
-                if config.debug:
-                    LOG.error("Adjustment failed: %s", traceback.format_exc())
-                render_json = out_json
+        render_json = process_adjustment(
+            input_file, out_json, documents_dir, research_dir, rel_parent, config
+        )
         
         # Step 3: Render (if needed and not dry-run)
-        if config.mode.needs_rendering and not config.adjust_dry_run:
-            out_docx_dir = documents_dir / rel_parent
-            out_docx_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Explicit output path for rendered DOCX
-            output_docx = out_docx_dir / f"{input_file.stem}_NEW.docx"
-            
-            verify_dir = verification_dir / rel_parent
-            
-            apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
-                json_path=render_json,
-                template_path=config.template,
-                output_docx=output_docx,  # Explicit path
-                debug=config.debug,
-                skip_compare=not config.mode.should_compare,
-                roundtrip_dir=verify_dir,
-            )
-            
-            if apply_warns:
-                had_warning = True
-            
+        apply_ok, render_errs, apply_warns, compare_ok, step_had_warning = process_rendering(
+            input_file, render_json, documents_dir, verification_dir, rel_parent, config
+        )
+        
+        if step_had_warning:
+            had_warning = True
+        
+        if render_errs:
             extract_errs = render_errs
         
         # Log result
@@ -215,3 +161,4 @@ def execute_pipeline(config: UserConfig) -> int:
         return 0
     
     return 1
+
