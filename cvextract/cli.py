@@ -14,7 +14,7 @@ import traceback
 from pathlib import Path
 from typing import List, Optional
 
-from .cli_config import ExecutionMode, UserConfig, ExtractStage, AdjustStage, ApplyStage
+from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
 from .cli_gather import gather_user_requirements
 from .cli_prepare import prepare_execution_environment, _collect_inputs
 from .cli_execute import execute_pipeline

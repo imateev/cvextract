@@ -51,10 +51,6 @@ See `cvextract/verifiers/README.md` for details on creating custom verifiers.
 
 ## CLI Interface
 
-The tool provides two CLI interfaces:
-
-### New Stage-Based Interface (Recommended)
-
 The stage-based interface uses explicit flags for each operation, making the pipeline clear and composable:
 
 **Stages:**
@@ -108,28 +104,8 @@ python -m cvextract.cli \
   --target /path/to/output
 ```
 
-### Legacy Mode-Based Interface (Deprecated)
-
-The legacy interface uses implicit modes. **This interface is deprecated** but maintained for backward compatibility:
-
-- **extract**: Scans one .docx or a folder of .docx files and writes one JSON file per résumé.
-- **extract-apply**: Extracts JSON as above, then renders a new .docx for each input by applying a docxtpl template.
-- **apply**: Takes existing JSON files and renders new .docx files using a docxtpl template.
-
-**Legacy Example:**
-```bash
-export OPENAI_API_KEY="sk-proj-..."
-python -m cvextract.cli \
-  --mode extract-apply \
-  --source /path/to/cvs \
-  --template /path/to/template.docx \
-  --target /path/to/output \
-  --adjust-for-customer https://example.com/customer \
-  --openai-model gpt-4o-mini
-```
-
 ### Customer Adjustment (OpenAI)
-- When using the `--adjust` stage (or legacy `--adjust-for-customer` flag), the tool enriches the extracted JSON for a specific customer by:
+- When using the `--adjust` stage, the tool enriches the extracted JSON for a specific customer by:
   - Fetching basic info from the provided URL
   - Calling OpenAI with the original JSON to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
   - Writing an `.adjusted.json` alongside the original and rendering from that adjusted JSON
