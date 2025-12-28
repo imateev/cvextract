@@ -255,6 +255,362 @@ class TestSchemaVerifier:
         assert result.ok is False
         assert any("description" in e for e in result.errors)
 
+    def test_identity_missing_field_when_identity_is_none(self):
+        """When identity is None, should detect missing required field."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": None,  # None instead of object
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+
+    def test_identity_field_empty_string_fails_validation(self):
+        """Identity fields must be non-empty strings."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "",  # Empty string
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("must be a non-empty string" in e for e in result.errors)
+
+    def test_identity_field_not_string_fails_validation(self):
+        """Identity fields must be strings."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": 123,  # Not a string
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+
+    def test_sidebar_not_dict_fails_validation(self):
+        """Sidebar must be a dict or None."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": "not a dict",  # Should be dict or None
+            "overview": "",
+            "experiences": []
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("sidebar must be an object" in e for e in result.errors)
+
+    def test_overview_not_string_fails_validation(self):
+        """Overview must be string or None."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": 123,  # Should be string or None
+            "experiences": []
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("overview must be a string" in e for e in result.errors)
+
+    def test_experiences_not_array_fails_validation(self):
+        """Experiences must be a list."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": {"not": "array"}
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("must be an array" in e for e in result.errors)
+
+    def test_experience_item_not_dict_fails_validation(self):
+        """Each experience must be a dict."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": ["not a dict"]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("must be an object" in e for e in result.errors)
+
+    def test_experience_missing_heading_fails_validation(self):
+        """Experience must have heading field."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [{"description": "desc"}]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("heading" in e for e in result.errors)
+
+    def test_experience_heading_not_string_fails_validation(self):
+        """Experience heading must be string."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [{"heading": 123, "description": "desc"}]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("heading must be a string" in e for e in result.errors)
+
+    def test_experience_missing_description_fails_validation(self):
+        """Experience must have description field."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [{"heading": "Title"}]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("description" in e for e in result.errors)
+
+    def test_experience_description_not_string_fails_validation(self):
+        """Experience description must be string."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [{"heading": "Title", "description": 123}]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("description must be a string" in e for e in result.errors)
+
+    def test_experience_bullets_not_array_fails_validation(self):
+        """Experience bullets must be array or missing."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "bullets": "not an array"
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("bullets must be an array" in e for e in result.errors)
+
+    def test_experience_bullets_items_not_strings_fails_validation(self):
+        """Experience bullets items must be strings."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "bullets": [123, "string"]
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("bullets items must be strings" in e for e in result.errors)
+
+    def test_experience_environment_not_array_or_none_fails_validation(self):
+        """Experience environment must be array, None, or missing."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "environment": "not an array"
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("environment must be an array or null" in e for e in result.errors)
+
+    def test_experience_environment_items_not_strings_fails_validation(self):
+        """Experience environment items must be strings."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "environment": [123, "Python"]
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is False
+        assert any("environment items must be strings" in e for e in result.errors)
+
+    def test_experience_environment_none_passes_validation(self):
+        """Experience environment can be None."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "environment": None
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is True
+
+    def test_empty_bullets_array_passes_validation(self):
+        """Empty bullets array should pass validation."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "bullets": []
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is True
+
+    def test_empty_environment_array_passes_validation(self):
+        """Empty environment array should pass validation."""
+        verifier = SchemaVerifier()
+        data = {
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": [
+                {
+                    "heading": "Title",
+                    "description": "desc",
+                    "environment": []
+                }
+            ]
+        }
+        result = verifier.verify(data)
+        assert result.ok is True
+
 
 class TestVerifierInterface:
     """Tests for the CVVerifier base interface."""
