@@ -14,32 +14,38 @@ from typing import Dict, List, Optional
 from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
 
 
-def _parse_stage_params(param_str: str) -> Dict[str, str]:
+def _parse_stage_params(param_list: List[str]) -> Dict[str, str]:
     """
-    Parse stage parameter string into a dictionary.
+    Parse stage parameter list into a dictionary.
     
-    Format: key=value key2=value2 flag
-    Example: "source=cv.docx output=data.json dry-run"
+    Each element in param_list is either:
+    - key=value (parameter with value, value can contain spaces)
+    - flag (parameter without value)
+    
+    Examples:
+    - ["source=cv.docx", "output=data.json", "dry-run"]
+    - ["source=/path with spaces/file.docx", "output=data.json"]
     
     Flags without values are stored with empty string value.
     """
     params = {}
-    if not param_str:
+    if not param_list:
         return params
     
-    for part in param_str.split():
+    for part in param_list:
+        part = part.strip()
+        if not part:
+            continue  # Skip empty strings
+            
         if '=' in part:
             key, value = part.split('=', 1)
             key = key.strip()
             if not key:
                 raise ValueError("Empty parameter key not allowed")
-            params[key] = value.strip()
+            params[key] = value  # Keep value as-is, don't strip (preserves spaces)
         else:
             # Flag without value (e.g., dry-run)
-            flag = part.strip()
-            if not flag:
-                continue  # Skip empty strings
-            params[flag] = ""
+            params[part] = ""
     
     return params
 
@@ -114,7 +120,7 @@ Examples:
     apply_stage = None
     
     if args.extract is not None:
-        params = _parse_stage_params(' '.join(args.extract) if args.extract else '')
+        params = _parse_stage_params(args.extract if args.extract else [])
         if 'source' not in params:
             raise ValueError("--extract requires 'source' parameter")
         
@@ -124,7 +130,7 @@ Examples:
         )
     
     if args.adjust is not None:
-        params = _parse_stage_params(' '.join(args.adjust) if args.adjust else '')
+        params = _parse_stage_params(args.adjust if args.adjust else [])
         
         adjust_stage = AdjustStage(
             data=Path(params['data']) if 'data' in params else None,
@@ -135,7 +141,7 @@ Examples:
         )
     
     if args.apply is not None:
-        params = _parse_stage_params(' '.join(args.apply) if args.apply else '')
+        params = _parse_stage_params(args.apply if args.apply else [])
         if 'template' not in params:
             raise ValueError("--apply requires 'template' parameter")
         

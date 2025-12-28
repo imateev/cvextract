@@ -170,6 +170,114 @@ class TestStageBasedParsing:
         assert config.log_file == "/path/to/log.txt"
 
 
+class TestPathsWithSpecialCharacters:
+    """Tests for handling paths with spaces and special characters."""
+    
+    def test_parse_path_with_spaces_in_source(self):
+        """Extract stage should handle paths with spaces correctly."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/my documents/cv files/resume.docx",
+            "--target", "/path/to/output"
+        ])
+        assert config.extract is not None
+        assert config.extract.source == Path("/path/to/my documents/cv files/resume.docx")
+    
+    def test_parse_path_with_spaces_in_output(self):
+        """Extract stage should handle output paths with spaces."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cv.docx", "output=/my output folder/data.json",
+            "--target", "/path/to/output"
+        ])
+        assert config.extract.output == Path("/my output folder/data.json")
+    
+    def test_parse_template_path_with_spaces(self):
+        """Apply stage should handle template paths with spaces."""
+        config = cli.gather_user_requirements([
+            "--apply", "template=/templates/my template folder/cv template.docx", "data=/data.json",
+            "--target", "/path/to/output"
+        ])
+        assert config.apply.template == Path("/templates/my template folder/cv template.docx")
+    
+    def test_parse_multiple_paths_with_spaces(self):
+        """Multiple stage parameters with spaces should all be parsed correctly."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/my docs/cv.docx", "output=/output folder/data.json",
+            "--apply", "template=/my templates/template.docx",
+            "--target", "/target folder"
+        ])
+        assert config.extract.source == Path("/my docs/cv.docx")
+        assert config.extract.output == Path("/output folder/data.json")
+        assert config.apply.template == Path("/my templates/template.docx")
+        assert config.target_dir == Path("/target folder")
+    
+    def test_parse_path_with_special_characters(self):
+        """Paths with special characters should be preserved."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/file-name_v1.2.docx",
+            "--target", "/output"
+        ])
+        assert config.extract.source == Path("/path/to/file-name_v1.2.docx")
+    
+    def test_parse_path_with_unicode_characters(self):
+        """Paths with unicode characters should be handled correctly."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/путь/к/файлу.docx",
+            "--target", "/output"
+        ])
+        assert config.extract.source == Path("/путь/к/файлу.docx")
+    
+    def test_parse_path_with_parentheses_and_brackets(self):
+        """Paths with parentheses and brackets should be preserved."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/data/CV (Final) [2024]/resume.docx",
+            "--target", "/output"
+        ])
+        assert config.extract.source == Path("/data/CV (Final) [2024]/resume.docx")
+    
+    def test_parse_path_with_ampersand_and_quotes(self):
+        """Paths with ampersands and quotes should be handled."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/data/John's CV & Portfolio/resume.docx",
+            "--target", "/output"
+        ])
+        assert config.extract.source == Path("/data/John's CV & Portfolio/resume.docx")
+    
+    def test_parse_customer_url_with_query_params(self):
+        """Customer URLs with query parameters should be preserved."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/cv.docx",
+            "--adjust", "customer-url=https://example.com/page?param=value&other=test",
+            "--target", "/output"
+        ])
+        assert config.adjust.customer_url == "https://example.com/page?param=value&other=test"
+    
+    def test_parse_path_with_leading_trailing_spaces_stripped_from_key(self):
+        """Leading/trailing spaces in keys should be stripped, but values preserved."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path with spaces/file.docx",
+            "--target", "/output"
+        ])
+        # Value should preserve internal spaces
+        assert config.extract.source == Path("/path with spaces/file.docx")
+    
+    def test_parse_relative_paths_with_dots(self):
+        """Relative paths with .. and . should be preserved."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=../parent/dir/file.docx", "output=./output/data.json",
+            "--target", "/output"
+        ])
+        assert config.extract.source == Path("../parent/dir/file.docx")
+        assert config.extract.output == Path("./output/data.json")
+    
+    def test_windows_style_paths_with_backslashes(self):
+        """Windows-style paths should be handled (though backslashes need escaping in shell)."""
+        config = cli.gather_user_requirements([
+            "--extract", r"source=C:\Users\John Doe\Documents\CV.docx",
+            "--target", "/output"
+        ])
+        assert config.extract.source == Path(r"C:\Users\John Doe\Documents\CV.docx")
+
+
 class TestInputCollection:
     """Tests for collecting input files from source paths."""
 
