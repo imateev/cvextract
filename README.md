@@ -49,25 +49,74 @@ See `cvextract/verifiers/README.md` for details on creating custom verifiers.
   - overview: free-text overview section (from the main document body)
   - experiences: a list of experience entries, each with a heading, description, and bullet points (from the main document body)
 
-### Core functions / modes
-- extract:
-  - Scans one .docx or a folder of .docx files and writes one JSON file per résumé.
-- extract-apply:
-  - Extracts JSON as above, then renders a new .docx for each input by applying a docxtpl template.
-- apply:
-  - Takes existing JSON files and renders new .docx files using a docxtpl template.
+## CLI Interface
 
-### Customer Adjustment (OpenAI)
-- Optional flag `--adjust-for-customer <url>` enriches the extracted JSON for a specific customer by:
-  - Fetching basic info from the provided URL
-  - Calling OpenAI with the original JSON to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
-  - Writing an `.adjusted.json` alongside the original and rendering from that adjusted JSON
-- Environment:
-  - `OPENAI_API_KEY`: required for adjustment
-  - `OPENAI_MODEL`: optional (defaults to `gpt-4o-mini`)
-- Roundtrip compare (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is requested; the compare icon shows as `➖`.
+The tool provides two CLI interfaces:
 
-#### Example
+### New Stage-Based Interface (Recommended)
+
+The stage-based interface uses explicit flags for each operation, making the pipeline clear and composable:
+
+**Stages:**
+- `--extract`: Extract CV data from DOCX to JSON
+  - `source=<path>` - Input DOCX file(s) (required)
+  - `output=<path>` - Output JSON path (optional, defaults to target_dir/structured_data/)
+
+- `--adjust`: Adjust CV data for a specific customer using AI
+  - `data=<path>` - Input JSON (optional if chained after --extract)
+  - `customer-url=<url>` - Customer website URL for research
+  - `output=<path>` - Output JSON path (optional)
+  - `openai-model=<model>` - OpenAI model to use (optional, defaults to gpt-4o-mini)
+  - `dry-run` - Only adjust without rendering (optional flag)
+
+- `--apply`: Apply CV data to DOCX template
+  - `template=<path>` - Template DOCX file (required)
+  - `data=<path>` - Input JSON (optional if chained after --extract or --adjust)
+  - `output=<path>` - Output DOCX path (optional, defaults to target_dir/documents/)
+
+**Global options:**
+- `--target <dir>` - Output directory (required)
+- `--strict` - Treat warnings as failures
+- `--debug` - Verbose logging with stack traces
+- `--log-file <path>` - Optional log file path
+
+**Examples:**
+
+```bash
+# Extract only
+python -m cvextract.cli \
+  --extract source=/path/to/cvs \
+  --target /path/to/output
+
+# Extract and apply
+python -m cvextract.cli \
+  --extract source=/path/to/cvs \
+  --apply template=/path/to/template.docx \
+  --target /path/to/output
+
+# Extract, adjust for customer, and apply
+export OPENAI_API_KEY="sk-proj-..."
+python -m cvextract.cli \
+  --extract source=/path/to/cvs \
+  --adjust customer-url=https://example.com \
+  --apply template=/path/to/template.docx \
+  --target /path/to/output
+
+# Apply to existing JSON
+python -m cvextract.cli \
+  --apply template=/path/to/template.docx data=/path/to/data.json \
+  --target /path/to/output
+```
+
+### Legacy Mode-Based Interface (Deprecated)
+
+The legacy interface uses implicit modes. **This interface is deprecated** but maintained for backward compatibility:
+
+- **extract**: Scans one .docx or a folder of .docx files and writes one JSON file per résumé.
+- **extract-apply**: Extracts JSON as above, then renders a new .docx for each input by applying a docxtpl template.
+- **apply**: Takes existing JSON files and renders new .docx files using a docxtpl template.
+
+**Legacy Example:**
 ```bash
 export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
@@ -78,6 +127,16 @@ python -m cvextract.cli \
   --adjust-for-customer https://example.com/customer \
   --openai-model gpt-4o-mini
 ```
+
+### Customer Adjustment (OpenAI)
+- When using the `--adjust` stage (or legacy `--adjust-for-customer` flag), the tool enriches the extracted JSON for a specific customer by:
+  - Fetching basic info from the provided URL
+  - Calling OpenAI with the original JSON to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
+  - Writing an `.adjusted.json` alongside the original and rendering from that adjusted JSON
+- Environment:
+  - `OPENAI_API_KEY`: required for adjustment
+  - `OPENAI_MODEL`: optional (defaults to `gpt-4o-mini`)
+- Roundtrip compare (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is requested; the compare icon shows as `➖`.
 
 ### How it achieves this
 - DOCX parsing:
