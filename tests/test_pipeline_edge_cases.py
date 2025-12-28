@@ -16,14 +16,14 @@ class TestCliEdgeCases:
 
     def test_parse_args_adjust_dry_run(self):
         """Test parsing --adjust-dry-run flag."""
-        args = cli.parse_args([
+        config = cli.gather_user_requirements([
             "--mode", "extract-apply",
             "--source", "src",
             "--template", "tpl.docx",
             "--target", "out",
             "--adjust-dry-run"
         ])
-        assert args.adjust_dry_run is True
+        assert config.adjust_dry_run is True
 
     def test_main_no_matching_inputs(self, monkeypatch, tmp_path: Path):
         """Test main when no matching input files found."""
@@ -85,10 +85,19 @@ class TestCliEdgeCases:
         with zipfile.ZipFile(template, 'w') as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
 
-        def fake_run_extract_apply(*args, **kwargs):
-            return 1  # Simulate warnings/partial failure
+        # Mock extract_single to return success with warnings
+        def fake_extract_single(docx_file, out_json, debug):
+            out_json.parent.mkdir(parents=True, exist_ok=True)
+            out_json.write_text('{"identity": {}, "sidebar": {}, "overview": "", "experiences": []}')
+            return True, [], ["warning"]
         
-        monkeypatch.setattr(cli, "run_extract_apply_mode", fake_run_extract_apply)
+        monkeypatch.setattr(cli, "extract_single", fake_extract_single)
+        
+        # Mock render to succeed
+        def fake_render(*args, **kwargs):
+            return True, [], [], True
+        
+        monkeypatch.setattr(cli, "render_and_verify", fake_render)
         
         rc = cli.main([
             "--mode", "extract-apply",
@@ -98,45 +107,25 @@ class TestCliEdgeCases:
             "--strict"
         ])
         
-        # When run_extract_apply_mode returns non-zero, main propagates it
-        assert rc != 0
+        # With warnings in strict mode, should return 2
+        assert rc == 2
 
-    def test_main_adjust_for_customer_sets_env(self, monkeypatch, tmp_path: Path):
-        """Test that --adjust-for-customer sets environment variable."""
-        docx = tmp_path / "a.docx"
-        with zipfile.ZipFile(docx, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        # Clear env before test
-        for key in ["CVEXTRACT_ADJUST_URL", "OPENAI_MODEL", "CVEXTRACT_ADJUST_DRY_RUN"]:
-            monkeypatch.delenv(key, raising=False)
-
-        def fake_run(*args, **kwargs):
-            assert os.environ.get("CVEXTRACT_ADJUST_URL") == "https://example.com"
-            assert os.environ.get("OPENAI_MODEL") == "gpt-4"
-            assert os.environ.get("CVEXTRACT_ADJUST_DRY_RUN") == "1"
-            # Clean up
-            for k in ["CVEXTRACT_ADJUST_URL", "OPENAI_MODEL", "CVEXTRACT_ADJUST_DRY_RUN"]:
-                monkeypatch.delenv(k, raising=False)
-            return 0
-        
-        monkeypatch.setattr(cli, "run_extract_apply_mode", fake_run)
-        
-        rc = cli.main([
+    def test_main_adjust_for_customer_stores_in_config(self, tmp_path: Path):
+        """Test that --adjust-for-customer is stored in config."""
+        config = cli.gather_user_requirements([
             "--mode", "extract-apply",
-            "--source", str(docx),
-            "--template", str(template),
+            "--source", str(tmp_path / "a.docx"),
+            "--template", str(tmp_path / "tpl.docx"),
             "--target", str(tmp_path / "out"),
             "--adjust-for-customer", "https://example.com",
             "--openai-model", "gpt-4",
             "--adjust-dry-run"
         ])
         
-        assert rc == 0
+        assert config.adjust_url == "https://example.com"
+        assert config.openai_model == "gpt-4"
+        assert config.adjust_dry_run is True
+        assert config.mode == cli.ExecutionMode.EXTRACT_ADJUST
 
 
 class TestPipelineEdgeCases:
@@ -222,36 +211,57 @@ class TestPipelineEdgeCases:
         assert a == "➖"
         assert c == "➖"
 
-    def test_run_extract_mode_ignores_non_docx(self, monkeypatch, tmp_path: Path):
-        """Test that run_extract_mode ignores non-.docx files."""
+    def test_execute_pipeline_ignores_non_docx(self, monkeypatch, tmp_path: Path):
+        """Test that execute_pipeline ignores non-.docx files in extract mode."""
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         (src_dir / "file.txt").write_text("not docx")
         (src_dir / "file.json").write_text("{}")
         
+        template = tmp_path / "tpl.docx"
+        with zipfile.ZipFile(template, 'w') as zf:
+            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
+        
+        config = cli.UserConfig(
+            mode=cli.ExecutionMode.EXTRACT,
+            source=src_dir / "file.txt",
+            template=template,
+            target_dir=tmp_path / "out",
+        )
+        
         def fake_extract(*args):
             pytest.fail("Should not extract non-.docx files")
         
-        monkeypatch.setattr(helpers, "extract_single", fake_extract)
+        monkeypatch.setattr(cli, "extract_single", fake_extract)
         
-        rc = pipeline.run_extract_mode([src_dir / "file.txt"], tmp_path / "out", False, False)
-        # Should succeed with 0 inputs processed
+        rc = cli.execute_pipeline(config)
+        # Should succeed with 0 inputs processed (file filtered out)
         assert rc == 0
 
-    def test_run_apply_mode_ignores_non_json(self, monkeypatch, tmp_path: Path):
-        """Test that run_apply_mode ignores non-.json files."""
+    def test_execute_pipeline_ignores_non_json(self, monkeypatch, tmp_path: Path):
+        """Test that execute_pipeline ignores non-.json files in render mode."""
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         (src_dir / "file.docx").write_text("not json")
         (src_dir / "file.txt").write_text("not json")
         
+        template = tmp_path / "tpl.docx"
+        with zipfile.ZipFile(template, 'w') as zf:
+            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
+        
+        config = cli.UserConfig(
+            mode=cli.ExecutionMode.RENDER,
+            source=src_dir / "file.txt",
+            template=template,
+            target_dir=tmp_path / "out",
+        )
+        
         def fake_render(*args, **kwargs):
             pytest.fail("Should not render non-.json files")
         
-        monkeypatch.setattr(helpers, "render_and_verify", fake_render)
+        monkeypatch.setattr(cli, "render_and_verify", fake_render)
         
-        template = tmp_path / "tpl.docx"
-        rc = pipeline.run_apply_mode([src_dir / "file.txt"], template, tmp_path / "out", False)
+        rc = cli.execute_pipeline(config)
         # Should succeed with 0 inputs processed
         assert rc == 0
 
