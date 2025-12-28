@@ -88,7 +88,7 @@ def execute_pipeline(config: UserConfig) -> int:
     research_dir = config.target_dir / "research_data"
     verification_dir = config.target_dir / "verification_structured_data"
     
-    if config.extract or (config.adjust and not config.adjust.dry_run):
+    if config.extract or config.adjust:
         json_dir.mkdir(parents=True, exist_ok=True)
     
     if config.adjust:
