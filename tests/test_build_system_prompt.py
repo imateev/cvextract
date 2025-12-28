@@ -346,3 +346,133 @@ class TestBuildSystemPrompt:
         
         assert prompt is not None
         assert "ToolY (Cloud): Hosting" in prompt
+
+    def test_build_system_prompt_with_related_companies(self):
+        """Test related companies in prompt."""
+        research_data = {
+            "name": "Company",
+            "domains": [],
+            "related_companies": [
+                {
+                    "name": "TechPartner Inc",
+                    "relationship_type": "partner",
+                    "description": "Strategic technology partnership"
+                },
+                {
+                    "name": "DataSupply Corp",
+                    "relationship_type": "supplier",
+                    "description": ""
+                }
+            ]
+        }
+        
+        prompt = _build_system_prompt(research_data)
+        
+        assert prompt is not None
+        assert "Related Companies & Partnerships" in prompt
+        assert "TechPartner Inc (partner): Strategic technology partnership" in prompt
+        assert "DataSupply Corp (supplier)" in prompt
+
+    def test_build_system_prompt_with_related_companies_missing_fields(self):
+        """Test related companies with missing optional fields."""
+        research_data = {
+            "name": "Company",
+            "domains": [],
+            "related_companies": [
+                {
+                    "name": "Partner1",
+                    # No relationship_type or description
+                },
+                {
+                    "name": "Partner2",
+                    "relationship_type": "strategic_alliance"
+                    # No description
+                }
+            ]
+        }
+        
+        prompt = _build_system_prompt(research_data)
+        
+        assert prompt is not None
+        assert "Related Companies & Partnerships" in prompt
+        assert "Partner1" in prompt
+        assert "Partner2 (strategic_alliance)" in prompt
+
+    def test_build_system_prompt_with_related_companies_missing_name(self):
+        """Test related companies with missing name."""
+        research_data = {
+            "name": "Company",
+            "domains": [],
+            "related_companies": [
+                {
+                    "relationship_type": "investor",
+                    "description": "Venture capital investor"
+                }
+            ]
+        }
+        
+        prompt = _build_system_prompt(research_data)
+        
+        assert prompt is not None
+        assert "Unknown (investor): Venture capital investor" in prompt
+
+    def test_build_system_prompt_multiple_related_companies(self):
+        """Test multiple related companies are all included."""
+        research_data = {
+            "name": "Company",
+            "domains": [],
+            "related_companies": [
+                {"name": "Partner1", "relationship_type": "partner"},
+                {"name": "Supplier1", "relationship_type": "supplier"},
+                {"name": "Customer1", "relationship_type": "customer"}
+            ]
+        }
+        
+        prompt = _build_system_prompt(research_data)
+        
+        assert prompt is not None
+        assert "Partner1" in prompt
+        assert "Supplier1" in prompt
+        assert "Customer1" in prompt
+
+    def test_build_system_prompt_empty_related_companies(self):
+        """Test with empty related_companies list."""
+        research_data = {
+            "name": "Company",
+            "domains": [],
+            "related_companies": []
+        }
+        
+        prompt = _build_system_prompt(research_data)
+        
+        assert prompt is not None
+        # Should NOT contain this header since list is empty
+        assert "Related Companies & Partnerships" not in prompt
+
+    def test_build_system_prompt_all_relationship_types(self):
+        """Test all relationship type variations."""
+        research_data = {
+            "name": "Company",
+            "domains": [],
+            "related_companies": [
+                {"name": "Partner", "relationship_type": "partner"},
+                {"name": "Supplier", "relationship_type": "supplier"},
+                {"name": "Customer", "relationship_type": "customer"},
+                {"name": "Investor", "relationship_type": "investor"},
+                {"name": "Sub", "relationship_type": "subsidiary"},
+                {"name": "Parent", "relationship_type": "parent"},
+                {"name": "Alliance", "relationship_type": "strategic_alliance"}
+            ]
+        }
+        
+        prompt = _build_system_prompt(research_data)
+        
+        assert prompt is not None
+        assert "(partner)" in prompt
+        assert "(supplier)" in prompt
+        assert "(customer)" in prompt
+        assert "(investor)" in prompt
+        assert "(subsidiary)" in prompt
+        assert "(parent)" in prompt
+        assert "(strategic_alliance)" in prompt
+

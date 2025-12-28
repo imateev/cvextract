@@ -287,6 +287,20 @@ def _build_system_prompt(research_data: Dict[str, Any]) -> Optional[str]:
             if purpose:
                 used_products_text += f": {purpose}"
     
+    # Build related companies text
+    related_companies_text = ""
+    if research_data.get("related_companies"):
+        related_companies_text = "\n\nRelated Companies & Partnerships:"
+        for company in research_data["related_companies"]:
+            name = company.get("name", "Unknown")
+            relationship = company.get("relationship_type", "")
+            description = company.get("description", "")
+            related_companies_text += f"\n- {name}"
+            if relationship:
+                related_companies_text += f" ({relationship})"
+            if description:
+                related_companies_text += f": {description}"
+    
     # Format the system prompt template
     return format_prompt(
         "system_prompt",
@@ -297,7 +311,8 @@ def _build_system_prompt(research_data: Dict[str, Any]) -> Optional[str]:
         acquisition_text=acquisition_text,
         rebrand_text=rebrand_text,
         owned_products_text=owned_products_text,
-        used_products_text=used_products_text
+        used_products_text=used_products_text,
+        related_companies_text=related_companies_text
     )
 
 

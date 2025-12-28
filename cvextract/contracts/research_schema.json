@@ -186,6 +186,30 @@
         "required": ["name"],
         "additionalProperties": false
       }
+    },
+    "related_companies": {
+      "type": "array",
+      "description": "Companies that have business relationships, partnerships, or strategic alliances with this company.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the related company."
+          },
+          "relationship_type": {
+            "type": "string",
+            "enum": ["partner", "supplier", "customer", "investor", "subsidiary", "parent", "strategic_alliance"],
+            "description": "Type of business relationship."
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of the relationship or collaboration."
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

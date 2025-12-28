@@ -49,7 +49,8 @@ class TestFormatPrompt:
             acquisition_text="",
             rebrand_text="",
             owned_products_text="",
-            used_products_text=""
+            used_products_text="",
+            related_companies_text=""
         )
         assert result is not None
         assert "Test Corp" in result
