@@ -220,7 +220,7 @@ class TestExecuteParallelPipeline:
     
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_some_failures(self, mock_process, tmp_path: Path, test_directory: Path):
-        """Test parallel pipeline with some files failing."""
+        """Test parallel pipeline with some files failing - should return 0 (success)."""
         # Alternate between success and failure
         mock_process.side_effect = [
             (True, "", 0),
@@ -243,7 +243,8 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         
-        assert exit_code == 1  # Should fail if any file fails
+        # Should return 0 even if some files failed (user requirement)
+        assert exit_code == 0
         assert mock_process.call_count == 5
     
     def test_parallel_pipeline_no_config(self, tmp_path: Path):
@@ -346,6 +347,35 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         
         assert exit_code == 2  # Strict mode with warnings
+    
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    def test_parallel_pipeline_partial_success(self, mock_process, tmp_path: Path, test_directory: Path):
+        """Test parallel pipeline tracks partial successes (files with warnings)."""
+        # Mix of full success, partial success (warnings), and failures
+        mock_process.side_effect = [
+            (True, "", 0),  # Full success
+            (True, "warnings (strict mode)", 2),  # Partial success
+            (False, "Error", 1),  # Failure
+            (True, "", 0),  # Full success
+            (True, "warnings", 2),  # Partial success
+        ]
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(input=test_directory, n=2),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        
+        # Should return 0 (success) even with failures and warnings
+        assert exit_code == 0
+        assert mock_process.call_count == 5
 
 
 class TestPerformUpfrontResearch:

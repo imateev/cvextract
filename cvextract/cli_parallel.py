@@ -182,10 +182,10 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     n_workers = config.parallel.n
     LOG.info("Processing %d files with %d parallel workers", len(docx_files), n_workers)
     
-    # Track results
-    success_count = 0
+    # Track results - categorize as fully successful, partial (warnings), or failed
+    full_success_count = 0
+    partial_success_count = 0  # Files with warnings but no errors
     failed_count = 0
-    warning_count = 0
     failed_files = []
     
     # Process files in parallel (but logging is serialized)
@@ -202,9 +202,12 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             try:
                 success, message, exit_code = future.result()
                 if success:
-                    success_count += 1
-                    if exit_code == 2:
-                        warning_count += 1
+                    if exit_code == 2 or "warning" in message.lower():
+                        # Partial success - has warnings
+                        partial_success_count += 1
+                    else:
+                        # Full success - no errors or warnings
+                        full_success_count += 1
                 else:
                     failed_count += 1
                     failed_files.append(str(file_path))
@@ -217,19 +220,24 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     
     # Log summary
     total_files = len(docx_files)
+    success_count = full_success_count + partial_success_count
     LOG.info("=" * 60)
-    LOG.info("Completed: %d/%d files succeeded, %d failed", success_count, total_files, failed_count)
+    if partial_success_count > 0:
+        LOG.info("Completed: %d/%d files succeeded (%d full, %d partial), %d failed", 
+                 success_count, total_files, full_success_count, partial_success_count, failed_count)
+    else:
+        LOG.info("Completed: %d/%d files succeeded, %d failed", success_count, total_files, failed_count)
     
-    if failed_files:
+    # Only show failed files list in debug mode or log file
+    if failed_files and config.debug:
         LOG.info("Failed files:")
         for failed_file in failed_files:
             LOG.info("  - %s", failed_file)
     
-    # Return appropriate exit code
-    if failed_count > 0:
-        return 1
-    elif config.strict and warning_count > 0:
+    # Return exit code - only fail in strict mode with warnings, not for file failures
+    if config.strict and partial_success_count > 0:
         LOG.error("Strict mode enabled: warnings treated as failure.")
         return 2
     else:
+        # Success even if some files failed (user request)
         return 0
