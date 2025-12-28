@@ -9,36 +9,64 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from .cli_config import ExecutionMode, UserConfig
+from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
 
 
-def _map_legacy_mode_to_execution_mode(mode: str, has_adjustment: bool, adjust_dry_run: bool) -> ExecutionMode:
+def _resolve_output_path(output_str: str, target_dir: Path) -> Path:
     """
-    Map legacy CLI mode strings to new ExecutionMode enum.
+    Resolve output path relative to target directory.
     
-    Legacy modes:
-    - extract: Just extract data to JSON
-    - extract-apply: Extract and render (optionally with adjustment)
-    - apply: Render from JSON (optionally with adjustment)
+    - Absolute paths are used as-is
+    - Relative paths are resolved relative to target_dir
+    
+    Examples:
+        _resolve_output_path("/abs/path.json", Path("/target")) -> Path("/abs/path.json")
+        _resolve_output_path("data.json", Path("/target")) -> Path("/target/data.json")
+        _resolve_output_path("subdir/data.json", Path("/target")) -> Path("/target/subdir/data.json")
     """
-    if mode == "extract":
-        return ExecutionMode.EXTRACT
+    output_path = Path(output_str)
+    if output_path.is_absolute():
+        return output_path
+    else:
+        return target_dir / output_path
+
+
+def _parse_stage_params(param_list: List[str]) -> Dict[str, str]:
+    """
+    Parse stage parameter list into a dictionary.
     
-    if mode == "extract-apply":
-        if has_adjustment:
-            if adjust_dry_run:
-                return ExecutionMode.EXTRACT_ADJUST
-            return ExecutionMode.EXTRACT_ADJUST_RENDER
-        return ExecutionMode.EXTRACT_RENDER
+    Each element in param_list is either:
+    - key=value (parameter with value, value can contain spaces)
+    - flag (parameter without value)
     
-    # mode == "apply"
-    if has_adjustment:
-        if adjust_dry_run:
-            return ExecutionMode.ADJUST
-        return ExecutionMode.ADJUST_RENDER
-    return ExecutionMode.RENDER
+    Examples:
+    - ["source=cv.docx", "output=data.json", "dry-run"]
+    - ["source=/path with spaces/file.docx", "output=data.json"]
+    
+    Flags without values are stored with empty string value.
+    """
+    params = {}
+    if not param_list:
+        return params
+    
+    for part in param_list:
+        part = part.strip()
+        if not part:
+            continue  # Skip empty strings
+            
+        if '=' in part:
+            key, value = part.split('=', 1)
+            key = key.strip()
+            if not key:
+                raise ValueError("Empty parameter key not allowed")
+            params[key] = value  # Keep value as-is, don't strip (preserves spaces)
+        else:
+            # Flag without value (e.g., dry-run)
+            params[part] = ""
+    
+    return params
 
 
 def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
@@ -53,75 +81,102 @@ def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
 Examples:
   Extract DOCX files to JSON only:
     python -m cvextract.cli \\
-      --mode extract \\
-      --source cvs/ \\
-      --template template.docx \\
+      --extract source=cvs/ \\
       --target output/
 
-  Extract DOCX files and apply a template:
+  Extract and apply a template:
     python -m cvextract.cli \\
-      --mode extract-apply \\
-      --source cvs/ \\
-      --template template.docx \\
+      --extract source=cvs/ \\
+      --apply template=template.docx \\
+      --target output/
+
+  Extract, adjust, and apply:
+    python -m cvextract.cli \\
+      --extract source=cvs/ \\
+      --adjust customer-url=https://example.com \\
+      --apply template=template.docx \\
       --target output/
 
   Apply a template to existing JSON files:
     python -m cvextract.cli \\
-      --mode apply \\
-      --source extracted_json/ \\
-      --template template.docx \\
+      --apply template=template.docx data=extracted_json/ \\
       --target output/
-
-  Run with file logging (log directory is created automatically):
-    python -m cvextract.cli \\
-      --mode extract-apply \\
-      --source cvs/ \\
-      --template template.docx \\
-      --target output/ \\
-      --log-file logs/run-01/cvextract.log
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument("--mode", required=True, choices=["extract", "extract-apply", "apply"], 
-                        help="Operation mode")
-    parser.add_argument("--source", required=True, 
-                        help="Input file or folder (.docx for extract*, .json for apply)")
-    parser.add_argument("--template", required=True, help="Template .docx (single file)")
-    parser.add_argument("--target", required=True, help="Target output directory")
+    # Stage-based arguments
+    parser.add_argument("--extract", nargs='*', metavar="PARAM",
+                        help="Extract stage: Extract CV data from DOCX to JSON. "
+                             "Parameters: source=<path> [output=<path>]")
+    parser.add_argument("--adjust", nargs='*', metavar="PARAM",
+                        help="Adjust stage: Adjust CV data for customer using AI. "
+                             "Parameters: customer-url=<url> [data=<path>] [output=<path>] [openai-model=<model>] [dry-run]")
+    parser.add_argument("--apply", nargs='*', metavar="PARAM",
+                        help="Apply stage: Apply CV data to DOCX template. "
+                             "Parameters: template=<path> [data=<path>] [output=<path>]")
 
+    # Global arguments
+    parser.add_argument("--target", required=True, help="Target output directory")
     parser.add_argument("--strict", action="store_true", 
                         help="Treat warnings as failure (non-zero exit code).")
     parser.add_argument("--debug", action="store_true", 
                         help="Verbose logs + stack traces on failure.")
     parser.add_argument("--log-file", 
                         help="Optional path to a log file. If set, all output is also written there.")
-
-    # Optional customer adjustment using OpenAI
-    parser.add_argument("--adjust-for-customer", 
-                        help="Optional URL to a customer page; when set, adjust JSON via OpenAI before rendering.")
-    parser.add_argument("--openai-model", 
-                        help="Optional OpenAI model to use (default from OPENAI_MODEL or 'gpt-4o-mini').")
-    parser.add_argument("--adjust-dry-run", action="store_true", 
-                        help="Perform adjustment and write .adjusted.json, but skip rendering.")
     
     args = parser.parse_args(argv)
     
-    # Map legacy mode to ExecutionMode
-    execution_mode = _map_legacy_mode_to_execution_mode(
-        args.mode,
-        has_adjustment=bool(args.adjust_for_customer),
-        adjust_dry_run=args.adjust_dry_run
-    )
+    # Check that at least one stage is specified
+    using_stages = any([args.extract is not None, args.adjust is not None, args.apply is not None])
+    
+    if not using_stages:
+        raise ValueError("Must specify at least one stage flag (--extract, --adjust, or --apply)")
+    
+    # Parse stage-based interface
+    extract_stage = None
+    adjust_stage = None
+    apply_stage = None
+    
+    if args.extract is not None:
+        params = _parse_stage_params(args.extract if args.extract else [])
+        if 'source' not in params:
+            raise ValueError("--extract requires 'source' parameter")
+        
+        extract_stage = ExtractStage(
+            source=Path(params['source']),
+            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
+        )
+    
+    if args.adjust is not None:
+        params = _parse_stage_params(args.adjust if args.adjust else [])
+        if 'customer-url' not in params:
+            raise ValueError("--adjust requires 'customer-url' parameter")
+    
+        adjust_stage = AdjustStage(
+            data=Path(params['data']) if 'data' in params else None,
+            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
+            customer_url=params.get('customer-url'),
+            openai_model=params.get('openai-model'),
+            dry_run='dry-run' in params,
+        )
+    
+    if args.apply is not None:
+        params = _parse_stage_params(args.apply if args.apply else [])
+        if 'template' not in params:
+            raise ValueError("--apply requires 'template' parameter")
+        
+        apply_stage = ApplyStage(
+            template=Path(params['template']),
+            data=Path(params['data']) if 'data' in params else None,
+            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
+        )
     
     return UserConfig(
-        mode=execution_mode,
-        source=Path(args.source),
-        template=Path(args.template) if args.template else None,
+        extract=extract_stage,
+        adjust=adjust_stage,
+        apply=apply_stage,
         target_dir=Path(args.target),
-        adjust_url=args.adjust_for_customer,
-        openai_model=args.openai_model,
-        adjust_dry_run=args.adjust_dry_run,
         strict=args.strict,
         debug=args.debug,
         log_file=args.log_file,

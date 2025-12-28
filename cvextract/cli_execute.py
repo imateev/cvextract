@@ -12,7 +12,7 @@ import traceback
 from pathlib import Path
 from typing import List, Optional
 
-from .cli_config import ExecutionMode, UserConfig
+from .cli_config import UserConfig
 from .cli_prepare import _collect_inputs
 from .logging_utils import LOG, fmt_issues
 from .ml_adjustment import adjust_for_customer, _url_to_cache_filename
@@ -35,9 +35,24 @@ def execute_pipeline(config: UserConfig) -> int:
     
     Returns exit code (0 = success, 1 = failure, 2 = strict mode warnings).
     """
+    # Determine input source
+    if config.extract:
+        source = config.extract.source
+        is_extraction = True
+    elif config.apply and config.apply.data:
+        source = config.apply.data
+        is_extraction = False
+    elif config.adjust and config.adjust.data:
+        source = config.adjust.data
+        is_extraction = False
+    else:
+        LOG.error("No input source specified. Use source= in --extract, or data= in --apply when not chained with --extract")
+        return 1
+    
     # Collect inputs
     try:
-        inputs = _collect_inputs(config.source, config.mode, config.template)
+        template_path = config.apply.template if config.apply else None
+        inputs = _collect_inputs(source, is_extraction, template_path)
     except Exception as e:
         LOG.error(str(e))
         if config.debug:
@@ -51,19 +66,19 @@ def execute_pipeline(config: UserConfig) -> int:
     # Infer source root for preserving directory structure
     source_root = infer_source_root(inputs)
     
-    # Create output directories based on mode
+    # Create output directories
     json_dir = config.target_dir / "structured_data"
     documents_dir = config.target_dir / "documents"
     research_dir = config.target_dir / "research_data"
     verification_dir = config.target_dir / "verification_structured_data"
     
-    if config.mode.needs_extraction or config.mode == ExecutionMode.ADJUST:
+    if config.extract or config.adjust:
         json_dir.mkdir(parents=True, exist_ok=True)
     
-    if config.mode.needs_rendering:
+    if config.apply:
         documents_dir.mkdir(parents=True, exist_ok=True)
     
-    if config.mode.needs_adjustment:
+    if config.adjust:
         research_dir.mkdir(parents=True, exist_ok=True)
 
     # Process each input file
@@ -83,20 +98,26 @@ def execute_pipeline(config: UserConfig) -> int:
         compare_ok: Optional[bool] = None
         apply_warns: List[str] = []
         
-        # Step 1: Extract (if needed)
-        if config.mode.needs_extraction:
+        # Step 1: Extract (if configured)
+        out_json = None
+        if config.extract:
             if input_file.suffix.lower() != ".docx":
                 continue
             
-            out_json = json_dir / rel_parent / f"{input_file.stem}.json"
+            # Determine output path
+            if config.extract.output:
+                out_json = config.extract.output
+            else:
+                out_json = json_dir / rel_parent / f"{input_file.stem}.json"
+            
             out_json.parent.mkdir(parents=True, exist_ok=True)
             
             extract_ok, extract_errs, extract_warns = extract_single(input_file, out_json, config.debug)
             if extract_warns:
                 had_warning = True
             
-            # If extraction failed and we need to render, skip rendering
-            if not extract_ok and config.mode.needs_rendering:
+            # If extraction failed and we need to apply, skip apply
+            if not extract_ok and config.apply:
                 x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
                 LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, rel_name, 
                          fmt_issues(extract_errs, extract_warns))
@@ -107,66 +128,72 @@ def execute_pipeline(config: UserConfig) -> int:
                 failed += fail
                 continue
         else:
-            # For non-extraction modes, use the input JSON directly
+            # No extraction, use input JSON directly
             if input_file.suffix.lower() != ".json":
                 continue
             out_json = input_file
         
-        # Step 2: Adjust (if needed)
+        # Step 2: Adjust (if configured)
         render_json = out_json
-        if config.mode.needs_adjustment and config.adjust_url:
+        if config.adjust and out_json:
             try:
                 with out_json.open("r", encoding="utf-8") as f:
                     original = json.load(f)
                 
-                # Pass cache_path for research results (company-specific, not CV-specific)
-                research_cache_dir = research_dir / rel_parent
-                research_cache_dir.mkdir(parents=True, exist_ok=True)
-                research_cache = research_cache_dir / _url_to_cache_filename(config.adjust_url)
-                
-                adjusted = adjust_for_customer(
-                    original, 
-                    config.adjust_url, 
-                    model=config.openai_model, 
-                    cache_path=research_cache
-                )
-                
-                # Save adjusted JSON
-                if config.mode.needs_extraction:
-                    adjusted_json = out_json.with_name(out_json.stem + ".adjusted.json")
-                else:
-                    # For apply modes, save in documents dir
-                    out_docx_dir = documents_dir / rel_parent
-                    out_docx_dir.mkdir(parents=True, exist_ok=True)
-                    adjusted_json = out_docx_dir / (input_file.stem + ".adjusted.json")
-                
-                adjusted_json.parent.mkdir(parents=True, exist_ok=True)
-                with adjusted_json.open("w", encoding="utf-8") as wf:
-                    json.dump(adjusted, wf, ensure_ascii=False, indent=2)
-                
-                render_json = adjusted_json
+                # Pass cache_path for research results
+                if config.adjust.customer_url:
+                    research_cache_dir = research_dir / rel_parent
+                    research_cache_dir.mkdir(parents=True, exist_ok=True)
+                    research_cache = research_cache_dir / _url_to_cache_filename(config.adjust.customer_url)
+                    
+                    adjusted = adjust_for_customer(
+                        original, 
+                        config.adjust.customer_url, 
+                        model=config.adjust.openai_model, 
+                        cache_path=research_cache
+                    )
+                    
+                    # Save adjusted JSON
+                    if config.adjust.output:
+                        adjusted_json = config.adjust.output
+                    elif config.extract:
+                        adjusted_json = out_json.with_name(out_json.stem + ".adjusted.json")
+                    else:
+                        out_docx_dir = documents_dir / rel_parent
+                        out_docx_dir.mkdir(parents=True, exist_ok=True)
+                        adjusted_json = out_docx_dir / (input_file.stem + ".adjusted.json")
+                    
+                    adjusted_json.parent.mkdir(parents=True, exist_ok=True)
+                    with adjusted_json.open("w", encoding="utf-8") as wf:
+                        json.dump(adjusted, wf, ensure_ascii=False, indent=2)
+                    
+                    render_json = adjusted_json
             except Exception as e:
                 # If adjust fails, proceed with original JSON
                 if config.debug:
                     LOG.error("Adjustment failed: %s", traceback.format_exc())
                 render_json = out_json
         
-        # Step 3: Render (if needed and not dry-run)
-        if config.mode.needs_rendering and not config.adjust_dry_run:
+        # Step 3: Apply/Render (if configured and not dry-run)
+        if config.apply and not (config.adjust and config.adjust.dry_run):
             out_docx_dir = documents_dir / rel_parent
             out_docx_dir.mkdir(parents=True, exist_ok=True)
             
-            # Explicit output path for rendered DOCX
-            output_docx = out_docx_dir / f"{input_file.stem}_NEW.docx"
+            # Determine output path
+            if config.apply.output:
+                output_docx = config.apply.output
+            else:
+                output_docx = out_docx_dir / f"{input_file.stem}_NEW.docx"
             
+            output_docx.parent.mkdir(parents=True, exist_ok=True)
             verify_dir = verification_dir / rel_parent
             
             apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
                 json_path=render_json,
-                template_path=config.template,
-                output_docx=output_docx,  # Explicit path
+                template_path=config.apply.template,
+                output_docx=output_docx,
                 debug=config.debug,
-                skip_compare=not config.mode.should_compare,
+                skip_compare=not config.should_compare,
                 roundtrip_dir=verify_dir,
             )
             
@@ -190,12 +217,12 @@ def execute_pipeline(config: UserConfig) -> int:
     # Log summary
     total = fully_ok + partial_ok + failed
     
-    if config.mode.needs_extraction and config.mode.needs_rendering:
+    if config.extract and config.apply:
         LOG.info(
             "📊 Extract+Apply summary: %d fully successful, %d partially successful, %d failed (total %d). JSON: %s | DOCX: %s",
             fully_ok, partial_ok, failed, total, json_dir, documents_dir
         )
-    elif config.mode.needs_extraction:
+    elif config.extract:
         LOG.info(
             "📊 Extract summary: %d fully successful, %d partially successful, %d failed (total %d). JSON in: %s",
             fully_ok, partial_ok, failed, total, json_dir
