@@ -121,7 +121,7 @@ class TestProcessSingleFileWrapper:
         
         success, message = process_single_file_wrapper(mock_docx, config)
         
-        assert success is True
+        assert success
         assert message == "Success"
         mock_execute.assert_called_once()
     
@@ -143,7 +143,7 @@ class TestProcessSingleFileWrapper:
         
         success, message = process_single_file_wrapper(mock_docx, config)
         
-        assert success is True
+        assert success
         assert "warnings" in message.lower()
     
     @patch('cvextract.cli_parallel.execute_pipeline')
@@ -164,7 +164,7 @@ class TestProcessSingleFileWrapper:
         
         success, message = process_single_file_wrapper(mock_docx, config)
         
-        assert success is False
+        assert not success
         assert "failed" in message.lower()
     
     @patch('cvextract.cli_parallel.execute_pipeline')
@@ -185,7 +185,7 @@ class TestProcessSingleFileWrapper:
         
         success, message = process_single_file_wrapper(mock_docx, config)
         
-        assert success is False
+        assert not success
         assert "Test error" in message
 
 

@@ -7,7 +7,6 @@ the single-file processing architecture.
 
 from __future__ import annotations
 
-import json
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -174,6 +173,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     
     # Perform upfront research if adjust is configured
     if config.adjust and config.adjust.customer_url:
+        # Research is performed and cached for reuse by individual file processing
         _perform_upfront_research(config)
     
     # Log start of parallel processing
