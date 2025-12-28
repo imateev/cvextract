@@ -77,6 +77,8 @@ class TestCliEdgeCases:
 
     def test_main_strict_mode_with_warnings(self, monkeypatch, tmp_path: Path):
         """Test that strict mode returns 2 when warnings are present."""
+        import cvextract.cli_execute as cli_execute
+        
         docx = tmp_path / "a.docx"
         with zipfile.ZipFile(docx, 'w') as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
@@ -91,13 +93,13 @@ class TestCliEdgeCases:
             out_json.write_text('{"identity": {}, "sidebar": {}, "overview": "", "experiences": []}')
             return True, [], ["warning"]
         
-        monkeypatch.setattr(cli, "extract_single", fake_extract_single)
+        monkeypatch.setattr(cli_execute, "extract_single", fake_extract_single)
         
         # Mock render to succeed
         def fake_render(*args, **kwargs):
             return True, [], [], True
         
-        monkeypatch.setattr(cli, "render_and_verify", fake_render)
+        monkeypatch.setattr(cli_execute, "render_and_verify", fake_render)
         
         rc = cli.main([
             "--mode", "extract-apply",
@@ -213,6 +215,8 @@ class TestPipelineEdgeCases:
 
     def test_execute_pipeline_ignores_non_docx(self, monkeypatch, tmp_path: Path):
         """Test that execute_pipeline ignores non-.docx files in extract mode."""
+        import cvextract.cli_execute as cli_execute
+        
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         (src_dir / "file.txt").write_text("not docx")
@@ -232,7 +236,7 @@ class TestPipelineEdgeCases:
         def fake_extract(*args):
             pytest.fail("Should not extract non-.docx files")
         
-        monkeypatch.setattr(cli, "extract_single", fake_extract)
+        monkeypatch.setattr(cli_execute, "extract_single", fake_extract)
         
         rc = cli.execute_pipeline(config)
         # Should succeed with 0 inputs processed (file filtered out)
@@ -240,6 +244,8 @@ class TestPipelineEdgeCases:
 
     def test_execute_pipeline_ignores_non_json(self, monkeypatch, tmp_path: Path):
         """Test that execute_pipeline ignores non-.json files in render mode."""
+        import cvextract.cli_execute as cli_execute
+        
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         (src_dir / "file.docx").write_text("not json")
@@ -259,7 +265,7 @@ class TestPipelineEdgeCases:
         def fake_render(*args, **kwargs):
             pytest.fail("Should not render non-.json files")
         
-        monkeypatch.setattr(cli, "render_and_verify", fake_render)
+        monkeypatch.setattr(cli_execute, "render_and_verify", fake_render)
         
         rc = cli.execute_pipeline(config)
         # Should succeed with 0 inputs processed
