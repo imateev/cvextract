@@ -59,8 +59,8 @@ The stage-based interface uses explicit flags for each operation, making the pip
   - `output=<path>` - Output JSON path (optional, defaults to target_dir/structured_data/)
 
 - `--adjust`: Adjust CV data for a specific customer using AI
+  - `customer-url=<url>` - Customer website URL for research (required)
   - `data=<path>` - Input JSON (optional if chained after --extract)
-  - `customer-url=<url>` - Customer website URL for research
   - `output=<path>` - Output JSON path (optional)
   - `openai-model=<model>` - OpenAI model to use (optional, defaults to gpt-4o-mini)
   - `dry-run` - Only adjust without rendering (optional flag)

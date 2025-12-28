@@ -111,7 +111,7 @@ Examples:
                              "Parameters: source=<path> [output=<path>]")
     parser.add_argument("--adjust", nargs='*', metavar="PARAM",
                         help="Adjust stage: Adjust CV data for customer using AI. "
-                             "Parameters: [data=<path>] customer-url=<url> [output=<path>] [openai-model=<model>] [dry-run]")
+                             "Parameters: customer-url=<url> [data=<path>] [output=<path>] [openai-model=<model>] [dry-run]")
     parser.add_argument("--apply", nargs='*', metavar="PARAM",
                         help="Apply stage: Apply CV data to DOCX template. "
                              "Parameters: template=<path> [data=<path>] [output=<path>]")
