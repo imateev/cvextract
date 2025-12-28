@@ -18,8 +18,10 @@ def _parse_stage_params(param_str: str) -> Dict[str, str]:
     """
     Parse stage parameter string into a dictionary.
     
-    Format: key=value key2=value2
-    Example: "source=cv.docx output=data.json"
+    Format: key=value key2=value2 flag
+    Example: "source=cv.docx output=data.json dry-run"
+    
+    Flags without values are stored with empty string value.
     """
     params = {}
     if not param_str:
@@ -29,6 +31,9 @@ def _parse_stage_params(param_str: str) -> Dict[str, str]:
         if '=' in part:
             key, value = part.split('=', 1)
             params[key.strip()] = value.strip()
+        else:
+            # Flag without value (e.g., dry-run)
+            params[part.strip()] = ""
     
     return params
 

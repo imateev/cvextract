@@ -113,6 +113,147 @@ class TestArgumentParsing:
         assert config.mode == cli.ExecutionMode.ADJUST_RENDER
 
 
+class TestStageBasedParsing:
+    """Tests for new stage-based argument parsing."""
+    
+    def test_parse_extract_stage_with_source(self):
+        """Extract stage with source parameter should be parsed correctly."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--target", "/path/to/output"
+        ])
+        assert config.extract is not None
+        assert config.extract.source == Path("/path/to/cvs")
+        assert config.extract.output is None
+        assert config.has_extract is True
+    
+    def test_parse_extract_stage_with_source_and_output(self):
+        """Extract stage with both source and output should be parsed."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cv.docx", "output=/path/to/data.json",
+            "--target", "/path/to/output"
+        ])
+        assert config.extract.source == Path("/path/to/cv.docx")
+        assert config.extract.output == Path("/path/to/data.json")
+    
+    def test_parse_apply_stage_with_template(self):
+        """Apply stage with template parameter should be parsed correctly."""
+        config = cli.gather_user_requirements([
+            "--apply", "template=/path/to/template.docx", "data=/path/to/data.json",
+            "--target", "/path/to/output"
+        ])
+        assert config.apply is not None
+        assert config.apply.template == Path("/path/to/template.docx")
+        assert config.apply.data == Path("/path/to/data.json")
+        assert config.has_apply is True
+    
+    def test_parse_adjust_stage_with_customer_url(self):
+        """Adjust stage with customer-url should be parsed correctly."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--adjust", "customer-url=https://example.com",
+            "--target", "/path/to/output"
+        ])
+        assert config.adjust is not None
+        assert config.adjust.customer_url == "https://example.com"
+        assert config.has_adjust is True
+    
+    def test_parse_extract_and_apply_stages(self):
+        """Chaining extract and apply stages should work."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--apply", "template=/path/to/template.docx",
+            "--target", "/path/to/output"
+        ])
+        assert config.extract is not None
+        assert config.apply is not None
+        assert config.has_extract is True
+        assert config.has_apply is True
+    
+    def test_parse_all_three_stages(self):
+        """Chaining extract, adjust, and apply stages should work."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--adjust", "customer-url=https://example.com",
+            "--apply", "template=/path/to/template.docx",
+            "--target", "/path/to/output"
+        ])
+        assert config.extract is not None
+        assert config.adjust is not None
+        assert config.apply is not None
+    
+    def test_parse_adjust_with_dry_run(self):
+        """Adjust stage with dry-run flag should be parsed."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--adjust", "customer-url=https://example.com", "dry-run",
+            "--target", "/path/to/output"
+        ])
+        assert config.adjust.dry_run is True
+    
+    def test_parse_adjust_with_openai_model(self):
+        """Adjust stage with openai-model parameter should be parsed."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--adjust", "customer-url=https://example.com", "openai-model=gpt-4",
+            "--target", "/path/to/output"
+        ])
+        assert config.adjust.openai_model == "gpt-4"
+    
+    def test_cannot_mix_mode_and_stages(self):
+        """Using both --mode and stage flags should raise error."""
+        with pytest.raises(ValueError, match="Cannot mix legacy"):
+            cli.gather_user_requirements([
+                "--mode", "extract",
+                "--extract", "source=/path/to/cvs",
+                "--source", "/path/to/cvs",
+                "--template", "/path/to/template.docx",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_extract_without_source_raises_error(self):
+        """Extract stage without source parameter should raise error."""
+        with pytest.raises(ValueError, match="requires 'source' parameter"):
+            cli.gather_user_requirements([
+                "--extract",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_apply_without_template_raises_error(self):
+        """Apply stage without template parameter should raise error."""
+        with pytest.raises(ValueError, match="requires 'template' parameter"):
+            cli.gather_user_requirements([
+                "--apply", "data=/path/to/data.json",
+                "--target", "/path/to/output"
+            ])
+    
+    def test_neither_mode_nor_stages_raises_error(self):
+        """Not specifying mode or stages should raise error."""
+        with pytest.raises(ValueError, match="Must specify either"):
+            cli.gather_user_requirements([
+                "--target", "/path/to/output"
+            ])
+    
+    def test_stage_should_compare_when_apply_without_adjust(self):
+        """When using apply without adjust, should_compare should be True."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--apply", "template=/path/to/template.docx",
+            "--target", "/path/to/output"
+        ])
+        assert config.should_compare is True
+    
+    def test_stage_should_not_compare_when_apply_with_adjust(self):
+        """When using apply with adjust, should_compare should be False."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cvs",
+            "--adjust", "customer-url=https://example.com",
+            "--apply", "template=/path/to/template.docx",
+            "--target", "/path/to/output"
+        ])
+        assert config.should_compare is False
+
+
 class TestInputCollection:
     """Tests for collecting input files from source paths."""
 
@@ -122,7 +263,7 @@ class TestInputCollection:
         docx.write_text("x")
         template = tmp_path / "template.docx"
         
-        inputs = cli._collect_inputs(docx, mode=cli.ExecutionMode.EXTRACT, template_path=template)
+        inputs = cli._collect_inputs(docx, mode=cli.ExecutionMode.EXTRACT, is_extraction=True, template_path=template)
         assert len(inputs) == 1
         assert inputs[0] == docx
 
@@ -133,7 +274,7 @@ class TestInputCollection:
         template = tmp_path / "template.docx"
         template.write_text("t")
         
-        inputs = cli._collect_inputs(tmp_path, mode=cli.ExecutionMode.EXTRACT, template_path=template)
+        inputs = cli._collect_inputs(tmp_path, mode=cli.ExecutionMode.EXTRACT, is_extraction=True, template_path=template)
         assert len(inputs) == 2
         assert template not in inputs
 
@@ -143,7 +284,7 @@ class TestInputCollection:
         (tmp_path / "b.json").write_text("{}")
         template = tmp_path / "template.docx"
         
-        inputs = cli._collect_inputs(tmp_path, mode=cli.ExecutionMode.RENDER, template_path=template)
+        inputs = cli._collect_inputs(tmp_path, mode=cli.ExecutionMode.RENDER, is_extraction=False, template_path=template)
         assert len(inputs) == 2
 
     def test_collect_from_nested_directories_finds_all_files(self, tmp_path: Path):
@@ -158,7 +299,7 @@ class TestInputCollection:
         template = tmp_path / "template.docx"
         template.write_text("t")
         
-        inputs = cli._collect_inputs(tmp_path, mode=cli.ExecutionMode.EXTRACT, template_path=template)
+        inputs = cli._collect_inputs(tmp_path, mode=cli.ExecutionMode.EXTRACT, is_extraction=True, template_path=template)
         assert len(inputs) == 2
 
 
