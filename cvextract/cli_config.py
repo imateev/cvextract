@@ -38,6 +38,13 @@ class ApplyStage:
 
 
 @dataclass
+class ParallelStage:
+    """Configuration for the parallel processing stage."""
+    input: Path  # Input directory to scan recursively
+    n: int = 1  # Number of parallel workers (default=1)
+
+
+@dataclass
 class UserConfig:
     """Configuration gathered from user input."""
     
@@ -48,6 +55,7 @@ class UserConfig:
     extract: Optional[ExtractStage] = None
     adjust: Optional[AdjustStage] = None
     apply: Optional[ApplyStage] = None
+    parallel: Optional[ParallelStage] = None
     
     # Execution settings
     strict: bool = False

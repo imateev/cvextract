@@ -35,6 +35,11 @@ def execute_pipeline(config: UserConfig) -> int:
     
     Returns exit code (0 = success, 1 = failure, 2 = strict mode warnings).
     """
+    # Check if parallel mode is enabled
+    if config.parallel:
+        from .cli_parallel import execute_parallel_pipeline
+        return execute_parallel_pipeline(config)
+    
     # Determine input source
     if config.extract:
         source = config.extract.source

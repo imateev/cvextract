@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
+from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage, ParallelStage
 
 
 def _resolve_output_path(output_str: str, target_dir: Path) -> Path:
@@ -101,6 +101,14 @@ Examples:
     python -m cvextract.cli \\
       --apply template=template.docx data=extracted.json \\
       --target output/
+
+  Process directory with parallel workers:
+    python -m cvextract.cli \\
+      --parallel n=10 input=/var/foo/cvs \\
+      --extract \\
+      --adjust customer-url=https://example.com \\
+      --apply template=template.docx \\
+      --target output/
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -115,6 +123,9 @@ Examples:
     parser.add_argument("--apply", nargs='*', metavar="PARAM",
                         help="Apply stage: Apply CV data to DOCX template. "
                              "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
+    parser.add_argument("--parallel", nargs='*', metavar="PARAM",
+                        help="Parallel stage: Process entire directory of CV files in parallel. "
+                             "Parameters: input=<directory> (required) [n=<number>] (default=1)")
 
     # Global arguments
     parser.add_argument("--target", required=True, help="Target output directory")
@@ -128,23 +139,44 @@ Examples:
     args = parser.parse_args(argv)
     
     # Check that at least one stage is specified
-    using_stages = any([args.extract is not None, args.adjust is not None, args.apply is not None])
+    using_stages = any([args.extract is not None, args.adjust is not None, args.apply is not None, args.parallel is not None])
     
     if not using_stages:
-        raise ValueError("Must specify at least one stage flag (--extract, --adjust, or --apply)")
+        raise ValueError("Must specify at least one stage flag (--extract, --adjust, --apply, or --parallel)")
     
     # Parse stage-based interface
     extract_stage = None
     adjust_stage = None
     apply_stage = None
+    parallel_stage = None
+    
+    if args.parallel is not None:
+        params = _parse_stage_params(args.parallel if args.parallel else [])
+        if 'input' not in params:
+            raise ValueError("--parallel requires 'input' parameter")
+        
+        n_workers = 1
+        if 'n' in params:
+            try:
+                n_workers = int(params['n'])
+                if n_workers < 1:
+                    raise ValueError("--parallel parameter 'n' must be >= 1")
+            except ValueError as e:
+                raise ValueError(f"--parallel parameter 'n' must be a valid integer: {e}")
+        
+        parallel_stage = ParallelStage(
+            input=Path(params['input']),
+            n=n_workers,
+        )
     
     if args.extract is not None:
         params = _parse_stage_params(args.extract if args.extract else [])
-        if 'source' not in params:
+        # When parallel is specified, source is optional (will be injected per-file)
+        if 'source' not in params and not parallel_stage:
             raise ValueError("--extract requires 'source' parameter")
         
         extract_stage = ExtractStage(
-            source=Path(params['source']),
+            source=Path(params['source']) if 'source' in params else Path('.'),  # Placeholder when parallel
             output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
         )
     
@@ -176,6 +208,7 @@ Examples:
         extract=extract_stage,
         adjust=adjust_stage,
         apply=apply_stage,
+        parallel=parallel_stage,
         target_dir=Path(args.target),
         strict=args.strict,
         debug=args.debug,
