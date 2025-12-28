@@ -106,8 +106,14 @@ class TestStageBasedParsing:
             cli.gather_user_requirements([
                 "--apply", "data=/path/to/data.json",
                 "--target", "/path/to/output"
-            ])
-    
+            ])    
+    def test_adjust_without_customer_url_raises_error(self):
+        """Adjust stage without customer-url parameter should raise error."""
+        with pytest.raises(ValueError, match="requires 'customer-url' parameter"):
+            cli.gather_user_requirements([
+                "--adjust",
+                "--target", "/path/to/output"
+            ])    
     def test_no_stages_raises_error(self):
         """Not specifying any stages should raise error."""
         with pytest.raises(ValueError, match="Must specify at least one stage"):

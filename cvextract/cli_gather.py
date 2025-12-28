@@ -150,7 +150,9 @@ Examples:
     
     if args.adjust is not None:
         params = _parse_stage_params(args.adjust if args.adjust else [])
-        
+        if 'customer-url' not in params:
+            raise ValueError("--adjust requires 'customer-url' parameter")
+    
         adjust_stage = AdjustStage(
             data=Path(params['data']) if 'data' in params else None,
             output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
