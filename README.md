@@ -55,19 +55,19 @@ The stage-based interface uses explicit flags for each operation, making the pip
 
 **Stages:**
 - `--extract`: Extract CV data from DOCX to JSON
-  - `source=<path>` - Input DOCX file(s) (required)
+  - `source=<file>` - Input DOCX file (required, must be a single file, not a directory)
   - `output=<path>` - Output JSON path (optional, defaults to target_dir/structured_data/)
 
 - `--adjust`: Adjust CV data for a specific customer using AI
   - `customer-url=<url>` - Customer website URL for research (required)
-  - `data=<path>` - Input JSON (optional if chained after --extract)
+  - `data=<file>` - Input JSON file (optional if chained after --extract, must be a single file)
   - `output=<path>` - Output JSON path (optional)
   - `openai-model=<model>` - OpenAI model to use (optional, defaults to gpt-4o-mini)
   - `dry-run` - Only adjust without rendering (optional flag)
 
 - `--apply`: Apply CV data to DOCX template
   - `template=<path>` - Template DOCX file (required)
-  - `data=<path>` - Input JSON (optional if chained after --extract or --adjust)
+  - `data=<file>` - Input JSON file (optional if chained after --extract or --adjust, must be a single file)
   - `output=<path>` - Output DOCX path (optional, defaults to target_dir/documents/)
 
 **Global options:**
@@ -93,9 +93,9 @@ The `output=` parameter in each stage behaves as follows:
 ```bash
 # Extract only with default output
 python -m cvextract.cli \
-  --extract source=/path/to/cvs \
+  --extract source=/path/to/cv.docx \
   --target /path/to/output
-# Creates: /path/to/output/structured_data/*.json
+# Creates: /path/to/output/structured_data/cv.json
 
 # Extract with relative output path
 python -m cvextract.cli \
@@ -111,7 +111,7 @@ python -m cvextract.cli \
 
 # Extract and apply with mixed paths
 python -m cvextract.cli \
-  --extract source=/path/to/cvs output=extracted/data.json \
+  --extract source=/path/to/cv.docx output=extracted/data.json \
   --apply template=/path/to/template.docx output=final/result.docx \
   --target /path/to/output
 # Creates: /path/to/output/extracted/data.json and /path/to/output/final/result.docx
@@ -119,7 +119,7 @@ python -m cvextract.cli \
 # Extract, adjust for customer, and apply
 export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
-  --extract source=/path/to/cvs \
+  --extract source=/path/to/cv.docx \
   --adjust customer-url=https://example.com \
   --apply template=/path/to/template.docx \
   --target /path/to/output
