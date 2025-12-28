@@ -31,6 +31,7 @@ def execute_pipeline(config: UserConfig) -> int:
     explicit input/output paths.
     
     Processes a single input file (not multiple files).
+    Preserves source directory structure in output paths by default.
     
     Returns exit code (0 = success, 1 = failure, 2 = strict mode warnings).
     """
@@ -65,13 +66,33 @@ def execute_pipeline(config: UserConfig) -> int:
     # Single file processing
     input_file = inputs[0]
     
+    # Determine relative path for preserving directory structure
+    # Use current working directory as base to preserve relative paths
+    cwd = Path.cwd()
+    try:
+        # Try to get relative path from current directory
+        rel_path = input_file.parent.resolve().relative_to(cwd)
+    except ValueError:
+        # If file is not under current directory, try source's parent as base
+        source_base = source.parent.resolve() if source.is_file() else source.resolve()
+        try:
+            rel_path = input_file.parent.resolve().relative_to(source_base)
+        except ValueError:
+            # Fallback: use empty path if we can't determine relative path
+            rel_path = Path(".")
+    
     # Create output directories
     json_dir = config.target_dir / "structured_data"
+    adjusted_json_dir = config.target_dir / "adjusted_structured_data"
     documents_dir = config.target_dir / "documents"
+    research_dir = config.target_dir / "research_data"
     verification_dir = config.target_dir / "verification_structured_data"
     
-    if config.extract or config.adjust:
+    if config.extract or (config.adjust and not config.adjust.dry_run):
         json_dir.mkdir(parents=True, exist_ok=True)
+    
+    if config.adjust:
+        adjusted_json_dir.mkdir(parents=True, exist_ok=True)
     
     if config.apply:
         documents_dir.mkdir(parents=True, exist_ok=True)
@@ -91,7 +112,7 @@ def execute_pipeline(config: UserConfig) -> int:
         if config.extract.output:
             out_json = config.extract.output
         else:
-            out_json = json_dir / f"{input_file.stem}.json"
+            out_json = json_dir / rel_path / f"{input_file.stem}.json"
         
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
@@ -116,9 +137,9 @@ def execute_pipeline(config: UserConfig) -> int:
             
             # Pass cache_path for research results
             if config.adjust.customer_url:
-                research_dir = config.target_dir / "research_data"
-                research_dir.mkdir(parents=True, exist_ok=True)
-                research_cache = research_dir / _url_to_cache_filename(config.adjust.customer_url)
+                research_cache_dir = research_dir / rel_path
+                research_cache_dir.mkdir(parents=True, exist_ok=True)
+                research_cache = research_cache_dir / _url_to_cache_filename(config.adjust.customer_url)
                 
                 adjusted = adjust_for_customer(
                     original, 
@@ -127,13 +148,11 @@ def execute_pipeline(config: UserConfig) -> int:
                     cache_path=research_cache
                 )
                 
-                # Save adjusted JSON
+                # Save adjusted JSON to adjusted_structured_data folder
                 if config.adjust.output:
                     adjusted_json = config.adjust.output
-                elif config.extract:
-                    adjusted_json = out_json.with_name(out_json.stem + ".adjusted.json")
                 else:
-                    adjusted_json = documents_dir / (input_file.stem + ".adjusted.json")
+                    adjusted_json = adjusted_json_dir / rel_path / f"{input_file.stem}.json"
                 
                 adjusted_json.parent.mkdir(parents=True, exist_ok=True)
                 with adjusted_json.open("w", encoding="utf-8") as wf:
@@ -152,9 +171,10 @@ def execute_pipeline(config: UserConfig) -> int:
         if config.apply.output:
             output_docx = config.apply.output
         else:
-            output_docx = documents_dir / f"{input_file.stem}_NEW.docx"
+            output_docx = documents_dir / rel_path / f"{input_file.stem}_NEW.docx"
         
         output_docx.parent.mkdir(parents=True, exist_ok=True)
+        verify_dir = verification_dir / rel_path
         
         apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
             json_path=render_json,
@@ -162,7 +182,7 @@ def execute_pipeline(config: UserConfig) -> int:
             output_docx=output_docx,
             debug=config.debug,
             skip_compare=not config.should_compare,
-            roundtrip_dir=verification_dir,
+            roundtrip_dir=verify_dir,
         )
         
         extract_errs = render_errs
