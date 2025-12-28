@@ -432,6 +432,22 @@ class TestInputCollection:
         with pytest.raises(FileNotFoundError, match="Path not found"):
             cli._collect_inputs(nonexistent, is_extraction=True, template_path=None)
 
+    def test_collect_wrong_file_type_for_extraction(self, tmp_path: Path):
+        """When file type doesn't match extraction mode, should raise ValueError."""
+        txt_file = tmp_path / "test.txt"
+        txt_file.write_text("not a docx")
+        
+        with pytest.raises(ValueError, match="must be a DOCX file"):
+            cli._collect_inputs(txt_file, is_extraction=True, template_path=None)
+
+    def test_collect_wrong_file_type_for_apply(self, tmp_path: Path):
+        """When file type doesn't match apply mode, should raise ValueError."""
+        txt_file = tmp_path / "test.txt"
+        txt_file.write_text("not json")
+        
+        with pytest.raises(ValueError, match="must be a JSON file"):
+            cli._collect_inputs(txt_file, is_extraction=False, template_path=None)
+
 
 class TestMainFunction:
     """Tests for main CLI entry point."""

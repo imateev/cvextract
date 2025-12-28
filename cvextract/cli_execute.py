@@ -68,7 +68,6 @@ def execute_pipeline(config: UserConfig) -> int:
     # Create output directories
     json_dir = config.target_dir / "structured_data"
     documents_dir = config.target_dir / "documents"
-    research_dir = config.target_dir / "research_data"
     verification_dir = config.target_dir / "verification_structured_data"
     
     if config.extract or config.adjust:
@@ -76,9 +75,6 @@ def execute_pipeline(config: UserConfig) -> int:
     
     if config.apply:
         documents_dir.mkdir(parents=True, exist_ok=True)
-    
-    if config.adjust:
-        research_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize result tracking
     extract_ok = True
@@ -91,10 +87,6 @@ def execute_pipeline(config: UserConfig) -> int:
     # Step 1: Extract (if configured)
     out_json = None
     if config.extract:
-        if input_file.suffix.lower() != ".docx":
-            LOG.error("Input file is not a DOCX file: %s", input_file)
-            return 1
-        
         # Determine output path
         if config.extract.output:
             out_json = config.extract.output
@@ -113,9 +105,6 @@ def execute_pipeline(config: UserConfig) -> int:
             return 1
     else:
         # No extraction, use input JSON directly
-        if input_file.suffix.lower() != ".json":
-            LOG.error("Input file is not a JSON file: %s", input_file)
-            return 1
         out_json = input_file
     
     # Step 2: Adjust (if configured)
@@ -127,6 +116,7 @@ def execute_pipeline(config: UserConfig) -> int:
             
             # Pass cache_path for research results
             if config.adjust.customer_url:
+                research_dir = config.target_dir / "research_data"
                 research_dir.mkdir(parents=True, exist_ok=True)
                 research_cache = research_dir / _url_to_cache_filename(config.adjust.customer_url)
                 

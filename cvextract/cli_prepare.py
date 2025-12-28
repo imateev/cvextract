@@ -20,6 +20,7 @@ def _collect_inputs(src: Path, is_extraction: bool, template_path: Optional[Path
     
     This function now only accepts single files, not directories.
     Directories are rejected with a clear error message.
+    Also validates file type matches the operation (DOCX for extraction, JSON for apply).
     """
     if not src.exists():
         raise FileNotFoundError(f"Path not found: {src}")
@@ -33,6 +34,13 @@ def _collect_inputs(src: Path, is_extraction: bool, template_path: Optional[Path
     
     if not src.is_file():
         raise FileNotFoundError(f"Path is not a file: {src}")
+    
+    # Validate file type matches operation
+    if is_extraction and src.suffix.lower() != ".docx":
+        raise ValueError(f"Input file must be a DOCX file for extraction. Got: {src}")
+    
+    if not is_extraction and src.suffix.lower() != ".json":
+        raise ValueError(f"Input file must be a JSON file for apply/adjust. Got: {src}")
     
     return [src]
 

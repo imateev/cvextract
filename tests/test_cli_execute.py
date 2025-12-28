@@ -583,7 +583,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
         )
         
         exit_code = execute_pipeline(config)
-        # Should return error code 1 for wrong file type
+        # Should return error code 1 for wrong file type (from _collect_inputs)
         assert exit_code == 1
 
     @patch('cvextract.cli_execute.render_and_verify')
@@ -607,6 +607,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
         )
         
         exit_code = execute_pipeline(config)
-        # Should return error code 1 for wrong file type
+        # Should return error code 1 for wrong file type (from _collect_inputs)
         assert exit_code == 1
         mock_render.assert_not_called()
