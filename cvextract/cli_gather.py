@@ -14,6 +14,25 @@ from typing import Dict, List, Optional
 from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
 
 
+def _resolve_output_path(output_str: str, target_dir: Path) -> Path:
+    """
+    Resolve output path relative to target directory.
+    
+    - Absolute paths are used as-is
+    - Relative paths are resolved relative to target_dir
+    
+    Examples:
+        _resolve_output_path("/abs/path.json", Path("/target")) -> Path("/abs/path.json")
+        _resolve_output_path("data.json", Path("/target")) -> Path("/target/data.json")
+        _resolve_output_path("subdir/data.json", Path("/target")) -> Path("/target/subdir/data.json")
+    """
+    output_path = Path(output_str)
+    if output_path.is_absolute():
+        return output_path
+    else:
+        return target_dir / output_path
+
+
 def _parse_stage_params(param_list: List[str]) -> Dict[str, str]:
     """
     Parse stage parameter list into a dictionary.
@@ -126,7 +145,7 @@ Examples:
         
         extract_stage = ExtractStage(
             source=Path(params['source']),
-            output=Path(params['output']) if 'output' in params else None,
+            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
         )
     
     if args.adjust is not None:
@@ -134,7 +153,7 @@ Examples:
         
         adjust_stage = AdjustStage(
             data=Path(params['data']) if 'data' in params else None,
-            output=Path(params['output']) if 'output' in params else None,
+            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
             customer_url=params.get('customer-url'),
             openai_model=params.get('openai-model'),
             dry_run='dry-run' in params,
@@ -148,7 +167,7 @@ Examples:
         apply_stage = ApplyStage(
             template=Path(params['template']),
             data=Path(params['data']) if 'data' in params else None,
-            output=Path(params['output']) if 'output' in params else None,
+            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
         )
     
     return UserConfig(

@@ -76,19 +76,45 @@ The stage-based interface uses explicit flags for each operation, making the pip
 - `--debug` - Verbose logging with stack traces
 - `--log-file <path>` - Optional log file path
 
+### Output Path Behavior
+
+The `output=` parameter in each stage behaves as follows:
+
+- **Absolute paths** (e.g., `/abs/path/file.json`) are used as-is
+- **Relative paths** (e.g., `data.json` or `subdir/file.json`) are resolved relative to `--target` directory
+- **No output specified** uses sensible defaults:
+  - Extract: `{target}/structured_data/{filename}.json`
+  - Adjust: `{target}/structured_data/{filename}.adjusted.json`
+  - Apply: `{target}/documents/{filename}_NEW.docx`
+- **Directories are created automatically** - no need to pre-create output directories
+
 **Examples:**
 
 ```bash
-# Extract only
+# Extract only with default output
 python -m cvextract.cli \
   --extract source=/path/to/cvs \
   --target /path/to/output
+# Creates: /path/to/output/structured_data/*.json
 
-# Extract and apply
+# Extract with relative output path
 python -m cvextract.cli \
-  --extract source=/path/to/cvs \
-  --apply template=/path/to/template.docx \
+  --extract source=/path/to/cv.docx output=my_data.json \
   --target /path/to/output
+# Creates: /path/to/output/my_data.json
+
+# Extract with absolute output path
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx output=/custom/location/data.json \
+  --target /path/to/output
+# Creates: /custom/location/data.json (ignores --target for this output)
+
+# Extract and apply with mixed paths
+python -m cvextract.cli \
+  --extract source=/path/to/cvs output=extracted/data.json \
+  --apply template=/path/to/template.docx output=final/result.docx \
+  --target /path/to/output
+# Creates: /path/to/output/extracted/data.json and /path/to/output/final/result.docx
 
 # Extract, adjust for customer, and apply
 export OPENAI_API_KEY="sk-proj-..."
@@ -96,11 +122,6 @@ python -m cvextract.cli \
   --extract source=/path/to/cvs \
   --adjust customer-url=https://example.com \
   --apply template=/path/to/template.docx \
-  --target /path/to/output
-
-# Apply to existing JSON
-python -m cvextract.cli \
-  --apply template=/path/to/template.docx data=/path/to/data.json \
   --target /path/to/output
 ```
 

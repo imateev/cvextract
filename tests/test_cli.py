@@ -170,6 +170,105 @@ class TestStageBasedParsing:
         assert config.log_file == "/path/to/log.txt"
 
 
+class TestOutputPathResolution:
+    """Tests for output path resolution relative to target directory."""
+    
+    def test_absolute_output_path_used_as_is(self):
+        """Absolute output paths should be used as-is, not relative to target."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cv.docx", "output=/absolute/path/data.json",
+            "--target", "/path/to/target"
+        ])
+        assert config.extract.output == Path("/absolute/path/data.json")
+        assert config.target_dir == Path("/path/to/target")
+    
+    def test_relative_output_path_resolved_to_target(self):
+        """Relative output paths should be resolved relative to target directory."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cv.docx", "output=data.json",
+            "--target", "/path/to/target"
+        ])
+        assert config.extract.output == Path("/path/to/target/data.json")
+    
+    def test_relative_output_path_with_subdirectory(self):
+        """Relative output paths with subdirectories should be resolved correctly."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cv.docx", "output=subdir/nested/data.json",
+            "--target", "/path/to/target"
+        ])
+        assert config.extract.output == Path("/path/to/target/subdir/nested/data.json")
+    
+    def test_no_output_path_returns_none(self):
+        """When no output is specified, should return None (uses defaults)."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/path/to/cv.docx",
+            "--target", "/path/to/target"
+        ])
+        assert config.extract.output is None
+    
+    def test_apply_stage_absolute_output(self):
+        """Apply stage with absolute output path."""
+        config = cli.gather_user_requirements([
+            "--apply", "template=/template.docx", "data=/data.json", "output=/absolute/result.docx",
+            "--target", "/path/to/target"
+        ])
+        assert config.apply.output == Path("/absolute/result.docx")
+    
+    def test_apply_stage_relative_output(self):
+        """Apply stage with relative output path."""
+        config = cli.gather_user_requirements([
+            "--apply", "template=/template.docx", "data=/data.json", "output=final/result.docx",
+            "--target", "/path/to/target"
+        ])
+        assert config.apply.output == Path("/path/to/target/final/result.docx")
+    
+    def test_adjust_stage_relative_output(self):
+        """Adjust stage with relative output path."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/cv.docx",
+            "--adjust", "customer-url=https://example.com", "output=adjusted.json",
+            "--target", "/path/to/target"
+        ])
+        assert config.adjust.output == Path("/path/to/target/adjusted.json")
+    
+    def test_multiple_stages_mixed_paths(self):
+        """Multiple stages with mix of absolute and relative paths."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/cv.docx", "output=extracted/data.json",
+            "--apply", "template=/template.docx", "output=/absolute/result.docx",
+            "--target", "/path/to/target"
+        ])
+        assert config.extract.output == Path("/path/to/target/extracted/data.json")
+        assert config.apply.output == Path("/absolute/result.docx")
+    
+    def test_windows_absolute_path_on_posix(self):
+        """On POSIX systems, Windows-style paths are treated as relative."""
+        import os
+        if os.name == 'posix':
+            # On POSIX, C:\output\data.json is not absolute
+            config = cli.gather_user_requirements([
+                "--extract", r"source=C:\input\cv.docx", r"output=C:\output\data.json",
+                "--target", "/path/to/target"
+            ])
+            # Should be treated as relative and resolved to target
+            assert str(config.extract.output).startswith("/path/to/target")
+        else:
+            # On Windows, C:\output\data.json is absolute
+            config = cli.gather_user_requirements([
+                "--extract", r"source=C:\input\cv.docx", r"output=C:\output\data.json",
+                "--target", "/path/to/target"
+            ])
+            assert config.extract.output == Path(r"C:\output\data.json")
+    
+    def test_relative_path_with_dots(self):
+        """Relative paths with .. should be resolved relative to target."""
+        config = cli.gather_user_requirements([
+            "--extract", "source=/cv.docx", "output=../sibling/data.json",
+            "--target", "/path/to/target"
+        ])
+        assert config.extract.output == Path("/path/to/target/../sibling/data.json")
+
+
 class TestPathsWithSpecialCharacters:
     """Tests for handling paths with spaces and special characters."""
     
@@ -261,13 +360,14 @@ class TestPathsWithSpecialCharacters:
         assert config.extract.source == Path("/path with spaces/file.docx")
     
     def test_parse_relative_paths_with_dots(self):
-        """Relative paths with .. and . should be preserved."""
+        """Relative paths with .. and . should be resolved relative to target."""
         config = cli.gather_user_requirements([
             "--extract", "source=../parent/dir/file.docx", "output=./output/data.json",
             "--target", "/output"
         ])
         assert config.extract.source == Path("../parent/dir/file.docx")
-        assert config.extract.output == Path("./output/data.json")
+        # Relative output path should be resolved to target
+        assert config.extract.output == Path("/output/./output/data.json")  # or Path("/output/output/data.json") after normalization
     
     def test_windows_style_paths_with_backslashes(self):
         """Windows-style paths should be handled (though backslashes need escaping in shell)."""
