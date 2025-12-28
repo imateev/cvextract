@@ -14,7 +14,7 @@ from .cli_config import ExecutionMode, UserConfig
 from .logging_utils import LOG
 
 
-def _collect_inputs(src: Path, mode: ExecutionMode, template_path: Optional[Path]) -> List[Path]:
+def _collect_inputs(src: Path, mode: Optional[ExecutionMode], is_extraction: bool, template_path: Optional[Path]) -> List[Path]:
     """Collect input files based on source path and execution mode."""
     if src.is_file():
         return [src]
@@ -23,7 +23,7 @@ def _collect_inputs(src: Path, mode: ExecutionMode, template_path: Optional[Path
         raise FileNotFoundError(f"Path not found or not a file/folder: {src}")
 
     # For extraction modes, collect DOCX files (excluding template)
-    if mode.needs_extraction:
+    if is_extraction or (mode and mode.needs_extraction):
         return [
             p for p in src.rglob("*.docx")
             if p.is_file()
@@ -45,20 +45,29 @@ def prepare_execution_environment(config: UserConfig) -> UserConfig:
     
     Returns the same config (for chaining).
     """
-    # Validate template (required for modes that need rendering)
-    if config.mode.needs_rendering or config.mode.needs_extraction:
-        if config.template is None:
-            LOG.error("Template is required for this mode")
-            raise ValueError("Template is required")
-        
-        if not config.template.is_file() or config.template.suffix.lower() != ".docx":
-            LOG.error("Template not found or not a .docx: %s", config.template)
-            raise ValueError(f"Invalid template: {config.template}")
+    # Handle both legacy and new interface
+    if config.mode:
+        # Legacy mode-based validation
+        if config.mode.needs_rendering or config.mode.needs_extraction:
+            if config.template is None:
+                LOG.error("Template is required for this mode")
+                raise ValueError("Template is required")
+            
+            if not config.template.is_file() or config.template.suffix.lower() != ".docx":
+                LOG.error("Template not found or not a .docx: %s", config.template)
+                raise ValueError(f"Invalid template: {config.template}")
+    else:
+        # New stage-based validation
+        if config.apply:
+            if not config.apply.template.is_file() or config.apply.template.suffix.lower() != ".docx":
+                LOG.error("Template not found or not a .docx: %s", config.apply.template)
+                raise ValueError(f"Invalid template: {config.apply.template}")
 
     # Validate target directory
-    config.target_dir.mkdir(parents=True, exist_ok=True)
-    if not config.target_dir.is_dir():
-        LOG.error("Target is not a directory: %s", config.target_dir)
-        raise ValueError(f"Target is not a directory: {config.target_dir}")
+    if config.target_dir:
+        config.target_dir.mkdir(parents=True, exist_ok=True)
+        if not config.target_dir.is_dir():
+            LOG.error("Target is not a directory: %s", config.target_dir)
+            raise ValueError(f"Target is not a directory: {config.target_dir}")
 
     return config
