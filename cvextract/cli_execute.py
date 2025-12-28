@@ -72,19 +72,19 @@ def execute_pipeline(config: UserConfig) -> int:
     input_file = inputs[0]
     
     # Determine relative path for preserving directory structure
-    # Use current working directory as base to preserve relative paths
-    cwd = Path.cwd()
-    try:
-        # Try to get relative path from current directory
-        rel_path = input_file.parent.resolve().relative_to(cwd)
-    except ValueError:
-        # If file is not under current directory, try source's parent as base
+    # Prefer input_dir from config (set in parallel processing), otherwise calculate from source
+    if config.input_dir:
+        # In parallel mode, input_dir is explicitly set to the root scan directory
+        source_base = config.input_dir.resolve()
+    else:
+        # In single-file mode, determine source base from source configuration
         source_base = source.parent.resolve() if source.is_file() else source.resolve()
-        try:
-            rel_path = input_file.parent.resolve().relative_to(source_base)
-        except ValueError:
-            # Fallback: use empty path if we can't determine relative path
-            rel_path = Path(".")
+    
+    try:
+        rel_path = input_file.parent.resolve().relative_to(source_base)
+    except ValueError:
+        # Fallback: use empty path if we can't determine relative path
+        rel_path = Path(".")
     
     # Create output directories
     json_dir = config.target_dir / "structured_data"
