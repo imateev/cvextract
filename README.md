@@ -51,96 +51,328 @@ See `cvextract/verifiers/README.md` for details on creating custom verifiers.
 
 ## CLI Interface
 
-The stage-based interface uses explicit flags for each operation, making the pipeline clear and composable:
+The CLI uses a stage-based architecture with explicit flags for each operation. Stages can be chained together or run independently, making the pipeline clear and composable.
 
-**Stages:**
-- `--extract`: Extract CV data from DOCX to JSON
-  - `source=<file>` - Input DOCX file (required, must be a single file, not a directory)
-  - `output=<path>` - Output JSON path (optional, defaults to target_dir/structured_data/)
+### Execution Modes
 
-- `--adjust`: Adjust CV data for a specific customer using AI
-  - `customer-url=<url>` - Customer website URL for research (required)
-  - `data=<file>` - Input JSON file (optional if chained after --extract, must be a single file)
-  - `output=<path>` - Output JSON path (optional)
-  - `openai-model=<model>` - OpenAI model to use (optional, defaults to gpt-4o-mini)
-  - `dry-run` - Only adjust without rendering (optional flag)
-
-- `--apply`: Apply CV data to DOCX template
-  - `template=<path>` - Template DOCX file (required)
-  - `data=<file>` - Input JSON file (optional if chained after --extract or --adjust, must be a single file)
-  - `output=<path>` - Output DOCX path (optional, defaults to target_dir/documents/)
-
-**Global options:**
-- `--target <dir>` - Output directory (required)
-- `--strict` - Treat warnings as failures
-- `--debug` - Verbose logging with stack traces
-- `--log-file <path>` - Optional log file path
-
-### Output Path Behavior
-
-The `output=` parameter in each stage behaves as follows:
-
-- **Absolute paths** (e.g., `/abs/path/file.json`) are used as-is
-- **Relative paths** (e.g., `data.json` or `subdir/file.json`) are resolved relative to `--target` directory
-- **No output specified** uses sensible defaults with preserved directory structure:
-  - Extract: `{target}/structured_data/{rel_path}/{filename}.json`
-  - Adjust: `{target}/adjusted_structured_data/{rel_path}/{filename}.json`
-  - Apply: `{target}/documents/{rel_path}/{filename}_NEW.docx`
-  - Where `{rel_path}` preserves the source file's directory structure
-- **Directories are created automatically** - no need to pre-create output directories
-
-### Output Directory Structure
-
-The tool creates the following top-level directories under `--target`:
-
-- `structured_data/` - Original extracted JSON files
-- `adjusted_structured_data/` - Adjusted JSON files (created only when using `--adjust`)
-- `documents/` - Generated DOCX files (when using `--apply`)
-- `research_data/` - Cached customer research data (when using `--adjust`)
-- `verification_structured_data/` - Roundtrip verification data (when using `--apply` without `--adjust`)
-
-Each directory preserves the relative path structure from the source file location.
-
-**Examples:**
-
+**Single-file mode** (default) - Process one file at a time:
 ```bash
-# Extract only with default output (preserves directory structure)
-python -m cvextract.cli \
-  --extract source=/data/engineers/john/cv.docx \
-  --target /output
-# Creates: /output/structured_data/engineers/john/cv.json
+python -m cvextract.cli --extract source=<file> [--adjust ...] [--apply ...] --target <dir> [options]
+```
 
-# Extract with relative output path (custom path, no structure preservation)
-python -m cvextract.cli \
-  --extract source=/path/to/cv.docx output=my_data.json \
-  --target /path/to/output
-# Creates: /path/to/output/my_data.json
+**Batch mode** - Process multiple files in parallel:
+```bash
+python -m cvextract.cli --parallel input=<dir> n=<num_workers> [--extract] [--adjust ...] [--apply ...] --target <dir> [options]
+```
 
-# Extract with absolute output path
-python -m cvextract.cli \
-  --extract source=/path/to/cv.docx output=/custom/location/data.json \
-  --target /path/to/output
-# Creates: /custom/location/data.json (ignores --target for this output)
+### Stage Chaining
 
-# Extract, adjust, and apply (creates adjusted_structured_data folder)
-export OPENAI_API_KEY="sk-proj-..."
+When stages are chained together, **the output of each stage automatically becomes the input to the next stage**:
+
+- **Extract → Adjust**: The extracted JSON is automatically passed to the adjust stage (no need to specify `data=`)
+- **Adjust → Apply**: The adjusted JSON is automatically passed to the apply stage
+- **Extract → Apply** (no adjust): The extracted JSON is automatically passed to the apply stage
+
+The `data=` parameter in `--adjust` and `--apply` is only needed when you want to process **pre-existing JSON files without extraction**. When stages are chained, this parameter is ignored.
+
+Example of automatic chaining:
+```bash
 python -m cvextract.cli \
-  --extract source=/data/engineers/john/cv.docx \
+  --extract source=/path/to/cv.docx \
   --adjust customer-url=https://example.com \
   --apply template=/path/to/template.docx \
   --target /output
-# Creates:
-#   /output/structured_data/engineers/john/cv.json
-#   /output/adjusted_structured_data/engineers/john/cv.json
-#   /output/documents/engineers/john/cv_NEW.docx
-#   /output/research_data/engineers/john/example_com.json
 
-# Extract and apply with mixed paths
+# Flow: DOCX → Extract JSON → Adjust JSON → Apply to template
+# No explicit data= parameters needed
+```
+
+### Stages
+
+**`--extract`**: Extract CV data from DOCX to JSON
+- `source=<path>` - Input DOCX file or directory (required in single-file mode)
+  - Single file: processes one file
+  - Directory: processes all `.docx` files recursively
+- `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
+
+**`--adjust`**: Adjust CV data for a specific customer using AI (optional)
+- `customer-url=<url>` - Customer website URL for research (required for adjust stage)
+- `data=<path>` - Input JSON file or directory (only used when NOT chained after extract)
+  - When chained after extract, this is ignored and the extracted JSON is used automatically
+  - Single file: processes one file
+  - Directory: processes all `.json` files recursively
+- `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
+- `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
+- `dry-run` - Only adjust without rendering (optional flag, prevents apply stage execution)
+
+**`--apply`**: Apply CV data to DOCX template
+- `template=<path>` - Template DOCX file (required for apply stage)
+- `data=<path>` - Input JSON file or directory (only used when NOT chained after extract/adjust)
+  - When chained after extract or adjust, this is ignored and the JSON from the previous stage is used automatically
+  - Single file: applies to one template
+  - Directory: applies all matching JSON files
+- `output=<path>` - Output DOCX path (optional, defaults to `{target}/documents/`)
+
+**`--parallel`**: Batch processing mode (alternative to single-file stages)
+- `input=<dir>` - Input directory containing DOCX files (required)
+- `n=<num>` - Number of worker processes (required, e.g., `n=10`)
+- When used, stages like `--extract`, `--adjust`, `--apply` still apply but work in parallel
+- Each worker processes files independently using the same stage configuration
+
+### Global Options
+
+- `--target <dir>` - Output directory (required)
+- `--strict` - Treat warnings as errors (exit code 2)
+- `--debug` - Verbose logging with stack traces
+- `--log-file <path>` - Optional log file path for persistent logging
+
+### Examples
+
+#### Single-File Extraction
+
+```bash
+# Extract one CV file with default output location
 python -m cvextract.cli \
-  --extract source=/path/to/cv.docx output=extracted/data.json \
+  --extract source=/path/to/cv.docx \
+  --target /output
+
+# Output: /output/structured_data/cv.json
+```
+
+#### Single-File with Custom Output
+
+```bash
+# Extract with relative output path
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx output=custom/location.json \
+  --target /output
+
+# Output: /output/custom/location.json
+```
+
+```bash
+# Extract with absolute output path (ignores --target for this output)
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx output=/absolute/path/data.json \
+  --target /output
+
+# Output: /absolute/path/data.json
+```
+
+#### Extract + Apply (Render CV)
+
+```bash
+# Extract and apply to template with default output structure
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Outputs:
+#   /output/structured_data/cv.json
+#   /output/documents/cv_NEW.docx
+```
+
+```bash
+# Extract and apply with custom output paths
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx output=json/extracted.json \
   --apply template=/path/to/template.docx output=final/result.docx \
-  --target /path/to/output
-# Creates: /path/to/output/extracted/data.json and /path/to/output/final/result.docx
+  --target /output
+
+# Outputs:
+#   /output/json/extracted.json
+#   /output/final/result.docx
+```
+
+#### Extract + Adjust + Apply (With Customer Research)
+
+```bash
+# Full pipeline: extract, adjust for customer, then apply
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust customer-url=https://example.com \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Outputs:
+#   /output/structured_data/cv.json (original)
+#   /output/adjusted_structured_data/cv.json (customer-optimized)
+#   /output/documents/cv_NEW.docx (from adjusted JSON)
+#   /output/research_data/cv/example_com.json (cached research)
+```
+
+```bash
+# Adjust with custom OpenAI model
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust customer-url=https://example.com openai-model=gpt-4 \
+  --apply template=/path/to/template.docx \
+  --target /output
+```
+
+#### Adjust Only (Dry-Run - No Rendering)
+
+```bash
+# Extract and adjust without applying (useful for preview/testing)
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust customer-url=https://example.com dry-run \
+  --target /output
+
+# Outputs:
+#   /output/structured_data/cv.json (original)
+#   /output/adjusted_structured_data/cv.json (customer-optimized)
+#   No DOCX file generated
+```
+
+#### Adjust from Existing JSON
+
+```bash
+# Adjust pre-extracted JSON without re-extracting
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --adjust data=/path/to/extracted.json customer-url=https://example.com \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Outputs:
+#   /output/adjusted_structured_data/extracted.json
+#   /output/documents/extracted_NEW.docx
+```
+
+#### Apply Only (From Existing JSON)
+
+```bash
+# Apply pre-adjusted JSON to template (no extraction or adjustment)
+python -m cvextract.cli \
+  --apply template=/path/to/template.docx data=/path/to/data.json \
+  --target /output
+
+# Output: /output/documents/data_NEW.docx
+```
+
+#### Batch Processing - Extract Multiple Files
+
+```bash
+# Extract all CVs from a directory in parallel (10 workers)
+python -m cvextract.cli \
+  --parallel input=/path/to/cv_folder n=10 \
+  --extract \
+  --target /output
+
+# Processes all .docx files in /path/to/cv_folder recursively
+# Outputs: /output/structured_data/{preserved_directory_structure}/{filename}.json
+```
+
+#### Batch Processing - Extract + Apply
+
+```bash
+# Extract and render all CVs in parallel (20 workers)
+python -m cvextract.cli \
+  --parallel input=/path/to/cv_folder n=20 \
+  --extract \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Processes all .docx files recursively
+# Outputs:
+#   /output/structured_data/{structure}/{filename}.json
+#   /output/documents/{structure}/{filename}_NEW.docx
+```
+
+#### Batch Processing - Extract + Adjust + Apply
+
+```bash
+# Full pipeline for entire folder in parallel
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --parallel input=/data/consultants n=15 \
+  --extract \
+  --adjust customer-url=https://target-company.com \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Processes all CVs in parallel
+# Outputs:
+#   /output/structured_data/{structure}/{filename}.json (originals)
+#   /output/adjusted_structured_data/{structure}/{filename}.json (adjusted)
+#   /output/documents/{structure}/{filename}_NEW.docx (rendered)
+#   /output/research_data/{structure}/{filename}/target_company_com.json (cached research)
+```
+
+#### Error Handling and Logging
+
+```bash
+# Run with strict mode (warnings treated as errors, exit code 2)
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --apply template=/path/to/template.docx \
+  --target /output \
+  --strict
+
+# Exit code: 0 (success), 1 (failures), 2 (warnings in strict mode)
+```
+
+```bash
+# Run with debug logging and persistent log file
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --target /output \
+  --debug \
+  --log-file /path/to/cvextract.log
+
+# Logs stack traces and detailed diagnostics to console and file
+```
+
+```bash
+# Batch processing with debug logging
+python -m cvextract.cli \
+  --parallel input=/data/cvs n=10 \
+  --extract \
+  --apply template=/path/to/template.docx \
+  --target /output \
+  --debug \
+  --log-file /output/batch_processing.log
+```
+
+#### Complex Directory Structure Preservation
+
+```bash
+# Extract maintaining source directory structure
+# Source: /source/teams/backend/engineer1.docx, /source/teams/backend/engineer2.docx
+# Output structure will be:
+#   /output/structured_data/teams/backend/engineer1.json
+#   /output/structured_data/teams/backend/engineer2.json
+
+python -m cvextract.cli \
+  --extract source=/source \
+  --target /output
+```
+
+#### Mixed Batch Processing with Custom Outputs
+
+```bash
+# Batch process but save adjusted data to custom location
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --parallel input=/source/cvs n=12 \
+  --extract \
+  --adjust customer-url=https://example.com output=/custom/adjusted/ \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Outputs:
+#   /output/structured_data/{structure}/{filename}.json
+#   /custom/adjusted/{structure}/{filename}.json (custom location)
+#   /output/documents/{structure}/{filename}_NEW.docx
 ```
 
 ### Customer Adjustment (OpenAI)
