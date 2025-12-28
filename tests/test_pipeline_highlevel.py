@@ -4,7 +4,7 @@ import pytest
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from cvextract.pipeline_highlevel import extract_cv_structure, process_single_docx
+from cvextract.pipeline_highlevel import extract_cv_structure, render_cv_data, process_single_docx
 from cvextract.verifiers import ExtractedDataVerifier
 from cvextract.shared import VerificationResult
 
@@ -34,6 +34,52 @@ class TestExtractCvStructure:
             assert result == mock_data
             mock_extractor_class.assert_called_once()
             mock_extractor.extract.assert_called_once_with(mock_docx)
+
+
+class TestRenderCvData:
+    """Tests for render_cv_data function."""
+
+    def test_render_cv_data_uses_default_renderer(self, tmp_path):
+        """Test render_cv_data uses the DocxCVRenderer."""
+        mock_template = tmp_path / "template.docx"
+        mock_template.touch()
+        output_path = tmp_path / "output.docx"
+        
+        cv_data = {
+            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "sidebar": {"languages": ["EN"], "tools": ["Python"]},
+            "overview": "Overview text",
+            "experiences": [{"heading": "Job", "description": "desc"}],
+        }
+        
+        with patch("cvextract.pipeline_highlevel.DocxCVRenderer") as mock_renderer_class:
+            mock_renderer = Mock()
+            mock_renderer.render.return_value = output_path
+            mock_renderer_class.return_value = mock_renderer
+            
+            result = render_cv_data(cv_data, mock_template, output_path)
+            
+            assert result == output_path
+            mock_renderer_class.assert_called_once()
+            mock_renderer.render.assert_called_once_with(cv_data, mock_template, output_path)
+
+    def test_render_cv_data_returns_output_path(self, tmp_path):
+        """Test render_cv_data returns the rendered output path."""
+        mock_template = tmp_path / "template.docx"
+        mock_template.touch()
+        output_path = tmp_path / "output.docx"
+        
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        with patch("cvextract.pipeline_highlevel.DocxCVRenderer") as mock_renderer_class:
+            mock_renderer = Mock()
+            expected_return = output_path
+            mock_renderer.render.return_value = expected_return
+            mock_renderer_class.return_value = mock_renderer
+            
+            result = render_cv_data(cv_data, mock_template, output_path)
+            
+            assert result == expected_return
 
 
 class TestProcessSingleDocx:
