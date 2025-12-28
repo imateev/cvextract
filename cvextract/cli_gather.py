@@ -30,10 +30,16 @@ def _parse_stage_params(param_str: str) -> Dict[str, str]:
     for part in param_str.split():
         if '=' in part:
             key, value = part.split('=', 1)
-            params[key.strip()] = value.strip()
+            key = key.strip()
+            if not key:
+                raise ValueError("Empty parameter key not allowed")
+            params[key] = value.strip()
         else:
             # Flag without value (e.g., dry-run)
-            params[part.strip()] = ""
+            flag = part.strip()
+            if not flag:
+                continue  # Skip empty strings
+            params[flag] = ""
     
     return params
 

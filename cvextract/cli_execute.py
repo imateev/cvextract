@@ -240,7 +240,7 @@ def _execute_stage_pipeline(config: UserConfig) -> int:
         source = config.adjust.data
         is_extraction = False
     else:
-        LOG.error("No input source specified. Use source= parameter in --extract or data= in --apply/--adjust")
+        LOG.error("No input source specified. Use source= in --extract, or data= in --apply when not chained with --extract")
         return 1
     
     # Collect inputs

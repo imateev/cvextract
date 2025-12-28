@@ -252,6 +252,14 @@ class TestStageBasedParsing:
             "--target", "/path/to/output"
         ])
         assert config.should_compare is False
+    
+    def test_empty_parameter_key_raises_error(self):
+        """Parameter with empty key should raise error."""
+        with pytest.raises(ValueError, match="Empty parameter key"):
+            cli.gather_user_requirements([
+                "--extract", "source=/path/to/cvs", "=/path/to/output",
+                "--target", "/path/to/output"
+            ])
 
 
 class TestInputCollection:
