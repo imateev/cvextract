@@ -1,23 +1,25 @@
 """
-Batch pipeline runners - facade module.
+Batch pipeline helper utilities.
 
-This module re-exports the mode runner functions for backward compatibility.
-The actual implementations are in separate mode-specific modules.
+This module re-exports helper functions for backward compatibility.
+The main pipeline execution has been consolidated into cli.py.
 """
 
-from .pipeline_extract import run_extract_mode
-from .pipeline_apply import run_apply_mode
-from .pipeline_extract_apply import run_extract_apply_mode
 from .pipeline_helpers import (
     infer_source_root,
     safe_relpath,
+    extract_single,
+    render_and_verify,
+    get_status_icons,
+    categorize_result,
 )
 
 # Re-export for backward compatibility
 __all__ = [
-    "run_extract_mode",
-    "run_apply_mode",
-    "run_extract_apply_mode",
     "infer_source_root",
     "safe_relpath",
+    "extract_single",
+    "render_and_verify",
+    "get_status_icons",
+    "categorize_result",
 ]

@@ -61,7 +61,7 @@ def extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool, 
 def render_and_verify(
     json_path: Path, 
     template_path: Path, 
-    out_dir: Path, 
+    output_docx: Path, 
     debug: bool, 
     *, 
     skip_compare: bool = False, 
@@ -69,8 +69,18 @@ def render_and_verify(
 ) -> tuple[bool, List[str], List[str], Optional[bool]]:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
-    Returns (ok, errors, warnings, compare_ok).
-    compare_ok is None if comparison did not run (e.g., render error).
+    
+    Args:
+        json_path: Path to input JSON file
+        template_path: Path to DOCX template
+        output_docx: Explicit path where rendered DOCX should be saved
+        debug: Enable debug logging
+        skip_compare: Skip comparison verification
+        roundtrip_dir: Optional directory for roundtrip JSON files
+    
+    Returns:
+        Tuple of (ok, errors, warnings, compare_ok).
+        compare_ok is None if comparison did not run (e.g., render error).
     """
     import json
     
@@ -79,11 +89,8 @@ def render_and_verify(
         with json_path.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
         
-        # Determine output path
-        out_docx = out_dir / f"{json_path.stem}_NEW.docx"
-        
-        # Render using the new renderer interface
-        render_cv_data(cv_data, template_path, out_docx)
+        # Render using the new renderer interface (with explicit output path)
+        render_cv_data(cv_data, template_path, output_docx)
 
         # Skip compare when explicitly requested by caller
         if skip_compare:
@@ -92,10 +99,10 @@ def render_and_verify(
         # Round-trip extraction from rendered DOCX
         if roundtrip_dir:
             roundtrip_dir.mkdir(parents=True, exist_ok=True)
-            roundtrip_json = roundtrip_dir / (out_docx.stem + ".json")
+            roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
         else:
-            roundtrip_json = out_docx.with_suffix(".json")
-        roundtrip_data = process_single_docx(out_docx, out=roundtrip_json)
+            roundtrip_json = output_docx.with_suffix(".json")
+        roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
 
         original_data = cv_data
 
