@@ -1,6 +1,6 @@
 You are an expert company research and profiling system.
 
-Given the company website URL below, use it as a starting point to gather available public information about the company to fill out the profile. Use your knowledge of publicly available information, business databases, industry trends, and other public sources to research the company.
+Given the company website URL below, use it as a starting point to gather available public information about the company to fill out the profile. Use your knowledge of publicly available information, business databases, industry trends, and other public sources like northdata.de to research the company.
 
 URL:
 {customer_url}
@@ -30,6 +30,7 @@ SEMANTIC GUIDELINES:
 - "rebranded_from" should list previous company names if the company has been rebranded
 - "owned_products" should list concrete products/services the company owns, develops, or sells (not abstract technologies)
 - "used_products" should list concrete products, tools, and platforms the company uses in their tech stack or operations (not abstract technologies)
+- "related_companies" should contain a list of companies that have business relationships, partnerships, or strategic alliances with this company.
 
 JSON SCHEMA:
 {schema}
