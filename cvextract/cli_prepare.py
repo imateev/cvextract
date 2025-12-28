@@ -15,23 +15,34 @@ from .logging_utils import LOG
 
 
 def _collect_inputs(src: Path, is_extraction: bool, template_path: Optional[Path]) -> List[Path]:
-    """Collect input files based on source path and execution type."""
-    if src.is_file():
-        return [src]
-
-    if not src.is_dir():
-        raise FileNotFoundError(f"Path not found or not a file/folder: {src}")
-
-    # For extraction, collect DOCX files (excluding template)
-    if is_extraction:
-        return [
-            p for p in src.rglob("*.docx")
-            if p.is_file()
-            and (template_path is None or p.resolve() != template_path.resolve())
-        ]
-
-    # For render-only, collect JSON files
-    return [p for p in src.rglob("*.json") if p.is_file()]
+    """
+    Validate and collect single input file.
+    
+    This function now only accepts single files, not directories.
+    Directories are rejected with a clear error message.
+    Also validates file type matches the operation (DOCX for extraction, JSON for apply).
+    """
+    if not src.exists():
+        raise FileNotFoundError(f"Path not found: {src}")
+    
+    if src.is_dir():
+        raise ValueError(
+            f"Directories are not supported. Please provide a single file path.\n"
+            f"Provided: {src}\n"
+            f"Expected: A single {'DOCX' if is_extraction else 'JSON'} file path."
+        )
+    
+    if not src.is_file():
+        raise FileNotFoundError(f"Path is not a file: {src}")
+    
+    # Validate file type matches operation
+    if is_extraction and src.suffix.lower() != ".docx":
+        raise ValueError(f"Input file must be a DOCX file for extraction. Got: {src}")
+    
+    if not is_extraction and src.suffix.lower() != ".json":
+        raise ValueError(f"Input file must be a JSON file for apply/adjust. Got: {src}")
+    
+    return [src]
 
 
 def prepare_execution_environment(config: UserConfig) -> UserConfig:

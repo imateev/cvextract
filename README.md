@@ -55,19 +55,19 @@ The stage-based interface uses explicit flags for each operation, making the pip
 
 **Stages:**
 - `--extract`: Extract CV data from DOCX to JSON
-  - `source=<path>` - Input DOCX file(s) (required)
+  - `source=<file>` - Input DOCX file (required, must be a single file, not a directory)
   - `output=<path>` - Output JSON path (optional, defaults to target_dir/structured_data/)
 
 - `--adjust`: Adjust CV data for a specific customer using AI
   - `customer-url=<url>` - Customer website URL for research (required)
-  - `data=<path>` - Input JSON (optional if chained after --extract)
+  - `data=<file>` - Input JSON file (optional if chained after --extract, must be a single file)
   - `output=<path>` - Output JSON path (optional)
   - `openai-model=<model>` - OpenAI model to use (optional, defaults to gpt-4o-mini)
   - `dry-run` - Only adjust without rendering (optional flag)
 
 - `--apply`: Apply CV data to DOCX template
   - `template=<path>` - Template DOCX file (required)
-  - `data=<path>` - Input JSON (optional if chained after --extract or --adjust)
+  - `data=<file>` - Input JSON file (optional if chained after --extract or --adjust, must be a single file)
   - `output=<path>` - Output DOCX path (optional, defaults to target_dir/documents/)
 
 **Global options:**
@@ -82,22 +82,35 @@ The `output=` parameter in each stage behaves as follows:
 
 - **Absolute paths** (e.g., `/abs/path/file.json`) are used as-is
 - **Relative paths** (e.g., `data.json` or `subdir/file.json`) are resolved relative to `--target` directory
-- **No output specified** uses sensible defaults:
-  - Extract: `{target}/structured_data/{filename}.json`
-  - Adjust: `{target}/structured_data/{filename}.adjusted.json`
-  - Apply: `{target}/documents/{filename}_NEW.docx`
+- **No output specified** uses sensible defaults with preserved directory structure:
+  - Extract: `{target}/structured_data/{rel_path}/{filename}.json`
+  - Adjust: `{target}/adjusted_structured_data/{rel_path}/{filename}.json`
+  - Apply: `{target}/documents/{rel_path}/{filename}_NEW.docx`
+  - Where `{rel_path}` preserves the source file's directory structure
 - **Directories are created automatically** - no need to pre-create output directories
+
+### Output Directory Structure
+
+The tool creates the following top-level directories under `--target`:
+
+- `structured_data/` - Original extracted JSON files
+- `adjusted_structured_data/` - Adjusted JSON files (created only when using `--adjust`)
+- `documents/` - Generated DOCX files (when using `--apply`)
+- `research_data/` - Cached customer research data (when using `--adjust`)
+- `verification_structured_data/` - Roundtrip verification data (when using `--apply` without `--adjust`)
+
+Each directory preserves the relative path structure from the source file location.
 
 **Examples:**
 
 ```bash
-# Extract only with default output
+# Extract only with default output (preserves directory structure)
 python -m cvextract.cli \
-  --extract source=/path/to/cvs \
-  --target /path/to/output
-# Creates: /path/to/output/structured_data/*.json
+  --extract source=/data/engineers/john/cv.docx \
+  --target /output
+# Creates: /output/structured_data/engineers/john/cv.json
 
-# Extract with relative output path
+# Extract with relative output path (custom path, no structure preservation)
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx output=my_data.json \
   --target /path/to/output
@@ -109,20 +122,25 @@ python -m cvextract.cli \
   --target /path/to/output
 # Creates: /custom/location/data.json (ignores --target for this output)
 
+# Extract, adjust, and apply (creates adjusted_structured_data folder)
+export OPENAI_API_KEY="sk-proj-..."
+python -m cvextract.cli \
+  --extract source=/data/engineers/john/cv.docx \
+  --adjust customer-url=https://example.com \
+  --apply template=/path/to/template.docx \
+  --target /output
+# Creates:
+#   /output/structured_data/engineers/john/cv.json
+#   /output/adjusted_structured_data/engineers/john/cv.json
+#   /output/documents/engineers/john/cv_NEW.docx
+#   /output/research_data/engineers/john/example_com.json
+
 # Extract and apply with mixed paths
 python -m cvextract.cli \
-  --extract source=/path/to/cvs output=extracted/data.json \
+  --extract source=/path/to/cv.docx output=extracted/data.json \
   --apply template=/path/to/template.docx output=final/result.docx \
   --target /path/to/output
 # Creates: /path/to/output/extracted/data.json and /path/to/output/final/result.docx
-
-# Extract, adjust for customer, and apply
-export OPENAI_API_KEY="sk-proj-..."
-python -m cvextract.cli \
-  --extract source=/path/to/cvs \
-  --adjust customer-url=https://example.com \
-  --apply template=/path/to/template.docx \
-  --target /path/to/output
 ```
 
 ### Customer Adjustment (OpenAI)
