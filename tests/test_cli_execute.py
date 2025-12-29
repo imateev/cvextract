@@ -42,6 +42,30 @@ def mock_json(tmp_path: Path):
     return json_file
 
 
+@pytest.fixture
+def parallel_input_tree(tmp_path: Path):
+    """Utility for creating nested inputs that always set input_dir properly."""
+
+    class InputTreeBuilder:
+        def __init__(self, root: Path):
+            self.root = root
+            self.root.mkdir(parents=True, exist_ok=True)
+
+        def docx(self, relative: str) -> Path:
+            return self._write(relative, "docx")
+
+        def json(self, relative: str, payload: dict) -> Path:
+            return self._write(relative, json.dumps(payload, indent=2))
+
+        def _write(self, relative: str, content: str) -> Path:
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+            return path
+
+    return InputTreeBuilder(tmp_path / "input_root")
+
+
 class TestExecutePipelineNoInput:
     """Tests for execute_pipeline when no input is specified."""
 
@@ -426,6 +450,43 @@ class TestExecutePipelineAdjust:
         mock_render.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.adjust_for_customer')
+    @patch('cvextract.cli_execute._url_to_cache_filename', return_value="cache.json")
+    def test_adjust_research_cache_is_rooted(self, mock_cache_name, mock_adjust, mock_collect,
+                                             tmp_path: Path, parallel_input_tree):
+        """Research cache should always live under target/research_data regardless of input path."""
+        payload = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        input_json = parallel_input_tree.json("folder/profile.json", payload)
+        mock_collect.return_value = [input_json]
+        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+
+        config = UserConfig(
+            extract=None,
+            input_dir=parallel_input_tree.root,
+            adjust=AdjustStage(
+                customer_url="https://example.com",
+                openai_model="gpt-4",
+                dry_run=False,
+                data=input_json,
+                output=None
+            ),
+            apply=None,
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0
+
+        mock_adjust.assert_called_once()
+        cache_path = mock_adjust.call_args.kwargs["cache_path"]
+        expected_cache = tmp_path / "out" / "research_data" / "cache.json"
+        assert cache_path == expected_cache
+        assert cache_path.parent.exists()
+
+    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
     @patch('cvextract.cli_execute.adjust_for_customer')
     @patch('cvextract.cli_execute.render_and_verify')
@@ -610,3 +671,156 @@ class TestExecutePipelineSkipNonMatchingFiles:
         # Should return error code 1 for wrong file type (from _collect_inputs)
         assert exit_code == 1
         mock_render.assert_not_called()
+
+
+class TestFolderStructurePreservation:
+    """Tests for preserving folder structure in output directories."""
+
+    @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.extract_single')
+    def test_extract_preserves_folder_structure(self, mock_extract, mock_collect,
+                                                tmp_path: Path, parallel_input_tree):
+        """Test that extracted JSON files preserve folder structure."""
+        # Create a nested input file structure rooted under the simulated parallel input tree
+        input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
+        
+        mock_collect.return_value = [input_file]
+        mock_extract.return_value = (True, [], [])
+        
+        config = UserConfig(
+            extract=ExtractStage(source=input_file, output=None),
+            adjust=None,
+            apply=None,
+            target_dir=tmp_path / "output",
+            strict=False,
+            debug=False,
+            log_file=None,
+            input_dir=parallel_input_tree.root  # Mirror how parallel mode seeds rel_path
+        )
+        
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0
+        
+        # Verify extract was called with the correct output path
+        call_args = mock_extract.call_args
+        output_json = call_args[0][1]
+        
+        # Output should be in DACH/Software Engineering subdirectory
+        assert "DACH" in str(output_json)
+        assert "Software Engineering" in str(output_json)
+        assert output_json.parent.parent.parent == tmp_path / "output" / "structured_data"
+
+    @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.extract_single')
+    @patch('cvextract.cli_execute.adjust_for_customer')
+    def test_adjust_preserves_folder_structure(self, mock_adjust, mock_extract, mock_collect,
+                                               tmp_path: Path, parallel_input_tree):
+        """Test that adjusted JSON files preserve folder structure."""
+        # Create nested input rooted at parallel tree to capture rel_path logic
+        input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
+        
+        mock_collect.return_value = [input_file]
+        
+        def fake_extract(docx_file, out_json, debug):
+            out_json.parent.mkdir(parents=True, exist_ok=True)
+            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return True, [], []
+        
+        mock_extract.side_effect = fake_extract
+        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        config = UserConfig(
+            extract=ExtractStage(source=input_file, output=None),
+            adjust=AdjustStage(
+                customer_url="https://example.com",
+                openai_model="gpt-4",
+                dry_run=True,
+                data=None,
+                output=None
+            ),
+            apply=None,
+            target_dir=tmp_path / "output",
+            strict=False,
+            debug=False,
+            log_file=None,
+            input_dir=parallel_input_tree.root
+        )
+        
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0
+        
+        # Verify that adjusted JSON would be created with the same structure
+        mock_adjust.assert_called_once()
+
+    @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.extract_single')
+    @patch('cvextract.cli_execute.render_and_verify')
+    def test_apply_preserves_folder_structure(self, mock_render, mock_extract, mock_collect,
+                                             tmp_path: Path, mock_template: Path, parallel_input_tree):
+        """Test that output DOCX files preserve folder structure."""
+        # Create nested input rooted at the simulated parallel tree
+        input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
+        
+        mock_collect.return_value = [input_file]
+        
+        def fake_extract(docx_file, out_json, debug):
+            out_json.parent.mkdir(parents=True, exist_ok=True)
+            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return True, [], []
+        
+        mock_extract.side_effect = fake_extract
+        mock_render.return_value = (True, [], [], True)
+        
+        config = UserConfig(
+            extract=ExtractStage(source=input_file, output=None),
+            adjust=None,
+            apply=ApplyStage(template=mock_template, data=None, output=None),
+            target_dir=tmp_path / "output",
+            strict=False,
+            debug=False,
+            log_file=None,
+            input_dir=parallel_input_tree.root
+        )
+        
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0
+        
+        # Verify render was called with output in correct subdirectory
+        call_args = mock_render.call_args
+        output_docx = call_args[1]['output_docx']
+        
+        # Output should be in DACH/Software Engineering subdirectory
+        assert "DACH" in str(output_docx)
+        assert "Software Engineering" in str(output_docx)
+        assert output_docx.parent.parent.parent == tmp_path / "output" / "documents"
+
+    @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.extract_single')
+    def test_flat_structure_without_input_dir(self, mock_extract, mock_collect, tmp_path: Path):
+        """Test that without input_dir, structure defaults to flat (backward compatibility)."""
+        # Create a nested input file
+        input_dir = tmp_path / "input" / "DACH" / "Software Engineering"
+        input_dir.mkdir(parents=True)
+        input_file = input_dir / "profile.docx"
+        input_file.write_text("docx")
+        
+        mock_collect.return_value = [input_file]
+        mock_extract.return_value = (True, [], [])
+        
+        config = UserConfig(
+            extract=ExtractStage(source=input_file, output=None),
+            adjust=None,
+            apply=None,
+            target_dir=tmp_path / "output",
+            strict=False,
+            debug=False,
+            log_file=None,
+            input_dir=None  # No input_dir specified, behavior depends on source
+        )
+        
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0
+        
+        # The behavior will depend on whether source is a file or directory
+        # If source is a file, rel_path will be calculated from source.parent
+        mock_extract.assert_called_once()

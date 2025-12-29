@@ -116,7 +116,8 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             strict=config.strict,
             debug=config.debug,
             log_file=config.log_file,
-            suppress_summary=True  # Suppress summary in parallel mode
+            suppress_summary=True,  # Suppress summary in parallel mode
+            input_dir=config.parallel.input  # Pass the root input directory for relative path calculation
         )
         
         # Execute the pipeline for this file

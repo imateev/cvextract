@@ -72,19 +72,19 @@ def execute_pipeline(config: UserConfig) -> int:
     input_file = inputs[0]
     
     # Determine relative path for preserving directory structure
-    # Use current working directory as base to preserve relative paths
-    cwd = Path.cwd()
-    try:
-        # Try to get relative path from current directory
-        rel_path = input_file.parent.resolve().relative_to(cwd)
-    except ValueError:
-        # If file is not under current directory, try source's parent as base
+    # Prefer input_dir from config (set in parallel processing), otherwise calculate from source
+    if config.input_dir:
+        # In parallel mode, input_dir is explicitly set to the root scan directory
+        source_base = config.input_dir.resolve()
+    else:
+        # In single-file mode, determine source base from source configuration
         source_base = source.parent.resolve() if source.is_file() else source.resolve()
-        try:
-            rel_path = input_file.parent.resolve().relative_to(source_base)
-        except ValueError:
-            # Fallback: use empty path if we can't determine relative path
-            rel_path = Path(".")
+    
+    try:
+        rel_path = input_file.parent.resolve().relative_to(source_base)
+    except ValueError:
+        # Fallback: use empty path if we can't determine relative path
+        rel_path = Path(".")
     
     # Create output directories
     json_dir = config.target_dir / "structured_data"
@@ -142,7 +142,7 @@ def execute_pipeline(config: UserConfig) -> int:
             
             # Pass cache_path for research results
             if config.adjust.customer_url:
-                research_cache_dir = research_dir / rel_path
+                research_cache_dir = research_dir
                 research_cache_dir.mkdir(parents=True, exist_ok=True)
                 research_cache = research_cache_dir / _url_to_cache_filename(config.adjust.customer_url)
                 
@@ -157,7 +157,7 @@ def execute_pipeline(config: UserConfig) -> int:
                 if config.adjust.output:
                     adjusted_json = config.adjust.output
                 else:
-                    adjusted_json = adjusted_json_dir / rel_path / f"{input_file.stem}.json"
+                    adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
                 
                 adjusted_json.parent.mkdir(parents=True, exist_ok=True)
                 with adjusted_json.open("w", encoding="utf-8") as wf:
