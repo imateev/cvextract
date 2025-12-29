@@ -142,7 +142,7 @@ def execute_pipeline(config: UserConfig) -> int:
             
             # Pass cache_path for research results
             if config.adjust.customer_url:
-                research_cache_dir = research_dir / rel_path
+                research_cache_dir = research_dir
                 research_cache_dir.mkdir(parents=True, exist_ok=True)
                 research_cache = research_cache_dir / _url_to_cache_filename(config.adjust.customer_url)
                 
@@ -157,7 +157,7 @@ def execute_pipeline(config: UserConfig) -> int:
                 if config.adjust.output:
                     adjusted_json = config.adjust.output
                 else:
-                    adjusted_json = adjusted_json_dir / rel_path / f"{input_file.stem}.json"
+                    adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
                 
                 adjusted_json.parent.mkdir(parents=True, exist_ok=True)
                 with adjusted_json.open("w", encoding="utf-8") as wf:
