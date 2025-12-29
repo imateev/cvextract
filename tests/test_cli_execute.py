@@ -426,6 +426,50 @@ class TestExecutePipelineAdjust:
         mock_render.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.adjust_for_customer')
+    @patch('cvextract.cli_execute._url_to_cache_filename', return_value="cache.json")
+    def test_adjust_research_cache_is_rooted(self, mock_cache_name, mock_adjust, mock_collect, tmp_path: Path):
+        """Research cache should always live under target/research_data regardless of input path."""
+        # Create a nested JSON file to simulate structured_data layout
+        input_dir = tmp_path / "nested"
+        input_json = tmp_path / "nested" / "folder" / "profile.json"
+        input_json.parent.mkdir(parents=True, exist_ok=True)
+        input_json.write_text(json.dumps({
+            "identity": {},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }))
+        mock_collect.return_value = [input_json]
+        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+
+        config = UserConfig(
+            extract=None,
+            input_dir=input_dir,
+            adjust=AdjustStage(
+                customer_url="https://example.com",
+                openai_model="gpt-4",
+                dry_run=False,
+                data=input_json,
+                output=None
+            ),
+            apply=None,
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0
+
+        mock_adjust.assert_called_once()
+        cache_path = mock_adjust.call_args.kwargs["cache_path"]
+        expected_cache = tmp_path / "out" / "research_data" / "cache.json"
+        assert cache_path == expected_cache
+        assert cache_path.parent.exists()
+
+    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
     @patch('cvextract.cli_execute.adjust_for_customer')
     @patch('cvextract.cli_execute.render_and_verify')
