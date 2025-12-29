@@ -1,5 +1,6 @@
 """Tests for cli_prepare module to achieve 91% coverage."""
 
+import os
 import pytest
 from pathlib import Path
 from cvextract.cli_prepare import _collect_inputs, prepare_execution_environment
@@ -95,6 +96,13 @@ class TestCollectInputs:
         with pytest.raises(ValueError, match="Directories are not supported"):
             _collect_inputs(test_dir, is_extraction=True, template_path=None)
 
+    def test_collect_inputs_special_file_not_regular(self, tmp_path):
+        """Non-regular filesystem nodes (e.g., FIFOs) should trip the not-a-file branch."""
+        fifo_path = tmp_path / "pipe.docx"
+        os.mkfifo(fifo_path)
+        with pytest.raises(FileNotFoundError, match="Path is not a file"):
+            _collect_inputs(fifo_path, is_extraction=True, template_path=None)
+
 
 class TestPrepareExecutionEnvironment:
     """Tests for prepare_execution_environment function."""
@@ -173,5 +181,22 @@ class TestPrepareExecutionEnvironment:
         )
         
         with pytest.raises(ValueError, match="Invalid template"):
+            prepare_execution_environment(config)
+
+    def test_prepare_execution_environment_target_fails_is_dir_check(self, tmp_path, monkeypatch):
+        """Simulate target_dir reporting False for is_dir to hit the validation branch."""
+        target = tmp_path / "output"
+        config = UserConfig(target_dir=target)
+
+        original_is_dir = Path.is_dir
+
+        def fake_is_dir(self):
+            if self == target:
+                return False
+            return original_is_dir(self)
+
+        monkeypatch.setattr(Path, "is_dir", fake_is_dir)
+
+        with pytest.raises(ValueError, match="Target is not a directory"):
             prepare_execution_environment(config)
 

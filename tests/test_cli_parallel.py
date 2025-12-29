@@ -297,6 +297,51 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
+
+    def test_parallel_pipeline_input_path_not_directory(self, tmp_path: Path):
+        """Input path that exists but is not a directory should return error."""
+        not_dir = tmp_path / "single.docx"
+        not_dir.write_text("docx")
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(input=not_dir, n=1),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        assert exit_code == 1
+
+    @patch('cvextract.cli_parallel.LOG.error')
+    @patch('cvextract.cli_parallel.scan_directory_for_docx')
+    def test_parallel_pipeline_scan_directory_failure_debug_logs(self, mock_scan, mock_log_error, tmp_path: Path):
+        """Scan failures should log details and return error when debug enabled."""
+        mock_scan.side_effect = RuntimeError("scan failed")
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(input=input_dir, n=1),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=True,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        assert exit_code == 1
+        mock_scan.assert_called_once_with(input_dir)
+        # One log for the failure message and one for the traceback
+        assert mock_log_error.call_count == 2
+        assert "Failed to scan directory" in mock_log_error.call_args_list[0][0][0]
     
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     @patch('cvextract.cli_parallel._perform_upfront_research')
@@ -376,6 +421,53 @@ class TestExecuteParallelPipeline:
         # Should return 0 (success) even with failures and warnings
         assert exit_code == 0
         assert mock_process.call_count == 5
+
+    @patch('cvextract.cli_parallel.LOG.error')
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    def test_parallel_pipeline_future_exception_logged_and_counted(self, mock_process, mock_log_error,
+                                                                   tmp_path: Path, test_directory: Path):
+        """Exceptions raised by workers should be logged and counted as failures."""
+        mock_process.side_effect = RuntimeError("boom")
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(input=test_directory, n=2),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=True,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        assert exit_code == 0
+        doc_count = len(scan_directory_for_docx(test_directory))
+        assert mock_process.call_count == doc_count
+        # Each exception logs the user-facing message and the traceback
+        assert mock_log_error.call_count == doc_count * 2
+        assert any("Unexpected error" in call.args[0] for call in mock_log_error.call_args_list)
+
+    @patch('cvextract.cli_parallel.LOG.info')
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    def test_parallel_pipeline_logs_failed_files_in_debug_mode(self, mock_process, mock_log_info,
+                                                               tmp_path: Path, test_directory: Path):
+        """Debug mode should list failed files after processing."""
+        mock_process.return_value = (False, "Error", 1)
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(input=test_directory, n=2),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=True,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        assert exit_code == 0
+        assert any(call.args[0] == "Failed files:" for call in mock_log_info.call_args_list)
+        assert any(call.args[0].startswith("  - ") for call in mock_log_info.call_args_list)
 
 
 class TestPerformUpfrontResearch:
