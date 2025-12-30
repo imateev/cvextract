@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project began as an internal CV transformation pipeline to help the resourcing team migrate consultant CVs from an old Word template to a new one. It later evolved into a standalone playground for experimenting with CV parsing, transformation, and rendering workflows.
+This project started as an internal CV transformation pipeline designed to help a resourcing team migrate consultant CVs from a legacy Word template to a new standardized format. It has since evolved into a standalone playground for experimenting with CV parsing, transformation, and document rendering workflows, and is now published as an open-source project.
 
 ## License
 Copyright 2025 Ivo Mateev  
