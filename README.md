@@ -1,6 +1,13 @@
 ## Project Overview
 
-This project is an internal CV transformation pipeline designed to help the resourcing team migrate consultant CVs from the old Word template to the new one.
+## Project Overview
+
+This project began as an internal CV transformation pipeline to help the resourcing team migrate consultant CVs from an old Word template to a new one. It later evolved into a standalone playground for experimenting with CV parsing, transformation, and rendering workflows.
+
+## License
+Copyright 2025 Ivo Mateev  
+Licensed under the Apache License, Version 2.0
+
 
 ### Tool summary
 This is a command-line tool that converts résumé/CV .docx files into a clean, structured JSON format and can optionally generate a new .docx by filling a Word template with that JSON.
