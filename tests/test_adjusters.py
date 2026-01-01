@@ -210,6 +210,8 @@ class TestOpenAIJobSpecificAdjuster:
     def test_adjust_with_job_description(self):
         """adjust should work with job_description parameter (no API call)."""
         adjuster = OpenAIJobSpecificAdjuster(api_key=None)  # No API key
+        # Override the API key to ensure it's None (in case OPENAI_API_KEY env var is set)
+        adjuster._api_key = None
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         
         # Without API key, should return original data
@@ -219,6 +221,8 @@ class TestOpenAIJobSpecificAdjuster:
     def test_adjust_missing_api_key(self):
         """adjust should return original CV when API key is missing."""
         adjuster = OpenAIJobSpecificAdjuster(api_key=None)
+        # Override the API key to ensure it's None (in case OPENAI_API_KEY env var is set)
+        adjuster._api_key = None
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data
@@ -279,7 +283,8 @@ class TestOpenAIJobSpecificAdjuster:
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert "John" in str(result)  # Verify the adjusted data is in result
-        mock_openai_class.assert_called_once_with(api_key="test-key")
+        # Client should be created once (not in the retry loop)
+        mock_openai_class.assert_called_once_with(api_key="test-key", max_retries=5)
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')

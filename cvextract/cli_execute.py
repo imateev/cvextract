@@ -8,6 +8,7 @@ Subsystems receive explicit input/output paths.
 from __future__ import annotations
 
 import json
+import time
 import traceback
 from pathlib import Path
 from typing import List, Optional
@@ -143,6 +144,12 @@ def execute_pipeline(config: UserConfig) -> int:
             
             # Apply each adjuster in sequence
             for idx, adjuster_config in enumerate(config.adjust.adjusters):
+                # Add delay between adjusters to avoid rate limiting
+                # (10 seconds gives API time to recover between requests)
+                if idx > 0:
+                    LOG.debug("Waiting 10 seconds before applying next adjuster...")
+                    time.sleep(10.0)
+                
                 LOG.info("Applying adjuster %d/%d: %s", 
                         idx + 1, len(config.adjust.adjusters), adjuster_config.name)
                 
