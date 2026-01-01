@@ -410,17 +410,14 @@ class TestCLIMultipleAdjusters:
         assert config.adjust.adjusters[0].openai_model == 'gpt-4'
         assert config.adjust.adjusters[1].openai_model == 'gpt-3.5-turbo'
     
-    def test_backward_compatibility_customer_url(self):
-        """Old customer-url syntax should still work (backward compatibility)."""
+    def test_adjust_requires_name_parameter(self):
+        """Adjust stage should require name parameter."""
         from cvextract.cli_gather import gather_user_requirements
+        import pytest
         
-        config = gather_user_requirements([
-            "--extract", "source=/path/to/cv.docx",
-            "--adjust", "customer-url=https://example.com",
-            "--target", "/output"
-        ])
-        
-        assert config.adjust is not None
-        assert len(config.adjust.adjusters) == 1
-        assert config.adjust.adjusters[0].name == 'openai-company-research'
-        assert config.adjust.adjusters[0].params.get('customer-url') == 'https://example.com'
+        with pytest.raises(ValueError, match="requires 'name' parameter"):
+            gather_user_requirements([
+                "--extract", "source=/path/to/cv.docx",
+                "--adjust", "customer-url=https://example.com",
+                "--target", "/output"
+            ])

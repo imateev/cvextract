@@ -123,10 +123,17 @@ Examples:
       --apply template=template.docx \\
       --target output/
 
-  Extract, adjust, and apply:
+  Extract, adjust for a company, and apply:
     python -m cvextract.cli \\
       --extract source=cv.docx \\
-      --adjust customer-url=https://example.com \\
+      --adjust name=openai-company-research customer-url=https://example.com \\
+      --apply template=template.docx \\
+      --target output/
+
+  Adjust for a specific job posting:
+    python -m cvextract.cli \\
+      --extract source=cv.docx \\
+      --adjust name=openai-job-specific job-url=https://example.com/careers/123 \\
       --apply template=template.docx \\
       --target output/
 
@@ -137,9 +144,9 @@ Examples:
 
   Process directory with parallel workers:
     python -m cvextract.cli \\
-      --parallel n=10 input=/var/foo/cvs \\
+      --parallel input=/var/foo/cvs n=10 \\
       --extract \\
-      --adjust customer-url=https://example.com \\
+      --adjust name=openai-company-research customer-url=https://example.com \\
       --apply template=template.docx \\
       --target output/
 """,
@@ -246,14 +253,10 @@ Examples:
                 if 'dry-run' in params:
                     dry_run = True
             
-            # Get adjuster name (with backward compatibility)
+            # Get adjuster name (required)
             adjuster_name = params.get('name')
             if not adjuster_name:
-                # Backward compatibility: if customer-url is provided, use openai-company-research
-                if 'customer-url' in params:
-                    adjuster_name = 'openai-company-research'
-                else:
-                    raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
+                raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
             
             # Get OpenAI model if specified
             openai_model = params.get('openai-model')

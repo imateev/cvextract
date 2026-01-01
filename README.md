@@ -118,7 +118,6 @@ python -m cvextract.cli \
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
 - `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
 - `dry-run` - Only adjust without rendering (optional flag, prevents apply stage execution)
-- **Backward compatibility**: `customer-url=<url>` without `name=` defaults to `openai-company-research`
 - **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
 
 **`--apply`**: Apply CV data to DOCX template
@@ -225,7 +224,7 @@ export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
-  --adjust customer-url=https://example.com \
+  --adjust name=openai-company-research customer-url=https://example.com \
   --apply template=/path/to/template.docx \
   --target /output
 
@@ -240,7 +239,7 @@ python -m cvextract.cli \
 # Adjust with custom OpenAI model
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
-  --adjust customer-url=https://example.com openai-model=gpt-4 \
+  --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 \
   --apply template=/path/to/template.docx \
   --target /output
 ```
@@ -253,7 +252,7 @@ export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
-  --adjust customer-url=https://example.com dry-run \
+  --adjust name=openai-company-research customer-url=https://example.com dry-run \
   --target /output
 
 # Outputs:
@@ -269,7 +268,7 @@ python -m cvextract.cli \
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
-  --adjust data=/path/to/extracted.json customer-url=https://example.com \
+  --adjust name=openai-company-research data=/path/to/extracted.json customer-url=https://example.com \
   --apply template=/path/to/template.docx \
   --target /output
 
@@ -396,7 +395,7 @@ export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
   --parallel input=/data/consultants n=15 \
   --extract \
-  --adjust customer-url=https://target-company.com \
+  --adjust name=openai-company-research customer-url=https://target-company.com \
   --apply template=/path/to/template.docx \
   --target /output
 
@@ -466,7 +465,7 @@ export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
   --parallel input=/source/cvs n=12 \
   --extract \
-  --adjust customer-url=https://example.com output=/custom/adjusted/ \
+  --adjust name=openai-company-research customer-url=https://example.com output=/custom/adjusted/ \
   --apply template=/path/to/template.docx \
   --target /output
 
