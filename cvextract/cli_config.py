@@ -15,7 +15,8 @@ from typing import Optional, List, Dict, Any
 @dataclass
 class ExtractStage:
     """Configuration for the extract stage."""
-    source: Path  # Input DOCX file(s)
+    source: Path  # Input file(s)
+    name: str = "private-internal-extractor"  # Extractor name (default: private-internal-extractor)
     output: Optional[Path] = None  # Output JSON (optional, defaults to target_dir/structured_data/)
 
 

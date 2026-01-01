@@ -45,16 +45,32 @@ def safe_relpath(p: Path, root: Path) -> str:
         return p.name
 
 
-def extract_single(docx_file: Path, out_json: Path, debug: bool) -> tuple[bool, List[str], List[str]]:
-    """Extract and verify a single DOCX. Returns (ok, errors, warnings)."""
+def extract_single(
+    source_file: Path, 
+    out_json: Path, 
+    debug: bool,
+    extractor = None
+) -> tuple[bool, List[str], List[str]]:
+    """
+    Extract and verify a single file. Returns (ok, errors, warnings).
+    
+    Args:
+        source_file: Path to source file to extract
+        out_json: Output JSON path
+        debug: Enable debug logging
+        extractor: Optional CVExtractor instance to use
+    
+    Returns:
+        Tuple of (success, errors, warnings)
+    """
     try:
-        data = process_single_docx(docx_file, out=out_json)
+        data = process_single_docx(source_file, out=out_json, extractor=extractor)
         result = ExtractedDataVerifier().verify(data)
         return result.ok, result.errors, result.warnings
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
-            dump_body_sample(docx_file, n=30)
+            dump_body_sample(source_file, n=30)
         return False, [f"exception: {type(e).__name__}"], []
 
 
