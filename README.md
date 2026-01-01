@@ -64,6 +64,25 @@ See `cvextract/verifiers/README.md` for details on creating custom verifiers.
 
 The CLI uses a stage-based architecture with explicit flags for each operation. Stages can be chained together or run independently, making the pipeline clear and composable.
 
+### Parameter Syntax
+
+All CLI parameters use the modern `key=value` format:
+
+```bash
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-company-research customer-url=https://example.com \
+  --apply template=/path/to/template.docx \
+  --target /output
+```
+
+**Key features:**
+- Each flag (`--extract`, `--adjust`, `--apply`) is followed by one or more `key=value` parameters
+- Parameters are space-separated: `--extract source=file.docx output=data.json`
+- Values can contain spaces: `source=/path with spaces/file.docx`
+- Multiple `--adjust` flags can be used to chain adjusters sequentially
+- Boolean flags have no value: `--adjust name=... dry-run`
+
 ### Execution Modes
 
 **Single-file mode** (default) - Process one file at a time:

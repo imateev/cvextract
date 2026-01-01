@@ -109,7 +109,8 @@ def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
     No side effects - just parsing and conversion to UserConfig.
     """
     parser = argparse.ArgumentParser(
-        description="Extract CV data to JSON and optionally apply a DOCX template.",
+        description="Extract CV data to JSON and optionally apply a DOCX template.\n\n"
+                    "All parameters use key=value format (e.g., source=file.docx, name=adjuster-name).",
         epilog="""
 Examples:
   Extract DOCX file to JSON only:
