@@ -435,12 +435,14 @@ class TestInputCollection:
             cli._collect_inputs(nonexistent, is_extraction=True, template_path=None)
 
     def test_collect_wrong_file_type_for_extraction(self, tmp_path: Path):
-        """When file type doesn't match extraction mode, should raise ValueError."""
+        """File type validation for extraction is delegated to the extractor."""
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("not a docx")
         
-        with pytest.raises(ValueError, match="must be a DOCX file"):
-            cli._collect_inputs(txt_file, is_extraction=True, template_path=None)
+        # Should not raise - extractor will validate file type
+        result = cli._collect_inputs(txt_file, is_extraction=True, template_path=None)
+        assert len(result) == 1
+        assert result[0] == txt_file
 
     def test_collect_wrong_file_type_for_apply(self, tmp_path: Path):
         """When file type doesn't match apply mode, should raise ValueError."""
