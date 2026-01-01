@@ -211,13 +211,7 @@ Return ONLY the JSON object, no additional text or explanation.
         except json.JSONDecodeError as e:
             raise ValueError(f"OpenAI returned invalid JSON: {str(e)}\nResponse: {response[:500]}")
         
-        # Basic validation - ensure required top-level keys exist
-        required_keys = cv_schema.get('required', [])
-        for key in required_keys:
-            if key not in cv_data:
-                raise ValueError(f"Missing required field in extracted data: {key}")
-        
-        # Ensure basic structure
+        # Ensure basic structure - add missing fields with defaults
         if 'identity' not in cv_data or not isinstance(cv_data['identity'], dict):
             cv_data['identity'] = {
                 'title': '',
