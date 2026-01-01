@@ -350,7 +350,7 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug):
+        def fake_extract(docx_file, out_json, debug, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -399,7 +399,7 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug):
+        def fake_extract(docx_file, out_json, debug, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -532,7 +532,7 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug):
+        def fake_extract(docx_file, out_json, debug, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -773,7 +773,7 @@ class TestFolderStructurePreservation:
 
         mock_collect.return_value = [input_file]
 
-        def fake_extract(docx_file, out_json, debug):
+        def fake_extract(docx_file, out_json, debug, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -823,7 +823,7 @@ class TestFolderStructurePreservation:
 
         mock_collect.return_value = [input_file]
 
-        def fake_extract(docx_file, out_json, debug):
+        def fake_extract(docx_file, out_json, debug, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []

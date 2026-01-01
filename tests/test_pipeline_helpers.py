@@ -13,7 +13,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     docx = tmp_path / "test.docx"
     out_json = tmp_path / "test.json"
     
-    def fake_process(_path, out):
+    def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
         return {
             "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
@@ -35,7 +35,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     docx = tmp_path / "test.docx"
     out_json = tmp_path / "test.json"
     
-    def fake_process(_path, out):
+    def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
         return {
             "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
@@ -58,7 +58,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     docx = tmp_path / "test.docx"
     out_json = tmp_path / "test.json"
     
-    def fake_process(_path, out):
+    def fake_process(_path, out, extractor=None):
         raise RuntimeError("boom")
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)

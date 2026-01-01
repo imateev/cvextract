@@ -103,7 +103,7 @@ class TestProcessSingleDocx:
             result = process_single_docx(mock_docx, out=None)
             
             assert result == mock_data
-            mock_extract.assert_called_once_with(mock_docx)
+            mock_extract.assert_called_once_with(mock_docx, None)
 
     def test_process_single_docx_with_output_creates_file(self, tmp_path):
         """Test process_single_docx writes JSON to specified output path."""
