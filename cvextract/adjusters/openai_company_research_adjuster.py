@@ -47,12 +47,15 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         Validate required parameters.
         
         Args:
-            **kwargs: Must contain 'customer_url'
+            **kwargs: Must contain 'customer_url' or 'customer-url' (with or without hyphen)
         
         Raises:
             ValueError: If customer_url is missing
         """
-        if 'customer_url' not in kwargs or not kwargs['customer_url']:
+        # Normalize parameter names (CLI uses hyphens, Python uses underscores)
+        has_customer_url = 'customer_url' in kwargs or 'customer-url' in kwargs
+        
+        if not has_customer_url or not (kwargs.get('customer_url') or kwargs.get('customer-url')):
             raise ValueError(f"Adjuster '{self.name()}' requires 'customer-url' parameter")
     
     def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
@@ -61,14 +64,15 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         
         Args:
             cv_data: The CV data to adjust
-            **kwargs: Must contain 'customer_url', optional 'cache_path'
+            **kwargs: Must contain 'customer_url' (or 'customer-url'), optional 'cache_path'
         
         Returns:
             Adjusted CV data
         """
         self.validate_params(**kwargs)
         
-        customer_url = kwargs['customer_url']
+        # Normalize parameter names (CLI uses hyphens, Python uses underscores)
+        customer_url = kwargs.get('customer_url', kwargs.get('customer-url'))
         cache_path = kwargs.get('cache_path')
         
         return self._adjuster.adjust(cv_data, customer_url, cache_path=cache_path)
