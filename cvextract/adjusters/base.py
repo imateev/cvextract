@@ -26,7 +26,7 @@ class CVAdjuster(ABC):
         Returns:
             String identifier used in CLI (e.g., "openai-company-research")
         """
-        pass
+        ...
     
     @abstractmethod
     def description(self) -> str:
@@ -36,7 +36,7 @@ class CVAdjuster(ABC):
         Returns:
             String describing what this adjuster does
         """
-        pass
+        ...
     
     @abstractmethod
     def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
@@ -53,7 +53,7 @@ class CVAdjuster(ABC):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        pass
+        ...
     
     def validate_params(self, **kwargs) -> None:
         """
@@ -67,4 +67,4 @@ class CVAdjuster(ABC):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        pass
+        ...
