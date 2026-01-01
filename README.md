@@ -28,8 +28,27 @@ The extracted data conforms to a well-defined JSON schema (see `cvextract/contra
 ### Pluggable Extractors
 The extraction logic is implemented using a pluggable architecture (`cvextract/extractors/`) that allows:
 - **Interchangeable implementations**: Easy to swap or customize extraction logic
-- **Support for multiple formats**: Current DOCX support can be extended to PDF, HTML, etc.
+- **Support for multiple formats**: DOCX (internal parser), PDF/DOCX/PPTX/TXT (OpenAI-based)
 - **Testing flexibility**: Mock extractors for testing without real documents
+
+**Available Extractors:**
+
+1. **`private-internal-extractor`** (default) - Internal DOCX parser
+   - Directly parses DOCX files using WordprocessingML XML
+   - Fast, deterministic, no external API calls
+   - Best for: Standard DOCX files with known structure
+   - Limitations: DOCX format only, requires specific document structure
+
+2. **`openai-extractor`** - OpenAI-powered intelligent extraction
+   - Uses OpenAI API to extract structured data from various formats
+   - Supports: PDF, DOCX, PPTX, TXT files
+   - Best for: Non-standard formats, PDFs, varied layouts
+   - Requirements: `OPENAI_API_KEY` environment variable
+   - Note: Costs apply based on OpenAI usage
+
+**When to use each extractor:**
+- Use `private-internal-extractor` for batch processing of standardized DOCX files (fast, free, offline)
+- Use `openai-extractor` for PDF files, PowerPoint presentations, text files, or non-standard CV formats
 
 See `cvextract/extractors/README.md` for details on creating custom extractors.
 
@@ -121,10 +140,15 @@ python -m cvextract.cli \
 
 ### Stages
 
-**`--extract`**: Extract CV data from DOCX to JSON
-- `source=<path>` - Input DOCX file or directory (required in single-file mode)
+**`--extract`**: Extract CV data from source file to JSON
+- `source=<path>` - Input file (required in single-file mode)
+  - Supports multiple formats depending on extractor
   - Single file: processes one file
-  - Directory: processes all `.docx` files recursively
+  - Directory: processes all matching files recursively
+- `name=<extractor-name>` - Name of the extractor to use (optional, defaults to `private-internal-extractor`)
+  - `private-internal-extractor`: Internal DOCX parser (default, DOCX only)
+  - `openai-extractor`: OpenAI-based extraction (supports PDF, DOCX, PPTX, TXT)
+  - Use `--list extractors` to see all available extractors
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
 
 **`--adjust`**: Adjust CV data using named adjusters (can be specified multiple times for chaining)
@@ -150,7 +174,7 @@ python -m cvextract.cli \
 - `output=<path>` - Output DOCX path (optional, defaults to `{target}/documents/`)
 
 **`--parallel`**: Batch processing mode (alternative to single-file stages)
-- `source=<dir>` - Input directory containing DOCX files (required)
+- `source=<dir>` - Input directory containing files (required)
 - `n=<num>` - Number of worker processes (required, e.g., `n=10`)
 - When used, stages like `--extract`, `--adjust`, `--apply` still apply but work in parallel
 - Each worker processes files independently using the same stage configuration
@@ -180,12 +204,47 @@ python -m cvextract.cli --list extractors
 
 ### Examples
 
+#### Listing Available Extractors
+
+```bash
+# List all available extractors and their descriptions
+python -m cvextract.cli --list extractors
+
+# Output shows:
+#   private-internal-extractor
+#     CV extractor for Microsoft Word .docx files.
+#   openai-extractor
+#     CV extractor using OpenAI API for intelligent extraction.
+```
+
 #### Single-File Extraction
 
 ```bash
-# Extract one CV file with default output location
+# Extract one DOCX CV file with default extractor (private-internal-extractor)
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
+  --target /output
+
+# Output: /output/structured_data/cv.json
+```
+
+```bash
+# Extract a PDF CV file using OpenAI extractor
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.pdf name=openai-extractor \
+  --target /output
+
+# Output: /output/structured_data/cv.json
+```
+
+```bash
+# Extract a text CV file using OpenAI extractor
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.txt name=openai-extractor \
   --target /output
 
 # Output: /output/structured_data/cv.json
@@ -214,9 +273,23 @@ python -m cvextract.cli \
 #### Extract + Apply (Render CV)
 
 ```bash
-# Extract and apply to template with default output structure
+# Extract using default extractor and apply to template
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Outputs:
+#   /output/structured_data/cv.json
+#   /output/documents/cv_NEW.docx
+```
+
+```bash
+# Extract PDF using OpenAI and apply to template
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.pdf name=openai-extractor \
   --apply template=/path/to/template.docx \
   --target /output
 
