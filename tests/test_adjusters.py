@@ -71,7 +71,7 @@ class TestOpenAICompanyResearchAdjuster:
     def test_validate_params_requires_customer_url(self):
         """validate_params should raise error if customer_url is missing."""
         adjuster = OpenAICompanyResearchAdjuster()
-        with pytest.raises(ValueError, match="requires 'customer_url' parameter"):
+        with pytest.raises(ValueError, match="requires 'customer-url' parameter"):
             adjuster.validate_params()
     
     def test_validate_params_accepts_customer_url(self):
@@ -116,7 +116,7 @@ class TestOpenAIJobSpecificAdjuster:
     def test_validate_params_requires_job_url_or_description(self):
         """validate_params should raise error if neither job_url nor job_description is provided."""
         adjuster = OpenAIJobSpecificAdjuster()
-        with pytest.raises(ValueError, match="requires either 'job_url' or 'job_description'"):
+        with pytest.raises(ValueError, match="requires either 'job-url' or 'job-description'"):
             adjuster.validate_params()
     
     def test_validate_params_accepts_job_url(self):

@@ -53,7 +53,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             ValueError: If customer_url is missing
         """
         if 'customer_url' not in kwargs or not kwargs['customer_url']:
-            raise ValueError(f"Adjuster '{self.name()}' requires 'customer_url' parameter")
+            raise ValueError(f"Adjuster '{self.name()}' requires 'customer-url' parameter")
     
     def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """

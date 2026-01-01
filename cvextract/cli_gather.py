@@ -182,7 +182,7 @@ Examples:
     
     # Validate target is provided when not using --list
     if not args.target:
-        raise ValueError("--target is required unless using --list")
+        raise ValueError("--target is required when not using --list")
     
     # Check that at least one stage is specified
     using_stages = any([args.extract is not None, args.adjust is not None, args.apply is not None, args.parallel is not None])

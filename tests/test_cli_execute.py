@@ -80,7 +80,7 @@ class TestExecutePipelineNoInput:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -94,7 +94,7 @@ class TestExecutePipelineExtractOnly:
         """Test successful extraction."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], [])
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -104,7 +104,7 @@ class TestExecutePipelineExtractOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_extract.assert_called_once()
@@ -115,7 +115,7 @@ class TestExecutePipelineExtractOnly:
         """Test extraction with warnings in strict mode returns 2."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], ["warning"])
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -125,7 +125,7 @@ class TestExecutePipelineExtractOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 2
 
@@ -135,7 +135,7 @@ class TestExecutePipelineExtractOnly:
         """Test extraction failure returns 1."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (False, ["error"], [])
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -145,7 +145,7 @@ class TestExecutePipelineExtractOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -153,7 +153,7 @@ class TestExecutePipelineExtractOnly:
     def test_extract_collect_inputs_fails(self, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test that exception during input collection returns 1."""
         mock_collect.side_effect = Exception("Failed to collect inputs")
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -163,7 +163,7 @@ class TestExecutePipelineExtractOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -171,7 +171,7 @@ class TestExecutePipelineExtractOnly:
     def test_extract_no_matching_files(self, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test that no matching files returns 1."""
         mock_collect.return_value = []
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -181,7 +181,7 @@ class TestExecutePipelineExtractOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -191,7 +191,7 @@ class TestExecutePipelineExtractOnly:
         """Test extraction with custom output path."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], [])
-        
+
         custom_output = tmp_path / "custom.json"
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=custom_output),
@@ -202,7 +202,7 @@ class TestExecutePipelineExtractOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         # Verify extract_single was called with custom output
@@ -216,13 +216,13 @@ class TestExecutePipelineExtractApply:
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
     @patch('cvextract.cli_execute.render_and_verify')
-    def test_extract_apply_success(self, mock_render, mock_extract, mock_collect, 
+    def test_extract_apply_success(self, mock_render, mock_extract, mock_collect,
                                    tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + apply."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], [])
         mock_render.return_value = (True, [], [], True)
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -232,7 +232,7 @@ class TestExecutePipelineExtractApply:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_extract.assert_called_once()
@@ -246,7 +246,7 @@ class TestExecutePipelineExtractApply:
         """Test that apply is skipped if extract fails."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (False, ["extract error"], [])
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -256,7 +256,7 @@ class TestExecutePipelineExtractApply:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
         mock_extract.assert_called_once()
@@ -271,7 +271,7 @@ class TestExecutePipelineExtractApply:
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], ["extract warning"])
         mock_render.return_value = (True, [], ["apply warning"], True)
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -281,7 +281,7 @@ class TestExecutePipelineExtractApply:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 2
 
@@ -296,7 +296,7 @@ class TestExecutePipelineApplyOnly:
         """Test applying from existing JSON file."""
         mock_collect.return_value = [mock_json]
         mock_render.return_value = (True, [], [], True)
-        
+
         config = UserConfig(
             extract=None,
             adjust=None,
@@ -306,7 +306,7 @@ class TestExecutePipelineApplyOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_render.assert_called_once()
@@ -318,7 +318,7 @@ class TestExecutePipelineApplyOnly:
         """Test applying with custom output path."""
         mock_collect.return_value = [mock_json]
         mock_render.return_value = (True, [], [], True)
-        
+
         custom_output = tmp_path / "custom_output.docx"
         config = UserConfig(
             extract=None,
@@ -329,7 +329,7 @@ class TestExecutePipelineApplyOnly:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         # Verify render was called with custom output
@@ -348,23 +348,23 @@ class TestExecutePipelineAdjust:
                                           tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + adjust + apply."""
         mock_collect.return_value = [mock_docx]
-        
+
         # Mock extract_single to create a JSON file
         def fake_extract(docx_file, out_json, debug):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
-        
+
         mock_extract.side_effect = fake_extract
-        
+
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        
+
         mock_render.return_value = (True, [], [], True)
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
@@ -383,7 +383,7 @@ class TestExecutePipelineAdjust:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_extract.assert_called_once()
@@ -397,20 +397,20 @@ class TestExecutePipelineAdjust:
                                         tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that dry-run mode skips apply stage."""
         mock_collect.return_value = [mock_docx]
-        
+
         # Mock extract_single to create a JSON file
         def fake_extract(docx_file, out_json, debug):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
-        
+
         mock_extract.side_effect = fake_extract
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
@@ -422,7 +422,7 @@ class TestExecutePipelineAdjust:
                 dry_run=True,
                 data=None,
                 output=None
-            
+
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
@@ -430,7 +430,7 @@ class TestExecutePipelineAdjust:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_extract.assert_called_once()
@@ -448,7 +448,7 @@ class TestExecutePipelineAdjust:
         mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        mock_render.return_value = (True, [], [], True)        
+        mock_render.return_value = (True, [], [], True)
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
@@ -460,7 +460,7 @@ class TestExecutePipelineAdjust:
                 dry_run=False,
                 data=mock_json,
                 output=None
-            
+
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
@@ -468,7 +468,7 @@ class TestExecutePipelineAdjust:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_adjuster.adjust.assert_called_once()
@@ -501,7 +501,7 @@ class TestExecutePipelineAdjust:
                 dry_run=False,
                 data=input_json,
                 output=None
-            
+
             ),
             apply=None,
             target_dir=tmp_path / "out",
@@ -530,13 +530,13 @@ class TestExecutePipelineAdjust:
                                        tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that adjustment exceptions are handled and apply proceeds with original JSON."""
         mock_collect.return_value = [mock_docx]
-        
+
         # Mock extract_single to create a JSON file
         def fake_extract(docx_file, out_json, debug):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
-        
+
         mock_extract.side_effect = fake_extract
         # Mock adjuster to raise exception
         mock_adjuster = MagicMock()
@@ -544,7 +544,7 @@ class TestExecutePipelineAdjust:
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
         mock_render.return_value = (True, [], [], True)
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
@@ -556,7 +556,7 @@ class TestExecutePipelineAdjust:
                 dry_run=False,
                 data=None,
                 output=None
-            
+
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
@@ -564,7 +564,7 @@ class TestExecutePipelineAdjust:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_render.assert_called_once()
@@ -579,7 +579,7 @@ class TestExecutePipelineDirectoryRejection:
         docx_dir.mkdir()
         (docx_dir / "a.docx").write_text("x")
         (docx_dir / "b.docx").write_text("y")
-        
+
         config = UserConfig(
             extract=ExtractStage(source=docx_dir, output=None),
             adjust=None,
@@ -589,7 +589,7 @@ class TestExecutePipelineDirectoryRejection:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -599,11 +599,11 @@ class TestExecutePipelineDirectoryRejection:
         json_dir.mkdir()
         (json_dir / "a.json").write_text("{}")
         (json_dir / "b.json").write_text("{}")
-        
+
         template = tmp_path / "template.docx"
         with zipfile.ZipFile(template, 'w') as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
+
         config = UserConfig(
             extract=None,
             adjust=None,
@@ -613,7 +613,7 @@ class TestExecutePipelineDirectoryRejection:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -625,7 +625,7 @@ class TestExecutePipelineDebugMode:
     def test_collect_inputs_exception_debug_mode(self, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test that exceptions in debug mode are logged with traceback."""
         mock_collect.side_effect = Exception("Collection error")
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
@@ -635,7 +635,7 @@ class TestExecutePipelineDebugMode:
             debug=True,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
@@ -652,7 +652,7 @@ class TestExecutePipelineDebugMode:
         mock_adjuster.adjust.side_effect = Exception("Adjustment error")
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        
+
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
@@ -664,7 +664,7 @@ class TestExecutePipelineDebugMode:
                 dry_run=True,
                 data=None,
                 output=None
-            
+
             ),
             apply=None,
             target_dir=tmp_path / "out",
@@ -672,7 +672,7 @@ class TestExecutePipelineDebugMode:
             debug=True,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0  # Dry run doesn't fail on adjust error
 
@@ -684,7 +684,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
         """Test that non-DOCX files return error during extraction."""
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("not a docx")
-        
+
         config = UserConfig(
             extract=ExtractStage(source=txt_file, output=None),
             adjust=None,
@@ -694,7 +694,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         # Should return error code 1 for wrong file type (from _collect_inputs)
         assert exit_code == 1
@@ -704,11 +704,11 @@ class TestExecutePipelineSkipNonMatchingFiles:
         """Test that non-JSON files return error during apply-only mode."""
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("not json")
-        
+
         template = tmp_path / "template.docx"
         with zipfile.ZipFile(template, 'w') as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
+
         config = UserConfig(
             extract=None,
             adjust=None,
@@ -718,7 +718,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
             debug=False,
             log_file=None
         )
-        
+
         exit_code = execute_pipeline(config)
         # Should return error code 1 for wrong file type (from _collect_inputs)
         assert exit_code == 1
@@ -735,10 +735,10 @@ class TestFolderStructurePreservation:
         """Test that extracted JSON files preserve folder structure."""
         # Create a nested input file structure rooted under the simulated parallel input tree
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
-        
+
         mock_collect.return_value = [input_file]
         mock_extract.return_value = (True, [], [])
-        
+
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=None,
@@ -749,14 +749,14 @@ class TestFolderStructurePreservation:
             log_file=None,
             input_dir=parallel_input_tree.root  # Mirror how parallel mode seeds rel_path
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
-        
+
         # Verify extract was called with the correct output path
         call_args = mock_extract.call_args
         output_json = call_args[0][1]
-        
+
         # Output should be in DACH/Software Engineering subdirectory
         assert "DACH" in str(output_json)
         assert "Software Engineering" in str(output_json)
@@ -770,21 +770,21 @@ class TestFolderStructurePreservation:
         """Test that adjusted JSON files preserve folder structure."""
         # Create nested input rooted at parallel tree to capture rel_path logic
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
-        
+
         mock_collect.return_value = [input_file]
-        
+
         def fake_extract(docx_file, out_json, debug):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
-        
+
         mock_extract.side_effect = fake_extract
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        
+
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=AdjustStage(
@@ -796,7 +796,7 @@ class TestFolderStructurePreservation:
                 dry_run=True,
                 data=None,
                 output=None
-            
+
             ),
             apply=None,
             target_dir=tmp_path / "output",
@@ -805,10 +805,10 @@ class TestFolderStructurePreservation:
             log_file=None,
             input_dir=parallel_input_tree.root
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
-        
+
         # Verify that adjusted JSON would be created with the same structure
         mock_adjuster.adjust.assert_called_once()
 
@@ -820,17 +820,17 @@ class TestFolderStructurePreservation:
         """Test that output DOCX files preserve folder structure."""
         # Create nested input rooted at the simulated parallel tree
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
-        
+
         mock_collect.return_value = [input_file]
-        
+
         def fake_extract(docx_file, out_json, debug):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
-        
+
         mock_extract.side_effect = fake_extract
         mock_render.return_value = (True, [], [], True)
-        
+
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=None,
@@ -841,14 +841,14 @@ class TestFolderStructurePreservation:
             log_file=None,
             input_dir=parallel_input_tree.root
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
-        
+
         # Verify render was called with output in correct subdirectory
         call_args = mock_render.call_args
         output_docx = call_args[1]['output_docx']
-        
+
         # Output should be in DACH/Software Engineering subdirectory
         assert "DACH" in str(output_docx)
         assert "Software Engineering" in str(output_docx)
@@ -863,10 +863,10 @@ class TestFolderStructurePreservation:
         input_dir.mkdir(parents=True)
         input_file = input_dir / "profile.docx"
         input_file.write_text("docx")
-        
+
         mock_collect.return_value = [input_file]
         mock_extract.return_value = (True, [], [])
-        
+
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=None,
@@ -877,10 +877,10 @@ class TestFolderStructurePreservation:
             log_file=None,
             input_dir=None  # No input_dir specified, behavior depends on source
         )
-        
+
         exit_code = execute_pipeline(config)
         assert exit_code == 0
-        
+
         # The behavior will depend on whether source is a file or directory
         # If source is a file, rel_path will be calculated from source.parent
         mock_extract.assert_called_once()

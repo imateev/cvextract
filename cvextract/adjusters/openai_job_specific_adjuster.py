@@ -80,7 +80,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         """
         if 'job_url' not in kwargs and 'job_description' not in kwargs:
             raise ValueError(
-                f"Adjuster '{self.name()}' requires either 'job_url' or 'job_description' parameter"
+                f"Adjuster '{self.name()}' requires either 'job-url' or 'job-description' parameter"
             )
     
     def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
