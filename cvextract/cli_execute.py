@@ -15,7 +15,8 @@ from typing import List, Optional
 from .cli_config import UserConfig
 from .cli_prepare import _collect_inputs
 from .logging_utils import LOG, fmt_issues
-from .ml_adjustment import adjust_for_customer, _url_to_cache_filename
+from .adjusters import get_adjuster
+from .ml_adjustment import _url_to_cache_filename
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
@@ -138,32 +139,55 @@ def execute_pipeline(config: UserConfig) -> int:
     if config.adjust and out_json:
         try:
             with out_json.open("r", encoding="utf-8") as f:
-                original = json.load(f)
+                current_data = json.load(f)
             
-            # Pass cache_path for research results
-            if config.adjust.customer_url:
-                research_cache_dir = research_dir
-                research_cache_dir.mkdir(parents=True, exist_ok=True)
-                research_cache = research_cache_dir / _url_to_cache_filename(config.adjust.customer_url)
+            # Apply each adjuster in sequence
+            for idx, adjuster_config in enumerate(config.adjust.adjusters):
+                LOG.info("Applying adjuster %d/%d: %s", 
+                        idx + 1, len(config.adjust.adjusters), adjuster_config.name)
                 
-                adjusted = adjust_for_customer(
-                    original, 
-                    config.adjust.customer_url, 
-                    model=config.adjust.openai_model, 
-                    cache_path=research_cache
+                # Get the adjuster instance
+                adjuster = get_adjuster(
+                    adjuster_config.name,
+                    model=adjuster_config.openai_model or "gpt-4o-mini"
                 )
                 
-                # Save adjusted JSON to adjusted_structured_data folder
-                if config.adjust.output:
-                    adjusted_json = config.adjust.output
-                else:
-                    adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
+                if not adjuster:
+                    LOG.warning("Unknown adjuster '%s', skipping", adjuster_config.name)
+                    continue
                 
-                adjusted_json.parent.mkdir(parents=True, exist_ok=True)
-                with adjusted_json.open("w", encoding="utf-8") as wf:
-                    json.dump(adjusted, wf, ensure_ascii=False, indent=2)
+                # Prepare parameters for this adjuster
+                adjuster_params = dict(adjuster_config.params)
                 
-                render_json = adjusted_json
+                # Add cache_path for company research adjuster
+                if adjuster_config.name == "openai-company-research" and 'customer_url' in adjuster_params:
+                    research_cache_dir = research_dir
+                    research_cache_dir.mkdir(parents=True, exist_ok=True)
+                    adjuster_params['cache_path'] = research_cache_dir / _url_to_cache_filename(
+                        adjuster_params['customer_url']
+                    )
+                
+                # Validate parameters
+                try:
+                    adjuster.validate_params(**adjuster_params)
+                except ValueError as e:
+                    LOG.error("Adjuster '%s' parameter validation failed: %s", adjuster_config.name, e)
+                    raise
+                
+                # Apply adjustment
+                current_data = adjuster.adjust(current_data, **adjuster_params)
+            
+            # Save final adjusted JSON
+            if config.adjust.output:
+                adjusted_json = config.adjust.output
+            else:
+                adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
+            
+            adjusted_json.parent.mkdir(parents=True, exist_ok=True)
+            with adjusted_json.open("w", encoding="utf-8") as wf:
+                json.dump(current_data, wf, ensure_ascii=False, indent=2)
+            
+            render_json = adjusted_json
         except Exception as e:
             # If adjust fails, proceed with original JSON
             if config.debug:
