@@ -43,7 +43,7 @@ class TestStageBasedParsing:
         """Adjust stage with customer-url should be parsed correctly."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--adjust", "customer-url=https://example.com",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--target", "/path/to/output"
         ])
         assert config.adjust is not None
@@ -68,7 +68,7 @@ class TestStageBasedParsing:
         """Chaining extract, adjust, and apply stages should work."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--adjust", "customer-url=https://example.com",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
@@ -80,7 +80,7 @@ class TestStageBasedParsing:
         """Adjust stage with dry-run flag should be parsed."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--adjust", "customer-url=https://example.com", "dry-run",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com", "dry-run",
             "--target", "/path/to/output"
         ])
         assert config.adjust.dry_run is True
@@ -89,7 +89,7 @@ class TestStageBasedParsing:
         """Adjust stage with openai-model parameter should be parsed."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--adjust", "customer-url=https://example.com", "openai-model=gpt-4",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com", "openai-model=gpt-4",
             "--target", "/path/to/output"
         ])
         assert config.adjust.adjusters[0].openai_model == "gpt-4"
@@ -109,8 +109,8 @@ class TestStageBasedParsing:
                 "--apply", "data=/path/to/data.json",
                 "--target", "/path/to/output"
             ])    
-    def test_adjust_without_customer_url_raises_error(self):
-        """Adjust stage without customer-url or name parameter should raise error."""
+    def test_adjust_without_name_raises_error(self):
+        """Adjust stage without name parameter should raise error."""
         with pytest.raises(ValueError, match="requires 'name' parameter"):
             cli.gather_user_requirements([
                 "--adjust",
@@ -136,7 +136,7 @@ class TestStageBasedParsing:
         """When using apply with adjust, should_compare should be False."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--adjust", "customer-url=https://example.com",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
@@ -234,7 +234,7 @@ class TestOutputPathResolution:
         """Adjust stage with relative output path."""
         config = cli.gather_user_requirements([
             "--extract", "source=/cv.docx",
-            "--adjust", "customer-url=https://example.com", "output=adjusted.json",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com", "output=adjusted.json",
             "--target", "/path/to/target"
         ])
         assert config.adjust.output == Path("/path/to/target/adjusted.json")
@@ -353,7 +353,7 @@ class TestPathsWithSpecialCharacters:
         """Customer URLs with query parameters should be preserved."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/cv.docx",
-            "--adjust", "customer-url=https://example.com/page?param=value&other=test",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com/page?param=value&other=test",
             "--target", "/output"
         ])
         assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com/page?param=value&other=test"
@@ -541,27 +541,27 @@ class TestParallelParsing:
     def test_parse_parallel_stage_with_input(self):
         """Parallel stage with input parameter should be parsed correctly."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory",
+            "--parallel", "source=/path/to/directory",
             "--extract",
             "--target", "/path/to/output"
         ])
         assert config.parallel is not None
-        assert config.parallel.input == Path("/path/to/directory")
+        assert config.parallel.source == Path("/path/to/directory")
         assert config.parallel.n == 1  # Default value
     
     def test_parse_parallel_stage_with_input_and_n(self):
         """Parallel stage with both input and n parameters should be parsed."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory", "n=10",
+            "--parallel", "source=/path/to/directory", "n=10",
             "--extract",
             "--target", "/path/to/output"
         ])
-        assert config.parallel.input == Path("/path/to/directory")
+        assert config.parallel.source == Path("/path/to/directory")
         assert config.parallel.n == 10
     
     def test_parallel_without_input_raises_error(self):
         """Parallel stage without input parameter should raise error."""
-        with pytest.raises(ValueError, match="requires 'input' parameter"):
+        with pytest.raises(ValueError, match="requires 'source' parameter"):
             cli.gather_user_requirements([
                 "--parallel",
                 "--extract",
@@ -572,7 +572,7 @@ class TestParallelParsing:
         """Parallel stage with invalid n parameter should raise error."""
         with pytest.raises(ValueError, match="must be a valid integer"):
             cli.gather_user_requirements([
-                "--parallel", "input=/path/to/directory", "n=invalid",
+                "--parallel", "source=/path/to/directory", "n=invalid",
                 "--extract",
                 "--target", "/path/to/output"
             ])
@@ -581,7 +581,7 @@ class TestParallelParsing:
         """Parallel stage with negative n parameter should raise error."""
         with pytest.raises(ValueError, match="must be >= 1"):
             cli.gather_user_requirements([
-                "--parallel", "input=/path/to/directory", "n=-5",
+                "--parallel", "source=/path/to/directory", "n=-5",
                 "--extract",
                 "--target", "/path/to/output"
             ])
@@ -590,7 +590,7 @@ class TestParallelParsing:
         """Parallel stage with zero n parameter should raise error."""
         with pytest.raises(ValueError, match="must be >= 1"):
             cli.gather_user_requirements([
-                "--parallel", "input=/path/to/directory", "n=0",
+                "--parallel", "source=/path/to/directory", "n=0",
                 "--extract",
                 "--target", "/path/to/output"
             ])
@@ -598,7 +598,7 @@ class TestParallelParsing:
     def test_parallel_with_extract_no_source_allowed(self):
         """When parallel is present, extract can be specified without source."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory", "n=5",
+            "--parallel", "source=/path/to/directory", "n=5",
             "--extract",
             "--target", "/path/to/output"
         ])
@@ -610,9 +610,9 @@ class TestParallelParsing:
     def test_parallel_with_all_stages(self):
         """Parallel can be combined with extract, adjust, and apply stages."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory", "n=5",
+            "--parallel", "source=/path/to/directory", "n=5",
             "--extract",
-            "--adjust", "customer-url=https://example.com",
+            "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
@@ -624,7 +624,7 @@ class TestParallelParsing:
     def test_parallel_only_stage(self):
         """Parallel can be used as the only stage."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory",
+            "--parallel", "source=/path/to/directory",
             "--target", "/path/to/output"
         ])
         assert config.parallel is not None

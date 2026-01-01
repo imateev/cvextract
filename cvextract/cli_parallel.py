@@ -129,7 +129,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             debug=config.debug,
             log_file=config.log_file,
             suppress_summary=True,  # Suppress summary in parallel mode
-            input_dir=config.parallel.input  # Pass the root input directory for relative path calculation
+            input_dir=config.parallel.source  # Pass the root input directory for relative path calculation
         )
         
         # Execute the pipeline for this file
@@ -164,7 +164,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         raise ValueError("execute_parallel_pipeline called without parallel configuration")
     
     # Validate input directory
-    input_dir = config.parallel.input
+    input_dir = config.parallel.source
     if not input_dir.exists():
         LOG.error("Input directory not found: %s", input_dir)
         return 1

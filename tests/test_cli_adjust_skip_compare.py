@@ -12,7 +12,7 @@ class TestCustomerAdjustmentConfiguration:
         """When adjust-for-customer is provided in extract-apply mode, should set EXTRACT_ADJUST_RENDER mode."""
         config = cli.gather_user_requirements([
             "--extract", f"source={tmp_path / 'test.docx'}",
-            "--adjust", f"customer-url=https://example.com/customer", "openai-model=gpt-4o-mini",
+            "--adjust", "name=openai-company-research", f"customer-url=https://example.com/customer", "openai-model=gpt-4o-mini",
             "--apply", f"template={tmp_path / 'template.docx'}",
             "--target", str(tmp_path / "output"),
         ])
@@ -27,7 +27,7 @@ class TestCustomerAdjustmentConfiguration:
     def test_apply_with_adjust_creates_correct_mode(self, tmp_path: Path):
         """When adjust-for-customer is provided in apply mode, should set ADJUST_RENDER mode."""
         config = cli.gather_user_requirements([
-            "--adjust", f"data={tmp_path / 'data.json'}", f"customer-url=https://example.com/customer", "openai-model=gpt-4o-mini",
+            "--adjust", "name=openai-company-research", f"data={tmp_path / 'data.json'}", f"customer-url=https://example.com/customer", "openai-model=gpt-4o-mini",
             "--apply", f"template={tmp_path / 'template.docx'}",
             "--target", str(tmp_path / "output"),
         ])
@@ -43,7 +43,7 @@ class TestCustomerAdjustmentConfiguration:
         """When adjust-for-customer and dry-run are provided, should set EXTRACT_ADJUST mode."""
         config = cli.gather_user_requirements([
             "--extract", f"source={tmp_path / 'test.docx'}",
-            "--adjust", f"customer-url=https://example.com/customer", "dry-run",
+            "--adjust", "name=openai-company-research", f"customer-url=https://example.com/customer", "dry-run",
             "--apply", f"template={tmp_path / 'template.docx'}",
             "--target", str(tmp_path / "output"),
         ])
@@ -57,7 +57,7 @@ class TestCustomerAdjustmentConfiguration:
     def test_apply_with_adjust_dry_run_creates_adjust_mode(self, tmp_path: Path):
         """When adjust-for-customer and dry-run are provided in apply mode, should set ADJUST mode."""
         config = cli.gather_user_requirements([
-            "--adjust", f"data={tmp_path / 'data.json'}", f"customer-url=https://example.com/customer", "dry-run",
+            "--adjust", "name=openai-company-research", f"data={tmp_path / 'data.json'}", f"customer-url=https://example.com/customer", "dry-run",
             "--apply", f"template={tmp_path / 'template.docx'}",
             "--target", str(tmp_path / "output"),
         ])

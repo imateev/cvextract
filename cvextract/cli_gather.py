@@ -109,7 +109,8 @@ def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
     No side effects - just parsing and conversion to UserConfig.
     """
     parser = argparse.ArgumentParser(
-        description="Extract CV data to JSON and optionally apply a DOCX template.",
+        description="Extract CV data to JSON and optionally apply a DOCX template.\n\n"
+                    "All parameters use key=value format (e.g., source=file.docx, name=adjuster-name).",
         epilog="""
 Examples:
   Extract DOCX file to JSON only:
@@ -123,10 +124,17 @@ Examples:
       --apply template=template.docx \\
       --target output/
 
-  Extract, adjust, and apply:
+  Extract, adjust for a company, and apply:
     python -m cvextract.cli \\
       --extract source=cv.docx \\
-      --adjust customer-url=https://example.com \\
+      --adjust name=openai-company-research customer-url=https://example.com \\
+      --apply template=template.docx \\
+      --target output/
+
+  Adjust for a specific job posting:
+    python -m cvextract.cli \\
+      --extract source=cv.docx \\
+      --adjust name=openai-job-specific job-url=https://example.com/careers/123 \\
       --apply template=template.docx \\
       --target output/
 
@@ -137,9 +145,9 @@ Examples:
 
   Process directory with parallel workers:
     python -m cvextract.cli \\
-      --parallel n=10 input=/var/foo/cvs \\
+      --parallel source=/var/foo/cvs n=10 \\
       --extract \\
-      --adjust customer-url=https://example.com \\
+      --adjust name=openai-company-research customer-url=https://example.com \\
       --apply template=template.docx \\
       --target output/
 """,
@@ -159,7 +167,7 @@ Examples:
                              "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
     parser.add_argument("--parallel", nargs='*', metavar="PARAM",
                         help="Parallel stage: Process entire directory of CV files in parallel. "
-                             "Parameters: input=<directory> (required) [n=<number>] (default=1)")
+                             "Parameters: source=<directory> (required) [n=<number>] (default=1)")
 
     # Global arguments
     parser.add_argument("--list", choices=['adjusters', 'renderers', 'extractors'],
@@ -198,8 +206,8 @@ Examples:
     
     if args.parallel is not None:
         params = _parse_stage_params(args.parallel if args.parallel else [])
-        if 'input' not in params:
-            raise ValueError("--parallel requires 'input' parameter")
+        if 'source' not in params:
+            raise ValueError("--parallel requires 'source' parameter")
         
         n_workers = 1
         if 'n' in params:
@@ -211,7 +219,7 @@ Examples:
                 raise ValueError(f"--parallel parameter 'n' must be a valid integer: {e}")
         
         parallel_stage = ParallelStage(
-            input=Path(params['input']),
+            source=Path(params['source']),
             n=n_workers,
         )
     
@@ -246,14 +254,10 @@ Examples:
                 if 'dry-run' in params:
                     dry_run = True
             
-            # Get adjuster name (with backward compatibility)
+            # Get adjuster name (required)
             adjuster_name = params.get('name')
             if not adjuster_name:
-                # Backward compatibility: if customer-url is provided, use openai-company-research
-                if 'customer-url' in params:
-                    adjuster_name = 'openai-company-research'
-                else:
-                    raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
+                raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
             
             # Get OpenAI model if specified
             openai_model = params.get('openai-model')
