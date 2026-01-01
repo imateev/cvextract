@@ -14,6 +14,114 @@ from cvextract.adjusters import (
 from cvextract.adjusters.openai_job_specific_adjuster import _fetch_job_description
 
 
+class TestCVAdjusterBase:
+    """Tests for the CVAdjuster abstract base class."""
+    
+    def test_cvadjuster_is_abstract(self):
+        """CVAdjuster cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            CVAdjuster()
+    
+    def test_cvadjuster_requires_name_method(self):
+        """Concrete adjuster must implement name() method."""
+        with pytest.raises(TypeError):
+            class IncompleteAdjuster(CVAdjuster):
+                def description(self):
+                    return "Test"
+                def adjust(self, cv_data, **kwargs):
+                    return cv_data
+            
+            IncompleteAdjuster()
+    
+    def test_cvadjuster_requires_description_method(self):
+        """Concrete adjuster must implement description() method."""
+        with pytest.raises(TypeError):
+            class IncompleteAdjuster(CVAdjuster):
+                def name(self):
+                    return "test"
+                def adjust(self, cv_data, **kwargs):
+                    return cv_data
+            
+            IncompleteAdjuster()
+    
+    def test_cvadjuster_requires_adjust_method(self):
+        """Concrete adjuster must implement adjust() method."""
+        with pytest.raises(TypeError):
+            class IncompleteAdjuster(CVAdjuster):
+                def name(self):
+                    return "test"
+                def description(self):
+                    return "Test"
+            
+            IncompleteAdjuster()
+    
+    def test_cvadjuster_validate_params_has_default_implementation(self):
+        """validate_params has a default implementation that does nothing."""
+        class TestAdjuster(CVAdjuster):
+            def name(self):
+                return "test"
+            def description(self):
+                return "Test"
+            def adjust(self, cv_data, **kwargs):
+                return cv_data
+        
+        adjuster = TestAdjuster()
+        # Should not raise any exception with default implementation
+        adjuster.validate_params(arbitrary_param="value")
+    
+    def test_cvadjuster_concrete_implementation_all_methods(self):
+        """Test a complete concrete implementation of CVAdjuster."""
+        class FullAdjuster(CVAdjuster):
+            def name(self):
+                return "full-test-adjuster"
+            
+            def description(self):
+                return "A fully implemented test adjuster"
+            
+            def adjust(self, cv_data, **kwargs):
+                cv_data['adjusted'] = True
+                return cv_data
+            
+            def validate_params(self, **kwargs):
+                if 'required' not in kwargs:
+                    raise ValueError("Missing required param")
+        
+        adjuster = FullAdjuster()
+        
+        # Test all methods work
+        assert adjuster.name() == "full-test-adjuster"
+        assert adjuster.description() == "A fully implemented test adjuster"
+        
+        cv = {"original": True}
+        result = adjuster.adjust(cv)
+        assert result['adjusted'] is True
+        
+        # Validate works
+        adjuster.validate_params(required="value")
+    
+    def test_cvadjuster_validate_params_can_be_overridden(self):
+        """Subclasses can override validate_params."""
+        class StrictAdjuster(CVAdjuster):
+            def name(self):
+                return "strict"
+            def description(self):
+                return "Strict test adjuster"
+            def adjust(self, cv_data, **kwargs):
+                return cv_data
+            def validate_params(self, **kwargs):
+                if 'required_param' not in kwargs:
+                    raise ValueError("required_param is required")
+        
+        adjuster = StrictAdjuster()
+        
+        # Should pass with required param
+        adjuster.validate_params(required_param="value")
+        
+        # Should fail without required param
+        with pytest.raises(ValueError, match="required_param is required"):
+            adjuster.validate_params(other_param="value")
+
+
 class TestFetchJobDescription:
     """Tests for _fetch_job_description helper function."""
     
