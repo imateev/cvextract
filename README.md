@@ -28,7 +28,7 @@ The extracted data conforms to a well-defined JSON schema (see `cvextract/contra
 ### Pluggable Extractors
 The extraction logic is implemented using a pluggable architecture (`cvextract/extractors/`) that allows:
 - **Interchangeable implementations**: Easy to swap or customize extraction logic
-- **Support for multiple formats**: DOCX (internal parser), PDF/DOCX/PPTX/TXT (OpenAI-based)
+- **Support for multiple formats**: DOCX (internal parser), TXT/DOCX (OpenAI-based)
 - **Testing flexibility**: Mock extractors for testing without real documents
 
 **Available Extractors:**
@@ -148,7 +148,7 @@ python -m cvextract.cli \
   - Directory: processes all matching files recursively
 - `name=<extractor-name>` - Name of the extractor to use (optional, defaults to `private-internal-extractor`)
   - `private-internal-extractor`: Internal DOCX parser (default, DOCX only)
-  - `openai-extractor`: OpenAI-based extraction (supports PDF, DOCX, PPTX, TXT)
+  - `openai-extractor`: OpenAI-based extraction (supports TXT, DOCX)
   - Use `--list extractors` to see all available extractors
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
 

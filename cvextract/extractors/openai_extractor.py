@@ -1,13 +1,12 @@
 """
 OpenAI-based CV extractor implementation.
 
-Uses OpenAI API to extract structured CV data from various file formats.
-Supports PDF, DOCX, PPTX, and TXT files.
+Uses OpenAI API to extract structured CV data from text-based files.
+Supports TXT and DOCX files (text extraction from DOCX using python-docx).
 """
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 from pathlib import Path
@@ -49,7 +48,7 @@ class OpenAICVExtractor(CVExtractor):
         Extract structured CV data from a file using OpenAI.
 
         Args:
-            source: Path to the source file (PDF, DOCX, PPTX, or TXT)
+            source: Path to the source file (TXT or DOCX)
 
         Returns:
             Dictionary with extracted CV data (identity, sidebar, overview, experiences)
