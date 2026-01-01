@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+from docx import Document
 from openai import OpenAI
 
 from .base import CVExtractor
@@ -23,10 +24,13 @@ class OpenAICVExtractor(CVExtractor):
     CV extractor using OpenAI API for intelligent extraction.
     
     This implementation:
-    - Accepts PDF, DOCX, PPTX, TXT files
-    - Sends raw file content to OpenAI (as base64 for binary files)
-    - Uses CV schema as context in the prompt
+    - Accepts TXT and DOCX files (PDF and PPTX require additional libraries)
+    - Extracts text from DOCX files using python-docx
+    - Sends text content to OpenAI with CV schema context
     - Returns structured data conforming to the CV schema
+    
+    Note: For PDF and PPTX support, install PyPDF2 or pdfplumber (PDF) 
+    and python-pptx (PPTX) and extend this implementation.
     """
 
     def __init__(self, model: str = "gpt-4o", **kwargs):
@@ -62,13 +66,14 @@ class OpenAICVExtractor(CVExtractor):
             raise ValueError(f"Source must be a file: {source}")
 
         # Check file extension
-        supported_extensions = {'.pdf', '.docx', '.pptx', '.txt'}
+        supported_extensions = {'.txt', '.docx'}
         file_ext = source.suffix.lower()
         
         if file_ext not in supported_extensions:
             raise ValueError(
                 f"Unsupported file type: {file_ext}. "
-                f"Supported types: {', '.join(sorted(supported_extensions))}"
+                f"Supported types: {', '.join(sorted(supported_extensions))}. "
+                f"Note: PDF and PPTX support requires additional libraries (PyPDF2, python-pptx)."
             )
 
         # Read file content
@@ -76,11 +81,23 @@ class OpenAICVExtractor(CVExtractor):
             # Read text files as plain text
             file_content = source.read_text(encoding='utf-8')
             content_type = 'text'
+        elif file_ext == '.docx':
+            # Extract text from DOCX using python-docx
+            try:
+                doc = Document(source)
+                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                file_content = '\n'.join(paragraphs)
+                content_type = 'text'
+            except Exception as e:
+                raise Exception(f"Failed to extract text from DOCX: {str(e)}") from e
         else:
-            # Read binary files (PDF, DOCX, PPTX) and encode as base64
-            file_bytes = source.read_bytes()
-            file_content = base64.b64encode(file_bytes).decode('utf-8')
-            content_type = 'base64'
+            # For PDF and PPTX, we note the limitation
+            # In production, you would use PyPDF2, pdfplumber, or python-pptx
+            raise ValueError(
+                f"Binary file format {file_ext} requires additional libraries for text extraction. "
+                f"For PDF: install PyPDF2 or pdfplumber. For PPTX: install python-pptx. "
+                f"Currently only TXT and DOCX files are fully supported."
+            )
 
         # Load CV schema for context
         schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
@@ -92,10 +109,8 @@ class OpenAICVExtractor(CVExtractor):
 
         # Call OpenAI API
         try:
-            if content_type == 'text':
-                response = self._extract_from_text(prompt, file_content)
-            else:
-                response = self._extract_from_binary(prompt, file_content, file_ext)
+            # All supported files are now converted to text
+            response = self._extract_from_text(prompt, file_content)
             
             # Parse and validate response
             cv_data = self._parse_and_validate_response(response, cv_schema)
@@ -133,7 +148,7 @@ Return ONLY the JSON object, no additional text or explanation.
         return prompt
 
     def _extract_from_text(self, prompt: str, text_content: str) -> str:
-        """Extract CV data from plain text file."""
+        """Extract CV data from text content (from TXT or extracted from DOCX)."""
         full_prompt = f"{prompt}\n\nCV Text Content:\n\n{text_content}"
         
         response = self.client.chat.completions.create(
@@ -149,42 +164,6 @@ Return ONLY the JSON object, no additional text or explanation.
                 }
             ],
             temperature=0.1,  # Low temperature for consistency
-        )
-        
-        return response.choices[0].message.content
-
-    def _extract_from_binary(self, prompt: str, base64_content: str, file_ext: str) -> str:
-        """Extract CV data from binary file (PDF, DOCX, PPTX)."""
-        # For now, we'll use the simpler approach of describing what we need
-        # Note: OpenAI's vision models can analyze images, but for document parsing
-        # we may need to convert to images or use different approach
-        
-        # Determine MIME type
-        mime_types = {
-            '.pdf': 'application/pdf',
-            '.docx': 'application/vnd.openedocumentformat.wordprocessingml.document',
-            '.pptx': 'application/vnd.openedocumentformat.presentationml.presentation'
-        }
-        mime_type = mime_types.get(file_ext, 'application/octet-stream')
-        
-        # For document files, we'll use a text-based approach
-        # In a production system, you might want to use document parsing libraries
-        # or OpenAI's file upload API for better results
-        
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a CV data extraction expert. Extract structured data from CVs and return valid JSON."
-                },
-                {
-                    "role": "user",
-                    "content": f"{prompt}\n\nNote: Binary {file_ext.upper()} file provided as base64. "
-                               f"Please extract CV information and return structured JSON as specified."
-                }
-            ],
-            temperature=0.1,
         )
         
         return response.choices[0].message.content

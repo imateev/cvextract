@@ -87,7 +87,7 @@ class TestOpenAICVExtractor:
                 assert result['identity']['full_name'] == 'John Doe'
 
     def test_extract_supports_pdf_files(self, tmp_path):
-        """extract() supports .pdf files."""
+        """extract() raises error for .pdf files (not currently supported)."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
@@ -95,31 +95,24 @@ class TestOpenAICVExtractor:
             test_file = tmp_path / "test.pdf"
             test_file.write_bytes(b'%PDF-1.4\ntest content')
             
-            # Mock OpenAI response
-            mock_response = {
-                "identity": {
-                    "title": "Engineer",
-                    "full_name": "Test User",
-                    "first_name": "Test",
-                    "last_name": "User"
-                },
-                "sidebar": {},
-                "overview": "Test overview",
-                "experiences": []
-            }
-            
-            with patch.object(extractor, '_extract_from_binary', return_value=json.dumps(mock_response)):
-                result = extractor.extract(test_file)
-                assert result['identity']['full_name'] == 'Test User'
+            # Should raise unsupported file type error
+            with pytest.raises(ValueError, match="Unsupported file type"):
+                extractor.extract(test_file)
 
     def test_extract_supports_docx_files(self, tmp_path):
-        """extract() supports .docx files."""
+        """extract() supports .docx files by extracting text."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
-            # Create test DOCX file (minimal binary content)
+            # Create a real DOCX file using python-docx
+            from docx import Document
+            doc = Document()
+            doc.add_paragraph("Jane Smith")
+            doc.add_paragraph("Developer")
+            doc.add_paragraph("Experienced developer with Python skills")
+            
             test_file = tmp_path / "test.docx"
-            test_file.write_bytes(b'PK\x03\x04test docx content')
+            doc.save(str(test_file))
             
             # Mock OpenAI response
             mock_response = {
@@ -134,12 +127,12 @@ class TestOpenAICVExtractor:
                 "experiences": []
             }
             
-            with patch.object(extractor, '_extract_from_binary', return_value=json.dumps(mock_response)):
+            with patch.object(extractor, '_extract_from_text', return_value=json.dumps(mock_response)):
                 result = extractor.extract(test_file)
                 assert result['identity']['full_name'] == 'Jane Smith'
 
     def test_extract_supports_pptx_files(self, tmp_path):
-        """extract() supports .pptx files."""
+        """extract() raises error for .pptx files (not currently supported)."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
@@ -147,22 +140,9 @@ class TestOpenAICVExtractor:
             test_file = tmp_path / "test.pptx"
             test_file.write_bytes(b'PK\x03\x04test pptx content')
             
-            # Mock OpenAI response
-            mock_response = {
-                "identity": {
-                    "title": "Presenter",
-                    "full_name": "Bob Johnson",
-                    "first_name": "Bob",
-                    "last_name": "Johnson"
-                },
-                "sidebar": {},
-                "overview": "Presenter overview",
-                "experiences": []
-            }
-            
-            with patch.object(extractor, '_extract_from_binary', return_value=json.dumps(mock_response)):
-                result = extractor.extract(test_file)
-                assert result['identity']['full_name'] == 'Bob Johnson'
+            # Should raise unsupported file type error
+            with pytest.raises(ValueError, match="Unsupported file type"):
+                extractor.extract(test_file)
 
     def test_parse_response_handles_markdown_code_blocks(self, tmp_path):
         """_parse_and_validate_response() handles markdown code blocks."""

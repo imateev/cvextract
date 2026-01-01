@@ -41,14 +41,15 @@ The extraction logic is implemented using a pluggable architecture (`cvextract/e
 
 2. **`openai-extractor`** - OpenAI-powered intelligent extraction
    - Uses OpenAI API to extract structured data from various formats
-   - Supports: PDF, DOCX, PPTX, TXT files
-   - Best for: Non-standard formats, PDFs, varied layouts
+   - Supports: TXT, DOCX files
+   - Best for: Text files, non-standard DOCX formats where structured parsing fails
    - Requirements: `OPENAI_API_KEY` environment variable
    - Note: Costs apply based on OpenAI usage
+   - Future: PDF and PPTX support can be added with PyPDF2/pdfplumber and python-pptx libraries
 
 **When to use each extractor:**
 - Use `private-internal-extractor` for batch processing of standardized DOCX files (fast, free, offline)
-- Use `openai-extractor` for PDF files, PowerPoint presentations, text files, or non-standard CV formats
+- Use `openai-extractor` for text files or DOCX files with non-standard layouts where structure-based parsing fails
 
 See `cvextract/extractors/README.md` for details on creating custom extractors.
 
@@ -229,17 +230,6 @@ python -m cvextract.cli \
 ```
 
 ```bash
-# Extract a PDF CV file using OpenAI extractor
-export OPENAI_API_KEY="sk-proj-..."
-
-python -m cvextract.cli \
-  --extract source=/path/to/cv.pdf name=openai-extractor \
-  --target /output
-
-# Output: /output/structured_data/cv.json
-```
-
-```bash
 # Extract a text CV file using OpenAI extractor
 export OPENAI_API_KEY="sk-proj-..."
 
@@ -248,6 +238,17 @@ python -m cvextract.cli \
   --target /output
 
 # Output: /output/structured_data/cv.json
+```
+
+```bash
+# Extract a DOCX file with non-standard layout using OpenAI
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/unusual-cv.docx name=openai-extractor \
+  --target /output
+
+# Output: /output/structured_data/unusual-cv.json
 ```
 
 #### Single-File with Custom Output
@@ -285,11 +286,11 @@ python -m cvextract.cli \
 ```
 
 ```bash
-# Extract PDF using OpenAI and apply to template
+# Extract DOCX using OpenAI and apply to template
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
-  --extract source=/path/to/cv.pdf name=openai-extractor \
+  --extract source=/path/to/cv.docx name=openai-extractor \
   --apply template=/path/to/template.docx \
   --target /output
 
