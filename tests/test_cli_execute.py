@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
+from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage
 from cvextract.cli_execute import execute_pipeline
 
 
@@ -342,9 +342,9 @@ class TestExecutePipelineAdjust:
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
-    @patch('cvextract.cli_execute.adjust_for_customer')
+    @patch('cvextract.cli_execute.get_adjuster')
     @patch('cvextract.cli_execute.render_and_verify')
-    def test_extract_adjust_apply_success(self, mock_render, mock_adjust, mock_extract, mock_collect,
+    def test_extract_adjust_apply_success(self, mock_render, mock_get_adjuster, mock_extract, mock_collect,
                                           tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + adjust + apply."""
         mock_collect.return_value = [mock_docx]
@@ -356,14 +356,23 @@ class TestExecutePipelineAdjust:
             return True, [], []
         
         mock_extract.side_effect = fake_extract
-        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        # Mock adjuster
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
+        
         mock_render.return_value = (True, [], [], True)
         
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=False,
                 data=None,
                 output=None
@@ -378,13 +387,13 @@ class TestExecutePipelineAdjust:
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_extract.assert_called_once()
-        mock_adjust.assert_called_once()
+        mock_adjuster.adjust.assert_called_once()
         mock_render.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
-    @patch('cvextract.cli_execute.adjust_for_customer')
-    def test_adjust_dry_run_skips_apply(self, mock_adjust, mock_extract, mock_collect,
+    @patch('cvextract.cli_execute.get_adjuster')
+    def test_adjust_dry_run_skips_apply(self, mock_get_adjuster, mock_extract, mock_collect,
                                         tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that dry-run mode skips apply stage."""
         mock_collect.return_value = [mock_docx]
@@ -396,16 +405,24 @@ class TestExecutePipelineAdjust:
             return True, [], []
         
         mock_extract.side_effect = fake_extract
-        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        # Mock adjuster
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
         
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=True,
                 data=None,
                 output=None
+            
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
@@ -417,25 +434,33 @@ class TestExecutePipelineAdjust:
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         mock_extract.assert_called_once()
-        mock_adjust.assert_called_once()
+        mock_adjuster.adjust.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
-    @patch('cvextract.cli_execute.adjust_for_customer')
+    @patch('cvextract.cli_execute.get_adjuster')
     @patch('cvextract.cli_execute.render_and_verify')
-    def test_adjust_from_json(self, mock_render, mock_adjust, mock_collect,
+    def test_adjust_from_json(self, mock_render, mock_get_adjuster, mock_collect,
                              tmp_path: Path, mock_json: Path, mock_template: Path):
         """Test adjust from existing JSON without extraction."""
         mock_collect.return_value = [mock_json]
-        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        # Mock adjuster
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
         mock_render.return_value = (True, [], [], True)        
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=False,
                 data=mock_json,
                 output=None
+            
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
@@ -446,29 +471,37 @@ class TestExecutePipelineAdjust:
         
         exit_code = execute_pipeline(config)
         assert exit_code == 0
-        mock_adjust.assert_called_once()
+        mock_adjuster.adjust.assert_called_once()
         mock_render.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
-    @patch('cvextract.cli_execute.adjust_for_customer')
+    @patch('cvextract.cli_execute.get_adjuster')
     @patch('cvextract.cli_execute._url_to_cache_filename', return_value="cache.json")
-    def test_adjust_research_cache_is_rooted(self, mock_cache_name, mock_adjust, mock_collect,
+    def test_adjust_research_cache_is_rooted(self, mock_cache_name, mock_get_adjuster, mock_collect,
                                              tmp_path: Path, parallel_input_tree):
         """Research cache should always live under target/research_data regardless of input path."""
         payload = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         input_json = parallel_input_tree.json("folder/profile.json", payload)
         mock_collect.return_value = [input_json]
-        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        # Mock adjuster
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
 
         config = UserConfig(
             extract=None,
             input_dir=parallel_input_tree.root,
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=False,
                 data=input_json,
                 output=None
+            
             ),
             apply=None,
             target_dir=tmp_path / "out",
@@ -480,17 +513,20 @@ class TestExecutePipelineAdjust:
         exit_code = execute_pipeline(config)
         assert exit_code == 0
 
-        mock_adjust.assert_called_once()
-        cache_path = mock_adjust.call_args.kwargs["cache_path"]
+        mock_adjuster.adjust.assert_called_once()
+        # Check that cache_path was passed in the adjuster params
+        call_kwargs = mock_adjuster.adjust.call_args.kwargs
+        assert 'cache_path' in call_kwargs
+        cache_path = call_kwargs["cache_path"]
         expected_cache = tmp_path / "out" / "research_data" / "cache.json"
         assert cache_path == expected_cache
         assert cache_path.parent.exists()
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
-    @patch('cvextract.cli_execute.adjust_for_customer')
+    @patch('cvextract.cli_execute.get_adjuster')
     @patch('cvextract.cli_execute.render_and_verify')
-    def test_adjust_exception_fallback(self, mock_render, mock_adjust, mock_extract, mock_collect,
+    def test_adjust_exception_fallback(self, mock_render, mock_get_adjuster, mock_extract, mock_collect,
                                        tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that adjustment exceptions are handled and apply proceeds with original JSON."""
         mock_collect.return_value = [mock_docx]
@@ -502,17 +538,25 @@ class TestExecutePipelineAdjust:
             return True, [], []
         
         mock_extract.side_effect = fake_extract
-        mock_adjust.side_effect = Exception("Adjustment failed")
+        # Mock adjuster to raise exception
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.side_effect = Exception("Adjustment failed")
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
         mock_render.return_value = (True, [], [], True)
         
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=False,
                 data=None,
                 output=None
+            
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
@@ -597,22 +641,30 @@ class TestExecutePipelineDebugMode:
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
-    @patch('cvextract.cli_execute.adjust_for_customer')
-    def test_adjust_exception_debug_mode(self, mock_adjust, mock_extract, mock_collect,
+    @patch('cvextract.cli_execute.get_adjuster')
+    def test_adjust_exception_debug_mode(self, mock_get_adjuster, mock_extract, mock_collect,
                                          tmp_path: Path, mock_docx: Path):
         """Test that adjust exceptions in debug mode are logged."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], [])
-        mock_adjust.side_effect = Exception("Adjustment error")
+        # Mock adjuster to raise exception
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.side_effect = Exception("Adjustment error")
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
         
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=True,
                 data=None,
                 output=None
+            
             ),
             apply=None,
             target_dir=tmp_path / "out",
@@ -712,8 +764,8 @@ class TestFolderStructurePreservation:
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
-    @patch('cvextract.cli_execute.adjust_for_customer')
-    def test_adjust_preserves_folder_structure(self, mock_adjust, mock_extract, mock_collect,
+    @patch('cvextract.cli_execute.get_adjuster')
+    def test_adjust_preserves_folder_structure(self, mock_get_adjuster, mock_extract, mock_collect,
                                                tmp_path: Path, parallel_input_tree):
         """Test that adjusted JSON files preserve folder structure."""
         # Create nested input rooted at parallel tree to capture rel_path logic
@@ -727,16 +779,24 @@ class TestFolderStructurePreservation:
             return True, [], []
         
         mock_extract.side_effect = fake_extract
-        mock_adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        # Mock adjuster
+        mock_adjuster = MagicMock()
+        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.validate_params.return_value = None
+        mock_get_adjuster.return_value = mock_adjuster
         
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=AdjustStage(
-                customer_url="https://example.com",
-                openai_model="gpt-4",
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model="gpt-4"
+                )],
                 dry_run=True,
                 data=None,
                 output=None
+            
             ),
             apply=None,
             target_dir=tmp_path / "output",
@@ -750,7 +810,7 @@ class TestFolderStructurePreservation:
         assert exit_code == 0
         
         # Verify that adjusted JSON would be created with the same structure
-        mock_adjust.assert_called_once()
+        mock_adjuster.adjust.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')

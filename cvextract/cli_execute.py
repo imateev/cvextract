@@ -160,11 +160,11 @@ def execute_pipeline(config: UserConfig) -> int:
                 adjuster_params = dict(adjuster_config.params)
                 
                 # Add cache_path for company research adjuster
-                if adjuster_config.name == "openai-company-research" and 'customer_url' in adjuster_params:
+                if adjuster_config.name == "openai-company-research" and 'customer-url' in adjuster_params:
                     research_cache_dir = research_dir
                     research_cache_dir.mkdir(parents=True, exist_ok=True)
                     adjuster_params['cache_path'] = research_cache_dir / _url_to_cache_filename(
-                        adjuster_params['customer_url']
+                        adjuster_params['customer-url']
                     )
                 
                 # Validate parameters

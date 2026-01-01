@@ -55,8 +55,20 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
     Returns:
         Path to the research cache file, or None if research failed or not needed
     """
-    if not config.adjust or not config.adjust.customer_url:
+    if not config.adjust or not config.adjust.adjusters:
         return None
+    
+    # Only perform research for openai-company-research adjuster
+    company_research_adjuster = None
+    for adjuster_config in config.adjust.adjusters:
+        if adjuster_config.name == "openai-company-research":
+            company_research_adjuster = adjuster_config
+            break
+    
+    if not company_research_adjuster or 'customer-url' not in company_research_adjuster.params:
+        return None
+    
+    customer_url = company_research_adjuster.params['customer-url']
     
     # Get API key and model
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -64,20 +76,20 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
         LOG.warning("OPENAI_API_KEY not set, skipping upfront research")
         return None
     
-    model = config.adjust.openai_model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+    model = company_research_adjuster.openai_model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
     
     # Create research cache directory
     research_dir = config.target_dir / "research_data"
     research_dir.mkdir(parents=True, exist_ok=True)
     
     # Determine cache file path
-    cache_filename = _url_to_cache_filename(config.adjust.customer_url)
+    cache_filename = _url_to_cache_filename(customer_url)
     cache_path = research_dir / cache_filename
     
     # Perform research (will use cache if it exists)
-    LOG.info("Performing upfront company research for: %s", config.adjust.customer_url)
+    LOG.info("Performing upfront company research for: %s", customer_url)
     research_data = _research_company_profile(
-        config.adjust.customer_url,
+        customer_url,
         api_key,
         model,
         cache_path
@@ -175,7 +187,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         return 1
     
     # Perform upfront research if adjust is configured
-    if config.adjust and config.adjust.customer_url:
+    if config.adjust and config.adjust.adjusters:
         # Research is performed and cached for reuse by individual file processing
         _perform_upfront_research(config)
     

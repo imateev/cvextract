@@ -246,10 +246,14 @@ Examples:
                 if 'dry-run' in params:
                     dry_run = True
             
-            # Get adjuster name
+            # Get adjuster name (with backward compatibility)
             adjuster_name = params.get('name')
             if not adjuster_name:
-                raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
+                # Backward compatibility: if customer-url is provided, use openai-company-research
+                if 'customer-url' in params:
+                    adjuster_name = 'openai-company-research'
+                else:
+                    raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
             
             # Get OpenAI model if specified
             openai_model = params.get('openai-model')

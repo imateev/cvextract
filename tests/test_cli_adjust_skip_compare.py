@@ -20,8 +20,8 @@ class TestCustomerAdjustmentConfiguration:
         assert config.extract is not None
         assert config.adjust is not None
         assert config.apply is not None
-        assert config.adjust.customer_url == "https://example.com/customer"
-        assert config.adjust.openai_model == "gpt-4o-mini"
+        assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com/customer"
+        assert config.adjust.adjusters[0].openai_model == "gpt-4o-mini"
         assert config.adjust.dry_run is False
 
     def test_apply_with_adjust_creates_correct_mode(self, tmp_path: Path):
@@ -35,8 +35,8 @@ class TestCustomerAdjustmentConfiguration:
         assert config.extract is None
         assert config.adjust is not None
         assert config.apply is not None
-        assert config.adjust.customer_url == "https://example.com/customer"
-        assert config.adjust.openai_model == "gpt-4o-mini"
+        assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com/customer"
+        assert config.adjust.adjusters[0].openai_model == "gpt-4o-mini"
         assert config.adjust.dry_run is False
     
     def test_extract_apply_with_adjust_dry_run_creates_extract_adjust_mode(self, tmp_path: Path):
@@ -51,7 +51,7 @@ class TestCustomerAdjustmentConfiguration:
         assert config.extract is not None
         assert config.adjust is not None
         assert config.apply is not None
-        assert config.adjust.customer_url == "https://example.com/customer"
+        assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com/customer"
         assert config.adjust.dry_run is True
     
     def test_apply_with_adjust_dry_run_creates_adjust_mode(self, tmp_path: Path):
@@ -65,5 +65,5 @@ class TestCustomerAdjustmentConfiguration:
         assert config.extract is None
         assert config.adjust is not None
         assert config.apply is not None
-        assert config.adjust.customer_url == "https://example.com/customer"
+        assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com/customer"
         assert config.adjust.dry_run is True
