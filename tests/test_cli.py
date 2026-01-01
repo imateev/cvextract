@@ -541,27 +541,27 @@ class TestParallelParsing:
     def test_parse_parallel_stage_with_input(self):
         """Parallel stage with input parameter should be parsed correctly."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory",
+            "--parallel", "source=/path/to/directory",
             "--extract",
             "--target", "/path/to/output"
         ])
         assert config.parallel is not None
-        assert config.parallel.input == Path("/path/to/directory")
+        assert config.parallel.source == Path("/path/to/directory")
         assert config.parallel.n == 1  # Default value
     
     def test_parse_parallel_stage_with_input_and_n(self):
         """Parallel stage with both input and n parameters should be parsed."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory", "n=10",
+            "--parallel", "source=/path/to/directory", "n=10",
             "--extract",
             "--target", "/path/to/output"
         ])
-        assert config.parallel.input == Path("/path/to/directory")
+        assert config.parallel.source == Path("/path/to/directory")
         assert config.parallel.n == 10
     
     def test_parallel_without_input_raises_error(self):
         """Parallel stage without input parameter should raise error."""
-        with pytest.raises(ValueError, match="requires 'input' parameter"):
+        with pytest.raises(ValueError, match="requires 'source' parameter"):
             cli.gather_user_requirements([
                 "--parallel",
                 "--extract",
@@ -572,7 +572,7 @@ class TestParallelParsing:
         """Parallel stage with invalid n parameter should raise error."""
         with pytest.raises(ValueError, match="must be a valid integer"):
             cli.gather_user_requirements([
-                "--parallel", "input=/path/to/directory", "n=invalid",
+                "--parallel", "source=/path/to/directory", "n=invalid",
                 "--extract",
                 "--target", "/path/to/output"
             ])
@@ -581,7 +581,7 @@ class TestParallelParsing:
         """Parallel stage with negative n parameter should raise error."""
         with pytest.raises(ValueError, match="must be >= 1"):
             cli.gather_user_requirements([
-                "--parallel", "input=/path/to/directory", "n=-5",
+                "--parallel", "source=/path/to/directory", "n=-5",
                 "--extract",
                 "--target", "/path/to/output"
             ])
@@ -590,7 +590,7 @@ class TestParallelParsing:
         """Parallel stage with zero n parameter should raise error."""
         with pytest.raises(ValueError, match="must be >= 1"):
             cli.gather_user_requirements([
-                "--parallel", "input=/path/to/directory", "n=0",
+                "--parallel", "source=/path/to/directory", "n=0",
                 "--extract",
                 "--target", "/path/to/output"
             ])
@@ -598,7 +598,7 @@ class TestParallelParsing:
     def test_parallel_with_extract_no_source_allowed(self):
         """When parallel is present, extract can be specified without source."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory", "n=5",
+            "--parallel", "source=/path/to/directory", "n=5",
             "--extract",
             "--target", "/path/to/output"
         ])
@@ -610,7 +610,7 @@ class TestParallelParsing:
     def test_parallel_with_all_stages(self):
         """Parallel can be combined with extract, adjust, and apply stages."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory", "n=5",
+            "--parallel", "source=/path/to/directory", "n=5",
             "--extract",
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=/path/to/template.docx",
@@ -624,7 +624,7 @@ class TestParallelParsing:
     def test_parallel_only_stage(self):
         """Parallel can be used as the only stage."""
         config = cli.gather_user_requirements([
-            "--parallel", "input=/path/to/directory",
+            "--parallel", "source=/path/to/directory",
             "--target", "/path/to/output"
         ])
         assert config.parallel is not None

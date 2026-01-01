@@ -145,7 +145,7 @@ Examples:
 
   Process directory with parallel workers:
     python -m cvextract.cli \\
-      --parallel input=/var/foo/cvs n=10 \\
+      --parallel source=/var/foo/cvs n=10 \\
       --extract \\
       --adjust name=openai-company-research customer-url=https://example.com \\
       --apply template=template.docx \\
@@ -167,7 +167,7 @@ Examples:
                              "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
     parser.add_argument("--parallel", nargs='*', metavar="PARAM",
                         help="Parallel stage: Process entire directory of CV files in parallel. "
-                             "Parameters: input=<directory> (required) [n=<number>] (default=1)")
+                             "Parameters: source=<directory> (required) [n=<number>] (default=1)")
 
     # Global arguments
     parser.add_argument("--list", choices=['adjusters', 'renderers', 'extractors'],
@@ -206,8 +206,8 @@ Examples:
     
     if args.parallel is not None:
         params = _parse_stage_params(args.parallel if args.parallel else [])
-        if 'input' not in params:
-            raise ValueError("--parallel requires 'input' parameter")
+        if 'source' not in params:
+            raise ValueError("--parallel requires 'source' parameter")
         
         n_workers = 1
         if 'n' in params:
@@ -219,7 +219,7 @@ Examples:
                 raise ValueError(f"--parallel parameter 'n' must be a valid integer: {e}")
         
         parallel_stage = ParallelStage(
-            input=Path(params['input']),
+            source=Path(params['source']),
             n=n_workers,
         )
     

@@ -47,7 +47,7 @@ class ApplyStage:
 @dataclass
 class ParallelStage:
     """Configuration for the parallel processing stage."""
-    input: Path  # Input directory to scan recursively
+    source: Path  # Input directory to scan recursively
     n: int = 1  # Number of parallel workers (default=1)
 
 

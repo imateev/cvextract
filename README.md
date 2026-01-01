@@ -94,7 +94,7 @@ python -m cvextract.cli --extract source=<file> [--adjust ...] [--apply ...] --t
 
 **Batch mode** - Process multiple files in parallel:
 ```bash
-python -m cvextract.cli --parallel input=<dir> n=<num_workers> [--extract] [--adjust ...] [--apply ...] --target <dir> [options]
+python -m cvextract.cli --parallel source=<dir> n=<num_workers> [--extract] [--adjust ...] [--apply ...] --target <dir> [options]
 ```
 
 ### Stage Chaining
@@ -150,7 +150,7 @@ python -m cvextract.cli \
 - `output=<path>` - Output DOCX path (optional, defaults to `{target}/documents/`)
 
 **`--parallel`**: Batch processing mode (alternative to single-file stages)
-- `input=<dir>` - Input directory containing DOCX files (required)
+- `source=<dir>` - Input directory containing DOCX files (required)
 - `n=<num>` - Number of worker processes (required, e.g., `n=10`)
 - When used, stages like `--extract`, `--adjust`, `--apply` still apply but work in parallel
 - Each worker processes files independently using the same stage configuration
@@ -383,7 +383,7 @@ python -m cvextract.cli \
 ```bash
 # Extract all CVs from a directory in parallel (10 workers)
 python -m cvextract.cli \
-  --parallel input=/path/to/cv_folder n=10 \
+  --parallel source=/path/to/cv_folder n=10 \
   --extract \
   --target /output
 
@@ -396,7 +396,7 @@ python -m cvextract.cli \
 ```bash
 # Extract and render all CVs in parallel (20 workers)
 python -m cvextract.cli \
-  --parallel input=/path/to/cv_folder n=20 \
+  --parallel source=/path/to/cv_folder n=20 \
   --extract \
   --apply template=/path/to/template.docx \
   --target /output
@@ -414,7 +414,7 @@ python -m cvextract.cli \
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
-  --parallel input=/data/consultants n=15 \
+  --parallel source=/data/consultants n=15 \
   --extract \
   --adjust name=openai-company-research customer-url=https://target-company.com \
   --apply template=/path/to/template.docx \
@@ -455,7 +455,7 @@ python -m cvextract.cli \
 ```bash
 # Batch processing with debug logging
 python -m cvextract.cli \
-  --parallel input=/data/cvs n=10 \
+  --parallel source=/data/cvs n=10 \
   --extract \
   --apply template=/path/to/template.docx \
   --target /output \
@@ -484,7 +484,7 @@ python -m cvextract.cli \
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
-  --parallel input=/source/cvs n=12 \
+  --parallel source=/source/cvs n=12 \
   --extract \
   --adjust name=openai-company-research customer-url=https://example.com output=/custom/adjusted/ \
   --apply template=/path/to/template.docx \
