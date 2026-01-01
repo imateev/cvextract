@@ -60,4 +60,4 @@ class CVExtractor(ABC):
             FileNotFoundError: If the source file does not exist
             Exception: For extraction-specific errors
         """
-        pass
+        ...

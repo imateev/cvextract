@@ -35,4 +35,4 @@ class CVVerifier(ABC):
         Raises:
             Exception: For verification-specific errors
         """
-        pass
+        ...

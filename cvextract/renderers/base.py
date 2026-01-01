@@ -62,4 +62,4 @@ class CVRenderer(ABC):
             FileNotFoundError: If the template file does not exist
             Exception: For rendering-specific errors
         """
-        pass
+        ...
