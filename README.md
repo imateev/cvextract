@@ -106,8 +106,11 @@ python -m cvextract.cli \
   - Directory: processes all `.docx` files recursively
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
 
-**`--adjust`**: Adjust CV data for a specific customer using AI (optional)
-- `customer-url=<url>` - Customer website URL for research (required for adjust stage)
+**`--adjust`**: Adjust CV data using named adjusters (can be specified multiple times for chaining)
+- `name=<adjuster-name>` - Name of the adjuster to use (required, see `--list adjusters` for available adjusters)
+- Adjuster-specific parameters (varies by adjuster):
+  - For `openai-company-research`: `customer-url=<url>` (required)
+  - For `openai-job-specific`: `job-url=<url>` OR `job-description=<text>` (one required)
 - `data=<path>` - Input JSON file or directory (only used when NOT chained after extract)
   - When chained after extract, this is ignored and the extracted JSON is used automatically
   - Single file: processes one file
@@ -115,6 +118,8 @@ python -m cvextract.cli \
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
 - `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
 - `dry-run` - Only adjust without rendering (optional flag, prevents apply stage execution)
+- **Backward compatibility**: `customer-url=<url>` without `name=` defaults to `openai-company-research`
+- **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
 
 **`--apply`**: Apply CV data to DOCX template
 - `template=<path>` - Template DOCX file (required for apply stage)
@@ -132,10 +137,26 @@ python -m cvextract.cli \
 
 ### Global Options
 
-- `--target <dir>` - Output directory (required)
+- `--target <dir>` - Output directory (required unless using `--list`)
+- `--list {adjusters,renderers,extractors}` - List available components and exit
 - `--strict` - Treat warnings as errors (exit code 2)
 - `--debug` - Verbose logging with stack traces
 - `--log-file <path>` - Optional log file path for persistent logging
+
+### Listing Available Components
+
+Use `--list` to see available adjusters, renderers, or extractors:
+
+```bash
+# List all available adjusters
+python -m cvextract.cli --list adjusters
+
+# List available renderers
+python -m cvextract.cli --list renderers
+
+# List available extractors
+python -m cvextract.cli --list extractors
+```
 
 ### Examples
 
@@ -268,6 +289,75 @@ python -m cvextract.cli \
 # Output: /output/documents/data_NEW.docx
 ```
 
+#### Named Adjusters (New Interface)
+
+```bash
+# Use explicit adjuster name (recommended for clarity)
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-company-research customer-url=https://example.com \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Outputs:
+#   /output/structured_data/cv.json (original)
+#   /output/adjusted_structured_data/cv.json (company-optimized)
+#   /output/documents/cv_NEW.docx
+#   /output/research_data/example_com.json (cached research)
+```
+
+#### Job-Specific Adjustment
+
+```bash
+# Adjust CV for a specific job posting
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-job-specific job-url=https://careers.example.com/job/123 \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Or use job description directly
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-job-specific job-description="Senior Software Engineer position..." \
+  --apply template=/path/to/template.docx \
+  --target /output
+```
+
+#### Chaining Multiple Adjusters
+
+```bash
+# Chain adjusters: first company research, then job-specific
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-company-research customer-url=https://target-company.com \
+  --adjust name=openai-job-specific job-url=https://target-company.com/careers/job/456 \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Flow: DOCX → Extract → Adjust (company) → Adjust (job) → Apply to template
+# Each adjuster receives the output of the previous one
+# Final output is doubly-optimized for both company and job
+```
+
+```bash
+# Use different models for different adjusters
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 \
+  --adjust name=openai-job-specific job-url=https://example.com/job/123 openai-model=gpt-3.5-turbo \
+  --apply template=/path/to/template.docx \
+  --target /output
+```
+
 #### Batch Processing - Extract Multiple Files
 
 ```bash
@@ -386,15 +476,44 @@ python -m cvextract.cli \
 #   /output/documents/{structure}/{filename}_NEW.docx
 ```
 
-### Customer Adjustment (OpenAI)
-- When using the `--adjust` stage, the tool enriches the extracted JSON for a specific customer by:
-  - Fetching basic info from the provided URL
-  - Calling OpenAI with the original JSON to re-order bullets, emphasize relevant tools/industries, and tweak descriptions for relevance
-  - Writing an `.adjusted.json` alongside the original and rendering from that adjusted JSON
-- Environment:
-  - `OPENAI_API_KEY`: required for adjustment
-  - `OPENAI_MODEL`: optional (defaults to `gpt-4o-mini`)
-- Roundtrip compare (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is requested; the compare icon shows as `➖`.
+### CV Adjustment with AI
+
+The tool supports pluggable CV adjusters that can modify CV content for different purposes:
+
+#### Available Adjusters
+
+Use `--list adjusters` to see all available adjusters:
+
+1. **`openai-company-research`** - Adjusts CV based on target company research
+   - Researches the company from its website
+   - Emphasizes relevant experience, skills, and technologies
+   - Reorders content to highlight company-aligned qualifications
+   - Parameters: `customer-url=<url>` (required)
+
+2. **`openai-job-specific`** - Adjusts CV for a specific job posting
+   - Analyzes job requirements and responsibilities
+   - Highlights matching experience and skills
+   - Adjusts terminology to match job description
+   - Parameters: `job-url=<url>` OR `job-description=<text>` (one required)
+
+#### How Adjustment Works
+
+- Adjusters can be chained together by specifying multiple `--adjust` flags
+- Each adjuster receives the output of the previous one in the chain
+- The final adjusted JSON is saved to `{target}/adjusted_structured_data/`
+- All adjustments preserve the original CV schema and data integrity
+- Adjusters never invent new experience or qualifications
+
+#### Environment Requirements
+
+- `OPENAI_API_KEY`: Required for OpenAI-based adjusters
+- `OPENAI_MODEL`: Optional, defaults to `gpt-4o-mini` (can be overridden per-adjuster)
+
+#### Behavior Notes
+
+- Company research results are cached in `{target}/research_data/` for reuse
+- Roundtrip comparison (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is used; the compare icon shows as `➖`
+- In dry-run mode, adjustment is performed but rendering is skipped
 
 ### How it achieves this
 - DOCX parsing:

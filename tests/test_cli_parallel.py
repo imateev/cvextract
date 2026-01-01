@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage, ParallelStage
+from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage, ParallelStage
 from cvextract.cli_parallel import (
     scan_directory_for_docx,
     execute_parallel_pipeline,
@@ -353,10 +353,13 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=AdjustStage(
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model=None
+                )],
                 data=None,
                 output=None,
-                customer_url="https://example.com",
-                openai_model=None,
                 dry_run=False
             ),
             apply=None,
@@ -482,10 +485,13 @@ class TestPerformUpfrontResearch:
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model=None
+                )],
                 data=None,
                 output=None,
-                customer_url="https://example.com",
-                openai_model=None,
                 dry_run=False
             ),
             apply=None,
@@ -524,10 +530,13 @@ class TestPerformUpfrontResearch:
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model=None
+                )],
                 data=None,
                 output=None,
-                customer_url="https://example.com",
-                openai_model=None,
                 dry_run=False
             ),
             apply=None,
@@ -550,10 +559,13 @@ class TestPerformUpfrontResearch:
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
+                adjusters=[AdjusterConfig(
+                    name="openai-company-research",
+                    params={"customer-url": "https://example.com"},
+                    openai_model=None
+                )],
                 data=None,
                 output=None,
-                customer_url="https://example.com",
-                openai_model=None,
                 dry_run=False
             ),
             apply=None,

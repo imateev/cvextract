@@ -47,7 +47,9 @@ class TestStageBasedParsing:
             "--target", "/path/to/output"
         ])
         assert config.adjust is not None
-        assert config.adjust.customer_url == "https://example.com"
+        assert len(config.adjust.adjusters) == 1
+        assert config.adjust.adjusters[0].name == "openai-company-research"
+        assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com"
         assert config.has_adjust is True
     
     def test_parse_extract_and_apply_stages(self):
@@ -90,7 +92,7 @@ class TestStageBasedParsing:
             "--adjust", "customer-url=https://example.com", "openai-model=gpt-4",
             "--target", "/path/to/output"
         ])
-        assert config.adjust.openai_model == "gpt-4"
+        assert config.adjust.adjusters[0].openai_model == "gpt-4"
     
     def test_extract_without_source_raises_error(self):
         """Extract stage without source parameter should raise error."""
@@ -108,8 +110,8 @@ class TestStageBasedParsing:
                 "--target", "/path/to/output"
             ])    
     def test_adjust_without_customer_url_raises_error(self):
-        """Adjust stage without customer-url parameter should raise error."""
-        with pytest.raises(ValueError, match="requires 'customer-url' parameter"):
+        """Adjust stage without customer-url or name parameter should raise error."""
+        with pytest.raises(ValueError, match="requires 'name' parameter"):
             cli.gather_user_requirements([
                 "--adjust",
                 "--target", "/path/to/output"
@@ -354,7 +356,7 @@ class TestPathsWithSpecialCharacters:
             "--adjust", "customer-url=https://example.com/page?param=value&other=test",
             "--target", "/output"
         ])
-        assert config.adjust.customer_url == "https://example.com/page?param=value&other=test"
+        assert config.adjust.adjusters[0].params.get('customer-url') == "https://example.com/page?param=value&other=test"
     
     def test_parse_path_with_leading_trailing_spaces_stripped_from_key(self):
         """Leading/trailing spaces in keys should be stripped, but values preserved."""

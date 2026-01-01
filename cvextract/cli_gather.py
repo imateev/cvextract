@@ -11,7 +11,40 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage, ParallelStage
+
+def _handle_list_command(list_type: str) -> None:
+    """
+    Handle --list command to display available components.
+    
+    Args:
+        list_type: Type of components to list ('adjusters', 'renderers', or 'extractors')
+    """
+    if list_type == 'adjusters':
+        from .adjusters import list_adjusters
+        adjusters = list_adjusters()
+        print("\nAvailable Adjusters:")
+        print("=" * 60)
+        for adj in adjusters:
+            print(f"  {adj['name']}")
+            print(f"    {adj['description']}")
+        print()
+    elif list_type == 'renderers':
+        from .renderers import DocxCVRenderer
+        print("\nAvailable Renderers:")
+        print("=" * 60)
+        print("  docx")
+        print("    Renders CV data to DOCX format using docxtpl templates")
+        print()
+    elif list_type == 'extractors':
+        from .extractors import DocxCVExtractor
+        print("\nAvailable Extractors:")
+        print("=" * 60)
+        print("  docx")
+        print("    Extracts CV data from DOCX format")
+        print()
+
+
+from .cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage, ParallelStage
 
 
 def _resolve_output_path(output_str: str, target_dir: Path) -> Path:
@@ -117,9 +150,10 @@ Examples:
     parser.add_argument("--extract", nargs='*', metavar="PARAM",
                         help="Extract stage: Extract CV data from DOCX to JSON. "
                              "Parameters: source=<file> (single DOCX file, not directory) [output=<path>]")
-    parser.add_argument("--adjust", nargs='*', metavar="PARAM",
-                        help="Adjust stage: Adjust CV data for customer using AI. "
-                             "Parameters: customer-url=<url> [data=<file>] (single JSON file) [output=<path>] [openai-model=<model>] [dry-run]")
+    parser.add_argument("--adjust", nargs='*', metavar="PARAM", action='append',
+                        help="Adjust stage: Adjust CV data using named adjusters (can be specified multiple times for chaining). "
+                             "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] [output=<path>] [openai-model=<model>] [dry-run]. "
+                             "Use --list adjusters to see available adjusters.")
     parser.add_argument("--apply", nargs='*', metavar="PARAM",
                         help="Apply stage: Apply CV data to DOCX template. "
                              "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
@@ -128,7 +162,9 @@ Examples:
                              "Parameters: input=<directory> (required) [n=<number>] (default=1)")
 
     # Global arguments
-    parser.add_argument("--target", required=True, help="Target output directory")
+    parser.add_argument("--list", choices=['adjusters', 'renderers', 'extractors'],
+                        help="List available components: adjusters, renderers, or extractors")
+    parser.add_argument("--target", help="Target output directory (required unless using --list)")
     parser.add_argument("--strict", action="store_true", 
                         help="Treat warnings as failure (non-zero exit code).")
     parser.add_argument("--debug", action="store_true", 
@@ -137,6 +173,16 @@ Examples:
                         help="Optional path to a log file. If set, all output is also written there.")
     
     args = parser.parse_args(argv)
+    
+    # Handle --list option
+    if args.list:
+        _handle_list_command(args.list)
+        import sys
+        sys.exit(0)
+    
+    # Validate target is provided when not using --list
+    if not args.target:
+        raise ValueError("--target is required when not using --list")
     
     # Check that at least one stage is specified
     using_stages = any([args.extract is not None, args.adjust is not None, args.apply is not None, args.parallel is not None])
@@ -181,16 +227,55 @@ Examples:
         )
     
     if args.adjust is not None:
-        params = _parse_stage_params(args.adjust if args.adjust else [])
-        if 'customer-url' not in params:
-            raise ValueError("--adjust requires 'customer-url' parameter")
-    
+        # args.adjust is a list of lists (due to action='append')
+        # Each element is a list of parameters for one adjuster invocation
+        adjuster_configs = []
+        data_path = None
+        output_path = None
+        dry_run = False
+        
+        for adjust_params_list in args.adjust:
+            params = _parse_stage_params(adjust_params_list if adjust_params_list else [])
+            
+            # Extract common parameters (data, output, dry-run) from first adjuster
+            if not adjuster_configs:
+                if 'data' in params:
+                    data_path = Path(params['data'])
+                if 'output' in params:
+                    output_path = _resolve_output_path(params['output'], Path(args.target))
+                if 'dry-run' in params:
+                    dry_run = True
+            
+            # Get adjuster name (with backward compatibility)
+            adjuster_name = params.get('name')
+            if not adjuster_name:
+                # Backward compatibility: if customer-url is provided, use openai-company-research
+                if 'customer-url' in params:
+                    adjuster_name = 'openai-company-research'
+                else:
+                    raise ValueError("--adjust requires 'name' parameter to specify the adjuster")
+            
+            # Get OpenAI model if specified
+            openai_model = params.get('openai-model')
+            
+            # Build adjuster-specific params (exclude common params)
+            adjuster_params = {k: v for k, v in params.items() 
+                             if k not in ('name', 'data', 'output', 'dry-run', 'openai-model')}
+            
+            adjuster_configs.append(AdjusterConfig(
+                name=adjuster_name,
+                params=adjuster_params,
+                openai_model=openai_model
+            ))
+        
+        if not adjuster_configs:
+            raise ValueError("--adjust specified but no adjusters configured")
+        
         adjust_stage = AdjustStage(
-            data=Path(params['data']) if 'data' in params else None,
-            output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
-            customer_url=params.get('customer-url'),
-            openai_model=params.get('openai-model'),
-            dry_run='dry-run' in params,
+            adjusters=adjuster_configs,
+            data=data_path,
+            output=output_path,
+            dry_run=dry_run,
         )
     
     if args.apply is not None:

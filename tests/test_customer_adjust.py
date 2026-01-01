@@ -290,6 +290,37 @@ class TestAdjustForCustomer:
         assert result == ["not", "a", "dict"]
         assert "adjusted to better fit" in caplog.text
 
+    def test_adjust_for_customer_null_json_response(self, monkeypatch, caplog):
+        """Test when OpenAI returns JSON null (None in Python)."""
+        caplog.set_level(logging.INFO)
+        # Mock research to return valid data
+        research_data = {"name": "Test", "domains": ["Tech"]}
+        monkeypatch.setattr("cvextract.ml_adjustment.adjuster._research_company_profile", Mock(return_value=research_data))
+        
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
+        
+        # Return JSON null, which parses to Python None
+        mock_message.content = json.dumps(None)
+        mock_completion.choices = [Mock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
+        
+        data = {"identity": {"title": "Original"}}
+        result = adjust_for_customer(
+            data, 
+            "https://example.com", 
+            api_key="test-key"
+        )
+        
+        # Should return original data since adjusted is None
+        assert result == data
+        assert "completion is not a dict" in caplog.text
+
     def test_adjust_for_customer_api_exception(self, monkeypatch, caplog):
         """Test when OpenAI API call raises exception."""
         # Mock research to return valid data
