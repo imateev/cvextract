@@ -1,6 +1,8 @@
 ## Project Overview
 
-[![CI](https://github.com/imateev/cvextract/actions/workflows/ci.yml/badge.svg)](https://github.com/imateev/cvextract/actions/workflows/ci.yml)
+[![CI](https://github.com/imateev/cvextract/actions/workflows/ci.yml/badge.svg)](https://github.com/imateev/cvextract/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/imateev/cvextract/graph/badge.svg?token=PRBIB4KCWE)](https://codecov.io/gh/imateev/cvextract)
+
+[![codecov](https://codecov.io/gh/imateev/cvextract/graphs/tree.svg?token=PRBIB4KCWE)](https://codecov.io/gh/imateev/cvextract)
 
 cvextract is a command-line tool for extracting structured data from CV `.docx` files that conform to a very specific, predefined input format. It can optionally re-render the extracted data into a new `.docx` template based on the extracted structure.
 
