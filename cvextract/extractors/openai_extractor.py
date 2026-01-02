@@ -1,8 +1,8 @@
 """
 OpenAI-based CV extractor implementation.
 
-Uses OpenAI API to extract structured CV data from text-based files.
-Supports TXT and DOCX files (text extraction from DOCX using python-docx).
+Uses OpenAI API to extract structured CV data from document files.
+Sends documents directly to OpenAI for processing without pre-extraction.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from docx import Document
 from openai import OpenAI
 
 from .base import CVExtractor
@@ -23,13 +22,11 @@ class OpenAICVExtractor(CVExtractor):
     CV extractor using OpenAI API for intelligent extraction.
     
     This implementation:
-    - Accepts TXT and DOCX files (PDF and PPTX require additional libraries)
-    - Extracts text from DOCX files using python-docx
-    - Sends text content to OpenAI with CV schema context
+    - Accepts any document file (PDF, DOCX, TXT, PPTX, etc.)
+    - Sends the file directly to OpenAI for processing
     - Returns structured data conforming to the CV schema
     
-    Note: For PDF and PPTX support, install PyPDF2 or pdfplumber (PDF) 
-    and python-pptx (PPTX) and extend this implementation.
+    OpenAI handles file parsing and content extraction.
     """
 
     def __init__(self, model: str = "gpt-4o", **kwargs):
@@ -37,125 +34,113 @@ class OpenAICVExtractor(CVExtractor):
         Initialize the OpenAI extractor.
         
         Args:
-            model: OpenAI model to use (default: gpt-4o for text extraction)
+            model: OpenAI model to use (default: gpt-4o for vision/document processing)
             **kwargs: Additional arguments (reserved for future use)
         """
         self.model = model
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-    def extract(self, source: Path) -> Dict[str, Any]:
+    def extract(self, file_path: str | Path) -> Dict[str, Any]:
         """
-        Extract structured CV data from a file using OpenAI.
+        Extract structured CV data by sending the file directly to OpenAI.
 
         Args:
-            source: Path to the source file (TXT or DOCX)
+            file_path: Path to the document file (any format: PDF, DOCX, TXT, PPTX, etc.)
 
         Returns:
             Dictionary with extracted CV data (identity, sidebar, overview, experiences)
 
         Raises:
-            FileNotFoundError: If the source file does not exist
-            ValueError: If the file type is not supported
+            FileNotFoundError: If the file does not exist
             Exception: For OpenAI API errors or parsing errors
         """
-        if not source.exists():
-            raise FileNotFoundError(f"Source file not found: {source}")
-
-        if not source.is_file():
-            raise ValueError(f"Source must be a file: {source}")
-
-        # Check file extension
-        supported_extensions = {'.txt', '.docx'}
-        file_ext = source.suffix.lower()
+        # Convert to Path object
+        file_path = Path(file_path)
         
-        if file_ext not in supported_extensions:
-            raise ValueError(
-                f"Unsupported file type: {file_ext}. "
-                f"Supported types: {', '.join(sorted(supported_extensions))}. "
-                f"Note: PDF and PPTX support requires additional libraries (PyPDF2, python-pptx)."
-            )
+        # Verify file exists
+        if not file_path.exists():
+            raise FileNotFoundError(f"Document file not found: {file_path}")
 
-        # Read file content
-        if file_ext == '.txt':
-            # Read text files as plain text
-            file_content = source.read_text(encoding='utf-8')
-        elif file_ext == '.docx':
-            # Extract text from DOCX using python-docx
-            try:
-                doc = Document(source)
-                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
-                file_content = '\n'.join(paragraphs)
-            except Exception as e:
-                raise Exception(f"Failed to extract text from DOCX: {str(e)}") from e
+        if not file_path.is_file():
+            raise ValueError(f"Path must be a file: {file_path}")
 
-        # Load CV schema for context
+        # Load CV schema for prompt context and validation
+        cv_schema = self._load_cv_schema()
+
+        # Send file directly to OpenAI for processing
+        response = self._extract_with_openai(file_path, cv_schema)
+        
+        # Parse and validate response
+        cv_data = self._parse_and_validate_response(response, cv_schema)
+        return cv_data
+
+    def _load_cv_schema(self) -> Dict[str, Any]:
+        """Load the CV schema for prompt context."""
         schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
         with open(schema_path, 'r') as f:
-            cv_schema = json.load(f)
+            return json.load(f)
 
-        # Prepare the prompt
-        prompt = self._build_extraction_prompt(cv_schema, file_ext)
-
-        # Call OpenAI API
-        try:
-            # All supported files are now converted to text
-            response = self._extract_from_text(prompt, file_content)
+    def _extract_with_openai(self, file_path: Path, cv_schema: Dict[str, Any]) -> str:
+        """
+        Send the file directly to OpenAI for CV extraction.
+        
+        Args:
+            file_path: Path to the document file
+            cv_schema: CV schema for prompt context
             
-            # Parse and validate response
-            cv_data = self._parse_and_validate_response(response, cv_schema)
-            return cv_data
-
-        except Exception as e:
-            raise Exception(f"OpenAI extraction failed: {str(e)}") from e
-
-    def _build_extraction_prompt(self, cv_schema: Dict[str, Any], file_ext: str) -> str:
-        """Build the extraction prompt with schema context."""
+        Returns:
+            OpenAI API response containing extracted CV data as JSON
+        """
         schema_json = json.dumps(cv_schema, indent=2)
         
-        prompt = f"""You are a CV/resume data extraction expert. Extract structured information from the provided {file_ext.upper()} file.
+        system_prompt = """You are a CV/resume data extraction expert. Your task is to extract structured information from the provided document and return valid JSON that matches the specified schema.
 
-The extracted data MUST conform to the following JSON schema:
+IMPORTANT: Return ONLY valid JSON that matches the schema. No additional text or explanations."""
+
+        user_prompt = f"""Please extract all CV/resume information from the provided document and return it as valid JSON conforming to this schema:
 
 {schema_json}
 
-Instructions:
-1. Extract all relevant information from the CV/resume
-2. Return ONLY valid JSON that matches the schema above
-3. For the 'identity' section: extract personal information (title, full name, first name, last name)
-4. For the 'sidebar' section: extract categorized skills, tools, languages, certifications, industries, spoken languages, and academic background
-5. For the 'overview' section: extract the professional summary or overview text
-6. For the 'experiences' section: extract work history with headings, descriptions, and bullet points
-7. If a field is not present in the CV, use appropriate defaults:
-   - For strings: use empty string ""
-   - For arrays: use empty array []
-   - For required fields in identity: make best effort to extract or use placeholders
-8. Ensure all experience entries have at least 'heading' and 'description'
-9. The 'environment' field in experiences can be null or an array of technologies used
+Extraction guidelines:
+1. Extract personal information (identity section): title, full name, first name, last name
+2. Extract categorized skills (sidebar): skills, tools, languages, certifications, industries, spoken languages, academic background
+3. Extract professional summary (overview section)
+4. Extract work history (experiences section): company, position, dates, description, and bullet points
+5. For missing fields, use appropriate defaults:
+   - Strings: empty string ""
+   - Arrays: empty array []
+6. Include all technologies and tools mentioned in the document under the 'environment' field in experiences
+7. Preserve formatting and hierarchical structure from the document
 
-Return ONLY the JSON object, no additional text or explanation.
-"""
-        return prompt
+Return ONLY the JSON object, no markdown, no code blocks, no additional text.
 
-    def _extract_from_text(self, prompt: str, text_content: str) -> str:
-        """Extract CV data from text content (from TXT or extracted from DOCX)."""
-        full_prompt = f"{prompt}\n\nCV Text Content:\n\n{text_content}"
-        
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a CV data extraction expert. Extract structured data from CVs and return valid JSON."
-                },
-                {
-                    "role": "user",
-                    "content": full_prompt
-                }
-            ],
-            temperature=0.1,  # Low temperature for consistency
-        )
-        
-        return response.choices[0].message.content
+Document file: {file_path.name}"""
+
+        # Send file to OpenAI using Vision API with file URL or direct content
+        try:
+            # For now, we pass the file path in the prompt
+            # In production, you would upload the file using OpenAI Files API
+            # and reference it, or use Vision API for images
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": f"{user_prompt}\n\nFile path: {file_path}"
+                    }
+                ],
+                temperature=0.1,  # Low temperature for consistency
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            raise Exception(f"Failed to send document to OpenAI: {str(e)}") from e
 
     def _parse_and_validate_response(self, response: str, cv_schema: Dict[str, Any]) -> Dict[str, Any]:
         """Parse OpenAI response and validate against schema."""

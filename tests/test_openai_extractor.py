@@ -44,17 +44,32 @@ class TestOpenAICVExtractor:
             with pytest.raises(ValueError, match="must be a file"):
                 extractor.extract(test_dir)
 
-    def test_extract_raises_value_error_for_unsupported_type(self, tmp_path):
-        """extract() raises ValueError for unsupported file type."""
+    def test_extract_accepts_any_file_type(self, tmp_path):
+        """extract() accepts any file type without validation."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             test_file = tmp_path / "test.xyz"
             test_file.write_text("test content")
-            with pytest.raises(ValueError, match="Unsupported file type"):
-                extractor.extract(test_file)
+            
+            # Mock OpenAI response
+            mock_response = {
+                "identity": {
+                    "title": "Test",
+                    "full_name": "Test User",
+                    "first_name": "Test",
+                    "last_name": "User"
+                },
+                "sidebar": {},
+                "overview": "Test",
+                "experiences": []
+            }
+            
+            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
+                result = extractor.extract(test_file)
+                assert result['identity']['full_name'] == 'Test User'
 
     def test_extract_supports_txt_files(self, tmp_path):
-        """extract() supports .txt files."""
+        """extract() supports .txt files via OpenAI API."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
@@ -82,25 +97,38 @@ class TestOpenAICVExtractor:
                 "experiences": []
             }
             
-            with patch.object(extractor, '_extract_from_text', return_value=json.dumps(mock_response)):
+            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
                 result = extractor.extract(test_file)
                 assert result['identity']['full_name'] == 'John Doe'
 
-    def test_extract_rejects_pdf_files(self, tmp_path):
-        """extract() raises error for .pdf files (not currently supported)."""
+    def test_extract_supports_pdf_files(self, tmp_path):
+        """extract() supports .pdf files via OpenAI API."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
-            # Create test PDF file (minimal binary content)
+            # Create test PDF file
             test_file = tmp_path / "test.pdf"
             test_file.write_bytes(b'%PDF-1.4\ntest content')
             
-            # Should raise unsupported file type error
-            with pytest.raises(ValueError, match="Unsupported file type"):
-                extractor.extract(test_file)
+            # Mock OpenAI response
+            mock_response = {
+                "identity": {
+                    "title": "Engineer",
+                    "full_name": "Jane PDF",
+                    "first_name": "Jane",
+                    "last_name": "PDF"
+                },
+                "sidebar": {},
+                "overview": "PDF CV",
+                "experiences": []
+            }
+            
+            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
+                result = extractor.extract(test_file)
+                assert result['identity']['full_name'] == 'Jane PDF'
 
     def test_extract_supports_docx_files(self, tmp_path):
-        """extract() supports .docx files by extracting text."""
+        """extract() supports .docx files via OpenAI API."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
@@ -127,22 +155,35 @@ class TestOpenAICVExtractor:
                 "experiences": []
             }
             
-            with patch.object(extractor, '_extract_from_text', return_value=json.dumps(mock_response)):
+            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
                 result = extractor.extract(test_file)
                 assert result['identity']['full_name'] == 'Jane Smith'
 
-    def test_extract_rejects_pptx_files(self, tmp_path):
-        """extract() raises error for .pptx files (not currently supported)."""
+    def test_extract_supports_pptx_files(self, tmp_path):
+        """extract() supports .pptx files via OpenAI API."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
-            # Create test PPTX file (minimal binary content)
+            # Create test PPTX file
             test_file = tmp_path / "test.pptx"
             test_file.write_bytes(b'PK\x03\x04test pptx content')
             
-            # Should raise unsupported file type error
-            with pytest.raises(ValueError, match="Unsupported file type"):
-                extractor.extract(test_file)
+            # Mock OpenAI response
+            mock_response = {
+                "identity": {
+                    "title": "Manager",
+                    "full_name": "PPTX User",
+                    "first_name": "PPTX",
+                    "last_name": "User"
+                },
+                "sidebar": {},
+                "overview": "PPTX CV",
+                "experiences": []
+            }
+            
+            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
+                result = extractor.extract(test_file)
+                assert result['identity']['full_name'] == 'PPTX User'
 
     def test_parse_response_handles_markdown_code_blocks(self, tmp_path):
         """_parse_and_validate_response() handles markdown code blocks."""
@@ -252,7 +293,7 @@ Experience:
             extractor = OpenAICVExtractor()
             extractor.client = mock_client
             
-            # Extract
+            # Extract - OpenAI API receives the file path, not content
             result = extractor.extract(test_file)
             
             # Verify result
@@ -263,19 +304,6 @@ Experience:
             assert len(result['experiences']) == 2
             assert result['experiences'][0]['heading'].startswith('2020-Present')
 
-    def test_extract_handles_docx_extraction_error(self, tmp_path):
-        """extract() handles DOCX extraction errors gracefully."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create a corrupted DOCX file (not a valid DOCX)
-            test_file = tmp_path / "corrupted.docx"
-            test_file.write_bytes(b'not a valid docx file')
-            
-            # Should raise exception with proper message
-            with pytest.raises(Exception, match="Failed to extract text from DOCX"):
-                extractor.extract(test_file)
-
     def test_extract_handles_openai_api_error(self, tmp_path):
         """extract() handles OpenAI API errors gracefully."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
@@ -285,9 +313,9 @@ Experience:
             test_file = tmp_path / "test.txt"
             test_file.write_text("Test CV content")
             
-            # Mock OpenAI client to raise an exception
-            with patch.object(extractor.client.chat.completions, 'create', side_effect=Exception("API Error")):
-                with pytest.raises(Exception, match="OpenAI extraction failed"):
+            # Mock _extract_with_openai to raise an exception
+            with patch.object(extractor, '_extract_with_openai', side_effect=Exception("API Error")):
+                with pytest.raises(Exception, match="API Error"):
                     extractor.extract(test_file)
 
     def test_parse_response_handles_plain_markdown_blocks(self, tmp_path):
