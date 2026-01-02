@@ -8,6 +8,8 @@ from cvextract.verifiers import (
     list_verifiers,
     register_verifier,
 )
+
+# Note: unregister_verifier is not in public API, import from registry module for testing
 from cvextract.verifiers.verifier_registry import unregister_verifier
 from cvextract.shared import VerificationResult
 
