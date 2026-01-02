@@ -4,14 +4,32 @@ This module provides a pluggable architecture for rendering structured CV data t
 
 ## Overview
 
-The renderer architecture allows for interchangeable implementations of CV rendering, making it easy to:
+The renderer architecture allows for interchangeable implementations of CV rendering through a registry system, making it easy to:
 
 - Add support for new output formats (PDF, HTML, etc.)
 - Replace or customize rendering logic
 - Test rendering logic in isolation
 - Implement custom rendering pipelines
+- Choose between different renderers via CLI
 
 ## Core Concepts
+
+### Renderer Registry
+
+The renderer registry manages all available renderers and allows you to register new ones:
+
+```python
+from cvextract.renderers import register_renderer, get_renderer, list_renderers
+
+# Register a custom renderer
+register_renderer("my-custom-renderer", MyCustomRenderer)
+
+# Get a renderer instance by name
+renderer = get_renderer("private-internal-renderer")
+
+# List all available renderers
+renderers = list_renderers()
+```
 
 ### CVRenderer Interface
 
@@ -30,15 +48,15 @@ class CustomRenderer(CVRenderer):
         return output_path
 ```
 
-### DocxCVRenderer
+### DocxCVRenderer (private-internal-renderer)
 
-The `DocxCVRenderer` is the default implementation that renders CV data to Microsoft Word `.docx` files using docxtpl templates:
+The `DocxCVRenderer` is the default implementation (registered as `"private-internal-renderer"`) that renders CV data to Microsoft Word `.docx` files using docxtpl templates:
 
 ```python
-from cvextract.renderers import DocxCVRenderer
+from cvextract.renderers import get_renderer
 from pathlib import Path
 
-renderer = DocxCVRenderer()
+renderer = get_renderer("private-internal-renderer")
 cv_data = {
     "identity": {...},
     "sidebar": {...},
@@ -65,7 +83,7 @@ To create a custom renderer:
 
 1. Import the base class:
    ```python
-   from cvextract.renderers import CVRenderer
+   from cvextract.renderers import CVRenderer, register_renderer
    ```
 
 2. Create your implementation:
@@ -78,9 +96,13 @@ To create a custom renderer:
            return output_path
    ```
 
-3. Use your renderer:
+3. Register and use your renderer:
    ```python
-   renderer = MyCustomRenderer()
+   # Register the renderer
+   register_renderer("my-custom-renderer", MyCustomRenderer)
+   
+   # Get an instance via the registry
+   renderer = get_renderer("my-custom-renderer")
    output = renderer.render(cv_data, Path("template.ext"), Path("output.ext"))
    ```
 
@@ -89,7 +111,7 @@ To create a custom renderer:
 ### Using the Default DOCX Renderer
 
 ```python
-from cvextract.renderers import DocxCVRenderer
+from cvextract.renderers import get_renderer
 from pathlib import Path
 import json
 
@@ -97,8 +119,8 @@ import json
 with open("cv_data.json", "r") as f:
     cv_data = json.load(f)
 
-# Create a renderer instance
-renderer = DocxCVRenderer()
+# Get the default renderer from the registry
+renderer = get_renderer("private-internal-renderer")
 
 # Render CV data to DOCX
 output_path = renderer.render(
@@ -143,7 +165,7 @@ assert renderer.last_rendered["cv_data"] == test_data
 The renderer architecture allows you to pass both template and data as parameters:
 
 ```python
-from cvextract.renderers import DocxCVRenderer
+from cvextract.renderers import get_renderer
 from pathlib import Path
 import json
 
@@ -153,8 +175,8 @@ def render_cv_with_custom_template(json_file: Path, template_file: Path, output_
     with open(json_file, "r") as f:
         cv_data = json.load(f)
     
-    # Use external template
-    renderer = DocxCVRenderer()
+    # Use the default renderer from the registry
+    renderer = get_renderer("private-internal-renderer")
     return renderer.render(cv_data, template_file, output_file)
 
 # Usage
@@ -167,4 +189,4 @@ output = render_cv_with_custom_template(
 
 ## Integration with Existing Pipeline
 
-The renderers integrate seamlessly with the existing pipeline through the `render_cv_data()` function in `pipeline_highlevel.py`, which uses `DocxCVRenderer` by default while maintaining backward compatibility.
+The renderers integrate seamlessly with the existing pipeline through the `render_cv_data()` function in `pipeline_highlevel.py`, which uses the default renderer (`"private-internal-renderer"`) while maintaining backward compatibility.
