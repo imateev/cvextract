@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .extractors import DocxCVExtractor, CVExtractor
-from .renderers import DocxCVRenderer
+from .renderers import get_renderer
     
 # ------------------------- High-level pipeline -------------------------
 
@@ -49,7 +49,9 @@ def render_cv_data(cv_data: Dict[str, Any], template_path: Path, output_path: Pa
     Returns:
         Path to the rendered output file
     """
-    renderer = DocxCVRenderer()
+    renderer = get_renderer("private-internal-renderer")
+    if not renderer:
+        raise ValueError("Default renderer 'private-internal-renderer' not found")
     return renderer.render(cv_data, template_path, output_path)
 
 def process_single_docx(

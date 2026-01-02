@@ -50,15 +50,15 @@ class TestRenderCvData:
             "experiences": [{"heading": "Job", "description": "desc"}],
         }
         
-        with patch("cvextract.pipeline_highlevel.DocxCVRenderer") as mock_renderer_class:
+        with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             mock_renderer = Mock()
             mock_renderer.render.return_value = output_path
-            mock_renderer_class.return_value = mock_renderer
+            mock_get_renderer.return_value = mock_renderer
             
             result = render_cv_data(cv_data, mock_template, output_path)
             
             assert result == output_path
-            mock_renderer_class.assert_called_once()
+            mock_get_renderer.assert_called_once_with("private-internal-renderer")
             mock_renderer.render.assert_called_once_with(cv_data, mock_template, output_path)
 
     def test_render_cv_data_returns_output_path(self, tmp_path):
@@ -69,11 +69,11 @@ class TestRenderCvData:
         
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         
-        with patch("cvextract.pipeline_highlevel.DocxCVRenderer") as mock_renderer_class:
+        with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             mock_renderer = Mock()
             expected_return = output_path
             mock_renderer.render.return_value = expected_return
-            mock_renderer_class.return_value = mock_renderer
+            mock_get_renderer.return_value = mock_renderer
             
             result = render_cv_data(cv_data, mock_template, output_path)
             
