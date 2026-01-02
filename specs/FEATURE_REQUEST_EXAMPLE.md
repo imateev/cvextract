@@ -1,5 +1,8 @@
 # Feature Request
 
+> **This document MUST result in a tracked issue.**  
+> When completed, **always create or update a project issue** that links to this feature request and reflects its current state.
+
 ## Title
 Concise, descriptive title for the feature request.
 
@@ -41,12 +44,14 @@ A clear and detailed description of the feature being requested. Explain what th
 - Attach mockups, screenshots, or pseudo-code if helpful.
 
 ## Implementation Checklist (**Always Required**)
+- [ ] **Create or update a tracked issue for this feature**
+- [ ] Ensure the issue references this document and stays in sync
 - [ ] Add new tests if applicable
 - [ ] Extend existing tests if applicable
 - [ ] Remove stale or unused tests and code
-- [ ] **Identify and remove unused imports/usings/includes (often overlooked)**
-- [ ] Run linters, analyzers, and formatters to catch unused usings automatically
-- [ ] Extend or update existing specs and documentation as needed
-- [ ] Extend or update README, help messages, and relevant documentation
-- [ ] **Add this feature request verbatim to the feature spec as `ORIGINAL_FEATURE_REQUEST.md`**
+- [ ] Identify and remove unused imports/usings/includes
+- [ ] Run linters, analyzers, and formatters
+- [ ] **Update existing feature specification files under `specs/` to reflect this feature**
+- [ ] **Amend the relevant `specs/` files whenever requirements change during implementation**
+- [ ] Update README, help messages, and relevant documentation
 - [ ] Ensure Codecov checks pass; if coverage drops, make a best effort to improve it
