@@ -93,6 +93,11 @@ Prompts are stored as Markdown files in the `prompts/` subdirectory for easy edi
 
 - `system_prompt.md`: Main instructions for CV adjustment
 - `website_analysis_prompt.md`: Instructions for company research
+- `job_specific_prompt.md`: Instructions for job-specific CV adjustment
+- `cv_extraction_system.md`: System prompt for CV data extraction
+- `cv_extraction_user.md`: User prompt template for CV data extraction
+
+All prompts are immutable at runtime and shipped with the package. They are loaded using the `prompt_loader` module, which ensures cross-platform compatibility and proper packaging.
 
 ### Customizing Prompts
 
@@ -241,11 +246,24 @@ cvextract/ml_adjustment/
 ├── prompt_loader.py      # Utility for loading prompts from files
 ├── prompts/
 │   ├── system_prompt.md              # CV adjustment instructions
-│   └── website_analysis_prompt.md    # Company research instructions
+│   ├── website_analysis_prompt.md    # Company research instructions
+│   ├── job_specific_prompt.md        # Job-specific adjustment instructions
+│   ├── cv_extraction_system.md       # CV extraction system prompt
+│   └── cv_extraction_user.md         # CV extraction user prompt template
 └── README.md             # This file
 ```
 
 The module maintains a clean boundary with minimal public API surface through the `__all__` export in `__init__.py`.
+
+### Prompt Loading Architecture
+
+All prompts are:
+- **Immutable**: Users cannot modify them at runtime
+- **Packaged**: Shipped with the installed package
+- **Cross-platform**: Loaded using `Path(__file__).parent` pattern for platform independence
+- **Centralized**: All OpenAI-interacting components use the same loading mechanism
+
+This ensures consistency across the codebase and reliability after packaging and installation.
 
 ## Requirements
 

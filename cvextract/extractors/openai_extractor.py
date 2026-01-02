@@ -15,6 +15,7 @@ from typing import Any, Dict
 from openai import OpenAI
 
 from .base import CVExtractor
+from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
 
 
 class OpenAICVExtractor(CVExtractor):
@@ -93,28 +94,22 @@ class OpenAICVExtractor(CVExtractor):
         """
         schema_json = json.dumps(cv_schema, indent=2)
         
-        system_prompt = """You are a CV/resume data extraction expert. Your task is to extract structured information from the provided document and return valid JSON that matches the specified schema.
-
-IMPORTANT: Return ONLY valid JSON that matches the schema. No additional text or explanations."""
-
-        user_prompt = f"""Please extract all CV/resume information from the provided document and return it as valid JSON conforming to this schema:
-
-{schema_json}
-
-Extraction guidelines:
-1. Extract personal information (identity section): title, full name, first name, last name
-2. Extract categorized skills (sidebar): skills, tools, languages, certifications, industries, spoken languages, academic background
-3. Extract professional summary (overview section)
-4. Extract work history (experiences section): company, position, dates, description, and bullet points
-5. For missing fields, use appropriate defaults:
-   - Strings: empty string ""
-   - Arrays: empty array []
-6. Include all technologies and tools mentioned in the document under the 'environment' field in experiences
-7. Preserve formatting and hierarchical structure from the document
-
-Return ONLY the JSON object, no markdown, no code blocks, no additional text.
-
-Document file: {file_path.name}"""
+        # Load prompts from templates
+        system_prompt = load_prompt("cv_extraction_system")
+        user_prompt_template = load_prompt("cv_extraction_user")
+        
+        if not system_prompt or not user_prompt_template:
+            raise RuntimeError("Failed to load CV extraction prompts")
+        
+        # Format user prompt with schema and file name
+        user_prompt = format_prompt(
+            "cv_extraction_user",
+            schema_json=schema_json,
+            file_name=file_path.name
+        )
+        
+        if not user_prompt:
+            raise RuntimeError("Failed to format CV extraction user prompt")
 
         # Send file to OpenAI using Vision API with file URL or direct content
         try:
