@@ -1,8 +1,8 @@
 """
 Tests for verifying prompts are included in package and can be loaded after installation.
 
-This test ensures prompts are properly packaged and accessible via importlib.resources
-(the standard way for Python packages to include data files).
+This test ensures prompts are properly packaged and accessible via the Path(__file__).parent
+pattern (the platform-independent way for Python packages to include data files).
 """
 
 import sys
