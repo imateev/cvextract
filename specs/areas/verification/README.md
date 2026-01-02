@@ -9,6 +9,7 @@ The verification area provides data validation and quality checking capabilities
 - [Extracted Data Verifier](extracted-data-verifier/README.md) - Validates completeness and structure of extracted data
 - [Comparison Verifiers](comparison-verifiers/README.md) - Compares data structures for roundtrip verification
 - [Schema Verifier](schema-verifier/README.md) - Validates CV data against JSON schema
+- [Verifier Registry](verifier-registry/README.md) - Pluggable verifier registration and lookup system
 
 ## Architectural Notes
 
