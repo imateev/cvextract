@@ -1,11 +1,7 @@
 """Additional tests for CLI and pipeline edge cases."""
 
-import os
-import json
 import zipfile
-import pytest
 from pathlib import Path
-from unittest.mock import Mock
 import cvextract.cli as cli
 import cvextract.pipeline as pipeline
 import cvextract.pipeline_helpers as helpers

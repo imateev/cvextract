@@ -1,6 +1,5 @@
 """Tests for _build_system_prompt function in adjuster.py."""
 
-import pytest
 from cvextract.ml_adjustment.adjuster import _build_system_prompt
 
 

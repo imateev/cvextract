@@ -1,7 +1,5 @@
 """Tests for ml_adjustment.prompt_loader module."""
 
-import pytest
-from pathlib import Path
 from cvextract.ml_adjustment.prompt_loader import load_prompt, format_prompt
 
 

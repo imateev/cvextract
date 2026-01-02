@@ -1,6 +1,5 @@
 """Tests for CLI customer adjustment features."""
 
-import zipfile
 from pathlib import Path
 import cvextract.cli as cli
 

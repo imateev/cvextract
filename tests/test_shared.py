@@ -1,5 +1,3 @@
-import pytest
-
 import cvextract.shared
 
 class TestTextNormalization:

@@ -1,10 +1,6 @@
 """Tests for improved coverage of docx_utils and verification modules."""
 
-import pytest
 import logging
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from xml.etree import ElementTree as etree
 from lxml import etree as lxml_etree
 
 from cvextract.extractors.docx_utils import (
@@ -12,8 +8,6 @@ from cvextract.extractors.docx_utils import (
     extract_text_from_w_p,
     _p_style,
     _p_is_bullet,
-    iter_document_paragraphs,
-    DOCX_NS,
     W_NS,
     XML_PARSER,
 )

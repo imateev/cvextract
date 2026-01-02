@@ -1,8 +1,5 @@
 """Additional tests for sidebar_parser edge cases and pipeline coverage."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 from zipfile import ZipFile
 
 from cvextract.extractors.sidebar_parser import (
@@ -11,7 +8,7 @@ from cvextract.extractors.sidebar_parser import (
     _extract_paragraph_texts,
     _iter_heading_positions,
 )
-from cvextract.extractors.docx_utils import XML_PARSER, HEADER_NS
+from cvextract.extractors.docx_utils import XML_PARSER
 from lxml import etree
 
 

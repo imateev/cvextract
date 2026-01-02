@@ -1,8 +1,6 @@
 """Tests for pipeline helper functions."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock
 import cvextract.pipeline_helpers as p
 from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
 from cvextract.shared import VerificationResult

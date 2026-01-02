@@ -1,9 +1,7 @@
 """Tests for pipeline_highlevel module."""
 
-import pytest
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from cvextract.pipeline_highlevel import extract_cv_structure, render_cv_data, process_single_docx
 from cvextract.verifiers import ExtractedDataVerifier
 from cvextract.shared import VerificationResult

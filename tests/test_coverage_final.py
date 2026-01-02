@@ -1,16 +1,12 @@
 """Tests for improved coverage of verification and sidebar_parser modules."""
 
-import pytest
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 from zipfile import ZipFile
 
 from cvextract.verifiers import ComparisonVerifier, FileComparisonVerifier
 from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
-    Identity,
 )
 
 

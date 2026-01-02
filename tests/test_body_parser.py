@@ -1,6 +1,5 @@
 """Tests for body parser functionality."""
 
-import pytest
 from pathlib import Path
 import cvextract.extractors.body_parser as bp
 

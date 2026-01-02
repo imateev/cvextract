@@ -1,6 +1,5 @@
 """Tests for sidebar/header parsing functionality."""
 
-import pytest
 import cvextract.extractors.sidebar_parser as sp
 
 
