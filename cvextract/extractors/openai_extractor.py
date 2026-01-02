@@ -96,10 +96,9 @@ class OpenAICVExtractor(CVExtractor):
         
         # Load prompts from templates
         system_prompt = load_prompt("cv_extraction_system")
-        user_prompt_template = load_prompt("cv_extraction_user")
         
-        if not system_prompt or not user_prompt_template:
-            raise RuntimeError("Failed to load CV extraction prompts")
+        if not system_prompt:
+            raise RuntimeError("Failed to load CV extraction system prompt")
         
         # Format user prompt with schema and file name
         user_prompt = format_prompt(
