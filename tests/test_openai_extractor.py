@@ -262,3 +262,91 @@ Experience:
             assert 'English' in result['sidebar']['spoken_languages']
             assert len(result['experiences']) == 2
             assert result['experiences'][0]['heading'].startswith('2020-Present')
+
+    def test_extract_handles_docx_extraction_error(self, tmp_path):
+        """extract() handles DOCX extraction errors gracefully."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Create a corrupted DOCX file (not a valid DOCX)
+            test_file = tmp_path / "corrupted.docx"
+            test_file.write_bytes(b'not a valid docx file')
+            
+            # Should raise exception with proper message
+            with pytest.raises(Exception, match="Failed to extract text from DOCX"):
+                extractor.extract(test_file)
+
+    def test_extract_handles_openai_api_error(self, tmp_path):
+        """extract() handles OpenAI API errors gracefully."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Create test file
+            test_file = tmp_path / "test.txt"
+            test_file.write_text("Test CV content")
+            
+            # Mock OpenAI client to raise an exception
+            with patch.object(extractor.client.chat.completions, 'create', side_effect=Exception("API Error")):
+                with pytest.raises(Exception, match="OpenAI extraction failed"):
+                    extractor.extract(test_file)
+
+    def test_parse_response_handles_plain_markdown_blocks(self, tmp_path):
+        """_parse_and_validate_response() handles plain markdown blocks (without json label)."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Create a response with plain markdown code block (no json label)
+            response = """```
+{
+    "identity": {"title": "Test", "full_name": "Test User", "first_name": "Test", "last_name": "User"},
+    "sidebar": {},
+    "overview": "Test overview",
+    "experiences": []
+}
+```"""
+            
+            # Load schema
+            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
+            with open(schema_path, 'r') as f:
+                schema = json.load(f)
+            
+            result = extractor._parse_and_validate_response(response, schema)
+            assert result['identity']['full_name'] == 'Test User'
+
+    def test_parse_response_handles_invalid_json(self, tmp_path):
+        """_parse_and_validate_response() raises error for invalid JSON."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Invalid JSON response
+            response = '{"identity": invalid json here}'
+            
+            # Load schema
+            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
+            with open(schema_path, 'r') as f:
+                schema = json.load(f)
+            
+            with pytest.raises(ValueError, match="OpenAI returned invalid JSON"):
+                extractor._parse_and_validate_response(response, schema)
+
+    def test_parse_response_handles_missing_identity(self, tmp_path):
+        """_parse_and_validate_response() adds default identity when missing."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Response with invalid identity (not a dict)
+            response = '{"identity": "not a dict", "sidebar": {}, "overview": "", "experiences": []}'
+            
+            # Load schema
+            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
+            with open(schema_path, 'r') as f:
+                schema = json.load(f)
+            
+            result = extractor._parse_and_validate_response(response, schema)
+            
+            # Should have default identity structure
+            assert isinstance(result['identity'], dict)
+            assert 'title' in result['identity']
+            assert 'full_name' in result['identity']
+            assert 'first_name' in result['identity']
+            assert 'last_name' in result['identity']
