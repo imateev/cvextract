@@ -27,10 +27,10 @@ import traceback
 from pathlib import Path
 from typing import List, Optional
 
-from .cli_gather import gather_user_requirements
-from .cli_prepare import prepare_execution_environment
-from .cli_execute import execute_pipeline
-from .logging_utils import LOG, setup_logging
+from cvextract.cli_gather import gather_user_requirements
+from cvextract.cli_prepare import prepare_execution_environment
+from cvextract.cli_execute import execute_pipeline
+from cvextract.logging_utils import LOG, setup_logging
 
 
 def main(argv: Optional[List[str]] = None) -> int:
