@@ -378,3 +378,49 @@ Experience:
             assert 'full_name' in result['identity']
             assert 'first_name' in result['identity']
             assert 'last_name' in result['identity']
+
+    def test_extract_raises_runtime_error_when_system_prompt_fails_to_load(self, tmp_path):
+        """_extract_with_openai() raises RuntimeError when system prompt fails to load."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Create test file
+            test_file = tmp_path / "test.txt"
+            test_file.write_text("Test CV content")
+            
+            # Mock load_prompt to return None for system prompt
+            with patch('cvextract.extractors.openai_extractor.load_prompt', return_value=None):
+                with pytest.raises(RuntimeError, match="Failed to load CV extraction system prompt"):
+                    extractor.extract(test_file)
+
+    def test_extract_raises_runtime_error_when_user_prompt_fails_to_format(self, tmp_path):
+        """_extract_with_openai() raises RuntimeError when user prompt fails to format."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Create test file
+            test_file = tmp_path / "test.txt"
+            test_file.write_text("Test CV content")
+            
+            # Mock load_prompt to succeed but format_prompt to fail
+            with patch('cvextract.extractors.openai_extractor.load_prompt', return_value="System prompt"):
+                with patch('cvextract.extractors.openai_extractor.format_prompt', return_value=None):
+                    with pytest.raises(RuntimeError, match="Failed to format CV extraction user prompt"):
+                        extractor.extract(test_file)
+
+    def test_extract_raises_exception_when_openai_api_fails(self, tmp_path):
+        """_extract_with_openai() raises Exception when OpenAI API call fails."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            
+            # Create test file
+            test_file = tmp_path / "test.txt"
+            test_file.write_text("Test CV content")
+            
+            # Mock the OpenAI client to raise an exception
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.side_effect = Exception("API connection failed")
+            extractor.client = mock_client
+            
+            with pytest.raises(Exception, match="Failed to send document to OpenAI: API connection failed"):
+                extractor.extract(test_file)
