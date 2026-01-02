@@ -7,7 +7,7 @@ Defines the contract for pluggable CV adjustment implementations.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 class CVAdjuster(ABC):

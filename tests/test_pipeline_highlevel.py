@@ -1,9 +1,7 @@
 """Tests for pipeline_highlevel module."""
 
-import pytest
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from cvextract.pipeline_highlevel import extract_cv_structure, render_cv_data, process_single_docx
 from cvextract.verifiers import ExtractedDataVerifier
 from cvextract.shared import VerificationResult
@@ -103,7 +101,7 @@ class TestProcessSingleDocx:
             result = process_single_docx(mock_docx, out=None)
             
             assert result == mock_data
-            mock_extract.assert_called_once_with(mock_docx)
+            mock_extract.assert_called_once_with(mock_docx, None)
 
     def test_process_single_docx_with_output_creates_file(self, tmp_path):
         """Test process_single_docx writes JSON to specified output path."""

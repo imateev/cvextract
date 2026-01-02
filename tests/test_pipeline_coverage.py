@@ -1,10 +1,7 @@
 """Tests for improved coverage of pipeline module critical paths."""
 
-import pytest
 import json
-import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import patch
 from cvextract.pipeline_helpers import (
     extract_single,
     categorize_result,

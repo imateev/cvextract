@@ -1,11 +1,7 @@
 """Additional tests for CLI and pipeline edge cases."""
 
-import os
-import json
 import zipfile
-import pytest
 from pathlib import Path
-from unittest.mock import Mock
 import cvextract.cli as cli
 import cvextract.pipeline as pipeline
 import cvextract.pipeline_helpers as helpers
@@ -72,7 +68,7 @@ class TestCliEdgeCases:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
 
         # Mock extract_single to return success with warnings
-        def fake_extract_single(docx_file, out_json, debug):
+        def fake_extract_single(docx_file, out_json, debug, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text('{"identity": {}, "sidebar": {}, "overview": "", "experiences": []}')
             return True, [], ["warning"]

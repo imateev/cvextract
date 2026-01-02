@@ -42,12 +42,14 @@ class TestCollectInputs:
             _collect_inputs(tmp_path, is_extraction=True, template_path=None)
 
     def test_collect_inputs_wrong_extension_extraction(self, tmp_path):
-        """Test _collect_inputs raises error for non-DOCX file during extraction."""
+        """Test _collect_inputs accepts any file type for extraction (extractor validates)."""
         test_file = tmp_path / "test.json"
         test_file.touch()
         
-        with pytest.raises(ValueError, match="Input file must be a DOCX file"):
-            _collect_inputs(test_file, is_extraction=True, template_path=None)
+        # Should not raise - extractor will validate file type
+        result = _collect_inputs(test_file, is_extraction=True, template_path=None)
+        assert len(result) == 1
+        assert result[0] == test_file
 
     def test_collect_inputs_wrong_extension_apply(self, tmp_path):
         """Test _collect_inputs raises error for non-JSON file during apply."""

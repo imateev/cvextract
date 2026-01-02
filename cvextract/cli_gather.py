@@ -36,11 +36,13 @@ def _handle_list_command(list_type: str) -> None:
         print("    Renders CV data to DOCX format using docxtpl templates")
         print()
     elif list_type == 'extractors':
-        from .extractors import DocxCVExtractor
+        from .extractors import list_extractors
+        extractors = list_extractors()
         print("\nAvailable Extractors:")
         print("=" * 60)
-        print("  docx")
-        print("    Extracts CV data from DOCX format")
+        for ext in extractors:
+            print(f"  {ext['name']}")
+            print(f"    {ext['description']}")
         print()
 
 
@@ -156,8 +158,9 @@ Examples:
 
     # Stage-based arguments
     parser.add_argument("--extract", nargs='*', metavar="PARAM",
-                        help="Extract stage: Extract CV data from DOCX to JSON. "
-                             "Parameters: source=<file> (single DOCX file, not directory) [output=<path>]")
+                        help="Extract stage: Extract CV data from source file to JSON. "
+                             "Parameters: source=<file> (required) [name=<extractor-name>] [output=<path>]. "
+                             "Use --list extractors to see available extractors.")
     parser.add_argument("--adjust", nargs='*', metavar="PARAM", action='append',
                         help="Adjust stage: Adjust CV data using named adjusters (can be specified multiple times for chaining). "
                              "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] [output=<path>] [openai-model=<model>] [dry-run]. "
@@ -229,8 +232,12 @@ Examples:
         if 'source' not in params and not parallel_stage:
             raise ValueError("--extract requires 'source' parameter")
         
+        # Get extractor name (default to private-internal-extractor)
+        extractor_name = params.get('name', 'private-internal-extractor')
+        
         extract_stage = ExtractStage(
             source=Path(params['source']) if 'source' in params else Path('.'),  # Placeholder when parallel
+            name=extractor_name,
             output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
         )
     

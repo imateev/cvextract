@@ -1,12 +1,11 @@
 """Tests for cli_parallel module - parallel directory processing."""
 
-import json
 import zipfile
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
-from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage, ParallelStage
+from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ParallelStage
 from cvextract.cli_parallel import (
     scan_directory_for_docx,
     execute_parallel_pipeline,

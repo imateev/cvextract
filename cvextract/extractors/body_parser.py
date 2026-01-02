@@ -17,7 +17,6 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from lxml import etree
 from ..shared import (
     clean_text,
 )

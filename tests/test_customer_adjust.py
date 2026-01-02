@@ -3,9 +3,7 @@
 import json
 import logging
 import os
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 from cvextract.ml_adjustment import (
     adjust_for_customer,
     _url_to_cache_filename,

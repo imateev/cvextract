@@ -1,9 +1,8 @@
 """Tests for DOCX utilities."""
 
-import pytest
 from pathlib import Path
 from lxml import etree
-from cvextract.extractors.docx_utils import extract_text_from_w_p, iter_document_paragraphs, dump_body_sample
+from cvextract.extractors.docx_utils import extract_text_from_w_p
 
 
 def test_extract_text_from_w_p_simple():

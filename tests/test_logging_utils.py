@@ -1,6 +1,5 @@
 """Tests for logging utilities."""
 
-import pytest
 import logging
 from pathlib import Path
 from cvextract.logging_utils import fmt_issues, setup_logging, LOG
