@@ -7,6 +7,8 @@ on:
 jobs:
   check-version-bump:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       is_version_bump: ${{ steps.check.outputs.is_version_bump }}
       new_version: ${{ steps.check.outputs.new_version }}
@@ -20,7 +22,7 @@ jobs:
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B)
           echo "Commit message: $COMMIT_MSG"
-          
+
           if [[ "$COMMIT_MSG" =~ ^Bump\ version:\ ([0-9]+\.[0-9]+\.[0-9]+)\ →\ ([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
             echo "is_version_bump=true" >> $GITHUB_OUTPUT
             echo "new_version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
@@ -51,16 +53,16 @@ jobs:
           release_name: Release v${{ needs.check-version-bump.outputs.new_version }}
           body: |
             ## cvextract v${{ needs.check-version-bump.outputs.new_version }}
-            
+
             ### Downloads
-            
+
             - **macOS**: `cvextract-${{ needs.check-version-bump.outputs.new_version }}-macos`
             - **Windows**: `cvextract-${{ needs.check-version-bump.outputs.new_version }}-windows.exe`
-            
+
             ### Installation
-            
+
             Download the binary for your platform and run it directly. No Python installation required.
-            
+
             For detailed usage instructions, see the [README](https://github.com/imateev/cvextract/blob/main/README.md).
           draft: false
           prerelease: false
