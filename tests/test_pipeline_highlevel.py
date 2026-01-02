@@ -79,6 +79,25 @@ class TestRenderCvData:
             
             assert result == expected_return
 
+    def test_render_cv_data_raises_error_when_renderer_not_found(self, tmp_path):
+        """Test render_cv_data raises ValueError when default renderer is not found."""
+        import pytest
+        
+        mock_template = tmp_path / "template.docx"
+        mock_template.touch()
+        output_path = tmp_path / "output.docx"
+        
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
+            # Simulate renderer not found
+            mock_get_renderer.return_value = None
+            
+            with pytest.raises(ValueError, match="Default renderer 'private-internal-renderer' not found"):
+                render_cv_data(cv_data, mock_template, output_path)
+            
+            mock_get_renderer.assert_called_once_with("private-internal-renderer")
+
 
 class TestProcessSingleDocx:
     """Tests for process_single_docx function."""
