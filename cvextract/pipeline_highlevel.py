@@ -8,9 +8,8 @@ structured representation of a CV.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from .extractors import DocxCVExtractor, CVExtractor
 from .renderers import DocxCVRenderer

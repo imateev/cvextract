@@ -27,12 +27,10 @@ import traceback
 from pathlib import Path
 from typing import List, Optional
 
-from .cli_config import UserConfig, ExtractStage, AdjustStage, ApplyStage
 from .cli_gather import gather_user_requirements
-from .cli_prepare import prepare_execution_environment, _collect_inputs
+from .cli_prepare import prepare_execution_environment
 from .cli_execute import execute_pipeline
 from .logging_utils import LOG, setup_logging
-from .pipeline_helpers import extract_single, render_and_verify
 
 
 def main(argv: Optional[List[str]] = None) -> int:

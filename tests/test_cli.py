@@ -3,6 +3,7 @@
 import pytest
 from pathlib import Path
 import cvextract.cli as cli
+from cvextract.cli_prepare import _collect_inputs
 
 
 class TestStageBasedParsing:
@@ -395,7 +396,7 @@ class TestInputCollection:
         docx.write_text("x")
         template = tmp_path / "template.docx"
         
-        inputs = cli._collect_inputs(docx, is_extraction=True, template_path=template)
+        inputs = _collect_inputs(docx, is_extraction=True, template_path=template)
         assert len(inputs) == 1
         assert inputs[0] == docx
 
@@ -407,7 +408,7 @@ class TestInputCollection:
         template.write_text("t")
         
         with pytest.raises(ValueError, match="Directories are not supported"):
-            cli._collect_inputs(tmp_path, is_extraction=True, template_path=template)
+            _collect_inputs(tmp_path, is_extraction=True, template_path=template)
 
     def test_collect_in_apply_mode_rejects_directory(self, tmp_path: Path):
         """When in render mode with directory, should raise ValueError."""
@@ -416,14 +417,14 @@ class TestInputCollection:
         template = tmp_path / "template.docx"
         
         with pytest.raises(ValueError, match="Directories are not supported"):
-            cli._collect_inputs(tmp_path, is_extraction=False, template_path=template)
+            _collect_inputs(tmp_path, is_extraction=False, template_path=template)
 
     def test_collect_from_single_json_file(self, tmp_path: Path):
         """When source is a single JSON file, should return it in a list."""
         json_file = tmp_path / "test.json"
         json_file.write_text("{}")
         
-        inputs = cli._collect_inputs(json_file, is_extraction=False, template_path=None)
+        inputs = _collect_inputs(json_file, is_extraction=False, template_path=None)
         assert len(inputs) == 1
         assert inputs[0] == json_file
 
@@ -432,7 +433,7 @@ class TestInputCollection:
         nonexistent = tmp_path / "nonexistent.docx"
         
         with pytest.raises(FileNotFoundError, match="Path not found"):
-            cli._collect_inputs(nonexistent, is_extraction=True, template_path=None)
+            _collect_inputs(nonexistent, is_extraction=True, template_path=None)
 
     def test_collect_wrong_file_type_for_extraction(self, tmp_path: Path):
         """File type validation for extraction is delegated to the extractor."""
@@ -440,7 +441,7 @@ class TestInputCollection:
         txt_file.write_text("not a docx")
         
         # Should not raise - extractor will validate file type
-        result = cli._collect_inputs(txt_file, is_extraction=True, template_path=None)
+        result = _collect_inputs(txt_file, is_extraction=True, template_path=None)
         assert len(result) == 1
         assert result[0] == txt_file
 
@@ -450,7 +451,7 @@ class TestInputCollection:
         txt_file.write_text("not json")
         
         with pytest.raises(ValueError, match="must be a JSON file"):
-            cli._collect_inputs(txt_file, is_extraction=False, template_path=None)
+            _collect_inputs(txt_file, is_extraction=False, template_path=None)
 
 
 class TestMainFunction:
@@ -514,6 +515,7 @@ class TestMainErrorHandling:
         """When collect_inputs raises exception in debug mode, should log traceback."""
         import logging
         import zipfile
+        from cvextract import cli_prepare
         
         docx = tmp_path / "test.docx"
         with zipfile.ZipFile(docx, 'w') as zf:
@@ -524,7 +526,7 @@ class TestMainErrorHandling:
         def fake_collect_inputs(*args, **kwargs):
             raise ValueError("Test error")
         
-        monkeypatch.setattr(cli, "_collect_inputs", fake_collect_inputs)
+        monkeypatch.setattr(cli_prepare, "_collect_inputs", fake_collect_inputs)
         
         with caplog.at_level(logging.ERROR):
             rc = cli.main([

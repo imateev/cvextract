@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import re
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from dataclasses import dataclass
+from typing import Any, List
 
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)

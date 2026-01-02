@@ -11,11 +11,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from zipfile import ZipFile
 
 from lxml import etree
-from ..logging_utils import LOG
 from ..shared import (
     clean_text,
 )
