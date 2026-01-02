@@ -79,14 +79,12 @@ class OpenAICVExtractor(CVExtractor):
         if file_ext == '.txt':
             # Read text files as plain text
             file_content = source.read_text(encoding='utf-8')
-            content_type = 'text'
         elif file_ext == '.docx':
             # Extract text from DOCX using python-docx
             try:
                 doc = Document(source)
                 paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
                 file_content = '\n'.join(paragraphs)
-                content_type = 'text'
             except Exception as e:
                 raise Exception(f"Failed to extract text from DOCX: {str(e)}") from e
 
