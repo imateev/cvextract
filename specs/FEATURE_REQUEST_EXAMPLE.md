@@ -48,4 +48,5 @@ A clear and detailed description of the feature being requested. Explain what th
 - [ ] Run linters, analyzers, and formatters to catch unused usings automatically
 - [ ] Extend or update existing specs and documentation as needed
 - [ ] Extend or update README, help messages, and relevant documentation
+- [ ] **Add this feature request verbatim to the feature spec as `ORIGINAL_FEATURE_REQUEST.md`**
 - [ ] Ensure Codecov checks pass; if coverage drops, make a best effort to improve it
