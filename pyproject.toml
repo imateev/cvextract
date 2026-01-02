@@ -10,7 +10,7 @@ dependencies = [
   "openai",
 ]
 name = "cvextract"
-version = "0.5.2"
+version = "0.5.3"
 
 [tool.setuptools]
 packages = ["cvextract"]
