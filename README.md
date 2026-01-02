@@ -29,11 +29,11 @@ Download pre-built binaries from the [Releases](https://github.com/imateev/cvext
 Example:
 ```bash
 # macOS
-chmod +x cvextract-0.5.1-macos
-./cvextract-0.5.1-macos --help
+chmod +x cvextract-0.5.4-macos
+./cvextract-0.5.4-macos --help
 
 # Windows
-cvextract-0.5.1-windows.exe --help
+cvextract-0.5.4-windows.exe --help
 ```
 
 ### Python Package (For Development)
