@@ -11,6 +11,7 @@ from cvextract.adjusters import (
     list_adjusters,
     register_adjuster,
 )
+from cvextract.adjusters.adjuster_registry import unregister_adjuster
 from cvextract.adjusters.openai_job_specific_adjuster import _fetch_job_description
 
 
@@ -234,9 +235,14 @@ class TestAdjusterRegistry:
                 return cv_data
         
         register_adjuster(CustomAdjuster)
-        adjuster = get_adjuster('custom-test')
-        assert adjuster is not None
-        assert adjuster.name() == 'custom-test'
+        
+        try:
+            adjuster = get_adjuster('custom-test')
+            assert adjuster is not None
+            assert adjuster.name() == 'custom-test'
+        finally:
+            # Clean up the custom adjuster
+            unregister_adjuster('custom-test')
 
 
 class TestOpenAICompanyResearchAdjuster:
