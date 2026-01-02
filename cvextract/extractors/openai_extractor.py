@@ -37,7 +37,7 @@ class OpenAICVExtractor(CVExtractor):
         Initialize the OpenAI extractor.
         
         Args:
-            model: OpenAI model to use (default: gpt-4o for vision/file capabilities)
+            model: OpenAI model to use (default: gpt-4o for text extraction)
             **kwargs: Additional arguments (reserved for future use)
         """
         self.model = model
@@ -89,14 +89,6 @@ class OpenAICVExtractor(CVExtractor):
                 content_type = 'text'
             except Exception as e:
                 raise Exception(f"Failed to extract text from DOCX: {str(e)}") from e
-        else:
-            # For PDF and PPTX, we note the limitation
-            # In production, you would use PyPDF2, pdfplumber, or python-pptx
-            raise ValueError(
-                f"Binary file format {file_ext} requires additional libraries for text extraction. "
-                f"For PDF: install PyPDF2 or pdfplumber. For PPTX: install python-pptx. "
-                f"Currently only TXT and DOCX files are fully supported."
-            )
 
         # Load CV schema for context
         schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
@@ -104,7 +96,7 @@ class OpenAICVExtractor(CVExtractor):
             cv_schema = json.load(f)
 
         # Prepare the prompt
-        prompt = self._build_extraction_prompt(cv_schema, file_ext, content_type)
+        prompt = self._build_extraction_prompt(cv_schema, file_ext)
 
         # Call OpenAI API
         try:
@@ -118,7 +110,7 @@ class OpenAICVExtractor(CVExtractor):
         except Exception as e:
             raise Exception(f"OpenAI extraction failed: {str(e)}") from e
 
-    def _build_extraction_prompt(self, cv_schema: Dict[str, Any], file_ext: str, content_type: str) -> str:
+    def _build_extraction_prompt(self, cv_schema: Dict[str, Any], file_ext: str) -> str:
         """Build the extraction prompt with schema context."""
         schema_json = json.dumps(cv_schema, indent=2)
         

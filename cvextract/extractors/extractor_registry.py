@@ -64,8 +64,19 @@ def list_extractors() -> List[Dict[str, str]]:
     return sorted(extractors, key=lambda x: x['name'])
 
 
+def unregister_extractor(name: str) -> None:
+    """
+    Unregister an extractor from the global registry.
+    
+    Args:
+        name: The extractor name to unregister
+    """
+    _EXTRACTOR_REGISTRY.pop(name, None)
+
+
 __all__ = [
     "register_extractor",
     "get_extractor",
     "list_extractors",
+    "unregister_extractor",
 ]

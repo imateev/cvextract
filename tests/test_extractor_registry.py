@@ -9,6 +9,7 @@ from cvextract.extractors import (
     list_extractors,
     register_extractor,
 )
+from cvextract.extractors.extractor_registry import unregister_extractor
 
 
 class TestExtractorRegistry:
@@ -89,19 +90,23 @@ class TestExtractorRegistry:
         # Register custom extractor
         register_extractor('custom-test-extractor', CustomExtractor)
         
-        # Should now be in the list
-        extractors = list_extractors()
-        names = [e['name'] for e in extractors]
-        assert 'custom-test-extractor' in names
-        
-        # Should be retrievable
-        extractor = get_extractor('custom-test-extractor')
-        assert extractor is not None
-        assert isinstance(extractor, CustomExtractor)
-        
-        # Should work
-        result = extractor.extract(Path('/any/path'))
-        assert result['identity']['title'] == 'Custom'
+        try:
+            # Should now be in the list
+            extractors = list_extractors()
+            names = [e['name'] for e in extractors]
+            assert 'custom-test-extractor' in names
+            
+            # Should be retrievable
+            extractor = get_extractor('custom-test-extractor')
+            assert extractor is not None
+            assert isinstance(extractor, CustomExtractor)
+            
+            # Should work
+            result = extractor.extract(Path('/any/path'))
+            assert result['identity']['title'] == 'Custom'
+        finally:
+            # Clean up the custom extractor
+            unregister_extractor('custom-test-extractor')
 
     def test_list_extractors_is_sorted(self):
         """list_extractors() returns extractors sorted by name."""

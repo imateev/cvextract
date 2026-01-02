@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .extractors import DocxCVExtractor, CVExtractor, get_extractor
+from .extractors import DocxCVExtractor, CVExtractor
 from .renderers import DocxCVRenderer
     
 # ------------------------- High-level pipeline -------------------------

@@ -1,7 +1,6 @@
 """Tests for CLI extractor name parameter parsing."""
 
 import pytest
-from pathlib import Path
 from cvextract.cli_gather import gather_user_requirements
 
 

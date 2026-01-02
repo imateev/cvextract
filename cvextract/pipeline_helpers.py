@@ -18,6 +18,7 @@ import os
 
 from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
+from .extractors import CVExtractor
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import ExtractedDataVerifier, ComparisonVerifier
 
@@ -49,7 +50,7 @@ def extract_single(
     source_file: Path, 
     out_json: Path, 
     debug: bool,
-    extractor = None
+    extractor: Optional[CVExtractor] = None
 ) -> tuple[bool, List[str], List[str]]:
     """
     Extract and verify a single file. Returns (ok, errors, warnings).

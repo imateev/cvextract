@@ -3,7 +3,7 @@
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from cvextract.extractors import OpenAICVExtractor, CVExtractor
 
 
@@ -86,7 +86,7 @@ class TestOpenAICVExtractor:
                 result = extractor.extract(test_file)
                 assert result['identity']['full_name'] == 'John Doe'
 
-    def test_extract_supports_pdf_files(self, tmp_path):
+    def test_extract_rejects_pdf_files(self, tmp_path):
         """extract() raises error for .pdf files (not currently supported)."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
@@ -131,7 +131,7 @@ class TestOpenAICVExtractor:
                 result = extractor.extract(test_file)
                 assert result['identity']['full_name'] == 'Jane Smith'
 
-    def test_extract_supports_pptx_files(self, tmp_path):
+    def test_extract_rejects_pptx_files(self, tmp_path):
         """extract() raises error for .pptx files (not currently supported)."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
