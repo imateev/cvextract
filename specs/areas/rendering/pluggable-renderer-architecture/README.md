@@ -2,21 +2,38 @@
 
 ## Overview
 
-The pluggable renderer architecture provides an abstract base class and infrastructure for interchangeable rendering implementations.
+The pluggable renderer architecture provides an abstract base class, registry infrastructure, and APIs for interchangeable rendering implementations.
 
 ## Status
 
-**Active** - Core rendering infrastructure
+**Active** - Core rendering infrastructure with registry system
 
 ## Description
 
 The architecture enables:
 1. **Base Class**: `CVRenderer` abstract interface for all renderers
-2. **Interchangeability**: Easy swapping of rendering implementations
-3. **Extensibility**: Add new output formats (PDF, HTML, etc.) without modifying core code
-4. **Testing**: Mock renderers for isolated testing
+2. **Registry System**: Centralized management of available renderers
+3. **Interchangeability**: Easy swapping of rendering implementations via registry lookup
+4. **Extensibility**: Add new output formats (PDF, HTML, etc.) without modifying core code
+5. **Testing**: Mock renderers for isolated testing
+6. **CLI Integration**: List and select renderers via command-line interface
 
 ## Entry Points
+
+### Registry APIs
+
+```python
+from cvextract.renderers import register_renderer, get_renderer, list_renderers
+
+# Register a custom renderer
+register_renderer("my-custom-renderer", MyCustomRenderer)
+
+# Get a renderer instance by name
+renderer = get_renderer("private-internal-renderer")
+
+# List all available renderers
+renderers = list_renderers()
+```
 
 ### Base Class Definition
 
@@ -34,9 +51,9 @@ class CustomRenderer(CVRenderer):
 ### Using Renderers
 
 ```python
-from cvextract.renderers import DocxCVRenderer
+from cvextract.renderers import get_renderer
 
-renderer = DocxCVRenderer()
+renderer = get_renderer("private-internal-renderer")
 output = renderer.render(cv_data, template_path, output_path)
 ```
 
@@ -87,62 +104,64 @@ None (base class is pure Python)
 
 ### Integration Points
 
-- Implemented by `cvextract.renderers.DocxCVRenderer`
+- Implemented by `cvextract.renderers.DocxCVRenderer` (registered as `"private-internal-renderer"`)
 - Used by `cvextract.pipeline_highlevel.render_cv_data()`
-- Future: Registry pattern like extractors/adjusters
+- Registry pattern mirrors `cvextract.extractors.extractor_registry`
 
 ## Test Coverage
 
 Tested in:
 - `tests/test_renderers.py` - Base class contract
 - `tests/test_docx_renderer.py` - DOCX implementation
+- `tests/test_renderer_registry.py` - Registry functionality
 - Mock renderers in test suites
 
 ## Implementation History
 
-The pluggable architecture was introduced during refactoring to separate concerns and enable extensibility.
+The pluggable architecture was introduced during refactoring to separate concerns and enable extensibility. The registry system was added to match the architecture of extractors and adjusters.
 
 **Key Files**:
 - `cvextract/renderers/base.py` - Abstract base class
-- `cvextract/renderers/docx_renderer.py` - DOCX implementation
-- `cvextract/renderers/__init__.py` - Public API
-
-## Open Questions
-
-1. **Registry**: Should we implement a renderer registry like extractors/adjusters?
-2. **Multi-Format**: Should one renderer support multiple output formats?
-3. **Streaming**: Should we support streaming rendering for large documents?
-4. **Validation**: Should renderers validate input data against schema?
+- `cvextract/renderers/docx_renderer.py` - DOCX implementation (registered as `"private-internal-renderer"`)
+- `cvextract/renderers/renderer_registry.py` - Registry implementation
+- `cvextract/renderers/__init__.py` - Public API and renderer registration
 
 ## Extension Examples
 
 ### Custom PDF Renderer
 
 ```python
-from cvextract.renderers import CVRenderer
+from cvextract.renderers import CVRenderer, register_renderer
 from pathlib import Path
 from typing import Dict, Any
 
 class PdfCVRenderer(CVRenderer):
+    """PDF renderer using reportlab or weasyprint."""
+    
     def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
         # PDF rendering logic using reportlab, weasyprint, etc.
         # ...
         return output_path
 
-# Use
-renderer = PdfCVRenderer()
+# Register the renderer
+register_renderer("pdf-renderer", PdfCVRenderer)
+
+# Use via registry
+renderer = get_renderer("pdf-renderer")
 output = renderer.render(cv_data, Path("template.html"), Path("cv.pdf"))
 ```
 
 ### Custom HTML Renderer
 
 ```python
-from cvextract.renderers import CVRenderer
+from cvextract.renderers import CVRenderer, register_renderer
 from pathlib import Path
 from typing import Dict, Any
 import jinja2
 
 class HtmlCVRenderer(CVRenderer):
+    """HTML renderer using Jinja2 templates."""
+    
     def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
         # Load Jinja2 HTML template
         with open(template_path) as f:
@@ -154,6 +173,9 @@ class HtmlCVRenderer(CVRenderer):
         # Save
         output_path.write_text(html)
         return output_path
+
+# Register the renderer
+register_renderer("html-renderer", HtmlCVRenderer)
 ```
 
 ### Mock Renderer for Testing
@@ -187,8 +209,9 @@ assert renderer.last_rendered["cv_data"] == test_data
 
 - Base Class: `cvextract/renderers/base.py`
 - DOCX Implementation: `cvextract/renderers/docx_renderer.py`
+- Registry: `cvextract/renderers/renderer_registry.py`
 - Public API: `cvextract/renderers/__init__.py`
-- Tests: `tests/test_renderers.py`
+- Tests: `tests/test_renderers.py`, `tests/test_renderer_registry.py`
 - Documentation: `cvextract/renderers/README.md`
 
 ## Related Documentation

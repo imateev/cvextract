@@ -29,11 +29,13 @@ def _handle_list_command(list_type: str) -> None:
             print(f"    {adj['description']}")
         print()
     elif list_type == 'renderers':
-        from .renderers import DocxCVRenderer
+        from .renderers import list_renderers
+        renderers = list_renderers()
         print("\nAvailable Renderers:")
         print("=" * 60)
-        print("  docx")
-        print("    Renders CV data to DOCX format using docxtpl templates")
+        for rnd in renderers:
+            print(f"  {rnd['name']}")
+            print(f"    {rnd['description']}")
         print()
     elif list_type == 'extractors':
         from .extractors import list_extractors

@@ -60,8 +60,8 @@ The rendering area provides pluggable architecture for rendering structured CV d
 
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
-| [DOCX Renderer](areas/rendering/docx-renderer/README.md) | Active | Renders CV data to DOCX using docxtpl/Jinja2 | `cvextract.renderers.DocxCVRenderer` | `template=<path>` |
-| [Pluggable Renderer Architecture](areas/rendering/pluggable-renderer-architecture/README.md) | Active | Abstract base class and registry for renderers | `cvextract.renderers.{CVRenderer, register_renderer, get_renderer}` | N/A |
+| [DOCX Renderer](areas/rendering/docx-renderer/README.md) | Active | Renders CV data to DOCX using docxtpl/Jinja2 | `cvextract.renderers.get_renderer("private-internal-renderer")` | `template=<path>` |
+| [Pluggable Renderer Architecture](areas/rendering/pluggable-renderer-architecture/README.md) | Active | Abstract base class and registry for renderers | `cvextract.renderers.{CVRenderer, register_renderer, get_renderer, list_renderers}` | N/A |
 
 ---
 
