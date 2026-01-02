@@ -1,5 +1,6 @@
 """Tests for renderer registry functionality."""
 
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from cvextract.renderers import (
@@ -101,8 +102,6 @@ class TestRendererRegistry:
             assert isinstance(renderer, CustomRenderer)
             
             # Should work
-            from pathlib import Path
-            import tempfile
             with tempfile.TemporaryDirectory() as tmpdir:
                 output = Path(tmpdir) / "output.txt"
                 result = renderer.render({}, Path('/any/path'), output)
