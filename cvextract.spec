@@ -5,7 +5,10 @@ a = Analysis(
     ['cvextract/cli.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('cvextract/contracts/*.json', 'cvextract/contracts'),
+        ('cvextract/ml_adjustment/prompts/*.md', 'cvextract/ml_adjustment/prompts'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
