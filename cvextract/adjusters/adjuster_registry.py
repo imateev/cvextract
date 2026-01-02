@@ -63,8 +63,19 @@ def list_adjusters() -> List[Dict[str, str]]:
     return sorted(adjusters, key=lambda x: x['name'])
 
 
+def unregister_adjuster(name: str) -> None:
+    """
+    Unregister an adjuster from the global registry.
+    
+    Args:
+        name: The adjuster name to unregister
+    """
+    _ADJUSTER_REGISTRY.pop(name, None)
+
+
 __all__ = [
     "register_adjuster",
     "get_adjuster",
     "list_adjusters",
+    "unregister_adjuster",
 ]
