@@ -110,6 +110,24 @@ class TestExecutePipelineExtractOnly:
         mock_extract.assert_called_once()
 
     @patch('cvextract.cli_execute._collect_inputs')
+    def test_extract_with_unknown_extractor(self, mock_collect, tmp_path: Path, mock_docx: Path):
+        """Test extraction with unknown extractor name returns error."""
+        mock_collect.return_value = [mock_docx]
+
+        config = UserConfig(
+            extract=ExtractStage(source=mock_docx, output=None, name='nonexistent-extractor'),
+            adjust=None,
+            apply=None,
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+
+        exit_code = execute_pipeline(config)
+        assert exit_code == 1
+
+    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
     def test_extract_with_warnings_strict_mode(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test extraction with warnings in strict mode returns 2."""
