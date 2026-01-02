@@ -1,0 +1,191 @@
+# cvextract Features Index
+
+This document provides a comprehensive index of all features in the cvextract project, organized by functional area.
+
+## Table of Contents
+
+- [Extraction](#extraction)
+- [Adjustment](#adjustment)
+- [Rendering](#rendering)
+- [Verification](#verification)
+- [CLI](#cli)
+- [Contracts](#contracts)
+- [Templates](#templates)
+- [Examples](#examples)
+
+---
+
+## Extraction
+
+**Area Overview**: [specs/areas/extraction/README.md](areas/extraction/README.md)
+
+The extraction area provides pluggable architecture for extracting structured CV data from various source formats.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [Private Internal Extractor](areas/extraction/private-internal-extractor/README.md) | Active | Default DOCX parser using WordprocessingML XML | `cvextract.extractors.DocxCVExtractor` | `name=private-internal-extractor` (default) |
+| [OpenAI Extractor](areas/extraction/openai-extractor/README.md) | Active | OpenAI-powered intelligent extraction for TXT/DOCX | `cvextract.extractors.OpenAICVExtractor` | `name=openai-extractor`, `OPENAI_API_KEY` |
+| [Extractor Registry](areas/extraction/extractor-registry/README.md) | Active | Pluggable extractor registration and lookup system | `cvextract.extractors.{register_extractor, get_extractor, list_extractors}` | N/A |
+
+---
+
+## Adjustment
+
+**Area Overview**: [specs/areas/adjustment/README.md](areas/adjustment/README.md)
+
+The adjustment area provides ML-based CV optimization and transformation capabilities.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [ML Adjustment](areas/adjustment/ml-adjustment/README.md) | Active | Core ML-based CV adjustment using OpenAI | `cvextract.ml_adjustment.MLAdjuster` | `OPENAI_API_KEY`, `OPENAI_MODEL` |
+| [Company Research & Caching](areas/adjustment/company-research-caching/README.md) | Active | Automated company research with JSON caching | `cvextract.ml_adjustment.MLAdjuster.adjust()` | `cache_path` parameter |
+| [Named Adjusters](areas/adjustment/named-adjusters/README.md) | Active | Registry-based adjuster lookup system | `cvextract.adjusters.{register_adjuster, get_adjuster, list_adjusters}` | `--adjust name=<adjuster-name>` |
+| [Job-Specific Adjuster](areas/adjustment/job-specific-adjuster/README.md) | Active | Optimizes CV for specific job postings | `cvextract.adjusters.OpenAIJobSpecificAdjuster` | `job-url=<url>` or `job-description=<text>` |
+| [Adjuster Chaining](areas/adjustment/adjuster-chaining/README.md) | Active | Sequential application of multiple adjusters | Multiple `--adjust` CLI flags | N/A |
+
+---
+
+## Rendering
+
+**Area Overview**: [specs/areas/rendering/README.md](areas/rendering/README.md)
+
+The rendering area provides pluggable architecture for rendering structured CV data to various output formats.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [DOCX Renderer](areas/rendering/docx-renderer/README.md) | Active | Renders CV data to DOCX using docxtpl/Jinja2 | `cvextract.renderers.DocxCVRenderer` | `template=<path>` |
+| [Pluggable Renderer Architecture](areas/rendering/pluggable-renderer-architecture/README.md) | Active | Abstract base class and registry for renderers | `cvextract.renderers.{CVRenderer, register_renderer, get_renderer}` | N/A |
+
+---
+
+## Verification
+
+**Area Overview**: [specs/areas/verification/README.md](areas/verification/README.md)
+
+The verification area provides data validation and quality checking capabilities.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [Extracted Data Verifier](areas/verification/extracted-data-verifier/README.md) | Active | Validates completeness and structure of extracted data | `cvextract.verifiers.ExtractedDataVerifier` | N/A |
+| [Comparison Verifiers](areas/verification/comparison-verifiers/README.md) | Active | Compares data structures for roundtrip verification | `cvextract.verifiers.{ComparisonVerifier, FileComparisonVerifier}` | N/A |
+| [Schema Verifier](areas/verification/schema-verifier/README.md) | Active | Validates CV data against JSON schema | `cvextract.verifiers.SchemaVerifier` | `schema_path` parameter |
+
+---
+
+## CLI
+
+**Area Overview**: [specs/areas/cli/README.md](areas/cli/README.md)
+
+The CLI area provides command-line interface with stage-based architecture and modern parameter syntax.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [Stage-Based Interface](areas/cli/stage-based-interface/README.md) | Active | Explicit flags for extract/adjust/apply operations | `--extract`, `--adjust`, `--apply` | N/A |
+| [Batch Processing](areas/cli/batch-processing/README.md) | Active | Process multiple files recursively from directories | `source=<dir>` in extract/adjust/apply | N/A |
+| [Parallel Processing](areas/cli/parallel-processing/README.md) | Active | Multi-worker parallel file processing | `--parallel source=<dir> n=<workers>` | N/A |
+| [Directory Structure Preservation](areas/cli/directory-structure-preservation/README.md) | Active | Maintains source directory hierarchy in outputs | Automatic in batch/parallel modes | N/A |
+| [Named Flags](areas/cli/named-flags/README.md) | Active | Modern key=value parameter syntax | `key=value` format for all parameters | N/A |
+
+---
+
+## Contracts
+
+**Area Overview**: [specs/areas/contracts/README.md](areas/contracts/README.md)
+
+The contracts area defines JSON schemas for data structures used throughout the application.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [CV Schema](areas/contracts/cv-schema/README.md) | Active | JSON Schema for CV data structure | `cvextract/contracts/cv_schema.json` | N/A |
+| [Research Schema](areas/contracts/research-schema/README.md) | Active | JSON Schema for company research data | `cvextract/contracts/research_schema.json` | N/A |
+
+---
+
+## Templates
+
+**Area Overview**: [specs/areas/templates/README.md](areas/templates/README.md)
+
+The templates area provides Jinja2-based DOCX templating system and sample templates.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [Templating System](areas/templates/templating-system/README.md) | Active | Jinja2-based DOCX template rendering via docxtpl | Template files with `{{ }}` and `{% %}` syntax | N/A |
+| [Sample Templates](areas/templates/sample-templates/README.md) | Active | Professional CV template examples | `examples/templates/CV_Template_Jinja2.docx` | N/A |
+
+---
+
+## Examples
+
+**Area Overview**: [specs/areas/examples/README.md](areas/examples/README.md)
+
+The examples area provides sample CVs and documentation for users.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [Sample CVs](areas/examples/sample-cvs/README.md) | Active | Example CV files for testing and demonstration | `examples/cvs/*.docx` | N/A |
+| [Documentation](areas/examples/documentation/README.md) | Active | Template guides and usage documentation | `examples/templates/TEMPLATE_GUIDE.md` | N/A |
+
+---
+
+## Feature Status Legend
+
+- **Active**: Feature is fully implemented and actively maintained
+- **Deprecated**: Feature exists but is marked for removal
+- **Experimental**: Feature is partially complete or in testing
+
+---
+
+## Integration Map
+
+```
+┌─────────────┐
+│  CLI Layer  │ (stage-based interface, parallel processing)
+└──────┬──────┘
+       │
+       ├──────> Extraction (private-internal, openai, registry)
+       │              │
+       │              v
+       ├──────> [JSON Data + CV Schema]
+       │              │
+       │              v
+       ├──────> Adjustment (ML, company research, job-specific, chaining)
+       │              │
+       │              v
+       ├──────> [Adjusted JSON Data]
+       │              │
+       │              v
+       ├──────> Rendering (DOCX renderer, template system)
+       │              │
+       │              v
+       └──────> Verification (data, schema, comparison verifiers)
+```
+
+---
+
+## Provenance Notes
+
+This feature index is derived from:
+- Repository README.md (comprehensive CLI and feature documentation)
+- Module-level README.md files in cvextract/extractors, cvextract/adjusters, cvextract/renderers, cvextract/verifiers, cvextract/contracts, cvextract/ml_adjustment
+- Source code analysis of implementation files
+- CLI implementation in cvextract/cli*.py files
+- Contract schemas in cvextract/contracts/*.json
+- Example files in examples/ directory
+
+All features documented here are grounded in actual implementation as of the current codebase state.
