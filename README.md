@@ -14,6 +14,44 @@ This project started as a small, three-day after-hours effort to help a resourci
 Copyright 2025 Ivo Mateev  
 Licensed under the Apache License, Version 2.0
 
+## Installation
+
+### Pre-built Binaries (Recommended for End Users)
+
+Download pre-built binaries from the [Releases](https://github.com/imateev/cvextract/releases) page:
+
+1. Go to the [Releases](https://github.com/imateev/cvextract/releases) section
+2. Download the binary for your platform:
+   - **macOS**: `cvextract-{version}-macos`
+   - **Windows**: `cvextract-{version}-windows.exe`
+3. Run the binary directly - no Python installation required
+
+Example:
+```bash
+# macOS
+chmod +x cvextract-0.5.1-macos
+./cvextract-0.5.1-macos --help
+
+# Windows
+cvextract-0.5.1-windows.exe --help
+```
+
+### Python Package (For Development)
+
+Install from source if you need to modify or extend the tool:
+
+```bash
+# Clone the repository
+git clone https://github.com/imateev/cvextract.git
+cd cvextract
+
+# Install in development mode
+pip install -e .
+
+# Run the CLI
+python -m cvextract.cli --help
+```
+
 
 ### Tool summary
 This is a command-line tool that converts résumé/CV .docx files into a clean, structured JSON format and can optionally generate a new .docx by filling a Word template with that JSON.

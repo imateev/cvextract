@@ -12,6 +12,7 @@ This document provides a comprehensive index of all features in the cvextract pr
 - [Contracts](#contracts)
 - [Templates](#templates)
 - [Examples](#examples)
+- [CI/CD](#cicd)
 
 ---
 
@@ -143,6 +144,20 @@ The examples area provides sample CVs and documentation for users.
 
 ---
 
+## CI/CD
+
+**Area Overview**: [specs/areas/cicd/README.md](areas/cicd/README.md)
+
+The CI/CD area covers continuous integration, deployment, and release automation.
+
+### Features
+
+| Feature | Status | Description | Entry Points | Config/Env |
+|---------|--------|-------------|--------------|------------|
+| [Automated Binary Releases](areas/cicd/automated-binary-releases/README.md) | Active | Automatic binary creation for macOS and Windows on version bumps | `.github/workflows/release.yml` | `bump2version`, `cvextract.spec` |
+
+---
+
 ## Feature Status Legend
 
 - **Active**: Feature is fully implemented and actively maintained
@@ -174,6 +189,13 @@ The examples area provides sample CVs and documentation for users.
        │              │
        │              v
        └──────> Verification (data, schema, comparison verifiers)
+
+┌────────────────────────────────────────────────────────────────┐
+│  CI/CD Pipeline  (automated binary releases)                   │
+│                                                                 │
+│  Version Bump → Create Release → Build Binaries → Upload       │
+│  (bump2version)   (GitHub)        (PyInstaller)    (Releases)  │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---

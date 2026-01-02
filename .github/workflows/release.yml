@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  check-version-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      is_version_bump: ${{ steps.check.outputs.is_version_bump }}
+      new_version: ${{ steps.check.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version bump
+        id: check
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          if [[ "$COMMIT_MSG" =~ ^Bump\ version:\ ([0-9]+\.[0-9]+\.[0-9]+)\ →\ ([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "is_version_bump=true" >> $GITHUB_OUTPUT
+            echo "new_version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "Version bump detected: ${BASH_REMATCH[1]} → ${BASH_REMATCH[2]}"
+          else
+            echo "is_version_bump=false" >> $GITHUB_OUTPUT
+            echo "Not a version bump commit"
+          fi
+
+  create-release:
+    needs: check-version-bump
+    if: needs.check-version-bump.outputs.is_version_bump == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.check-version-bump.outputs.new_version }}
+          release_name: Release v${{ needs.check-version-bump.outputs.new_version }}
+          body: |
+            ## cvextract v${{ needs.check-version-bump.outputs.new_version }}
+
+            ### Downloads
+
+            - **macOS**: `cvextract-${{ needs.check-version-bump.outputs.new_version }}-macos`
+            - **Windows**: `cvextract-${{ needs.check-version-bump.outputs.new_version }}-windows.exe`
+
+            ### Installation
+
+            Download the binary for your platform and run it directly. No Python installation required.
+
+            For detailed usage instructions, see the [README](https://github.com/imateev/cvextract/blob/main/README.md).
+          draft: false
+          prerelease: false
+
+  build-macos:
+    needs: [check-version-bump, create-release]
+    if: needs.check-version-bump.outputs.is_version_bump == 'true'
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+          python -m pip install -e .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller cvextract.spec
+          chmod +x dist/cvextract
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dist/cvextract
+          asset_name: cvextract-${{ needs.check-version-bump.outputs.new_version }}-macos
+          asset_content_type: application/octet-stream
+
+  build-windows:
+    needs: [check-version-bump, create-release]
+    if: needs.check-version-bump.outputs.is_version_bump == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+          python -m pip install -e .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller cvextract.spec
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dist/cvextract.exe
+          asset_name: cvextract-${{ needs.check-version-bump.outputs.new_version }}-windows.exe
+          asset_content_type: application/octet-stream
