@@ -120,8 +120,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json`:
 
 ### External Dependencies
 
-- `python-docx` - DOCX file reading and XML parsing
-- `lxml` - XML processing
+- `lxml` - XML processing for WordprocessingML parsing
 
 ### Integration Points
 
