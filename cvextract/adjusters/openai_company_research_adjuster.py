@@ -34,7 +34,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
     pattern:
     1. Fetch company research
     2. Build system prompt
-    3. Call MLAdjuster service
+    3. Call OpenAI API directly
     4. Validate result with schema verifier
     5. Return adjusted CV or original on failure
     """
