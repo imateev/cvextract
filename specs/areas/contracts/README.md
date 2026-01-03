@@ -32,7 +32,7 @@ Adjusters → Consume/produce data conforming to cv_schema.json
     ↓
 Renderers → Consume data conforming to cv_schema.json
 
-ML Adjustment → Produces research data conforming to research_schema.json
+Company Research → Produces research data conforming to research_schema.json
 ```
 
 ### Integration Points
@@ -40,8 +40,8 @@ ML Adjustment → Produces research data conforming to research_schema.json
 - **Extractors**: All extractors must produce data matching `cv_schema.json`
 - **Adjusters**: Input/output must conform to `cv_schema.json`
 - **Renderers**: Templates expect data matching `cv_schema.json`
-- **Verifiers**: `SchemaVerifier` validates against schemas
-- **ML Adjustment**: Research cached using `research_schema.json`
+- **Verifiers**: `CVSchemaVerifier` and `CompanyProfileVerifier` validate against schemas
+- **Company Research**: Research cached using `research_schema.json`
 
 ## Dependencies
 

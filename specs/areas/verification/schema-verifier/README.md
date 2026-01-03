@@ -10,7 +10,7 @@ The schema verifier validates CV data against the formal JSON Schema definition,
 
 ## Description
 
-The `SchemaVerifier` class:
+The `CVSchemaVerifier` class:
 1. Loads JSON Schema from `cvextract/contracts/cv_schema.json`
 2. Validates CV data using `jsonschema` library
 3. Reports schema violations as errors
@@ -21,15 +21,15 @@ The `SchemaVerifier` class:
 ### Programmatic API
 
 ```python
-from cvextract.verifiers import SchemaVerifier
+from cvextract.verifiers import get_verifier
 from pathlib import Path
 
 # Use default schema
-verifier = SchemaVerifier()
+verifier = get_verifier("cv-schema-verifier")
 result = verifier.verify(cv_data)
 
 # Use custom schema
-verifier = SchemaVerifier(schema_path=Path("custom_schema.json"))
+verifier = get_verifier("cv-schema-verifier", schema_path=Path("custom_schema.json"))
 result = verifier.verify(cv_data)
 ```
 
@@ -38,10 +38,10 @@ result = verifier.verify(cv_data)
 Can be used alongside other verifiers:
 
 ```python
-from cvextract.verifiers import ExtractedDataVerifier, SchemaVerifier
+from cvextract.verifiers import get_verifier
 
 # First check schema
-schema_result = SchemaVerifier().verify(cv_data)
+schema_result = CVSchemaVerifier().verify(cv_data)
 
 # Then check completeness
 data_result = ExtractedDataVerifier().verify(cv_data)

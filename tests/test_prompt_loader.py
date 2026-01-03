@@ -1,18 +1,10 @@
-"""Tests for ml_adjustment.prompt_loader module."""
+"""Tests for prompt loading functions."""
 
-from cvextract.ml_adjustment.prompt_loader import load_prompt, format_prompt
+from cvextract.shared import load_prompt, format_prompt
 
 
 class TestLoadPrompt:
     """Tests for load_prompt function."""
-
-    def test_load_system_prompt(self):
-        """Test loading system_prompt.md file."""
-        result = load_prompt("system_prompt")
-        assert result is not None
-        assert isinstance(result, str)
-        assert len(result) > 0
-        assert "You are a helpful assistant" in result
 
     def test_load_website_analysis_prompt(self):
         """Test loading website_analysis_prompt.md file."""
@@ -41,8 +33,8 @@ class TestLoadPrompt:
         assert "Extraction guidelines" in result
 
     def test_load_job_specific_prompt(self):
-        """Test loading job_specific_prompt.md file."""
-        result = load_prompt("job_specific_prompt")
+        """Test loading adjuster_promp_for_specific_job.md file."""
+        result = load_prompt("adjuster_promp_for_specific_job")
         assert result is not None
         assert isinstance(result, str)
         assert len(result) > 0
@@ -52,33 +44,9 @@ class TestLoadPrompt:
         result = load_prompt("nonexistent_prompt")
         assert result is None
 
-    def test_load_prompt_with_extension(self):
-        """Test that we can load prompts by name without .md extension."""
-        result = load_prompt("system_prompt")
-        assert result is not None
-
 
 class TestFormatPrompt:
     """Tests for format_prompt function."""
-
-    def test_format_system_prompt(self):
-        """Test formatting system_prompt with variables."""
-        result = format_prompt(
-            "system_prompt",
-            company_name="Test Corp",
-            company_desc="A test company",
-            domains_text="Technology",
-            tech_signals_text="",
-            acquisition_text="",
-            rebrand_text="",
-            owned_products_text="",
-            used_products_text="",
-            related_companies_text=""
-        )
-        assert result is not None
-        assert "Test Corp" in result
-        assert "A test company" in result
-        assert "Technology" in result
 
     def test_format_website_analysis_prompt(self):
         """Test formatting website_analysis_prompt with variables."""
@@ -96,7 +64,8 @@ class TestFormatPrompt:
         result = format_prompt(
             "cv_extraction_user",
             schema_json='{"type": "object"}',
-            file_name="test.docx"
+            file_name="test.docx",
+            file_content="Sample CV content here"
         )
         assert result is not None
         assert '"type": "object"' in result
@@ -106,18 +75,6 @@ class TestFormatPrompt:
     def test_format_nonexistent_prompt(self):
         """Test formatting a prompt that doesn't exist."""
         result = format_prompt("nonexistent_prompt", var="value")
-        assert result is None
-
-    def test_format_prompt_missing_variable(self):
-        """Test formatting with missing required variables returns None."""
-        # system_prompt requires: company_name, company_desc, domains_text,
-        # tech_signals_text, acquisition_text, rebrand_text, 
-        # owned_products_text, used_products_text
-        result = format_prompt(
-            "system_prompt",
-            company_name="Test Corp"
-            # Missing: company_desc, domains_text, tech_signals_text, etc.
-        )
         assert result is None
 
     def test_format_prompt_extra_variables(self):

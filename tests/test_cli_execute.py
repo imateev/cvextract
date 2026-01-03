@@ -902,3 +902,54 @@ class TestFolderStructurePreservation:
         # The behavior will depend on whether source is a file or directory
         # If source is a file, rel_path will be calculated from source.parent
         mock_extract.assert_called_once()
+
+    @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.extract_single')
+    def test_parallel_mode_delegates_to_parallel_pipeline(self, mock_extract, mock_collect, tmp_path: Path):
+        """execute_pipeline() with parallel=True delegates to execute_parallel_pipeline."""
+        mock_docx = tmp_path / "test.docx"
+        mock_docx.write_text("docx")
+        mock_collect.return_value = [mock_docx]
+        mock_extract.return_value = (True, [], [])
+
+        with patch('cvextract.cli_parallel.execute_parallel_pipeline', return_value=0) as mock_parallel:
+            config = UserConfig(
+                extract=ExtractStage(source=mock_docx, output=None),
+                adjust=None,
+                apply=None,
+                target_dir=tmp_path / "output",
+                strict=False,
+                debug=False,
+                log_file=None,
+                parallel=True  # Enable parallel mode
+            )
+
+            exit_code = execute_pipeline(config)
+            assert exit_code == 0
+            mock_parallel.assert_called_once_with(config)
+
+    @patch('cvextract.cli_execute._collect_inputs')
+    @patch('cvextract.cli_execute.extract_single')
+    def test_relative_path_calculation_with_value_error_fallback(self, mock_extract, mock_collect, tmp_path: Path):
+        """execute_pipeline() falls back to '.' when relative_to() raises ValueError."""
+        mock_docx = tmp_path / "test.docx"
+        mock_docx.write_text("docx")
+        mock_collect.return_value = [mock_docx]
+        mock_extract.return_value = (True, [], [])
+
+        # Create a config where input_dir is outside of the resolved input_file parent
+        # This will cause ValueError when trying to compute relative_to
+        config = UserConfig(
+            extract=ExtractStage(source=mock_docx, output=None),
+            adjust=None,
+            apply=None,
+            target_dir=tmp_path / "output",
+            strict=False,
+            debug=False,
+            log_file=None,
+            input_dir=tmp_path / "other_dir"  # Different from the file's parent
+        )
+
+        exit_code = execute_pipeline(config)
+        assert exit_code == 0  # Should still succeed with fallback
+        mock_extract.assert_called_once()

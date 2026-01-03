@@ -2,7 +2,8 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
-from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
+from cvextract.verifiers import get_verifier
+from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
 
 
@@ -87,13 +88,13 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     def fake_compare(orig, target_data):
         return VerificationResult(ok=True, errors=[], warnings=[])
 
-    # Mock the ComparisonVerifier instance method
-    comparison_verifier = ComparisonVerifier()
-    comparison_verifier.verify = fake_compare
+    # Mock the RoundtripVerifier instance method
+    roundtrip_verifier = RoundtripVerifier()
+    roundtrip_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    monkeypatch.setattr("cvextract.verifiers.ComparisonVerifier", lambda: comparison_verifier)
+    monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
     ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is True
@@ -139,13 +140,13 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     def fake_compare(orig, target_data):
         return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])
 
-    # Mock the ComparisonVerifier instance method
-    comparison_verifier = ComparisonVerifier()
-    comparison_verifier.verify = fake_compare
+    # Mock the RoundtripVerifier instance method
+    roundtrip_verifier = RoundtripVerifier()
+    roundtrip_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    monkeypatch.setattr("cvextract.verifiers.ComparisonVerifier", lambda: comparison_verifier)
+    monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
     ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
     assert ok is False
@@ -241,7 +242,7 @@ def test_verify_extracted_data_missing_identity():
         "sidebar": {"languages": ["EN"]},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    verifier = ExtractedDataVerifier()
+    verifier = get_verifier("private-internal-verifier")
     result = verifier.verify(data)
     assert result.ok is False
     assert "identity" in result.errors
@@ -254,7 +255,7 @@ def test_verify_extracted_data_empty_sidebar():
         "sidebar": {},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    verifier = ExtractedDataVerifier()
+    verifier = get_verifier("private-internal-verifier")
     result = verifier.verify(data)
     assert result.ok is False
     assert "sidebar" in result.errors
@@ -267,7 +268,7 @@ def test_verify_extracted_data_no_experiences():
         "sidebar": {"languages": ["EN"]},
         "experiences": [],
     }
-    verifier = ExtractedDataVerifier()
+    verifier = get_verifier("private-internal-verifier")
     result = verifier.verify(data)
     assert result.ok is False
     assert "experiences_empty" in result.errors
@@ -281,7 +282,7 @@ def test_verify_extracted_data_invalid_environment():
                    "spoken_languages": ["EN"], "academic_background": ["x"]},
         "experiences": [{"heading": "h", "description": "d", "bullets": ["b"], "environment": "not-a-list"}],
     }
-    verifier = ExtractedDataVerifier()
+    verifier = get_verifier("private-internal-verifier")
     result = verifier.verify(data)
     assert result.ok is True
     assert any("invalid environment format" in w for w in result.warnings)

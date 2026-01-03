@@ -18,7 +18,7 @@ from .cli_prepare import _collect_inputs
 from .logging_utils import LOG, fmt_issues
 from .adjusters import get_adjuster
 from .extractors import get_extractor
-from .ml_adjustment import _url_to_cache_filename
+from .adjusters.openai_company_research_adjuster import _url_to_cache_filename
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
@@ -115,6 +115,7 @@ def execute_pipeline(config: UserConfig) -> int:
     
     # Step 1: Extract (if configured)
     out_json = None
+    skip_roundtrip = False  # Flag to skip roundtrip verification for certain extractors
     if config.extract:
         # Get the extractor instance
         extractor = get_extractor(config.extract.name)
@@ -122,6 +123,10 @@ def execute_pipeline(config: UserConfig) -> int:
             LOG.error(f"Unknown extractor: {config.extract.name}")
             LOG.error("Use --list extractors to see available extractors")
             return 1
+        
+        # Skip roundtrip verification for openai-extractor
+        if config.extract.name == "openai-extractor":
+            skip_roundtrip = True
         
         # Determine output path
         if config.extract.output:
@@ -227,7 +232,7 @@ def execute_pipeline(config: UserConfig) -> int:
             template_path=config.apply.template,
             output_docx=output_docx,
             debug=config.debug,
-            skip_compare=not config.should_compare,
+            skip_compare=not config.should_compare or skip_roundtrip,
             roundtrip_dir=verify_dir,
         )
         

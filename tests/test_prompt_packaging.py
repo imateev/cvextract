@@ -17,43 +17,53 @@ class TestPromptPackaging:
 
     def test_prompts_accessible_via_pathlib(self):
         """Test that prompts are accessible via Path(__file__).parent pattern."""
-        # Import the prompt_loader module
-        from cvextract.ml_adjustment import prompt_loader
+        # Check extractor prompts
+        from cvextract.extractors import openai_extractor
+        extractor_module_path = Path(openai_extractor.__file__).parent
+        extractor_prompts_dir = extractor_module_path / "prompts"
         
-        # Get the prompts directory path
-        module_path = Path(prompt_loader.__file__).parent
-        prompts_dir = module_path / "prompts"
+        assert extractor_prompts_dir.exists(), f"Extractor prompts directory not found at {extractor_prompts_dir}"
+        assert extractor_prompts_dir.is_dir(), f"Extractor prompts path is not a directory: {extractor_prompts_dir}"
         
-        # Verify directory exists
-        assert prompts_dir.exists(), f"Prompts directory not found at {prompts_dir}"
-        assert prompts_dir.is_dir(), f"Prompts path is not a directory: {prompts_dir}"
-        
-        # Verify all expected prompt files exist
-        expected_prompts = [
-            "system_prompt.md",
-            "website_analysis_prompt.md",
-            "job_specific_prompt.md",
+        extractor_expected_prompts = [
             "cv_extraction_system.md",
             "cv_extraction_user.md",
         ]
         
-        for prompt_file in expected_prompts:
-            prompt_path = prompts_dir / prompt_file
-            assert prompt_path.exists(), f"Prompt file not found: {prompt_file}"
-            assert prompt_path.is_file(), f"Prompt path is not a file: {prompt_file}"
+        for prompt_file in extractor_expected_prompts:
+            prompt_path = extractor_prompts_dir / prompt_file
+            assert prompt_path.exists(), f"Extractor prompt file not found: {prompt_file}"
+            assert prompt_path.is_file(), f"Extractor prompt path is not a file: {prompt_file}"
+            content = prompt_path.read_text(encoding="utf-8")
+            assert len(content) > 0, f"Extractor prompt file is empty: {prompt_file}"
+        
+        # Also verify the adjuster prompts are in the adjusters directory
+        from cvextract.adjusters import openai_job_specific_adjuster
+        adjuster_module_path = Path(openai_job_specific_adjuster.__file__).parent
+        adjuster_prompts_dir = adjuster_module_path / "prompts"
+        
+        adjuster_expected_prompts = [
+            "adjuster_promp_for_a_company.md",
+            "adjuster_promp_for_specific_job.md",
+            "website_analysis_prompt.md",
+        ]
+        
+        for prompt_file in adjuster_expected_prompts:
+            prompt_path = adjuster_prompts_dir / prompt_file
+            assert prompt_path.exists(), f"Adjuster prompt file not found: {prompt_file}"
+            assert prompt_path.is_file(), f"Adjuster prompt path is not a file: {prompt_file}"
             
             # Verify file is readable and has content
             content = prompt_path.read_text(encoding="utf-8")
-            assert len(content) > 0, f"Prompt file is empty: {prompt_file}"
+            assert len(content) > 0, f"Adjuster prompt file is empty: {prompt_file}"
 
     def test_all_prompts_loadable(self):
         """Test that all prompt files can be loaded via load_prompt function."""
-        from cvextract.ml_adjustment.prompt_loader import load_prompt
+        from cvextract.shared import load_prompt
         
         prompts_to_test = [
-            "system_prompt",
             "website_analysis_prompt",
-            "job_specific_prompt",
+            "adjuster_promp_for_specific_job",
             "cv_extraction_system",
             "cv_extraction_user",
         ]
@@ -103,11 +113,11 @@ class TestPromptPackaging:
                 
                 # Check that prompt files are included
                 expected_prompts = [
-                    "cvextract/ml_adjustment/prompts/system_prompt.md",
-                    "cvextract/ml_adjustment/prompts/website_analysis_prompt.md",
-                    "cvextract/ml_adjustment/prompts/job_specific_prompt.md",
-                    "cvextract/ml_adjustment/prompts/cv_extraction_system.md",
-                    "cvextract/ml_adjustment/prompts/cv_extraction_user.md",
+                    "cvextract/extractors/prompts/cv_extraction_system.md",
+                    "cvextract/extractors/prompts/cv_extraction_user.md",
+                    "cvextract/adjusters/prompts/adjuster_promp_for_a_company.md",
+                    "cvextract/adjusters/prompts/adjuster_promp_for_specific_job.md",
+                    "cvextract/adjusters/prompts/website_analysis_prompt.md",
                 ]
                 
                 for expected_prompt in expected_prompts:

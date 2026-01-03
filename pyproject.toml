@@ -16,9 +16,16 @@ version = "0.5.4"
 packages = ["cvextract"]
 
 [tool.setuptools.package-data]
-cvextract = ["contracts/*.json", "ml_adjustment/prompts/*.md"]
+cvextract = [
+    "contracts/*.json",
+    "extractors/prompts/*.md",
+    "adjusters/prompts/*.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
 [tool.coverage.run]
 omit = ["*/tests/*"]

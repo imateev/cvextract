@@ -2,11 +2,11 @@
 
 ## Overview
 
-The research schema (`research_schema.json`) defines the formal JSON Schema for company research data produced by ML adjustment.
+The research schema (`research_schema.json`) defines the formal JSON Schema for company research data produced by the company research adjuster.
 
 ## Status
 
-**Active** - ML adjustment data contract
+**Active** - Company research data contract
 
 ## Description
 
@@ -25,15 +25,15 @@ Location: `cvextract/contracts/research_schema.json`
 ### Programmatic Usage
 
 ```python
-from cvextract.ml_adjustment import MLAdjuster
+from cvextract.adjusters import OpenAICompanyResearchAdjuster
 from pathlib import Path
 
-adjuster = MLAdjuster()
+adjuster = OpenAICompanyResearchAdjuster()
 
 # Research is cached conforming to research_schema.json
 adjusted = adjuster.adjust(
-    cv_data=cv_data,
-    target_url="https://example.com",
+    cv_data,
+    customer_url="https://example.com",
     cache_path=Path("cache/example.research.json")
 )
 ```
@@ -136,23 +136,24 @@ Importance scale: 1 (low) to 5 (critical)
 
 ### Producers (Must Conform)
 
-- `cvextract.ml_adjustment.MLAdjuster._research_company()` - Produces research data
-- `cvextract.adjusters.OpenAICompanyResearchAdjuster` - Uses MLAdjuster
+- `cvextract.adjusters.OpenAICompanyResearchAdjuster` - Produces and caches research data
+- Internal research methods that fetch and structure company information
 
 ### Consumers (Expect Conformance)
 
-- `cvextract.ml_adjustment.MLAdjuster.adjust()` - Consumes research for CV adjustment
+- `cvextract.adjusters.OpenAICompanyResearchAdjuster.adjust()` - Consumes research for CV adjustment
 - Research cache files in `{target}/research_data/`
 
 ### Validation
 
-Research data is validated before caching to ensure schema conformance.
+Research data is validated using `CompanyProfileVerifier` before caching to ensure schema conformance.
 
 ## Dependencies
 
 ### Internal Dependencies
 
-- Produced by `cvextract.ml_adjustment.MLAdjuster`
+- Produced by `cvextract.adjusters.OpenAICompanyResearchAdjuster`
+- Validated by `cvextract.verifiers.CompanyProfileVerifier`
 - Consumed by CV adjustment logic
 - Cached in research_data directories
 
@@ -164,22 +165,23 @@ Research data is validated before caching to ensure schema conformance.
 
 - Used in company research adjuster
 - Cached for reuse across multiple CVs
-- Validated before caching
+- Validated before caching using CompanyProfileVerifier
 
 ## Test Coverage
 
 Tested in:
-- `tests/test_ml_adjustment.py` - Research generation tests
-- `tests/test_contracts.py` - Schema validation tests
-- `tests/test_adjusters.py` - Research consumption tests
+- `tests/test_adjusters.py` - Research generation and adjustment tests
+- `tests/test_verifiers.py` - Schema validation tests
+- `tests/test_pipeline.py` - End-to-end with research caching
 
 ## Implementation History
 
-The research schema was created alongside the ML adjustment feature to ensure consistent research data structure.
+The research schema was created alongside the company research adjuster to ensure consistent research data structure.
 
 **Key Files**:
 - `cvextract/contracts/research_schema.json` - Schema definition
-- `cvextract/ml_adjustment/adjuster.py` - Research producer/consumer
+- `cvextract/adjusters/openai_company_research_adjuster.py` - Research producer/consumer
+- `cvextract/verifiers/company_profile_verifier.py` - Research validator
 
 ## Example Valid Data
 
@@ -221,14 +223,15 @@ The research schema was created alongside the ML adjustment feature to ensure co
 ## File Paths
 
 - Schema: `cvextract/contracts/research_schema.json`
-- Producer: `cvextract/ml_adjustment/adjuster.py`
-- Tests: `tests/test_contracts.py`, `tests/test_ml_adjustment.py`
+- Producer: `cvextract/adjusters/openai_company_research_adjuster.py`
+- Validator: `cvextract/verifiers/company_profile_verifier.py`
+- Tests: `tests/test_adjusters.py`, `tests/test_verifiers.py`
 - Documentation: `cvextract/contracts/README.md`
 
 ## Related Documentation
 
 - [Contracts Architecture](../README.md)
 - [CV Schema](../cv-schema/README.md)
-- [ML Adjustment](../../adjustment/ml-adjustment/README.md)
-- [Company Research & Caching](../../adjustment/company-research-caching/README.md)
+- [Company Research Adjuster](../../adjustment/company-research-adjuster/README.md)
+- [Company Profile Verifier](../../verification/company-profile-verifier/README.md)
 - Module README: `cvextract/contracts/README.md`

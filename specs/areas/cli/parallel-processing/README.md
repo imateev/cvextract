@@ -92,7 +92,7 @@ with multiprocessing.Pool(processes=num_workers) as pool:
 
 - `cvextract.cli_execute.execute_pipeline()` - Per-file processing
 - `cvextract.cli_prepare._collect_inputs()` - File discovery
-- `cvextract.ml_adjustment` - Pre-research optimization
+- `cvextract.adjusters` - Adjuster implementations for CV optimization
 
 ### External Dependencies
 

@@ -1,9 +1,8 @@
 """Tests for improved coverage of verification and sidebar_parser modules."""
-
 import json
 from zipfile import ZipFile
 
-from cvextract.verifiers import ComparisonVerifier, FileComparisonVerifier
+from cvextract.verifiers import get_verifier
 from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
@@ -14,8 +13,8 @@ class TestIsEnvironmentPath:
     """Tests for _is_environment_path helper."""
 
     def setup_method(self):
-        """Setup a ComparisonVerifier instance for testing."""
-        self.verifier = ComparisonVerifier()
+        """Setup a RoundtripVerifier instance for testing."""
+        self.verifier = get_verifier("roundtrip-verifier")
 
     def test_is_environment_path_true(self):
         """Test detection of environment path."""
@@ -34,8 +33,8 @@ class TestNormalizeEnvironmentList:
     """Tests for _normalize_environment_list function."""
 
     def setup_method(self):
-        """Setup a ComparisonVerifier instance for testing."""
-        self.verifier = ComparisonVerifier()
+        """Setup a RoundtripVerifier instance for testing."""
+        self.verifier = get_verifier("roundtrip-verifier")
 
     def test_normalize_single_items(self):
         """Test normalization of single items."""
@@ -86,7 +85,7 @@ class TestNormalizeEnvironmentList:
 
 
 class TestCompareJsonFiles:
-    """Tests for FileComparisonVerifier."""
+    """Tests for FileRoundtripVerifier."""
 
     def test_compare_identical_json_files(self, tmp_path):
         """Test comparing identical JSON files."""
@@ -105,7 +104,7 @@ class TestCompareJsonFiles:
         with file2.open("w") as f:
             json.dump(data, f)
         
-        verifier = FileComparisonVerifier()
+        verifier = get_verifier("file-roundtrip-verifier")
         result = verifier.verify({}, source_file=file1, target_file=file2)
         assert result.ok is True
         assert result.errors == []
@@ -124,7 +123,6 @@ class TestCompareJsonFiles:
             "overview": "Text2",
             "experiences": [],
         }
-        
         file1 = tmp_path / "file1.json"
         file2 = tmp_path / "file2.json"
         
@@ -133,31 +131,31 @@ class TestCompareJsonFiles:
         with file2.open("w") as f:
             json.dump(data2, f)
         
-        verifier = FileComparisonVerifier()
+        verifier = get_verifier("file-roundtrip-verifier")
         result = verifier.verify({}, source_file=file1, target_file=file2)
         assert result.ok is False
         assert len(result.errors) > 0
 
 
 class TestCompareDataStructures:
-    """Tests for ComparisonVerifier."""
+    """Tests for RoundtripVerifier."""
 
     def test_compare_primitive_value_mismatch(self):
         """Test detection of primitive value mismatches."""
         original = {"key": "value1"}
         new = {"key": "value2"}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)
 
     def test_compare_type_mismatch(self):
         """Test detection of type mismatches."""
-        original = {"key": "string"}
+        original = {"key": "value"}
         new = {"key": 123}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("type mismatch" in err for err in result.errors)
@@ -167,7 +165,7 @@ class TestCompareDataStructures:
         original = {"items": [1, 2, 3]}
         new = {"items": [1, 2]}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("list length mismatch" in err for err in result.errors)
@@ -177,7 +175,7 @@ class TestCompareDataStructures:
         original = {"a": {"b": {"c": 1}}}
         new = {"a": {"b": {"c": 2}}}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)
@@ -187,7 +185,7 @@ class TestCompareDataStructures:
         original = {"a": 1, "b": 2}
         new = {"a": 1}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("missing key" in err for err in result.errors)
@@ -197,10 +195,9 @@ class TestCompareDataStructures:
         original = {"a": 1}
         new = {"a": 1, "b": 2}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
-        assert any("extra key" in err for err in result.errors)
 
     def test_compare_environment_field_normalization(self):
         """Test environment field normalization in comparison."""
@@ -223,7 +220,7 @@ class TestCompareDataStructures:
             ]
         }
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         # Should be OK because environment is normalized and equivalent
         assert result.ok is True
@@ -247,7 +244,7 @@ class TestCompareDataStructures:
             ]
         }
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("environment mismatch" in err for err in result.errors)

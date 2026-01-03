@@ -16,7 +16,7 @@ from .base import CVVerifier
 from ..shared import VerificationResult
 
 
-class ComparisonVerifier(CVVerifier):
+class RoundtripVerifier(CVVerifier):
     """
     Verifier for comparing two CV data structures.
     
@@ -37,7 +37,7 @@ class ComparisonVerifier(CVVerifier):
         """
         target_data = kwargs.get("target_data")
         if target_data is None:
-            raise ValueError("ComparisonVerifier requires 'target_data' parameter")
+            raise ValueError("RoundtripVerifier requires 'target_data' parameter")
         
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
@@ -98,15 +98,15 @@ class ComparisonVerifier(CVVerifier):
             errors.append(f"value mismatch at {path or '<root>'}: {a!r} vs {b!r}")
 
 
-class FileComparisonVerifier(CVVerifier):
+class FileRoundtripVerifier(CVVerifier):
     """
     Verifier for comparing two CV data files.
     
-    Loads JSON files and delegates to ComparisonVerifier.
+    Loads JSON files and delegates to RoundtripVerifier.
     """
 
     def __init__(self):
-        self._comparison_verifier = ComparisonVerifier()
+        self._roundtrip_verifier = RoundtripVerifier()
 
     def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
         """
@@ -123,11 +123,11 @@ class FileComparisonVerifier(CVVerifier):
         target_file = kwargs.get("target_file")
         
         if not source_file or not target_file:
-            raise ValueError("FileComparisonVerifier requires 'source_file' and 'target_file' parameters")
+            raise ValueError("FileRoundtripVerifier requires 'source_file' and 'target_file' parameters")
         
         with Path(source_file).open("r", encoding="utf-8") as f:
             source_data = json.load(f)
         with Path(target_file).open("r", encoding="utf-8") as f:
             target_data = json.load(f)
         
-        return self._comparison_verifier.verify(source_data, target_data=target_data)
+        return self._roundtrip_verifier.verify(source_data, target_data=target_data)

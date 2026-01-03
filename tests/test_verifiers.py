@@ -6,11 +6,11 @@ import json
 import tempfile
 from cvextract.verifiers import (
     CVVerifier,
-    ExtractedDataVerifier,
-    ComparisonVerifier,
-    FileComparisonVerifier,
-    SchemaVerifier,
+    get_verifier,
 )
+from cvextract.verifiers.data_verifier import ExtractedDataVerifier
+from cvextract.verifiers.comparison_verifier import RoundtripVerifier, FileRoundtripVerifier
+from cvextract.verifiers.schema_verifier import CVSchemaVerifier
 from cvextract.shared import VerificationResult
 
 
@@ -19,7 +19,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_accepts_valid_cv_data(self):
         """Valid CV data should pass verification."""
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         data = {
             "identity": {
                 "title": "Senior Engineer",
@@ -77,12 +77,12 @@ class TestExtractedDataVerifier:
         assert any("missing sidebar" in w for w in result.warnings)
 
 
-class TestComparisonVerifier:
-    """Tests for ComparisonVerifier."""
+class TestRoundtripVerifier:
+    """Tests for RoundtripVerifier."""
 
     def test_verifier_accepts_identical_structures(self):
         """Identical structures should pass comparison."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         data = {"x": 1, "y": [1, 2], "z": {"k": "v"}}
         result = verifier.verify(data, target_data=data)
         assert result.ok is True
@@ -90,7 +90,7 @@ class TestComparisonVerifier:
 
     def test_verifier_detects_missing_keys(self):
         """Missing keys in target should be detected."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         source = {"x": 1, "y": 2}
         target = {"x": 1}
         result = verifier.verify(source, target_data=target)
@@ -99,7 +99,7 @@ class TestComparisonVerifier:
 
     def test_verifier_detects_value_mismatches(self):
         """Value differences should be detected."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         source = {"x": 1}
         target = {"x": 2}
         result = verifier.verify(source, target_data=target)
@@ -108,7 +108,7 @@ class TestComparisonVerifier:
 
     def test_verifier_normalizes_environment_fields(self):
         """Environment fields with different separators should be equivalent."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         source = {
             "experiences": [
                 {"environment": ["Java, Python, Docker"]},
@@ -124,17 +124,17 @@ class TestComparisonVerifier:
 
     def test_verifier_requires_target_data_parameter(self):
         """Verifier should raise error if target_data is missing."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         with pytest.raises(ValueError, match="target_data"):
             verifier.verify({"x": 1})
 
 
-class TestFileComparisonVerifier:
-    """Tests for FileComparisonVerifier."""
+class TestFileRoundtripVerifier:
+    """Tests for FileRoundtripVerifier."""
 
     def test_verifier_compares_json_files(self):
         """Verifier should load and compare JSON files."""
-        verifier = FileComparisonVerifier()
+        verifier = FileRoundtripVerifier()
         
         with tempfile.TemporaryDirectory() as tmpdir:
             source_file = Path(tmpdir) / "source.json"
@@ -152,7 +152,7 @@ class TestFileComparisonVerifier:
 
     def test_verifier_detects_file_differences(self):
         """Verifier should detect differences between files."""
-        verifier = FileComparisonVerifier()
+        verifier = FileRoundtripVerifier()
         
         with tempfile.TemporaryDirectory() as tmpdir:
             source_file = Path(tmpdir) / "source.json"
@@ -172,17 +172,17 @@ class TestFileComparisonVerifier:
 
     def test_verifier_requires_file_parameters(self):
         """Verifier should raise error if file parameters are missing."""
-        verifier = FileComparisonVerifier()
+        verifier = FileRoundtripVerifier()
         with pytest.raises(ValueError, match="source_file.*target_file"):
             verifier.verify({})
 
 
-class TestSchemaVerifier:
-    """Tests for SchemaVerifier."""
+class TestCVSchemaVerifier:
+    """Tests for CVSchemaVerifier."""
 
     def test_verifier_accepts_valid_schema_data(self):
         """Data conforming to schema should pass validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -209,7 +209,7 @@ class TestSchemaVerifier:
 
     def test_verifier_detects_missing_required_fields(self):
         """Missing required fields should fail validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {"sidebar": {}}  # Missing required fields
         result = verifier.verify(data)
         assert result.ok is False
@@ -217,7 +217,7 @@ class TestSchemaVerifier:
 
     def test_verifier_detects_invalid_types(self):
         """Invalid field types should fail validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -237,7 +237,7 @@ class TestSchemaVerifier:
 
     def test_verifier_validates_experience_structure(self):
         """Experience entries must have required fields."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -257,7 +257,7 @@ class TestSchemaVerifier:
 
     def test_identity_missing_field_when_identity_is_none(self):
         """When identity is None, should detect missing required field."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": None,  # None instead of object
             "sidebar": {},
@@ -269,7 +269,7 @@ class TestSchemaVerifier:
 
     def test_identity_field_empty_string_fails_validation(self):
         """Identity fields must be non-empty strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "",  # Empty string
@@ -287,7 +287,7 @@ class TestSchemaVerifier:
 
     def test_identity_field_not_string_fails_validation(self):
         """Identity fields must be strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": 123,  # Not a string
@@ -304,7 +304,7 @@ class TestSchemaVerifier:
 
     def test_sidebar_not_dict_fails_validation(self):
         """Sidebar must be a dict or None."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -322,7 +322,7 @@ class TestSchemaVerifier:
 
     def test_overview_not_string_fails_validation(self):
         """Overview must be string or None."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -340,7 +340,7 @@ class TestSchemaVerifier:
 
     def test_experiences_not_array_fails_validation(self):
         """Experiences must be a list."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -358,7 +358,7 @@ class TestSchemaVerifier:
 
     def test_experience_item_not_dict_fails_validation(self):
         """Each experience must be a dict."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -376,7 +376,7 @@ class TestSchemaVerifier:
 
     def test_experience_missing_heading_fails_validation(self):
         """Experience must have heading field."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -394,7 +394,7 @@ class TestSchemaVerifier:
 
     def test_experience_heading_not_string_fails_validation(self):
         """Experience heading must be string."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -412,7 +412,7 @@ class TestSchemaVerifier:
 
     def test_experience_missing_description_fails_validation(self):
         """Experience must have description field."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -430,7 +430,7 @@ class TestSchemaVerifier:
 
     def test_experience_description_not_string_fails_validation(self):
         """Experience description must be string."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -448,7 +448,7 @@ class TestSchemaVerifier:
 
     def test_experience_bullets_not_array_fails_validation(self):
         """Experience bullets must be array or missing."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -472,7 +472,7 @@ class TestSchemaVerifier:
 
     def test_experience_bullets_items_not_strings_fails_validation(self):
         """Experience bullets items must be strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -496,7 +496,7 @@ class TestSchemaVerifier:
 
     def test_experience_environment_not_array_or_none_fails_validation(self):
         """Experience environment must be array, None, or missing."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -520,7 +520,7 @@ class TestSchemaVerifier:
 
     def test_experience_environment_items_not_strings_fails_validation(self):
         """Experience environment items must be strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -544,7 +544,7 @@ class TestSchemaVerifier:
 
     def test_experience_environment_none_passes_validation(self):
         """Experience environment can be None."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -567,7 +567,7 @@ class TestSchemaVerifier:
 
     def test_empty_bullets_array_passes_validation(self):
         """Empty bullets array should pass validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -590,7 +590,7 @@ class TestSchemaVerifier:
 
     def test_empty_environment_array_passes_validation(self):
         """Empty environment array should pass validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -663,7 +663,7 @@ class TestParameterPassing:
 
     def test_comparison_verifier_accepts_external_source_and_target(self):
         """Comparison verifier should accept both source and target from outside."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         
         # Simulate external data sources
         source_data = {"x": 1, "y": 2}

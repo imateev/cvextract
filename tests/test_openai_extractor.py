@@ -51,7 +51,7 @@ class TestOpenAICVExtractor:
             test_file = tmp_path / "test.xyz"
             test_file.write_text("test content")
             
-            # Mock OpenAI response
+            # Mock _extract_with_openai to return valid CV JSON
             mock_response = {
                 "identity": {
                     "title": "Test",
@@ -68,359 +68,256 @@ class TestOpenAICVExtractor:
                 result = extractor.extract(test_file)
                 assert result['identity']['full_name'] == 'Test User'
 
-    def test_extract_supports_txt_files(self, tmp_path):
-        """extract() supports .txt files via OpenAI API."""
+    def test_load_cv_schema(self):
+        """_load_cv_schema() loads and returns CV schema."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
+            schema = extractor._load_cv_schema()
             
-            # Create test file
-            test_file = tmp_path / "test.txt"
-            test_file.write_text("Test CV content\nJohn Doe\nSoftware Engineer")
-            
-            # Mock OpenAI response
-            mock_response = {
-                "identity": {
-                    "title": "Software Engineer",
-                    "full_name": "John Doe",
-                    "first_name": "John",
-                    "last_name": "Doe"
-                },
-                "sidebar": {
-                    "languages": ["Python"],
-                    "tools": [],
-                    "certifications": [],
-                    "industries": [],
-                    "spoken_languages": ["English"],
-                    "academic_background": []
-                },
-                "overview": "Experienced software engineer",
-                "experiences": []
-            }
-            
-            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
-                result = extractor.extract(test_file)
-                assert result['identity']['full_name'] == 'John Doe'
+            assert isinstance(schema, dict)
+            assert 'properties' in schema
+            assert 'identity' in schema['properties']
+            assert 'sidebar' in schema['properties']
+            assert 'overview' in schema['properties']
+            assert 'experiences' in schema['properties']
 
-    def test_extract_supports_pdf_files(self, tmp_path):
-        """extract() supports .pdf files via OpenAI API."""
+    def test_upload_file_success(self, tmp_path):
+        """_upload_file() successfully uploads file and returns file_id."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
-            
-            # Create test PDF file
             test_file = tmp_path / "test.pdf"
-            test_file.write_bytes(b'%PDF-1.4\ntest content')
-            
-            # Mock OpenAI response
-            mock_response = {
-                "identity": {
-                    "title": "Engineer",
-                    "full_name": "Jane PDF",
-                    "first_name": "Jane",
-                    "last_name": "PDF"
-                },
-                "sidebar": {},
-                "overview": "PDF CV",
-                "experiences": []
-            }
-            
-            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
-                result = extractor.extract(test_file)
-                assert result['identity']['full_name'] == 'Jane PDF'
-
-    def test_extract_supports_docx_files(self, tmp_path):
-        """extract() supports .docx files via OpenAI API."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create a real DOCX file using python-docx
-            from docx import Document
-            doc = Document()
-            doc.add_paragraph("Jane Smith")
-            doc.add_paragraph("Developer")
-            doc.add_paragraph("Experienced developer with Python skills")
-            
-            test_file = tmp_path / "test.docx"
-            doc.save(str(test_file))
-            
-            # Mock OpenAI response
-            mock_response = {
-                "identity": {
-                    "title": "Developer",
-                    "full_name": "Jane Smith",
-                    "first_name": "Jane",
-                    "last_name": "Smith"
-                },
-                "sidebar": {},
-                "overview": "Developer overview",
-                "experiences": []
-            }
-            
-            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
-                result = extractor.extract(test_file)
-                assert result['identity']['full_name'] == 'Jane Smith'
-
-    def test_extract_supports_pptx_files(self, tmp_path):
-        """extract() supports .pptx files via OpenAI API."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create test PPTX file
-            test_file = tmp_path / "test.pptx"
-            test_file.write_bytes(b'PK\x03\x04test pptx content')
-            
-            # Mock OpenAI response
-            mock_response = {
-                "identity": {
-                    "title": "Manager",
-                    "full_name": "PPTX User",
-                    "first_name": "PPTX",
-                    "last_name": "User"
-                },
-                "sidebar": {},
-                "overview": "PPTX CV",
-                "experiences": []
-            }
-            
-            with patch.object(extractor, '_extract_with_openai', return_value=json.dumps(mock_response)):
-                result = extractor.extract(test_file)
-                assert result['identity']['full_name'] == 'PPTX User'
-
-    def test_parse_response_handles_markdown_code_blocks(self, tmp_path):
-        """_parse_and_validate_response() handles markdown code blocks."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create a response with markdown code block
-            response = """```json
-{
-    "identity": {"title": "Test", "full_name": "Test", "first_name": "T", "last_name": "est"},
-    "sidebar": {},
-    "overview": "Test",
-    "experiences": []
-}
-```"""
-            
-            # Load schema
-            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
-            with open(schema_path, 'r') as f:
-                schema = json.load(f)
-            
-            result = extractor._parse_and_validate_response(response, schema)
-            assert result['identity']['full_name'] == 'Test'
-
-    def test_parse_response_validates_required_fields(self, tmp_path):
-        """_parse_and_validate_response() adds missing required fields."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Incomplete response missing some fields
-            response = '{"identity": {"title": "Test", "full_name": "Test", "first_name": "T", "last_name": "est"}}'
-            
-            # Load schema
-            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
-            with open(schema_path, 'r') as f:
-                schema = json.load(f)
-            
-            result = extractor._parse_and_validate_response(response, schema)
-            
-            # Should add missing fields
-            assert 'sidebar' in result
-            assert 'overview' in result
-            assert 'experiences' in result
-
-    def test_extract_full_integration_with_mock(self, tmp_path):
-        """Full integration test with mocked OpenAI API."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            # Create test file
-            test_file = tmp_path / "cv.txt"
-            test_file.write_text("""
-John Doe
-Senior Software Engineer
-
-Skills: Python, Java, JavaScript
-Languages: English, Spanish
-
-Overview:
-Experienced software engineer with 10 years in the industry.
-
-Experience:
-2020-Present | Senior Engineer at TechCorp
-- Led development of microservices
-- Managed team of 5 engineers
-
-2015-2020 | Software Engineer at StartupCo
-- Developed web applications
-- Improved system performance
-""")
+            test_file.write_text("test content")
             
             # Mock the OpenAI client
-            mock_client = MagicMock()
             mock_response = MagicMock()
-            mock_response.choices = [MagicMock()]
-            mock_response.choices[0].message.content = json.dumps({
-                "identity": {
-                    "title": "Senior Software Engineer",
-                    "full_name": "John Doe",
-                    "first_name": "John",
-                    "last_name": "Doe"
-                },
-                "sidebar": {
-                    "languages": ["Python", "Java", "JavaScript"],
-                    "tools": [],
-                    "certifications": [],
-                    "industries": ["Technology"],
-                    "spoken_languages": ["English", "Spanish"],
-                    "academic_background": []
-                },
-                "overview": "Experienced software engineer with 10 years in the industry.",
-                "experiences": [
-                    {
-                        "heading": "2020-Present | Senior Engineer at TechCorp",
-                        "description": "Led development of microservices",
-                        "bullets": ["Led development of microservices", "Managed team of 5 engineers"],
-                        "environment": ["Microservices"]
-                    },
-                    {
-                        "heading": "2015-2020 | Software Engineer at StartupCo",
-                        "description": "Developed web applications",
-                        "bullets": ["Developed web applications", "Improved system performance"],
-                        "environment": None
-                    }
-                ]
-            })
-            mock_client.chat.completions.create.return_value = mock_response
+            mock_response.id = "file_id_12345"
+            extractor.client.files.create = MagicMock(return_value=mock_response)
             
+            file_id = extractor._upload_file(test_file)
+            
+            assert file_id == "file_id_12345"
+            extractor.client.files.create.assert_called_once()
+
+    def test_upload_file_raises_on_error(self, tmp_path):
+        """_upload_file() raises RuntimeError when upload fails."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
-            extractor.client = mock_client
+            test_file = tmp_path / "test.pdf"
+            test_file.write_text("test content")
             
-            # Extract - OpenAI API receives the file path, not content
-            result = extractor.extract(test_file)
+            extractor.client.files.create = MagicMock(side_effect=Exception("Upload failed"))
             
-            # Verify result
+            with pytest.raises(RuntimeError, match="Failed to upload file to OpenAI"):
+                extractor._upload_file(test_file)
+
+    def test_extract_with_openai_success(self, tmp_path):
+        """_extract_with_openai() successfully extracts data using Assistants API."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            with patch('cvextract.extractors.openai_extractor.OpenAI'):
+                extractor = OpenAICVExtractor()
+                test_file = tmp_path / "test.pdf"
+                test_file.write_text("test content")
+                
+                schema = extractor._load_cv_schema()
+                
+                # Mock OpenAI client methods
+                mock_file = MagicMock()
+                mock_file.id = "file_123"
+                extractor.client.files.create = MagicMock(return_value=mock_file)
+                
+                mock_assistant = MagicMock()
+                mock_assistant.id = "asst_123"
+                extractor.client.beta.assistants.create = MagicMock(return_value=mock_assistant)
+                
+                mock_thread = MagicMock()
+                mock_thread.id = "thread_123"
+                extractor.client.beta.threads.create = MagicMock(return_value=mock_thread)
+                
+                mock_run = MagicMock()
+                mock_run.status = "completed"
+                extractor.client.beta.threads.runs.create = MagicMock(return_value=mock_run)
+                extractor.client.beta.threads.runs.retrieve = MagicMock(return_value=mock_run)
+                
+                mock_message = MagicMock()
+                mock_message.content = [MagicMock()]
+                mock_message.content[0].text = '{"identity": {"title": "Test", "full_name": "Test", "first_name": "T", "last_name": "est"}, "sidebar": {}, "overview": "Test", "experiences": []}'
+                mock_messages = MagicMock()
+                mock_messages.data = [mock_message]
+                extractor.client.beta.threads.messages.list = MagicMock(return_value=mock_messages)
+                extractor.client.beta.threads.messages.create = MagicMock()
+                
+                result = extractor._extract_with_openai(test_file, schema)
+                
+                assert isinstance(result, str)
+                assert "Test" in result
+
+    def test_extract_with_openai_assistant_creation_failure(self, tmp_path):
+        """_extract_with_openai() raises RuntimeError when assistant creation fails."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            test_file = tmp_path / "test.pdf"
+            test_file.write_text("test content")
+            
+            schema = extractor._load_cv_schema()
+            
+            mock_file = MagicMock()
+            mock_file.id = "file_123"
+            extractor.client.files.create = MagicMock(return_value=mock_file)
+            
+            extractor.client.beta.assistants.create = MagicMock(side_effect=Exception("Assistant creation failed"))
+            
+            with pytest.raises(RuntimeError, match="Failed to create OpenAI assistant"):
+                extractor._extract_with_openai(test_file, schema)
+
+    def test_extract_with_openai_message_creation_failure(self, tmp_path):
+        """_extract_with_openai() raises RuntimeError when message creation fails."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            test_file = tmp_path / "test.pdf"
+            test_file.write_text("test content")
+            
+            schema = extractor._load_cv_schema()
+            
+            mock_file = MagicMock()
+            mock_file.id = "file_123"
+            extractor.client.files.create = MagicMock(return_value=mock_file)
+            
+            mock_assistant = MagicMock()
+            mock_assistant.id = "asst_123"
+            extractor.client.beta.assistants.create = MagicMock(return_value=mock_assistant)
+            
+            mock_thread = MagicMock()
+            mock_thread.id = "thread_123"
+            extractor.client.beta.threads.create = MagicMock(return_value=mock_thread)
+            
+            extractor.client.beta.threads.messages.create = MagicMock(side_effect=Exception("Message creation failed"))
+            
+            with pytest.raises(RuntimeError, match="Failed to create message in OpenAI thread"):
+                extractor._extract_with_openai(test_file, schema)
+
+    def test_extract_with_openai_run_failed(self, tmp_path):
+        """_extract_with_openai() raises RuntimeError when run fails."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            with patch('cvextract.extractors.openai_extractor.OpenAI'):
+                extractor = OpenAICVExtractor()
+                test_file = tmp_path / "test.pdf"
+                test_file.write_text("test content")
+                
+                schema = extractor._load_cv_schema()
+                
+                mock_file = MagicMock()
+                mock_file.id = "file_123"
+                extractor.client.files.create = MagicMock(return_value=mock_file)
+                
+                mock_assistant = MagicMock()
+                mock_assistant.id = "asst_123"
+                extractor.client.beta.assistants.create = MagicMock(return_value=mock_assistant)
+                
+                mock_thread = MagicMock()
+                mock_thread.id = "thread_123"
+                extractor.client.beta.threads.create = MagicMock(return_value=mock_thread)
+                extractor.client.beta.threads.messages.create = MagicMock()
+                
+                mock_run = MagicMock()
+                mock_run.status = "failed"
+                extractor.client.beta.threads.runs.create = MagicMock(return_value=mock_run)
+                
+                with pytest.raises(RuntimeError, match="Assistant run failed with status"):
+                    extractor._extract_with_openai(test_file, schema)
+
+    def test_parse_and_validate_with_code_blocks_json(self):
+        """_parse_and_validate() handles markdown code blocks with json label."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            schema = extractor._load_cv_schema()
+            
+            response = '''```json
+{"identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"}, "sidebar": {}, "overview": "Test", "experiences": []}
+```'''
+            
+            result = extractor._parse_and_validate(response, schema)
             assert result['identity']['full_name'] == 'John Doe'
-            assert result['identity']['title'] == 'Senior Software Engineer'
-            assert 'Python' in result['sidebar']['languages']
-            assert 'English' in result['sidebar']['spoken_languages']
-            assert len(result['experiences']) == 2
-            assert result['experiences'][0]['heading'].startswith('2020-Present')
 
-    def test_extract_handles_openai_api_error(self, tmp_path):
-        """extract() handles OpenAI API errors gracefully."""
+    def test_parse_and_validate_with_code_blocks_plain(self):
+        """_parse_and_validate() handles plain markdown code blocks."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
+            schema = extractor._load_cv_schema()
             
-            # Create test file
-            test_file = tmp_path / "test.txt"
-            test_file.write_text("Test CV content")
+            response = '''```
+{"identity": {"title": "Engineer", "full_name": "Jane Smith", "first_name": "Jane", "last_name": "Smith"}, "sidebar": {}, "overview": "Test", "experiences": []}
+```'''
             
-            # Mock _extract_with_openai to raise an exception
-            with patch.object(extractor, '_extract_with_openai', side_effect=Exception("API Error")):
-                with pytest.raises(Exception, match="API Error"):
-                    extractor.extract(test_file)
+            result = extractor._parse_and_validate(response, schema)
+            assert result['identity']['full_name'] == 'Jane Smith'
 
-    def test_parse_response_handles_plain_markdown_blocks(self, tmp_path):
-        """_parse_and_validate_response() handles plain markdown blocks (without json label)."""
+    def test_parse_and_validate_without_code_blocks(self):
+        """_parse_and_validate() handles raw JSON without code blocks."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
+            schema = extractor._load_cv_schema()
             
-            # Create a response with plain markdown code block (no json label)
-            response = """```
-{
-    "identity": {"title": "Test", "full_name": "Test User", "first_name": "Test", "last_name": "User"},
-    "sidebar": {},
-    "overview": "Test overview",
-    "experiences": []
-}
-```"""
+            response = '{"identity": {"title": "Dev", "full_name": "Bob Wilson", "first_name": "Bob", "last_name": "Wilson"}, "sidebar": {}, "overview": "Test", "experiences": []}'
             
-            # Load schema
-            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
-            with open(schema_path, 'r') as f:
-                schema = json.load(f)
-            
-            result = extractor._parse_and_validate_response(response, schema)
-            assert result['identity']['full_name'] == 'Test User'
+            result = extractor._parse_and_validate(response, schema)
+            assert result['identity']['full_name'] == 'Bob Wilson'
 
-    def test_parse_response_handles_invalid_json(self, tmp_path):
-        """_parse_and_validate_response() raises error for invalid JSON."""
+    def test_parse_and_validate_invalid_json(self):
+        """_parse_and_validate() raises ValueError for invalid JSON."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
+            schema = extractor._load_cv_schema()
             
-            # Invalid JSON response
-            response = '{"identity": invalid json here}'
+            response = '{"identity": {invalid json}}'
             
-            # Load schema
-            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
-            with open(schema_path, 'r') as f:
-                schema = json.load(f)
-            
-            with pytest.raises(ValueError, match="OpenAI returned invalid JSON"):
-                extractor._parse_and_validate_response(response, schema)
+            with pytest.raises(ValueError, match="Failed to parse response as JSON"):
+                extractor._parse_and_validate(response, schema)
 
-    def test_parse_response_handles_missing_identity(self, tmp_path):
-        """_parse_and_validate_response() adds default identity when missing."""
+    def test_parse_and_validate_schema_mismatch(self):
+        """_parse_and_validate() raises ValueError when data doesn't match schema."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
+            schema = extractor._load_cv_schema()
             
-            # Response with invalid identity (not a dict)
-            response = '{"identity": "not a dict", "sidebar": {}, "overview": "", "experiences": []}'
+            # Missing required fields
+            response = '{"identity": {"title": "Test"}}'
             
-            # Load schema
-            schema_path = Path(__file__).parent.parent / "cvextract" / "contracts" / "cv_schema.json"
-            with open(schema_path, 'r') as f:
-                schema = json.load(f)
-            
-            result = extractor._parse_and_validate_response(response, schema)
-            
-            # Should have default identity structure
-            assert isinstance(result['identity'], dict)
-            assert 'title' in result['identity']
-            assert 'full_name' in result['identity']
-            assert 'first_name' in result['identity']
-            assert 'last_name' in result['identity']
+            with pytest.raises(ValueError, match="Response does not match schema"):
+                extractor._parse_and_validate(response, schema)
 
-    def test_extract_raises_runtime_error_when_system_prompt_fails_to_load(self, tmp_path):
+    def test_extract_with_openai_system_prompt_fails_to_load(self, tmp_path):
         """_extract_with_openai() raises RuntimeError when system prompt fails to load."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create test file
-            test_file = tmp_path / "test.txt"
-            test_file.write_text("Test CV content")
-            
-            # Mock load_prompt to return None for system prompt
-            with patch('cvextract.extractors.openai_extractor.load_prompt', return_value=None):
-                with pytest.raises(RuntimeError, match="Failed to load CV extraction system prompt"):
-                    extractor.extract(test_file)
+            with patch('cvextract.extractors.openai_extractor.OpenAI'):
+                extractor = OpenAICVExtractor()
+                test_file = tmp_path / "test.pdf"
+                test_file.write_text("test content")
+                
+                schema = extractor._load_cv_schema()
+                
+                mock_file = MagicMock()
+                mock_file.id = "file_123"
+                extractor.client.files.create = MagicMock(return_value=mock_file)
+                
+                with patch('cvextract.extractors.openai_extractor.load_prompt', return_value=None):
+                    with pytest.raises(RuntimeError, match="Failed to load system prompt"):
+                        extractor._extract_with_openai(test_file, schema)
 
-    def test_extract_raises_runtime_error_when_user_prompt_fails_to_format(self, tmp_path):
+    def test_extract_with_openai_user_prompt_fails_to_format(self, tmp_path):
         """_extract_with_openai() raises RuntimeError when user prompt fails to format."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create test file
-            test_file = tmp_path / "test.txt"
-            test_file.write_text("Test CV content")
-            
-            # Mock load_prompt to succeed but format_prompt to fail
-            with patch('cvextract.extractors.openai_extractor.load_prompt', return_value="System prompt"):
-                with patch('cvextract.extractors.openai_extractor.format_prompt', return_value=None):
-                    with pytest.raises(RuntimeError, match="Failed to format CV extraction user prompt"):
-                        extractor.extract(test_file)
-
-    def test_extract_raises_exception_when_openai_api_fails(self, tmp_path):
-        """_extract_with_openai() raises Exception when OpenAI API call fails."""
-        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
-            extractor = OpenAICVExtractor()
-            
-            # Create test file
-            test_file = tmp_path / "test.txt"
-            test_file.write_text("Test CV content")
-            
-            # Mock the OpenAI client to raise an exception
-            mock_client = MagicMock()
-            mock_client.chat.completions.create.side_effect = Exception("API connection failed")
-            extractor.client = mock_client
-            
-            with pytest.raises(Exception, match="Failed to send document to OpenAI: API connection failed"):
-                extractor.extract(test_file)
+            with patch('cvextract.extractors.openai_extractor.OpenAI'):
+                extractor = OpenAICVExtractor()
+                test_file = tmp_path / "test.pdf"
+                test_file.write_text("test content")
+                
+                schema = extractor._load_cv_schema()
+                
+                mock_file = MagicMock()
+                mock_file.id = "file_123"
+                extractor.client.files.create = MagicMock(return_value=mock_file)
+                
+                with patch('cvextract.extractors.openai_extractor.load_prompt', return_value="System prompt"):
+                    with patch('cvextract.extractors.openai_extractor.format_prompt', return_value=None):
+                        with pytest.raises(RuntimeError, match="Failed to format user prompt"):
+                            extractor._extract_with_openai(test_file, schema)

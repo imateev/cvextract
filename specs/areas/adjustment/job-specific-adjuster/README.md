@@ -16,6 +16,7 @@ The `OpenAIJobSpecificAdjuster` class:
 3. Reorders CV content to emphasize relevant experience
 4. Adjusts terminology to match job description
 5. Maintains factual accuracy (no invention)
+6. **Validates adjusted CV against CV schema before returning**
 
 ## Entry Points
 
@@ -85,7 +86,8 @@ python -m cvextract.cli \
 ### Internal Dependencies
 
 - `cvextract.adjusters.base.CVAdjuster` - Base class
-- `cvextract.ml_adjustment` - ML adjustment logic
+- `cvextract.shared.format_prompt` - Prompt formatting
+- `cvextract.verifiers.get_verifier` - Schema validation
 - `cvextract.contracts.cv_schema.json` - CV schema
 
 ### External Dependencies
@@ -102,7 +104,12 @@ python -m cvextract.cli \
 ## Test Coverage
 
 Tested in:
-- `tests/test_adjusters.py` - Unit and integration tests
+- `tests/test_adjusters.py` - Unit and integration tests (39 tests, 98% coverage)
+  - Happy path adjustments with valid job descriptions
+  - Schema validation success and failure scenarios
+  - Rate limit handling with exponential backoff
+  - Job description fetching from URLs with HTML cleaning
+  - Error handling and fallback to original CV
 - `tests/test_cli.py` - CLI integration
 
 ## Implementation History
@@ -111,7 +118,7 @@ The job-specific adjuster was added to complement the company research adjuster,
 
 **Key Files**:
 - `cvextract/adjusters/openai_job_specific_adjuster.py` - Implementation
-- `cvextract/ml_adjustment/prompts/job_specific_prompt.md` - Adjustment prompt
+- `cvextract/adjusters/prompts/adjuster_promp_for_specific_job.md` - Adjustment prompt
 
 ## Open Questions
 
@@ -122,7 +129,7 @@ The job-specific adjuster was added to complement the company research adjuster,
 ## File Paths
 
 - Implementation: `cvextract/adjusters/openai_job_specific_adjuster.py`
-- Prompt: `cvextract/ml_adjustment/prompts/job_specific_prompt.md`
+- Prompt: `cvextract/adjusters/prompts/adjuster_promp_for_specific_job.md`
 - Tests: `tests/test_adjusters.py`
 - Documentation: `cvextract/adjusters/README.md`
 

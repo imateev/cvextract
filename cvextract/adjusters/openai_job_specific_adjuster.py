@@ -24,7 +24,8 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 from .base import CVAdjuster
-from ..ml_adjustment.prompt_loader import format_prompt
+from ..shared import format_prompt
+from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
 
@@ -144,7 +145,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 return cv_data
         
         # Build prompt using template
-        system_prompt = format_prompt("job_specific_prompt", job_description=job_description)
+        system_prompt = format_prompt("adjuster_promp_for_specific_job", job_description=job_description)
         
         if not system_prompt:
             LOG.warning("Job-specific adjust skipped: failed to load prompt template")
@@ -155,10 +156,6 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         base_wait = 2.0  # Start with 2 seconds for our custom backoff
         
         # Create OpenAI client once (reuse across retries)
-        if OpenAI is None:
-            LOG.warning("Job-specific adjust skipped: OpenAI library not available")
-            return cv_data
-        
         client = OpenAI(
             api_key=self._api_key,
             max_retries=5,  # SDK's built-in retries (handles initial rate limit gracefully)
@@ -190,8 +187,19 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 try:
                     adjusted = json.loads(content)
                     if adjusted is not None:
-                        LOG.info("The CV was adjusted to better fit the job description.")
-                        return adjusted
+                        # Validate adjusted CV against schema
+                        cv_verifier = get_verifier("cv-schema-verifier")
+                        validation_result = cv_verifier.verify(adjusted)
+                        
+                        if validation_result.ok:
+                            LOG.info("The CV was adjusted to better fit the job description.")
+                            return adjusted
+                        else:
+                            LOG.warning(
+                                "Job-specific adjust: adjusted CV failed schema validation (%d errors); using original JSON.",
+                                len(validation_result.errors)
+                            )
+                            return cv_data
                     LOG.warning("Job-specific adjust: completion is not a dict; using original JSON.")
                     return cv_data
                 except Exception:

@@ -1,8 +1,8 @@
-# Comparison Verifiers
+# Roundtrip Verifiers
 
 ## Overview
 
-Comparison verifiers check equivalence between two CV data structures, primarily used for roundtrip verification (extract → render → extract comparison).
+Roundtrip verifiers check equivalence between two CV data structures, primarily used for roundtrip verification (extract → render → extract comparison).
 
 ## Status
 
@@ -11,8 +11,8 @@ Comparison verifiers check equivalence between two CV data structures, primarily
 ## Description
 
 Two implementations:
-1. **`ComparisonVerifier`**: Compares in-memory data structures
-2. **`FileComparisonVerifier`**: Loads and compares JSON files
+1. **`RoundtripVerifier`**: Compares in-memory data structures
+2. **`FileRoundtripVerifier`**: Loads and compares JSON files
 
 Both check:
 - Structural equivalence
@@ -22,12 +22,12 @@ Both check:
 
 ## Entry Points
 
-### ComparisonVerifier (In-Memory)
+### RoundtripVerifier (In-Memory)
 
 ```python
-from cvextract.verifiers import ComparisonVerifier
+from cvextract.verifiers import get_verifier
 
-verifier = ComparisonVerifier()
+verifier = get_verifier("roundtrip-verifier")
 result = verifier.verify(original_data, target_data=roundtrip_data)
 
 if result.ok:
@@ -36,13 +36,13 @@ else:
     print(f"Differences: {result.errors}")
 ```
 
-### FileComparisonVerifier (Files)
+### FileRoundtripVerifier (Files)
 
 ```python
-from cvextract.verifiers import FileComparisonVerifier
+from cvextract.verifiers import get_verifier
 from pathlib import Path
 
-verifier = FileComparisonVerifier()
+verifier = get_verifier("file-roundtrip-verifier")
 result = verifier.verify(
     {},  # Not used
     source_file=Path("original.json"),
@@ -57,15 +57,15 @@ Used in roundtrip verification:
 ```python
 # In pipeline
 result = render_and_verify(...)
-# Internally uses ComparisonVerifier for roundtrip check
+# Internally uses RoundtripVerifier for roundtrip check
 ```
 
 ## Configuration
 
 ### Parameters
 
-- **ComparisonVerifier**: `verify(data, target_data=...)`
-- **FileComparisonVerifier**: `verify(data, source_file=..., target_file=...)`
+- **RoundtripVerifier**: `verify(data, target_data=...)`
+- **FileRoundtripVerifier**: `verify(data, source_file=..., target_file=...)`
 
 ## Interfaces
 

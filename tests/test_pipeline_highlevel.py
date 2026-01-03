@@ -3,7 +3,7 @@
 import json
 from unittest.mock import Mock, patch
 from cvextract.pipeline_highlevel import extract_cv_structure, render_cv_data, process_single_docx
-from cvextract.verifiers import ExtractedDataVerifier
+from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
 
@@ -242,7 +242,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "Jan 2020 - Present", "description": "d", "bullets": ["b"], "environment": ["Python"]}],
         }
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert isinstance(res, VerificationResult)
         assert res.ok is True
@@ -251,7 +251,7 @@ class TestExtractedDataVerification:
     def test_verify_with_missing_identity_returns_error(self):
         """When identity is missing or empty, should return ok=False with error."""
         data = {"identity": {}, "sidebar": {"languages": ["EN"]}, "overview": "hi", "experiences": [{"heading": "h", "description": "d"}]}
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert res.ok is False
         assert "identity" in res.errors
@@ -264,7 +264,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert res.ok is False
         assert "sidebar" in res.errors
@@ -277,7 +277,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert res.ok is True
         assert any("missing sidebar" in w for w in res.warnings)
@@ -290,7 +290,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d", "environment": "Python"}],  # should be list or None
         }
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert res.ok is True
         assert any("invalid environment format" in w for w in res.warnings)
@@ -303,7 +303,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [],
         }
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert res.ok is False
         assert "experiences_empty" in res.errors

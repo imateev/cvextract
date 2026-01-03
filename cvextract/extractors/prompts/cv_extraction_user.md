@@ -1,4 +1,4 @@
-Please extract all CV/resume information from the provided document and return it as valid JSON conforming to this schema:
+Please extract all CV/resume information from the provided document content and return it as valid JSON conforming to this schema:
 
 {schema_json}
 
@@ -15,4 +15,4 @@ Extraction guidelines:
 
 Return ONLY the JSON object, no markdown, no code blocks, no additional text.
 
-Document file: {file_name}
+Document file name: {file_name}

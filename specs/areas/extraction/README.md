@@ -51,14 +51,15 @@ Structured JSON Data
 
 - **CLI**: `--extract source=<path> name=<extractor-name>`
 - **Pipeline**: `cvextract.pipeline_highlevel.extract_cv_structure()`
-- **Verification**: Extracted data is validated by `ExtractedDataVerifier` and `SchemaVerifier`
+- **Verification**: Extracted data is validated by `ExtractedDataVerifier` and `CVSchemaVerifier`
 
 ## Dependencies
 
-- **Internal**: `cvextract.contracts` (CV schema), `cvextract.shared` (common types)
+- **Internal**: `cvextract.contracts` (CV schema), `cvextract.shared` (prompt loading)
 - **External**: 
-  - `python-docx` (DOCX parsing for private-internal-extractor)
+  - `lxml` (XML parsing for private-internal-extractor)
   - `openai` (OpenAI API for openai-extractor)
+  - `requests` (HTTP client for openai-extractor)
 
 ## File References
 

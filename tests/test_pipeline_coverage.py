@@ -1,7 +1,7 @@
 """Tests for improved coverage of pipeline module critical paths."""
 
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from cvextract.pipeline_helpers import (
     extract_single,
     categorize_result,
@@ -9,6 +9,7 @@ from cvextract.pipeline_helpers import (
     render_and_verify,
     infer_source_root,
 )
+from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
 
@@ -29,11 +30,14 @@ class TestExtractSingle:
             "experiences": [{"heading": "Job", "description": "Work", "bullets": ["Item"]}],
         }
         
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+        
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
+             patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
             mock_extract.return_value = mock_data
-            mock_verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+            mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
             
@@ -49,20 +53,16 @@ class TestExtractSingle:
         
         mock_data = {"identity": {}}  # Missing required fields
         
-        with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
+        with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
             
             mock_extract.return_value = mock_data
-            mock_verify.return_value = VerificationResult(
-                ok=False, 
-                errors=["Missing identity fields"],
-                warnings=[]
-            )
             
             ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
             
+            # The actual verifier will catch these errors
             assert ok is False
-            assert "Missing identity fields" in errors
+            # Check that there are errors for missing fields
+            assert len(errors) > 0
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -106,15 +106,18 @@ class TestExtractSingle:
             "experiences": [],
         }
         
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = VerificationResult(
+            ok=True,
+            errors=[],
+            warnings=["Warning message"]
+        )
+        
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
+             patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
             mock_extract.return_value = mock_data
-            mock_verify.return_value = VerificationResult(
-                ok=True,
-                errors=[],
-                warnings=["Warning message"]
-            )
+            mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
             
@@ -141,13 +144,16 @@ class TestRenderAndVerify:
         
         rendered_docx = out_dir / "test_NEW.docx"
         
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+        
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, \
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
-             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
+             patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = json.loads(json_path.read_text())
-            mock_compare.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+            mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warns, compare_ok = render_and_verify(
                 json_path, template_path, out_dir, debug=False
@@ -199,13 +205,16 @@ class TestRenderAndVerify:
         
         rendered_docx = out_dir / "test_NEW.docx"
         
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+        
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, \
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
-             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
+             patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = test_data
-            mock_compare.return_value = VerificationResult(ok=True, errors=[], warnings=[])
+            mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warns, compare_ok = render_and_verify(
                 json_path, template_path, out_dir, debug=False,
@@ -232,17 +241,20 @@ class TestRenderAndVerify:
         
         rendered_docx = out_dir / "test_NEW.docx"
         
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = VerificationResult(
+            ok=False,
+            errors=["Mismatch detected"],
+            warnings=[]
+        )
+        
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, \
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
-             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
+             patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
-            mock_compare.return_value = VerificationResult(
-                ok=False,
-                errors=["Mismatch detected"],
-                warnings=[]
-            )
+            mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warns, compare_ok = render_and_verify(
                 json_path, template_path, out_dir, debug=False
