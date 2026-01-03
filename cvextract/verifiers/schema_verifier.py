@@ -14,7 +14,7 @@ from .base import CVVerifier
 from ..shared import VerificationResult
 
 
-class SchemaVerifier(CVVerifier):
+class CVSchemaVerifier(CVVerifier):
     """
     Verifier that validates CV data against cv_schema.json.
     

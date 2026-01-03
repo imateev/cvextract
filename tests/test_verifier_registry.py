@@ -31,7 +31,7 @@ class TestVerifierRegistry:
         assert 'private-internal-verifier' in names
         assert 'roundtrip-verifier' in names
         assert 'file-roundtrip-verifier' in names
-        assert 'schema-verifier' in names
+        assert 'cv-schema-verifier' in names
         
         # Each should have a description
         for verifier in verifiers:
@@ -63,8 +63,8 @@ class TestVerifierRegistry:
         assert isinstance(verifier, CVVerifier)
 
     def test_get_verifier_returns_schema_verifier(self):
-        """get_verifier() returns schema-verifier instance."""
-        verifier = get_verifier('schema-verifier')
+        """get_verifier() returns cv-schema-verifier instance."""
+        verifier = get_verifier('cv-schema-verifier')
         
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
@@ -77,9 +77,9 @@ class TestVerifierRegistry:
 
     def test_get_verifier_with_kwargs(self):
         """get_verifier() passes kwargs to verifier constructor."""
-        # SchemaVerifier accepts schema_path parameter
+        # CVSchemaVerifier accepts schema_path parameter
         schema_path = Path('/tmp/test_schema.json')
-        verifier = get_verifier('schema-verifier', schema_path=schema_path)
+        verifier = get_verifier('cv-schema-verifier', schema_path=schema_path)
         
         assert verifier is not None
         assert hasattr(verifier, 'schema_path')

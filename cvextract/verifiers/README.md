@@ -56,19 +56,19 @@ else:
     print(f"Warnings: {result.warnings}")
 ```
 
-#### SchemaVerifier
+#### CVSchemaVerifier
 
 Validates CV data against the JSON schema defined in `cv_schema.json`:
 
 ```python
-from cvextract.verifiers import SchemaVerifier
+from cvextract.verifiers import CVSchemaVerifier
 from pathlib import Path
 
 # Use default schema location (cv_schema.json in contracts/ directory)
-verifier = SchemaVerifier()
+verifier = CVSchemaVerifier()
 
 # Or specify custom schema path
-verifier = SchemaVerifier(schema_path=Path("custom_schema.json"))
+verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
 
 result = verifier.verify(cv_data)
 ```
@@ -202,12 +202,12 @@ result = get_verifier("roundtrip-verifier").verify(original_data, target_data=ro
 ### Using Multiple Verifiers
 
 ```python
-from cvextract.verifiers import ExtractedDataVerifier, SchemaVerifier
+from cvextract.verifiers import ExtractedDataVerifier, CVSchemaVerifier
 
 cv_data = {...}
 
 # First verify against schema
-schema_verifier = SchemaVerifier()
+schema_verifier = CVSchemaVerifier()
 schema_result = schema_verifier.verify(cv_data)
 
 if schema_result.ok:
@@ -287,7 +287,7 @@ cvextract/verifiers/
 ├── base.py                  # CVVerifier abstract base class
 ├── data_verifier.py         # ExtractedDataVerifier implementation
 ├── comparison_verifier.py   # RoundtripVerifier and FileRoundtripVerifier
-├── schema_verifier.py       # SchemaVerifier implementation
+├── schema_verifier.py       # CVSchemaVerifier implementation
 └── README.md                # This file
 ```
 

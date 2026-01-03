@@ -10,7 +10,7 @@ from cvextract.verifiers import (
     ExtractedDataVerifier,
     RoundtripVerifier,
     FileRoundtripVerifier,
-    SchemaVerifier,
+    CVSchemaVerifier,
 )
 from cvextract.shared import VerificationResult
 
@@ -178,12 +178,12 @@ class TestFileRoundtripVerifier:
             verifier.verify({})
 
 
-class TestSchemaVerifier:
-    """Tests for SchemaVerifier."""
+class TestCVSchemaVerifier:
+    """Tests for CVSchemaVerifier."""
 
     def test_verifier_accepts_valid_schema_data(self):
         """Data conforming to schema should pass validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -210,7 +210,7 @@ class TestSchemaVerifier:
 
     def test_verifier_detects_missing_required_fields(self):
         """Missing required fields should fail validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {"sidebar": {}}  # Missing required fields
         result = verifier.verify(data)
         assert result.ok is False
@@ -218,7 +218,7 @@ class TestSchemaVerifier:
 
     def test_verifier_detects_invalid_types(self):
         """Invalid field types should fail validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -238,7 +238,7 @@ class TestSchemaVerifier:
 
     def test_verifier_validates_experience_structure(self):
         """Experience entries must have required fields."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -258,7 +258,7 @@ class TestSchemaVerifier:
 
     def test_identity_missing_field_when_identity_is_none(self):
         """When identity is None, should detect missing required field."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": None,  # None instead of object
             "sidebar": {},
@@ -270,7 +270,7 @@ class TestSchemaVerifier:
 
     def test_identity_field_empty_string_fails_validation(self):
         """Identity fields must be non-empty strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "",  # Empty string
@@ -288,7 +288,7 @@ class TestSchemaVerifier:
 
     def test_identity_field_not_string_fails_validation(self):
         """Identity fields must be strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": 123,  # Not a string
@@ -305,7 +305,7 @@ class TestSchemaVerifier:
 
     def test_sidebar_not_dict_fails_validation(self):
         """Sidebar must be a dict or None."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -323,7 +323,7 @@ class TestSchemaVerifier:
 
     def test_overview_not_string_fails_validation(self):
         """Overview must be string or None."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -341,7 +341,7 @@ class TestSchemaVerifier:
 
     def test_experiences_not_array_fails_validation(self):
         """Experiences must be a list."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -359,7 +359,7 @@ class TestSchemaVerifier:
 
     def test_experience_item_not_dict_fails_validation(self):
         """Each experience must be a dict."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -377,7 +377,7 @@ class TestSchemaVerifier:
 
     def test_experience_missing_heading_fails_validation(self):
         """Experience must have heading field."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -395,7 +395,7 @@ class TestSchemaVerifier:
 
     def test_experience_heading_not_string_fails_validation(self):
         """Experience heading must be string."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -413,7 +413,7 @@ class TestSchemaVerifier:
 
     def test_experience_missing_description_fails_validation(self):
         """Experience must have description field."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -431,7 +431,7 @@ class TestSchemaVerifier:
 
     def test_experience_description_not_string_fails_validation(self):
         """Experience description must be string."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -449,7 +449,7 @@ class TestSchemaVerifier:
 
     def test_experience_bullets_not_array_fails_validation(self):
         """Experience bullets must be array or missing."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -473,7 +473,7 @@ class TestSchemaVerifier:
 
     def test_experience_bullets_items_not_strings_fails_validation(self):
         """Experience bullets items must be strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -497,7 +497,7 @@ class TestSchemaVerifier:
 
     def test_experience_environment_not_array_or_none_fails_validation(self):
         """Experience environment must be array, None, or missing."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -521,7 +521,7 @@ class TestSchemaVerifier:
 
     def test_experience_environment_items_not_strings_fails_validation(self):
         """Experience environment items must be strings."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -545,7 +545,7 @@ class TestSchemaVerifier:
 
     def test_experience_environment_none_passes_validation(self):
         """Experience environment can be None."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -568,7 +568,7 @@ class TestSchemaVerifier:
 
     def test_empty_bullets_array_passes_validation(self):
         """Empty bullets array should pass validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -591,7 +591,7 @@ class TestSchemaVerifier:
 
     def test_empty_environment_array_passes_validation(self):
         """Empty environment array should pass validation."""
-        verifier = SchemaVerifier()
+        verifier = CVSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",

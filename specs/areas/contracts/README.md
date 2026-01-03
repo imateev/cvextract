@@ -40,7 +40,7 @@ ML Adjustment → Produces research data conforming to research_schema.json
 - **Extractors**: All extractors must produce data matching `cv_schema.json`
 - **Adjusters**: Input/output must conform to `cv_schema.json`
 - **Renderers**: Templates expect data matching `cv_schema.json`
-- **Verifiers**: `SchemaVerifier` validates against schemas
+- **Verifiers**: `CVSchemaVerifier` validates against schemas
 - **ML Adjustment**: Research cached using `research_schema.json`
 
 ## Dependencies

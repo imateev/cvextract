@@ -32,7 +32,7 @@ def get_verifier(name: str, **kwargs) -> Optional[CVVerifier]:
     Get a verifier instance by name.
     
     Args:
-        name: The verifier name (e.g., "data-verifier", "schema-verifier")
+        name: The verifier name (e.g., "data-verifier", "cv-schema-verifier")
         **kwargs: Arguments to pass to the verifier constructor
     
     Returns:

@@ -209,11 +209,11 @@ class TestOpenAICVExtractor:
             assert result['identity']['full_name'] == 'Test'
 
     def test_parse_response_validates_required_fields(self, tmp_path):
-        """_parse_and_validate_response() adds missing required fields."""
+        """_parse_and_validate_response() validates against schema using CVSchemaVerifier."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
-            # Incomplete response missing some fields
+            # Incomplete response missing required fields
             response = '{"identity": {"title": "Test", "full_name": "Test", "first_name": "T", "last_name": "est"}}'
             
             # Load schema
@@ -221,12 +221,9 @@ class TestOpenAICVExtractor:
             with open(schema_path, 'r') as f:
                 schema = json.load(f)
             
-            result = extractor._parse_and_validate_response(response, schema)
-            
-            # Should add missing fields
-            assert 'sidebar' in result
-            assert 'overview' in result
-            assert 'experiences' in result
+            # Should raise ValueError for missing required fields (sidebar, overview, experiences)
+            with pytest.raises(ValueError, match="Extracted data failed schema validation"):
+                extractor._parse_and_validate_response(response, schema)
 
     def test_extract_full_integration_with_mock(self, tmp_path):
         """Full integration test with mocked OpenAI API."""
@@ -357,8 +354,8 @@ Experience:
             with pytest.raises(ValueError, match="OpenAI returned invalid JSON"):
                 extractor._parse_and_validate_response(response, schema)
 
-    def test_parse_response_handles_missing_identity(self, tmp_path):
-        """_parse_and_validate_response() adds default identity when missing."""
+    def test_parse_response_validates_identity_type(self, tmp_path):
+        """_parse_and_validate_response() validates identity structure via CVSchemaVerifier."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             extractor = OpenAICVExtractor()
             
@@ -370,14 +367,9 @@ Experience:
             with open(schema_path, 'r') as f:
                 schema = json.load(f)
             
-            result = extractor._parse_and_validate_response(response, schema)
-            
-            # Should have default identity structure
-            assert isinstance(result['identity'], dict)
-            assert 'title' in result['identity']
-            assert 'full_name' in result['identity']
-            assert 'first_name' in result['identity']
-            assert 'last_name' in result['identity']
+            # Should raise ValueError for invalid identity type
+            with pytest.raises(ValueError, match="Extracted data failed schema validation"):
+                extractor._parse_and_validate_response(response, schema)
 
     def test_extract_raises_runtime_error_when_system_prompt_fails_to_load(self, tmp_path):
         """_extract_with_openai() raises RuntimeError when system prompt fails to load."""

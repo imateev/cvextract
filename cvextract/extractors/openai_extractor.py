@@ -16,6 +16,7 @@ from openai import OpenAI
 
 from .base import CVExtractor
 from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
+from ..verifiers import get_verifier
 
 
 class OpenAICVExtractor(CVExtractor):
@@ -137,7 +138,11 @@ class OpenAICVExtractor(CVExtractor):
             raise Exception(f"Failed to send document to OpenAI: {str(e)}") from e
 
     def _parse_and_validate_response(self, response: str, cv_schema: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse OpenAI response and validate against schema."""
+        """
+        Parse OpenAI response and validate against cv_schema.json.
+        
+        Uses CVSchemaVerifier to validate the extracted data.
+        """
         # Extract JSON from response (handle markdown code blocks)
         response = response.strip()
         
@@ -158,22 +163,11 @@ class OpenAICVExtractor(CVExtractor):
         except json.JSONDecodeError as e:
             raise ValueError(f"OpenAI returned invalid JSON: {str(e)}\nResponse: {response[:500]}")
         
-        # Ensure basic structure - add missing fields with defaults
-        if 'identity' not in cv_data or not isinstance(cv_data['identity'], dict):
-            cv_data['identity'] = {
-                'title': '',
-                'full_name': '',
-                'first_name': '',
-                'last_name': ''
-            }
+        # Validate against schema using CVSchemaVerifier
+        schema_verifier = get_verifier("cv-schema-verifier")
+        result = schema_verifier.verify(cv_data)
         
-        if 'sidebar' not in cv_data or not isinstance(cv_data['sidebar'], dict):
-            cv_data['sidebar'] = {}
-        
-        if 'overview' not in cv_data:
-            cv_data['overview'] = ''
-        
-        if 'experiences' not in cv_data or not isinstance(cv_data['experiences'], list):
-            cv_data['experiences'] = []
+        if not result.ok:
+            raise ValueError(f"Extracted data failed schema validation: {result.errors}")
         
         return cv_data

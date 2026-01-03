@@ -51,7 +51,7 @@ Structured JSON Data
 
 - **CLI**: `--extract source=<path> name=<extractor-name>`
 - **Pipeline**: `cvextract.pipeline_highlevel.extract_cv_structure()`
-- **Verification**: Extracted data is validated by `ExtractedDataVerifier` and `SchemaVerifier`
+- **Verification**: Extracted data is validated by `ExtractedDataVerifier` and `CVSchemaVerifier`
 
 ## Dependencies
 

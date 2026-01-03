@@ -7,7 +7,7 @@ This module provides pluggable and interchangeable CV verifiers with a registry 
 from .base import CVVerifier
 from .data_verifier import ExtractedDataVerifier
 from .comparison_verifier import RoundtripVerifier, FileRoundtripVerifier
-from .schema_verifier import SchemaVerifier
+from .schema_verifier import CVSchemaVerifier
 from .verifier_registry import (
     register_verifier,
     get_verifier,
@@ -19,7 +19,7 @@ from .verifier_registry import (
 register_verifier("private-internal-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("file-roundtrip-verifier", FileRoundtripVerifier)
-register_verifier("schema-verifier", SchemaVerifier)
+register_verifier("cv-schema-verifier", CVSchemaVerifier)
 
 
 __all__ = [
@@ -27,7 +27,7 @@ __all__ = [
     "ExtractedDataVerifier",
     "RoundtripVerifier",
     "FileRoundtripVerifier",
-    "SchemaVerifier",
+    "CVSchemaVerifier",
     "register_verifier",
     "get_verifier",
     "list_verifiers",

@@ -25,9 +25,9 @@ Location: `cvextract/contracts/cv_schema.json`
 ### Programmatic Validation
 
 ```python
-from cvextract.verifiers import SchemaVerifier
+from cvextract.verifiers import CVSchemaVerifier
 
-verifier = SchemaVerifier()
+verifier = CVSchemaVerifier()
 result = verifier.verify(cv_data)
 
 if not result.ok:
@@ -137,12 +137,12 @@ with open(schema_path) as f:
 
 - `cvextract.renderers.DocxCVRenderer`
 - `cvextract.adjusters.*` (all adjusters)
-- `cvextract.verifiers.SchemaVerifier`
+- `cvextract.verifiers.CVSchemaVerifier`
 - All templates in `examples/templates/`
 
 ### Validators
 
-- `cvextract.verifiers.SchemaVerifier` - Runtime validation
+- `cvextract.verifiers.CVSchemaVerifier` - Runtime validation
 
 ## Dependencies
 
@@ -151,7 +151,7 @@ with open(schema_path) as f:
 - Used by all extractors (produce conforming data)
 - Used by all adjusters (preserve schema)
 - Used by all renderers (consume conforming data)
-- Used by `SchemaVerifier` for validation
+- Used by `CVSchemaVerifier` for validation
 
 ### External Dependencies
 
@@ -168,7 +168,7 @@ with open(schema_path) as f:
 
 Tested in:
 - `tests/test_contracts.py` - Schema validation tests
-- `tests/test_verifiers.py` - SchemaVerifier tests
+- `tests/test_verifiers.py` - CVSchemaVerifier tests
 - `tests/test_extractors.py` - Extractor output validation
 - `tests/test_renderers.py` - Renderer input validation
 

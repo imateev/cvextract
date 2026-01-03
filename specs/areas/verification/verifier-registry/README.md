@@ -50,7 +50,7 @@ Example output:
 roundtrip-verifier: Verifier for comparing two CV data structures.
 data-verifier: Verifier for extracted CV data completeness and validity.
 file-roundtrip-verifier: Verifier for comparing two CV data files.
-schema-verifier: Verifier that validates CV data against cv_schema.json.
+cv-schema-verifier: Verifier that validates CV data against cv_schema.json.
 ```
 
 ### Getting a Verifier Instance
@@ -63,7 +63,7 @@ verifier = get_verifier('data-verifier')
 result = verifier.verify(cv_data)
 
 # Pass constructor arguments
-verifier = get_verifier('schema-verifier', schema_path=custom_schema_path)
+verifier = get_verifier('cv-schema-verifier', schema_path=custom_schema_path)
 result = verifier.verify(cv_data)
 ```
 
@@ -96,7 +96,7 @@ The following verifiers are registered by default:
 | `data-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
 | `file-roundtrip-verifier` | `FileRoundtripVerifier` | Compares two CV data JSON files |
-| `schema-verifier` | `SchemaVerifier` | Validates CV data against JSON schema |
+| `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against JSON schema |
 
 ## Implementation Details
 
@@ -139,7 +139,7 @@ from .verifier_registry import register_verifier
 register_verifier("data-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("file-roundtrip-verifier", FileRoundtripVerifier)
-register_verifier("schema-verifier", SchemaVerifier)
+register_verifier("cv-schema-verifier", CVSchemaVerifier)
 ```
 
 ### With Public API
@@ -152,7 +152,7 @@ __all__ = [
     "ExtractedDataVerifier",
     "RoundtripVerifier",
     "FileRoundtripVerifier",
-    "SchemaVerifier",
+    "CVSchemaVerifier",
     "register_verifier",
     "get_verifier",
     "list_verifiers",
