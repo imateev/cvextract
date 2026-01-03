@@ -156,10 +156,6 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         base_wait = 2.0  # Start with 2 seconds for our custom backoff
         
         # Create OpenAI client once (reuse across retries)
-        if OpenAI is None:
-            LOG.warning("Job-specific adjust skipped: OpenAI library not available")
-            return cv_data
-        
         client = OpenAI(
             api_key=self._api_key,
             max_retries=5,  # SDK's built-in retries (handles initial rate limit gracefully)
