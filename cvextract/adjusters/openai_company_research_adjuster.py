@@ -9,6 +9,8 @@ from __future__ import annotations
 import os
 import json
 import logging
+import hashlib
+import re
 from typing import Any, Dict, Optional
 from pathlib import Path
 
@@ -17,12 +19,199 @@ try:
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
+try:
+    import requests
+except Exception:  # pragma: no cover
+    requests = None  # type: ignore
+
 from .base import CVAdjuster
-from ..ml_adjustment.adjuster import _research_company_profile
 from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
+
+
+# Research schema cache
+_SCHEMA_PATH = Path(__file__).parent.parent / "contracts" / "research_schema.json"
+_RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
+
+
+def _url_to_cache_filename(url: str) -> str:
+    """
+    Convert a URL to a safe, deterministic filename for caching.
+    
+    Uses the domain name from the URL and a hash to ensure uniqueness
+    while keeping the filename readable and filesystem-safe.
+    
+    Args:
+        url: The company URL
+    
+    Returns:
+        A safe filename like "example.com-abc123.research.json"
+    """
+    # Extract domain from URL
+    # Remove protocol
+    domain = re.sub(r'^https?://', '', url.lower())
+    # Remove www. prefix if present
+    domain = re.sub(r'^www\.', '', domain)
+    # Remove path, query, and fragment
+    domain = domain.split('/')[0].split('?')[0].split('#')[0]
+    # Remove port if present
+    domain = domain.split(':')[0]
+    
+    # Create a short hash for uniqueness (in case of different URLs for same domain)
+    url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
+    
+    # Create safe filename
+    safe_domain = re.sub(r'[^a-z0-9.-]', '_', domain)
+    
+    return f"{safe_domain}-{url_hash}.research.json"
+
+
+def _load_research_schema() -> Optional[Dict[str, Any]]:
+    """Load the research schema from file."""
+    global _RESEARCH_SCHEMA
+    if _RESEARCH_SCHEMA is not None:
+        return _RESEARCH_SCHEMA
+    try:
+        with open(_SCHEMA_PATH, "r", encoding="utf-8") as f:
+            _RESEARCH_SCHEMA = json.load(f)
+        return _RESEARCH_SCHEMA
+    except Exception as e:
+        LOG.warning("Failed to load research schema: %s", e)
+        return None
+
+
+def _fetch_customer_page(url: str) -> str:
+    """Fetch the content of a URL."""
+    if not requests:
+        return ""
+    try:
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            return ""
+        return resp.text or ""
+    except Exception:
+        return ""
+
+
+def _validate_research_data(data: Any) -> bool:
+    """
+    Validate that research data conforms to the company profile schema.
+    
+    Uses the CompanyProfileVerifier to ensure the data structure
+    matches the research_schema.json requirements.
+    """
+    if not isinstance(data, dict):
+        return False
+    
+    try:
+        verifier = get_verifier("company-profile-verifier")
+        result = verifier.verify(data)
+        return result.ok
+    except Exception as e:
+        LOG.warning("Failed to validate research data with verifier: %s", e)
+        return False
+
+
+def _research_company_profile(
+    customer_url: str, 
+    api_key: str, 
+    model: str, 
+    cache_path: Optional[Path] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Research a company profile from its URL using OpenAI.
+    
+    Args:
+        customer_url: The company website URL
+        api_key: OpenAI API key
+        model: OpenAI model to use
+        cache_path: Optional path to cache file (e.g., <cv_name>.research.json)
+    
+    Returns:
+        Dict containing company profile data, or None if research fails
+    """
+    # Check cache first
+    if cache_path and cache_path.exists():
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached_data = json.load(f)
+            # Basic validation that it's a dict with required fields
+            if _validate_research_data(cached_data):
+                LOG.info("Using cached company research from %s", cache_path)
+                return cached_data
+        except Exception as e:
+            LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
+    
+    # No valid cache, perform research
+    if not OpenAI:
+        LOG.warning("Company research skipped: OpenAI unavailable")
+        return None
+    
+    # Load schema
+    schema = _load_research_schema()
+    if not schema:
+        LOG.warning("Company research skipped: schema not available")
+        return None
+    
+    # Build research prompt using template
+    research_prompt = format_prompt(
+        "website_analysis_prompt",
+        customer_url=customer_url,
+        schema=json.dumps(schema, indent=2)
+    )
+    
+    if not research_prompt:
+        LOG.warning("Company research skipped: failed to load prompt template")
+        return None
+    
+    try:
+        client = OpenAI(api_key=api_key)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "user", "content": research_prompt}
+            ],
+            temperature=0.2,
+        )
+        content = completion.choices[0].message.content if completion.choices else None
+        if not content:
+            LOG.warning("Company research: empty completion")
+            return None
+        
+        # Parse JSON response
+        try:
+            research_data = json.loads(content)
+            if not isinstance(research_data, dict):
+                LOG.warning("Company research: response is not a dict")
+                return None
+            
+            # Basic validation
+            if not _validate_research_data(research_data):
+                LOG.warning("Company research: missing required fields")
+                return None
+            
+            # Cache the result
+            if cache_path:
+                try:
+                    cache_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(cache_path, "w", encoding="utf-8") as f:
+                        json.dump(research_data, f, ensure_ascii=False, indent=2)
+                    LOG.info("Cached company research to %s", cache_path)
+                except Exception as e:
+                    LOG.warning("Failed to cache research (%s)", type(e).__name__)
+            
+            LOG.info("Successfully researched company profile")
+            return research_data
+            
+        except json.JSONDecodeError:
+            LOG.warning("Company research: invalid JSON response")
+            return None
+            
+    except Exception as e:
+        LOG.warning("Company research error (%s)", type(e).__name__)
+        return None
 
 
 class OpenAICompanyResearchAdjuster(CVAdjuster):
