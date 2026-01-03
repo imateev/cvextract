@@ -1437,6 +1437,42 @@ class TestOpenAIJobSpecificAdjuster:
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data  # Should return original due to validation failure
         mock_get_verifier.assert_called_once_with("cv-schema-verifier")
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.get_verifier')
+    def test_adjust_verifier_not_available(self, mock_get_verifier, mock_format, mock_openai_class):
+        """adjust should return original CV if CV schema verifier is not available."""
+        mock_format.return_value = "System prompt"
+        
+        adjusted_cv = {
+            "identity": {"name": "John", "title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
+        
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_class.return_value = mock_client
+        
+        # Mock verifier as None (not available)
+        mock_get_verifier.return_value = None
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        result = adjuster.adjust(cv_data, job_description="Test job")
+        assert result == cv_data  # Should return original since verifier is unavailable
+        mock_get_verifier.assert_called_once_with("cv-schema-verifier")
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.requests', None)
     def test_fetch_job_description_requests_not_available(self):
