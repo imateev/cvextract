@@ -185,7 +185,18 @@ class TestAdjustForCustomer:
         mock_completion = Mock()
         mock_message = Mock()
         
-        adjusted_json = {"identity": {"title": "Adjusted"}}
+        # Adjusted JSON must conform to CV schema
+        adjusted_json = {
+            "identity": {
+                "title": "Adjusted",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Adjusted overview",
+            "experiences": []
+        }
         mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
@@ -193,7 +204,17 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
         
-        data = {"identity": {"title": "Original"}}
+        data = {
+            "identity": {
+                "title": "Original",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Original overview",
+            "experiences": []
+        }
         result = adjust_for_customer(
             data, 
             "https://example.com", 
@@ -269,7 +290,7 @@ class TestAdjustForCustomer:
         mock_completion = Mock()
         mock_message = Mock()
         
-        # Return a list, which is valid JSON and will be returned as-is
+        # Return a list, which is valid JSON but not a dict
         mock_message.content = json.dumps(["not", "a", "dict"])
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
@@ -277,16 +298,26 @@ class TestAdjustForCustomer:
         
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
         
-        data = {"identity": {"title": "Original"}}
+        data = {
+            "identity": {
+                "title": "Original",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Overview",
+            "experiences": []
+        }
         result = adjust_for_customer(
             data, 
             "https://example.com", 
             api_key="test-key"
         )
         
-        # The list is returned as-is since the code accepts any valid JSON
-        assert result == ["not", "a", "dict"]
-        assert "adjusted to better fit" in caplog.text
+        # Should return original since response is not a dict
+        assert result == data
+        assert "not a dict" in caplog.text
 
     def test_adjust_for_customer_null_json_response(self, monkeypatch, caplog):
         """Test when OpenAI returns JSON null (None in Python)."""
@@ -830,7 +861,18 @@ class TestAdjustForCustomerWithResearch:
             ]
         }
         
-        adjusted_json = {"identity": {"title": "Adjusted"}}
+        # Adjusted JSON must conform to CV schema
+        adjusted_json = {
+            "identity": {
+                "title": "Adjusted",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Adjusted overview",
+            "experiences": []
+        }
         
         mock_openai = Mock()
         mock_client = Mock()
@@ -844,7 +886,17 @@ class TestAdjustForCustomerWithResearch:
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster._research_company_profile", Mock(return_value=research_data))
         
-        data = {"identity": {"title": "Original"}}
+        data = {
+            "identity": {
+                "title": "Original",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Original overview",
+            "experiences": []
+        }
         cache_file = tmp_path / "test.research.json"
         result = adjust_for_customer(
             data,
@@ -947,7 +999,18 @@ class TestMLAdjuster:
         mock_completion = Mock()
         mock_message = Mock()
         
-        adjusted_json = {"identity": {"title": "Adjusted"}}
+        # Adjusted JSON must conform to CV schema
+        adjusted_json = {
+            "identity": {
+                "title": "Adjusted",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Adjusted overview",
+            "experiences": []
+        }
         mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
@@ -956,7 +1019,17 @@ class TestMLAdjuster:
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
         
         adjuster = MLAdjuster(api_key="test-key")
-        data = {"identity": {"title": "Original"}}
+        data = {
+            "identity": {
+                "title": "Original",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": None,
+            "overview": "Original overview",
+            "experiences": []
+        }
         result = adjuster.adjust(data, "https://example.com")
         
         assert result == adjusted_json

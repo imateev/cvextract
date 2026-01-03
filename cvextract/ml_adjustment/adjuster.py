@@ -3,12 +3,14 @@ ML-based CV adjustment using OpenAI.
 
 Given extracted JSON data and a customer URL, research the company and adjust
 the CV to highlight customer-relevant aspects (e.g., reordering bullets, 
-emphasizing tools).
+emphasizing tools). The adjusted CV is validated against the CV schema before
+being returned to ensure data integrity.
 
 Notes:
 - Requires OPENAI_API_KEY in the environment.
 - Optional OPENAI_MODEL env var to override default model.
-- Fails gracefully (returns original data) if API/HTTP errors occur.
+- Adjusted CV data is validated against cv_schema.json.
+- Fails gracefully (returns original data) if API/HTTP errors or validation fails.
 """
 from __future__ import annotations
 
@@ -418,11 +420,23 @@ class MLAdjuster:
             # Try to parse JSON; if parsing fails, keep original
             try:
                 adjusted = json.loads(content)
-                if adjusted is not None:
-                    LOG.info("The CV was adjusted to better fit the target customer.")
-                    return adjusted
-                LOG.warning("Customer adjust: completion is not a dict; using original JSON.")
-                return cv_data
+                if adjusted is None or not isinstance(adjusted, dict):
+                    LOG.warning("Customer adjust: completion is not a dict; using original JSON.")
+                    return cv_data
+                
+                # Validate adjusted CV against schema
+                try:
+                    schema_verifier = get_verifier("cv-schema-verifier")
+                    result = schema_verifier.verify(adjusted)
+                    if result.ok:
+                        LOG.info("The CV was adjusted to better fit the target customer.")
+                        return adjusted
+                    else:
+                        LOG.warning("Customer adjust: adjusted CV failed schema validation (%d errors); using original JSON.", len(result.errors))
+                        return cv_data
+                except Exception as e:
+                    LOG.warning("Customer adjust: schema validation error (%s); using original JSON.", type(e).__name__)
+                    return cv_data
             except Exception:
                 LOG.warning("Customer adjust: invalid JSON response; using original JSON.")
                 return cv_data

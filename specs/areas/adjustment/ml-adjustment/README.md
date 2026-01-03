@@ -15,7 +15,8 @@ The `MLAdjuster` class provides:
 2. Prompt-based CV restructuring and emphasis
 3. Factual accuracy preservation (no invention of experience)
 4. Support for multiple OpenAI models
-5. Graceful error handling with fallback to original data
+5. Schema validation of adjusted CV data before returning
+6. Graceful error handling with fallback to original data
 
 ## Entry Points
 
@@ -75,12 +76,15 @@ Adjusted CV JSON with:
 - Emphasized relevant technologies
 - Adjusted descriptions for target context
 - Same schema structure (no new fields)
+- **Validated** against CV schema before returning
+- Falls back to original CV if validation fails
 
 ## Dependencies
 
 ### Internal Dependencies
 
-- `cvextract.ml_adjustment.prompt_loader` - Prompt file loading
+- `cvextract.ml_adjustment.prompt_loader` - Prompt file
+- `cvextract.verifiers.CVSchemaVerifier` - Validates adjusted CV before returning loading
 - `cvextract.contracts.research_schema.json` - Research data schema
 - `cvextract.contracts.cv_schema.json` - CV data schema
 
