@@ -17,15 +17,13 @@ The verification area provides data validation and quality checking capabilities
 ### Design Principles
 
 1. **Pluggable Architecture**: All verifiers implement the `CVVerifier` abstract base class
-2. **Registry-Based**: Verifiers are registered and accessed via a central registry
-3. **Result Objects**: Verifiers return `VerificationResult` with ok/errors/warnings
-4. **Composable**: Multiple verifiers can be applied to the same data
-5. **Fail-Safe**: Verifiers never modify data, only report issues
+2. **Result Objects**: Verifiers return `VerificationResult` with ok/errors/warnings
+3. **Composable**: Multiple verifiers can be applied to the same data
+4. **Fail-Safe**: Verifiers never modify data, only report issues
 
 ### Key Components
 
 - **Base Interface**: `cvextract/verifiers/base.py` - `CVVerifier` abstract base class
-- **Registry**: `cvextract/verifiers/verifier_registry.py` - Central verifier registry
 - **Result Type**: `cvextract/shared.py` - `VerificationResult` dataclass
 - **Implementations**:
   - `cvextract/verifiers/data_verifier.py` - CoCV JSON schema validation (registered as `cv-schema-verifier`)
@@ -39,31 +37,10 @@ The verification area provides data validation and quality checking capabilities
 CV JSON Data
     │
     v
-[get_verifier(name) -> Verifier Instance]
-    │
-    v
 [Verifier.verify(data, **kwargs)]
     │
     v
 VerificationResult(ok, errors, warnings)
-```
-
-### Registry Usage
-
-The verifier registry provides a consistent API for managing verifiers:
-
-```python
-from cvextract.verifiers import get_verifier, list_verifiers, register_verifier
-
-# List available verifiers
-verifiers = list_verifiers()  # Returns [{'name': '...', 'description': '...'}, ...]
-
-# Get a verifier instance
-verifier = get_verifier('data-verifier')
-result = verifier.verify(cv_data)
-
-# Register custom verifiers
-register_verifier('my-custom-verifier', MyCustomVerifierClass)
 ```
 
 ### Integration Points
@@ -79,7 +56,6 @@ register_verifier('my-custom-verifier', MyCustomVerifierClass)
 ## File References
 
 - Base: `cvextract/verifiers/base.py`
-- Registry: `cvextract/verifiers/verifier_registry.py`
 - Data Verifier: `cvextract/verifiers/data_verifier.py`
 - Schema Verifier: `cvextract/verifiers/schema_verifier.py`
 - Comparison Verifier: `cvextract/verifiers/comparison_verifier.py`

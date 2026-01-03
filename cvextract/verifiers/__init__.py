@@ -1,7 +1,7 @@
 """
 CV verification interfaces and implementations.
 
-This module provides pluggable and interchangeable CV verifiers with a registry system.
+This module provides pluggable and interchangeable CV verifiers.
 """
 
 from .base import CVVerifier
