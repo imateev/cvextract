@@ -109,7 +109,7 @@ class OpenAICVExtractor(CVExtractor):
         user_prompt = format_prompt(
             "cv_extraction_user",
             schema_json=schema_json,
-            file_upload_id=file_id
+            cv_file=file_path.name
         )
         
         if not user_prompt:
@@ -126,7 +126,7 @@ class OpenAICVExtractor(CVExtractor):
                     },
                     {
                         "role": "user",
-                        "content": user_prompt
+                        "content": f"{user_prompt}\n\nFile path: {file_path}"
                     }
                 ],
                 temperature=0.1,  # Low temperature for consistency
