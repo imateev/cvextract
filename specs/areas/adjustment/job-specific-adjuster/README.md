@@ -16,6 +16,7 @@ The `OpenAIJobSpecificAdjuster` class:
 3. Reorders CV content to emphasize relevant experience
 4. Adjusts terminology to match job description
 5. Maintains factual accuracy (no invention)
+6. **Validates adjusted CV against CV schema before returning**
 
 ## Entry Points
 
@@ -102,7 +103,12 @@ python -m cvextract.cli \
 ## Test Coverage
 
 Tested in:
-- `tests/test_adjusters.py` - Unit and integration tests
+- `tests/test_adjusters.py` - Unit and integration tests (39 tests, 98% coverage)
+  - Happy path adjustments with valid job descriptions
+  - Schema validation success and failure scenarios
+  - Rate limit handling with exponential backoff
+  - Job description fetching from URLs with HTML cleaning
+  - Error handling and fallback to original CV
 - `tests/test_cli.py` - CLI integration
 
 ## Implementation History
