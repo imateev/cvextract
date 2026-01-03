@@ -6,10 +6,9 @@ The adjustment area provides ML-based CV optimization and transformation capabil
 
 ## Features
 
-- [ML Adjustment](ml-adjustment/README.md) - Core ML-based CV adjustment using OpenAI
-- [Company Research & Caching](company-research-caching/README.md) - Automated company research with JSON caching
-- [Named Adjusters](named-adjusters/README.md) - Registry-based adjuster lookup system
+- [Company Research Adjuster](company-research-adjuster/README.md) - OpenAI-based adjustment with company research and caching
 - [Job-Specific Adjuster](job-specific-adjuster/README.md) - Optimizes CV for specific job postings
+- [Named Adjusters](named-adjusters/README.md) - Registry-based adjuster lookup system
 - [Adjuster Chaining](adjuster-chaining/README.md) - Sequential application of multiple adjusters
 
 ## Architectural Notes
@@ -25,11 +24,10 @@ The adjustment area provides ML-based CV optimization and transformation capabil
 ### Key Components
 
 - **Base Interface**: `cvextract/adjusters/base.py` - `CVAdjuster` abstract base class
-- **Registry**: `cvextract/adjusters/__init__.py` - Registration and lookup functions
+- **Registry**: `cvextract/adjusters/adjuster_registry.py` - Registration and lookup functions
 - **Implementations**:
   - `cvextract/adjusters/openai_company_research_adjuster.py` - Company-based adjustment
   - `cvextract/adjusters/openai_job_specific_adjuster.py` - Job-based adjustment
-- **ML Module**: `cvextract/ml_adjustment/` - Core ML adjustment logic
 
 ### Data Flow
 
@@ -56,14 +54,15 @@ Next Adjuster (if chained)
 
 ## Dependencies
 
-- **Internal**: `cvextract.ml_adjustment` (ML logic), `cvextract.contracts` (schemas)
+- **Internal**: `cvextract.shared` (prompt loading), `cvextract.contracts` (schemas), `cvextract.verifiers` (schema validation)
 - **External**: `openai` (>= 1.0), `requests` (for web scraping)
 
 ## File References
 
 - Base: `cvextract/adjusters/base.py`
-- Registry: `cvextract/adjusters/__init__.py`
+- Registry: `cvextract/adjusters/adjuster_registry.py`
+- Public API: `cvextract/adjusters/__init__.py`
 - Company Adjuster: `cvextract/adjusters/openai_company_research_adjuster.py`
 - Job Adjuster: `cvextract/adjusters/openai_job_specific_adjuster.py`
-- ML Module: `cvextract/ml_adjustment/adjuster.py`
-- Documentation: `cvextract/adjusters/README.md`, `cvextract/ml_adjustment/README.md`
+- Prompts: `cvextract/adjusters/prompts/`
+- Documentation: `cvextract/adjusters/README.md`

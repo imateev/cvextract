@@ -56,10 +56,9 @@ The adjustment area provides ML-based CV optimization and transformation capabil
 
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
-| [ML Adjustment](areas/adjustment/ml-adjustment/README.md) | Active | Core ML-based CV adjustment using OpenAI | `cvextract.ml_adjustment.MLAdjuster` | `OPENAI_API_KEY`, `OPENAI_MODEL` |
-| [Company Research & Caching](areas/adjustment/company-research-caching/README.md) | Active | Automated company research with JSON caching | `cvextract.ml_adjustment.MLAdjuster.adjust()` | `cache_path` parameter |
-| [Named Adjusters](areas/adjustment/named-adjusters/README.md) | Active | Registry-based adjuster lookup system | `cvextract.adjusters.{register_adjuster, get_adjuster, list_adjusters}` | `--adjust name=<adjuster-name>` |
+| [Company Research Adjuster](areas/adjustment/company-research-adjuster/README.md) | Active | OpenAI-based CV adjustment with company research and caching | `cvextract.adjusters.OpenAICompanyResearchAdjuster` | `OPENAI_API_KEY`, `customer-url=<url>` |
 | [Job-Specific Adjuster](areas/adjustment/job-specific-adjuster/README.md) | Active | Optimizes CV for specific job postings | `cvextract.adjusters.OpenAIJobSpecificAdjuster` | `job-url=<url>` or `job-description=<text>` |
+| [Named Adjusters](areas/adjustment/named-adjusters/README.md) | Active | Registry-based adjuster lookup system | `cvextract.adjusters.{register_adjuster, get_adjuster, list_adjusters}` | `--adjust name=<adjuster-name>` |
 | [Adjuster Chaining](areas/adjustment/adjuster-chaining/README.md) | Active | Sequential application of multiple adjusters | Multiple `--adjust` CLI flags | N/A |
 
 ---
@@ -195,7 +194,7 @@ The CI/CD area covers continuous integration, deployment, and release automation
        ├──────> [JSON Data + CV Schema]
        │              │
        │              v
-       ├──────> Adjustment (ML, company research, job-specific, chaining)
+       ├──────> Adjustment (company research, job-specific, chaining)
        │              │
        │              v
        ├──────> [Adjusted JSON Data]
@@ -220,7 +219,7 @@ The CI/CD area covers continuous integration, deployment, and release automation
 
 This feature index is derived from:
 - Repository README.md (comprehensive CLI and feature documentation)
-- Module-level README.md files in cvextract/extractors, cvextract/adjusters, cvextract/renderers, cvextract/verifiers, cvextract/contracts, cvextract/ml_adjustment
+- Module-level README.md files in cvextract/extractors, cvextract/adjusters, cvextract/renderers, cvextract/verifiers, cvextract/contracts
 - Source code analysis of implementation files
 - CLI implementation in cvextract/cli*.py files
 - Contract schemas in cvextract/contracts/*.json
