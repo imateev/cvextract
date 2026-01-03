@@ -90,8 +90,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json` (same schema as pri
 
 ### External Dependencies
 
-- `openai` (>= 1.0) - OpenAI Python client library
-- `python-docx` - For reading DOCX text content
+- `openai` (>= 1.0) - OpenAI Python client library for API access
 
 ### Integration Points
 
