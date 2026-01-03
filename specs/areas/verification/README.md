@@ -29,7 +29,7 @@ The verification area provides data validation and quality checking capabilities
 - **Implementations**:
   - `cvextract/verifiers/data_verifier.py` - Completeness checks (registered as `data-verifier`)
   - `cvextract/verifiers/schema_verifier.py` - JSON schema validation (registered as `schema-verifier`)
-  - `cvextract/verifiers/comparison_verifier.py` - Data comparison (registered as `comparison-verifier`, `file-comparison-verifier`)
+  - `cvextract/verifiers/comparison_verifier.py` - Data comparison (registered as `roundtrip-verifier`, `file-roundtrip-verifier`)
 
 ### Data Flow
 

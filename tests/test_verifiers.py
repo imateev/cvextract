@@ -7,8 +7,9 @@ import tempfile
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
-    get_verifier,
-    FileComparisonVerifier,
+    ExtractedDataVerifier,
+    RoundtripVerifier,
+    FileRoundtripVerifier,
     SchemaVerifier,
 )
 from cvextract.shared import VerificationResult
@@ -82,7 +83,7 @@ class TestComparisonVerifier:
 
     def test_verifier_accepts_identical_structures(self):
         """Identical structures should pass comparison."""
-        verifier = get_verifier("roundtrip-verifier")
+        verifier = RoundtripVerifier()
         data = {"x": 1, "y": [1, 2], "z": {"k": "v"}}
         result = verifier.verify(data, target_data=data)
         assert result.ok is True
@@ -90,7 +91,7 @@ class TestComparisonVerifier:
 
     def test_verifier_detects_missing_keys(self):
         """Missing keys in target should be detected."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         source = {"x": 1, "y": 2}
         target = {"x": 1}
         result = verifier.verify(source, target_data=target)
@@ -99,7 +100,7 @@ class TestComparisonVerifier:
 
     def test_verifier_detects_value_mismatches(self):
         """Value differences should be detected."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         source = {"x": 1}
         target = {"x": 2}
         result = verifier.verify(source, target_data=target)
@@ -108,7 +109,7 @@ class TestComparisonVerifier:
 
     def test_verifier_normalizes_environment_fields(self):
         """Environment fields with different separators should be equivalent."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         source = {
             "experiences": [
                 {"environment": ["Java, Python, Docker"]},
@@ -124,7 +125,7 @@ class TestComparisonVerifier:
 
     def test_verifier_requires_target_data_parameter(self):
         """Verifier should raise error if target_data is missing."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         with pytest.raises(ValueError, match="target_data"):
             verifier.verify({"x": 1})
 
@@ -134,7 +135,7 @@ class TestFileComparisonVerifier:
 
     def test_verifier_compares_json_files(self):
         """Verifier should load and compare JSON files."""
-        verifier = FileComparisonVerifier()
+        verifier = FileRoundtripVerifier()
         
         with tempfile.TemporaryDirectory() as tmpdir:
             source_file = Path(tmpdir) / "source.json"
@@ -152,7 +153,7 @@ class TestFileComparisonVerifier:
 
     def test_verifier_detects_file_differences(self):
         """Verifier should detect differences between files."""
-        verifier = FileComparisonVerifier()
+        verifier = FileRoundtripVerifier()
         
         with tempfile.TemporaryDirectory() as tmpdir:
             source_file = Path(tmpdir) / "source.json"
@@ -172,7 +173,7 @@ class TestFileComparisonVerifier:
 
     def test_verifier_requires_file_parameters(self):
         """Verifier should raise error if file parameters are missing."""
-        verifier = FileComparisonVerifier()
+        verifier = FileRoundtripVerifier()
         with pytest.raises(ValueError, match="source_file.*target_file"):
             verifier.verify({})
 
@@ -663,7 +664,7 @@ class TestParameterPassing:
 
     def test_comparison_verifier_accepts_external_source_and_target(self):
         """Comparison verifier should accept both source and target from outside."""
-        verifier = ComparisonVerifier()
+        verifier = RoundtripVerifier()
         
         # Simulate external data sources
         source_data = {"x": 1, "y": 2}

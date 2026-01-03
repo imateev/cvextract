@@ -28,9 +28,9 @@ class TestVerifierRegistry:
         names = [v['name'] for v in verifiers]
         
         # Check for built-in verifiers
-        assert 'data-verifier' in names
-        assert 'comparison-verifier' in names
-        assert 'file-comparison-verifier' in names
+        assert 'private-internal-verifier' in names
+        assert 'roundtrip-verifier' in names
+        assert 'file-roundtrip-verifier' in names
         assert 'schema-verifier' in names
         
         # Each should have a description
@@ -42,22 +42,22 @@ class TestVerifierRegistry:
             assert len(verifier['description']) > 0
 
     def test_get_verifier_returns_data_verifier(self):
-        """get_verifier() returns data-verifier instance."""
-        verifier = get_verifier('data-verifier')
+        """get_verifier() returns private-internal-verifier instance."""
+        verifier = get_verifier('private-internal-verifier')
         
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
 
     def test_get_verifier_returns_comparison_verifier(self):
-        """get_verifier() returns comparison-verifier instance."""
-        verifier = get_verifier('comparison-verifier')
+        """get_verifier() returns roundtrip-verifier instance."""
+        verifier = get_verifier('roundtrip-verifier')
         
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
 
     def test_get_verifier_returns_file_comparison_verifier(self):
-        """get_verifier() returns file-comparison-verifier instance."""
-        verifier = get_verifier('file-comparison-verifier')
+        """get_verifier() returns file-roundtrip-verifier instance."""
+        verifier = get_verifier('file-roundtrip-verifier')
         
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)

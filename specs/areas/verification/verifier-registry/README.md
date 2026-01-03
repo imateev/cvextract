@@ -49,7 +49,7 @@ Example output:
 ```
 comparison-verifier: Verifier for comparing two CV data structures.
 data-verifier: Verifier for extracted CV data completeness and validity.
-file-comparison-verifier: Verifier for comparing two CV data files.
+file-roundtrip-verifier: Verifier for comparing two CV data files.
 schema-verifier: Verifier that validates CV data against cv_schema.json.
 ```
 
@@ -95,7 +95,7 @@ The following verifiers are registered by default:
 |------|-------|-------------|
 | `data-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
 | `comparison-verifier` | `ComparisonVerifier` | Compares two CV data structures |
-| `file-comparison-verifier` | `FileComparisonVerifier` | Compares two CV data JSON files |
+| `file-roundtrip-verifier` | `FileRoundtripVerifier` | Compares two CV data JSON files |
 | `schema-verifier` | `SchemaVerifier` | Validates CV data against JSON schema |
 
 ## Implementation Details
@@ -138,7 +138,7 @@ from .verifier_registry import register_verifier
 # Register built-in verifiers
 register_verifier("data-verifier", ExtractedDataVerifier)
 register_verifier("comparison-verifier", ComparisonVerifier)
-register_verifier("file-comparison-verifier", FileComparisonVerifier)
+register_verifier("file-roundtrip-verifier", FileRoundtripVerifier)
 register_verifier("schema-verifier", SchemaVerifier)
 ```
 
