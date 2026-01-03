@@ -2,17 +2,30 @@
 OpenAI-based company research adjuster.
 
 Adjusts CV data based on target company research using OpenAI.
+
+Improvements included:
+- Centralized retry/backoff with jitter for 429/5xx/transient network errors
+- Honors Retry-After when present
+- Safer JSON extraction from model output (handles fenced blocks and pre/post text)
+- More robust cache handling + atomic writes
+- Optional deterministic retry/jitter for tests
+- Fixes small prompt template typo compatibility (keeps legacy key)
+- Better schema loading + validation guardrails
 """
 
 from __future__ import annotations
 
-import os
+import hashlib
 import json
 import logging
-import hashlib
+import os
+import random
 import re
-from typing import Any, Dict, Optional
+import tempfile
+import time
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 try:
     from openai import OpenAI  # type: ignore
@@ -25,10 +38,12 @@ except Exception:  # pragma: no cover
     requests = None  # type: ignore
 
 from .base import CVAdjuster
-from ..shared import load_prompt, format_prompt
+from ..shared import format_prompt
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
+
+T = TypeVar("T")
 
 
 # Research schema cache
@@ -36,40 +51,45 @@ _SCHEMA_PATH = Path(__file__).parent.parent / "contracts" / "research_schema.jso
 _RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
 
 
+@dataclass(frozen=True)
+class _RetryConfig:
+    max_attempts: int = 8
+    base_delay_s: float = 0.75
+    max_delay_s: float = 20.0
+    write_multiplier: float = 1.6
+    deterministic: bool = False
+
+
+def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+    """Write JSON atomically to avoid cache corruption on crash."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", dir=str(path.parent)) as tmp:
+        json.dump(data, tmp, ensure_ascii=False, indent=2)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = Path(tmp.name)
+    tmp_path.replace(path)
+
+
 def _url_to_cache_filename(url: str) -> str:
     """
     Convert a URL to a safe, deterministic filename for caching.
-    
-    Uses the domain name from the URL and a hash to ensure uniqueness
-    while keeping the filename readable and filesystem-safe.
-    
-    Args:
-        url: The company URL
-    
+
     Returns:
-        A safe filename like "example.com-abc123.research.json"
+        "example.com-abc123.research.json"
     """
-    # Extract domain from URL
-    # Remove protocol
-    domain = re.sub(r'^https?://', '', url.lower())
-    # Remove www. prefix if present
-    domain = re.sub(r'^www\.', '', domain)
-    # Remove path, query, and fragment
-    domain = domain.split('/')[0].split('?')[0].split('#')[0]
-    # Remove port if present
-    domain = domain.split(':')[0]
-    
-    # Create a short hash for uniqueness (in case of different URLs for same domain)
+    domain = re.sub(r"^https?://", "", url.lower())
+    domain = re.sub(r"^www\.", "", domain)
+    domain = domain.split("/")[0].split("?")[0].split("#")[0]
+    domain = domain.split(":")[0]
+
     url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
-    
-    # Create safe filename
-    safe_domain = re.sub(r'[^a-z0-9.-]', '_', domain)
-    
+    safe_domain = re.sub(r"[^a-z0-9.-]", "_", domain)
     return f"{safe_domain}-{url_hash}.research.json"
 
 
 def _load_research_schema() -> Optional[Dict[str, Any]]:
-    """Load the research schema from file."""
+    """Load the research schema from file (cached)."""
     global _RESEARCH_SCHEMA
     if _RESEARCH_SCHEMA is not None:
         return _RESEARCH_SCHEMA
@@ -83,7 +103,7 @@ def _load_research_schema() -> Optional[Dict[str, Any]]:
 
 
 def _fetch_customer_page(url: str) -> str:
-    """Fetch the content of a URL."""
+    """Fetch the content of a URL (best-effort)."""
     if not requests:
         return ""
     try:
@@ -98,37 +118,189 @@ def _fetch_customer_page(url: str) -> str:
 def _validate_research_data(data: Any) -> bool:
     """
     Validate that research data conforms to the company profile schema.
-    
+
     Uses the CompanyProfileVerifier to ensure the data structure
     matches the research_schema.json requirements.
     """
     if not isinstance(data, dict):
         return False
-    
+
     try:
         verifier = get_verifier("company-profile-verifier")
+        if not verifier:
+            LOG.warning("CompanyProfileVerifier not available")
+            return False
         result = verifier.verify(data)
-        return result.ok
+        return bool(result.ok)
     except Exception as e:
         LOG.warning("Failed to validate research data with verifier: %s", e)
         return False
 
 
+def _strip_markdown_fences(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```json"):
+        text = text[len("```json") :]
+    elif text.startswith("```"):
+        text = text[len("```") :]
+    if text.endswith("```"):
+        text = text[: -len("```")]
+    return text.strip()
+
+
+def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """
+    Robustly extract a JSON object from model output.
+
+    Handles:
+    - pure JSON
+    - fenced code blocks
+    - extra commentary around JSON
+
+    Returns:
+        dict if found and parsed, else None
+    """
+    if not isinstance(text, str):
+        return None
+
+    cleaned = _strip_markdown_fences(text)
+
+    # Fast path: exact JSON
+    try:
+        obj = json.loads(cleaned)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+
+    # Try to find a top-level JSON object by scanning for {...}
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+
+    candidate = cleaned[start : end + 1]
+    try:
+        obj = json.loads(candidate)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
+
+
+class _OpenAIRetry:
+    def __init__(
+        self,
+        *,
+        retry: _RetryConfig,
+        sleep: Callable[[float], None],
+    ):
+        self._retry = retry
+        self._sleep = sleep
+
+    def _get_status_code(self, exc: Exception) -> Optional[int]:
+        for attr in ("status_code", "status", "http_status"):
+            val = getattr(exc, attr, None)
+            if isinstance(val, int):
+                return val
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            sc = getattr(resp, "status_code", None)
+            if isinstance(sc, int):
+                return sc
+        return None
+
+    def _get_retry_after_s(self, exc: Exception) -> Optional[float]:
+        headers = getattr(exc, "headers", None)
+        resp = getattr(exc, "response", None)
+        if headers is None and resp is not None:
+            headers = getattr(resp, "headers", None)
+        if not headers:
+            return None
+        try:
+            ra = headers.get("retry-after") or headers.get("Retry-After")
+        except Exception:
+            return None
+        if ra is None:
+            return None
+        try:
+            return float(ra)
+        except Exception:
+            return None
+
+    def _is_transient(self, exc: Exception) -> bool:
+        status = self._get_status_code(exc)
+        if status == 429:
+            return True
+        if status is not None and 500 <= status <= 599:
+            return True
+
+        msg = str(exc).lower()
+        transient_markers = (
+            "timeout",
+            "timed out",
+            "temporarily unavailable",
+            "connection reset",
+            "connection aborted",
+            "connection refused",
+            "remote disconnected",
+            "bad gateway",
+            "service unavailable",
+            "gateway timeout",
+            "tls",
+            "ssl",
+        )
+        return any(m in msg for m in transient_markers)
+
+    def _sleep_with_backoff(self, attempt_idx: int, *, is_write: bool, exc: Exception) -> None:
+        retry_after = self._get_retry_after_s(exc)
+        if retry_after is not None and retry_after > 0:
+            self._sleep(min(self._retry.max_delay_s, retry_after))
+            return
+
+        mult = self._retry.write_multiplier if is_write else 1.0
+        raw = self._retry.base_delay_s * (2**attempt_idx) * mult
+        capped = min(self._retry.max_delay_s, raw)
+
+        if self._retry.deterministic:
+            delay = capped
+        else:
+            delay = random.random() * capped  # full jitter
+
+        delay = max(0.25, delay)
+        self._sleep(delay)
+
+    def call(self, fn: Callable[[], T], *, is_write: bool, op_name: str) -> T:
+        last_exc: Optional[Exception] = None
+        for attempt in range(self._retry.max_attempts):
+            try:
+                return fn()
+            except Exception as e:
+                last_exc = e
+                if not self._is_transient(e):
+                    raise RuntimeError(f"{op_name} failed (non-retryable): {e}") from e
+                if attempt >= self._retry.max_attempts - 1:
+                    status = self._get_status_code(e)
+                    raise RuntimeError(
+                        f"{op_name} failed after {self._retry.max_attempts} attempts"
+                        + (f" (HTTP {status})" if status else "")
+                        + f": {e}"
+                    ) from e
+                self._sleep_with_backoff(attempt, is_write=is_write, exc=e)
+
+        raise RuntimeError(f"{op_name} failed unexpectedly: {last_exc}")
+
+
 def _research_company_profile(
-    customer_url: str, 
-    api_key: str, 
-    model: str, 
-    cache_path: Optional[Path] = None
+    customer_url: str,
+    api_key: str,
+    model: str,
+    cache_path: Optional[Path] = None,
+    *,
+    retry: Optional[_RetryConfig] = None,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> Optional[Dict[str, Any]]:
     """
     Research a company profile from its URL using OpenAI.
-    
-    Args:
-        customer_url: The company website URL
-        api_key: OpenAI API key
-        model: OpenAI model to use
-        cache_path: Optional path to cache file (e.g., <cv_name>.research.json)
-    
+
     Returns:
         Dict containing company profile data, or None if research fails
     """
@@ -137,261 +309,253 @@ def _research_company_profile(
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
                 cached_data = json.load(f)
-            # Basic validation that it's a dict with required fields
             if _validate_research_data(cached_data):
                 LOG.info("Using cached company research from %s", cache_path)
                 return cached_data
         except Exception as e:
             LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
-    
-    # No valid cache, perform research
+
     if not OpenAI:
         LOG.warning("Company research skipped: OpenAI unavailable")
         return None
-    
-    # Load schema
+
     schema = _load_research_schema()
     if not schema:
         LOG.warning("Company research skipped: schema not available")
         return None
-    
-    # Build research prompt using template
+
     research_prompt = format_prompt(
         "website_analysis_prompt",
         customer_url=customer_url,
-        schema=json.dumps(schema, indent=2)
+        schema=json.dumps(schema, indent=2),
     )
-    
     if not research_prompt:
         LOG.warning("Company research skipped: failed to load prompt template")
         return None
-    
+
+    client = OpenAI(api_key=api_key)
+    retryer = _OpenAIRetry(retry=retry or _RetryConfig(), sleep=sleep)
+
     try:
-        client = OpenAI(api_key=api_key)
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "user", "content": research_prompt}
-            ],
-            temperature=0.2,
+        completion = retryer.call(
+            lambda: client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": research_prompt}],
+                temperature=0.2,
+            ),
+            is_write=True,
+            op_name="Company research completion",
         )
-        content = completion.choices[0].message.content if completion.choices else None
-        if not content:
-            LOG.warning("Company research: empty completion")
-            return None
-        
-        # Parse JSON response
-        try:
-            research_data = json.loads(content)
-            if not isinstance(research_data, dict):
-                LOG.warning("Company research: response is not a dict")
-                return None
-            
-            # Basic validation
-            if not _validate_research_data(research_data):
-                LOG.warning("Company research: missing required fields")
-                return None
-            
-            # Cache the result
-            if cache_path:
-                try:
-                    cache_path.parent.mkdir(parents=True, exist_ok=True)
-                    with open(cache_path, "w", encoding="utf-8") as f:
-                        json.dump(research_data, f, ensure_ascii=False, indent=2)
-                    LOG.info("Cached company research to %s", cache_path)
-                except Exception as e:
-                    LOG.warning("Failed to cache research (%s)", type(e).__name__)
-            
-            LOG.info("Successfully researched company profile")
-            return research_data
-            
-        except json.JSONDecodeError:
-            LOG.warning("Company research: invalid JSON response")
-            return None
-            
     except Exception as e:
         LOG.warning("Company research error (%s)", type(e).__name__)
         return None
+
+    content = None
+    try:
+        content = completion.choices[0].message.content if completion.choices else None
+    except Exception:
+        content = None
+
+    if not content:
+        LOG.warning("Company research: empty completion")
+        return None
+
+    research_data = _extract_json_object(content)
+    if not research_data:
+        LOG.warning("Company research: invalid JSON response")
+        return None
+
+    if not _validate_research_data(research_data):
+        LOG.warning("Company research: response failed schema validation")
+        return None
+
+    # Cache the result (atomic)
+    if cache_path:
+        try:
+            _atomic_write_json(cache_path, research_data)
+            LOG.info("Cached company research to %s", cache_path)
+        except Exception as e:
+            LOG.warning("Failed to cache research (%s)", type(e).__name__)
+
+    LOG.info("Successfully researched company profile")
+    return research_data
 
 
 class OpenAICompanyResearchAdjuster(CVAdjuster):
     """
     Adjuster that uses OpenAI to tailor CV based on company research.
-    
-    This adjuster researches a target company and adjusts the CV to highlight
-    relevant experience, skills, and technologies. It follows the clean adjuster
-    pattern:
-    1. Fetch company research
-    2. Build system prompt
-    3. Call OpenAI API directly
-    4. Validate result with schema verifier
-    5. Return adjusted CV or original on failure
     """
-    
-    def __init__(self, model: str = "gpt-4o-mini", api_key: Optional[str] = None):
+
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        api_key: Optional[str] = None,
+        *,
+        retry_config: Optional[_RetryConfig] = None,
+        _sleep: Callable[[float], None] = time.sleep,
+    ):
         """
         Initialize the adjuster.
-        
+
         Args:
             model: OpenAI model to use (default: "gpt-4o-mini")
             api_key: Optional OpenAI API key (defaults to OPENAI_API_KEY env var)
+            retry_config: Retry/backoff configuration for OpenAI calls
+            _sleep: Injected sleep (tests)
         """
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
-    
+        self._retry = retry_config or _RetryConfig()
+        self._sleep = _sleep
+
     def name(self) -> str:
-        """Return adjuster name."""
         return "openai-company-research"
-    
+
     def description(self) -> str:
-        """Return adjuster description."""
         return "Adjusts CV based on target company research using OpenAI"
-    
+
     def validate_params(self, **kwargs) -> None:
-        """
-        Validate required parameters.
-        
-        Args:
-            **kwargs: Must contain 'customer_url' or 'customer-url' (with or without hyphen)
-        
-        Raises:
-            ValueError: If customer_url is missing
-        """
-        # Normalize parameter names (CLI uses hyphens, Python uses underscores)
-        has_customer_url = 'customer_url' in kwargs or 'customer-url' in kwargs
-        
-        if not has_customer_url or not (kwargs.get('customer_url') or kwargs.get('customer-url')):
+        has_customer_url = "customer_url" in kwargs or "customer-url" in kwargs
+        if not has_customer_url or not (kwargs.get("customer_url") or kwargs.get("customer-url")):
             raise ValueError(f"Adjuster '{self.name()}' requires 'customer-url' parameter")
-    
+
     def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
-        """
-        Adjust CV based on company research.
-        
-        Args:
-            cv_data: The CV data to adjust
-            **kwargs: Must contain 'customer_url' (or 'customer-url'), optional 'cache_path'
-        
-        Returns:
-            Adjusted CV data, or original data if adjustment fails
-        """
         self.validate_params(**kwargs)
-        
+
         if not self._api_key or OpenAI is None:
             LOG.warning("Company research adjust skipped: OpenAI unavailable or API key missing.")
             return cv_data
-        
-        # Normalize parameter names (CLI uses hyphens, Python uses underscores)
-        customer_url = kwargs.get('customer_url', kwargs.get('customer-url'))
-        cache_path = kwargs.get('cache_path')
-        
-        # Step 1: Research company profile
+
+        customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
+        cache_path = kwargs.get("cache_path")
+
+        # Step 1: Research company profile (with retries)
         LOG.info("Researching company at %s", customer_url)
         research_data = _research_company_profile(
-            customer_url, 
-            self._api_key, 
-            self._model, 
-            cache_path
+            customer_url,
+            self._api_key,
+            self._model,
+            cache_path,
+            retry=self._retry,
+            sleep=self._sleep,
         )
-        
+
         if not research_data:
             LOG.warning("Company research adjust: failed to research company; using original CV.")
             return cv_data
-        
+
         # Step 2: Build research context text
-        # Extract key information from research data for the system prompt
-        domains_text = ", ".join(research_data.get("domains", []))
+        domains_text = ", ".join(research_data.get("domains", [])) if isinstance(research_data.get("domains"), list) else ""
         company_name = research_data.get("name", "the company")
-        company_desc = research_data.get("description", "")
-        
-        # Build technology signals context
-        tech_signals_parts = []
-        if research_data.get("technology_signals"):
+        company_desc = research_data.get("description", "") or ""
+
+        tech_signals_parts: list[str] = []
+        tech_signals = research_data.get("technology_signals")
+        if isinstance(tech_signals, list) and tech_signals:
             tech_signals_parts.append("Key Technology Signals:")
-            for signal in research_data["technology_signals"]:
+            for signal in tech_signals:
+                if not isinstance(signal, dict):
+                    continue
                 tech = signal.get("technology", "Unknown")
                 interest = signal.get("interest_level", "unknown")
                 confidence = signal.get("confidence", 0)
                 evidence = signal.get("signals", [])
-                
-                # Format confidence safely
+
                 try:
                     conf_str = f"{float(confidence):.2f}"
                 except (TypeError, ValueError):
                     conf_str = "0.00"
-                
+
                 tech_signals_parts.append(f"\n- {tech} (interest: {interest}, confidence: {conf_str})")
-                if evidence:
-                    tech_signals_parts.append(f"\n  Evidence: {'; '.join(evidence[:2])}")
-        
+                if isinstance(evidence, list) and evidence:
+                    tech_signals_parts.append(f"\n  Evidence: {'; '.join([str(x) for x in evidence[:2]])}")
+
         tech_signals_text = "".join(tech_signals_parts)
-        
-        # Build the research context
+
         research_context = f"Company: {company_name}\n"
         if company_desc:
             research_context += f"Description: {company_desc}\n"
         if domains_text:
             research_context += f"Domains: {domains_text}\n"
         if tech_signals_text:
-            research_context += f"{tech_signals_text}"
-        
+            research_context += tech_signals_text
+
         # Step 3: Load system prompt template with research context
+        # Keep legacy template name (typo) for compatibility.
         system_prompt = format_prompt("adjuster_promp_for_a_company", research_context=research_context)
-        
+        if not system_prompt:
+            # Try a corrected template key as a fallback if it exists in your prompts.
+            system_prompt = format_prompt("adjuster_prompt_for_a_company", research_context=research_context)
+
         if not system_prompt:
             LOG.warning("Company research adjust: failed to load prompt template; using original CV.")
             return cv_data
-        
+
         # Step 4: Create user payload with research data and cv_data
         user_payload = {
             "company_research": research_data,
             "original_json": cv_data,
             "adjusted_json": "",
         }
-        
-        # Step 5: Call OpenAI API directly
+
+        client = OpenAI(api_key=self._api_key)
+        retryer = _OpenAIRetry(retry=self._retry, sleep=self._sleep)
+
+        # Step 5: Call OpenAI (with retries)
         try:
-            client = OpenAI(api_key=self._api_key)
-            completion = client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": json.dumps(user_payload)},
-                ],
-                temperature=0.2,
+            completion = retryer.call(
+                lambda: client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+                    ],
+                    temperature=0.2,
+                ),
+                is_write=True,
+                op_name="Company research adjust completion",
             )
-            
-            adjusted_json_str = completion.choices[0].message.content
-            adjusted = json.loads(adjusted_json_str)
-        except (json.JSONDecodeError, ValueError, KeyError, IndexError, AttributeError) as e:
-            LOG.warning("Company research adjust: failed to parse response (%s); using original CV.", type(e).__name__)
-            return cv_data
         except Exception as e:
             LOG.warning("Company research adjust: API call failed (%s); using original CV.", type(e).__name__)
             return cv_data
-        
-        if adjusted is None:
-            LOG.warning("Company research adjust: API call returned null; using original CV.")
+
+        content = None
+        try:
+            content = completion.choices[0].message.content if completion.choices else None
+        except Exception:
+            content = None
+
+        if not content:
+            LOG.warning("Company research adjust: empty response; using original CV.")
             return cv_data
-        
+
+        adjusted = _extract_json_object(content)
+        if adjusted is None:
+            LOG.warning("Company research adjust: failed to parse JSON response; using original CV.")
+            return cv_data
+
         # Step 6: Validate adjusted CV against schema
         if not isinstance(adjusted, dict):
             LOG.warning("Company research adjust: result is not a dict; using original CV.")
             return cv_data
-        
+
         try:
             cv_verifier = get_verifier("cv-schema-verifier")
+            if not cv_verifier:
+                LOG.warning("Company research adjust: CV schema verifier not available; using original CV.")
+                return cv_data
+
             validation_result = cv_verifier.verify(adjusted)
-            
             if validation_result.ok:
                 LOG.info("The CV was adjusted to better fit the target company.")
                 return adjusted
-            else:
-                LOG.warning(
-                    "Company research adjust: adjusted CV failed schema validation (%d errors); using original CV.",
-                    len(validation_result.errors)
-                )
-                return cv_data
+
+            LOG.warning(
+                "Company research adjust: adjusted CV failed schema validation (%d errors); using original CV.",
+                len(getattr(validation_result, "errors", []) or []),
+            )
+            return cv_data
+
         except Exception as e:
             LOG.warning("Company research adjust: schema validation error (%s); using original CV.", type(e).__name__)
             return cv_data
-

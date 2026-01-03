@@ -2,16 +2,27 @@
 OpenAI-based job-specific adjuster.
 
 Adjusts CV data based on a specific job description using OpenAI.
+
+Improvements included:
+- Centralized retry/backoff with jitter for 429/5xx/transient network errors
+- Honors Retry-After when present
+- Removes stacked retry layers (SDK max_retries + custom loop) to avoid retry storms
+- Safer JSON extraction from model output (handles fenced blocks and extra text)
+- Better HTML cleaning and length limiting for fetched job descriptions
+- Prompt template key fallback (typo + corrected name)
+- Test seams: injectable sleep + deterministic jitter option
 """
 
 from __future__ import annotations
 
-import os
 import json
 import logging
-import time
+import os
+import random
 import re
-from typing import Any, Dict, Optional
+import time
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 try:
     import requests  # type: ignore
@@ -29,41 +40,209 @@ from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
 
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class _RetryConfig:
+    max_attempts: int = 8
+    base_delay_s: float = 0.75
+    max_delay_s: float = 20.0
+    write_multiplier: float = 1.6
+    deterministic: bool = False
+
+
+def _strip_markdown_fences(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```json"):
+        text = text[len("```json") :]
+    elif text.startswith("```"):
+        text = text[len("```") :]
+    if text.endswith("```"):
+        text = text[: -len("```")]
+    return text.strip()
+
+
+def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """
+    Robustly extract a JSON object from model output.
+
+    Handles:
+    - pure JSON
+    - fenced code blocks
+    - extra commentary around JSON
+    """
+    if not isinstance(text, str):
+        return None
+
+    cleaned = _strip_markdown_fences(text)
+
+    # Fast path: exact JSON
+    try:
+        obj = json.loads(cleaned)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+
+    # Attempt to locate the first top-level JSON object
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+
+    candidate = cleaned[start : end + 1]
+    try:
+        obj = json.loads(candidate)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
+
+
+class _OpenAIRetry:
+    def __init__(self, *, retry: _RetryConfig, sleep: Callable[[float], None]):
+        self._retry = retry
+        self._sleep = sleep
+
+    def _get_status_code(self, exc: Exception) -> Optional[int]:
+        for attr in ("status_code", "status", "http_status"):
+            val = getattr(exc, attr, None)
+            if isinstance(val, int):
+                return val
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            sc = getattr(resp, "status_code", None)
+            if isinstance(sc, int):
+                return sc
+        return None
+
+    def _get_retry_after_s(self, exc: Exception) -> Optional[float]:
+        headers = getattr(exc, "headers", None)
+        resp = getattr(exc, "response", None)
+        if headers is None and resp is not None:
+            headers = getattr(resp, "headers", None)
+        if not headers:
+            return None
+        try:
+            ra = headers.get("retry-after") or headers.get("Retry-After")
+        except Exception:
+            return None
+        if ra is None:
+            return None
+        try:
+            return float(ra)
+        except Exception:
+            return None
+
+    def _is_transient(self, exc: Exception) -> bool:
+        status = self._get_status_code(exc)
+        if status == 429:
+            return True
+        if status is not None and 500 <= status <= 599:
+            return True
+
+        msg = str(exc).lower()
+        transient_markers = (
+            "timeout",
+            "timed out",
+            "temporarily unavailable",
+            "connection reset",
+            "connection aborted",
+            "connection refused",
+            "remote disconnected",
+            "bad gateway",
+            "service unavailable",
+            "gateway timeout",
+            "tls",
+            "ssl",
+        )
+        return any(m in msg for m in transient_markers)
+
+    def _sleep_with_backoff(self, attempt_idx: int, *, is_write: bool, exc: Exception) -> None:
+        retry_after = self._get_retry_after_s(exc)
+        if retry_after is not None and retry_after > 0:
+            self._sleep(min(self._retry.max_delay_s, retry_after))
+            return
+
+        mult = self._retry.write_multiplier if is_write else 1.0
+        raw = self._retry.base_delay_s * (2**attempt_idx) * mult
+        capped = min(self._retry.max_delay_s, raw)
+
+        if self._retry.deterministic:
+            delay = capped
+        else:
+            delay = random.random() * capped  # full jitter
+
+        delay = max(0.25, delay)
+        self._sleep(delay)
+
+    def call(self, fn: Callable[[], T], *, is_write: bool, op_name: str) -> T:
+        last_exc: Optional[Exception] = None
+        for attempt in range(self._retry.max_attempts):
+            try:
+                return fn()
+            except Exception as e:
+                last_exc = e
+                if not self._is_transient(e):
+                    raise RuntimeError(f"{op_name} failed (non-retryable): {e}") from e
+                if attempt >= self._retry.max_attempts - 1:
+                    status = self._get_status_code(e)
+                    raise RuntimeError(
+                        f"{op_name} failed after {self._retry.max_attempts} attempts"
+                        + (f" (HTTP {status})" if status else "")
+                        + f": {e}"
+                    ) from e
+                self._sleep_with_backoff(attempt, is_write=is_write, exc=e)
+
+        raise RuntimeError(f"{op_name} failed unexpectedly: {last_exc}")
+
 
 def _fetch_job_description(url: str) -> str:
     """
     Fetch job description from URL and extract/clean text content.
-    
-    Args:
-        url: URL to fetch job description from
-    
+
     Returns:
-        Cleaned text content (max 5000 chars), or empty string if fetch fails
+        Cleaned text content (max 5000 chars), or empty string if fetch fails.
     """
     if not requests:
         return ""
     try:
-        resp = requests.get(url, timeout=15)
+        resp = requests.get(
+            url,
+            timeout=15,
+            headers={
+                "User-Agent": "cvextract/1.0 (+https://example.invalid)",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+        )
         if resp.status_code != 200:
             return ""
-        
+
         html = resp.text or ""
         if not html:
             return ""
-        
-        # Remove script and style elements
-        html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-        html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
-        
-        # Remove HTML tags
-        text = re.sub(r'<[^>]+>', '', html)
-        
-        # Clean up whitespace
-        text = re.sub(r'\s+', ' ', text)  # Collapse multiple spaces
-        text = text.strip()
-        
-        # Limit to first 5000 characters to avoid token limits
-        # (typical job posting is 500-2000 chars, this gives plenty of room)
+
+        # Remove script/style/noscript
+        html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        html = re.sub(r"<noscript[^>]*>.*?</noscript>", "", html, flags=re.DOTALL | re.IGNORECASE)
+
+        # Strip tags
+        text = re.sub(r"<[^>]+>", " ", html)
+
+        # Decode common HTML entities lightly (no extra deps)
+        text = (
+            text.replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", '"')
+            .replace("&#39;", "'")
+        )
+
+        # Collapse whitespace
+        text = re.sub(r"\s+", " ", text).strip()
+
+        # Limit to avoid token blowups
         return text[:5000] if text else ""
     except Exception:
         return ""
@@ -72,70 +251,54 @@ def _fetch_job_description(url: str) -> str:
 class OpenAIJobSpecificAdjuster(CVAdjuster):
     """
     Adjuster that uses OpenAI to tailor CV based on a specific job description.
-    
-    This adjuster takes a job URL or description and adjusts the CV to highlight
-    relevant experience and skills for that specific position.
     """
-    
-    def __init__(self, model: str = "gpt-4o-mini", api_key: Optional[str] = None):
-        """
-        Initialize the adjuster.
-        
-        Args:
-            model: OpenAI model to use (default: "gpt-4o-mini")
-            api_key: Optional OpenAI API key (defaults to OPENAI_API_KEY env var)
-        """
+
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        api_key: Optional[str] = None,
+        *,
+        retry_config: Optional[_RetryConfig] = None,
+        _sleep: Callable[[float], None] = time.sleep,
+    ):
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
-    
+        self._retry = retry_config or _RetryConfig()
+        self._sleep = _sleep
+
     def name(self) -> str:
-        """Return adjuster name."""
         return "openai-job-specific"
-    
+
     def description(self) -> str:
-        """Return adjuster description."""
         return "Adjusts CV based on a specific job description using OpenAI"
-    
+
     def validate_params(self, **kwargs) -> None:
-        """
-        Validate required parameters.
-        
-        Args:
-            **kwargs: Must contain either 'job_url' or 'job_description' (or hyphenated variants)
-        
-        Raises:
-            ValueError: If neither job_url nor job_description is provided
-        """
-        # Normalize parameter names (CLI uses hyphens, Python uses underscores)
-        has_job_url = 'job_url' in kwargs or 'job-url' in kwargs
-        has_job_desc = 'job_description' in kwargs or 'job-description' in kwargs
-        
+        has_job_url = "job_url" in kwargs or "job-url" in kwargs
+        has_job_desc = "job_description" in kwargs or "job-description" in kwargs
+
         if not has_job_url and not has_job_desc:
             raise ValueError(
                 f"Adjuster '{self.name()}' requires either 'job-url' or 'job-description' parameter"
             )
-    
+
+        # If they provided the key but it's empty, still invalid
+        job_desc_val = kwargs.get("job_description") or kwargs.get("job-description")
+        job_url_val = kwargs.get("job_url") or kwargs.get("job-url")
+        if (not job_desc_val) and (not job_url_val):
+            raise ValueError(
+                f"Adjuster '{self.name()}' requires either non-empty 'job-url' or 'job-description'"
+            )
+
     def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
-        """
-        Adjust CV based on job description.
-        
-        Args:
-            cv_data: The CV data to adjust
-            **kwargs: Must contain either 'job_url' or 'job_description' (or hyphenated variants)
-        
-        Returns:
-            Adjusted CV data, or original data if adjustment fails
-        """
         self.validate_params(**kwargs)
-        
+
         if not self._api_key or OpenAI is None:
             LOG.warning("Job-specific adjust skipped: OpenAI unavailable or API key missing.")
             return cv_data
-        
-        # Normalize parameter names (CLI uses hyphens, Python uses underscores)
-        job_description = kwargs.get('job_description', kwargs.get('job-description', ''))
-        job_url = kwargs.get('job_url', kwargs.get('job-url', ''))
-        
+
+        job_description = kwargs.get("job_description", kwargs.get("job-description", "")) or ""
+        job_url = kwargs.get("job_url", kwargs.get("job-url", "")) or ""
+
         # Get job description from URL or direct text
         if not job_description and job_url:
             LOG.info("Fetching job description from %s", job_url)
@@ -143,84 +306,76 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             if not job_description:
                 LOG.warning("Job-specific adjust: failed to fetch job description from URL")
                 return cv_data
-        
-        # Build prompt using template
+
+        # Load prompt (keep typo key for compatibility, add fallback)
         system_prompt = format_prompt("adjuster_promp_for_specific_job", job_description=job_description)
-        
+        if not system_prompt:
+            system_prompt = format_prompt("adjuster_prompt_for_specific_job", job_description=job_description)
+
         if not system_prompt:
             LOG.warning("Job-specific adjust skipped: failed to load prompt template")
             return cv_data
-        
-        # Call OpenAI to adjust the CV with exponential backoff on rate limits
-        max_retries = 3
-        base_wait = 2.0  # Start with 2 seconds for our custom backoff
-        
-        # Create OpenAI client once (reuse across retries)
-        client = OpenAI(
-            api_key=self._api_key,
-            max_retries=5,  # SDK's built-in retries (handles initial rate limit gracefully)
-        )
-        
-        for attempt in range(max_retries):
-            try:
-                user_payload = {
-                    "job_description": job_description,
-                    "original_json": cv_data,
-                    "adjusted_json": "",
-                }
-                
-                completion = client.chat.completions.create(
+
+        client = OpenAI(api_key=self._api_key)
+        retryer = _OpenAIRetry(retry=self._retry, sleep=self._sleep)
+
+        user_payload = {
+            "job_description": job_description,
+            "original_json": cv_data,
+            "adjusted_json": "",
+        }
+
+        # Single retry system (no stacked retries)
+        try:
+            completion = retryer.call(
+                lambda: client.chat.completions.create(
                     model=self._model,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": json.dumps(user_payload)},
+                        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
                     ],
                     temperature=0.2,
-                )
-                
-                content = completion.choices[0].message.content if completion.choices else None
-                if not content:
-                    LOG.warning("Job-specific adjust: empty completion; using original JSON.")
-                    return cv_data
-                
-                # Try to parse JSON; if parsing fails, keep original
-                try:
-                    adjusted = json.loads(content)
-                    if adjusted is not None:
-                        # Validate adjusted CV against schema
-                        cv_verifier = get_verifier("cv-schema-verifier")
-                        validation_result = cv_verifier.verify(adjusted)
-                        
-                        if validation_result.ok:
-                            LOG.info("The CV was adjusted to better fit the job description.")
-                            return adjusted
-                        else:
-                            LOG.warning(
-                                "Job-specific adjust: adjusted CV failed schema validation (%d errors); using original JSON.",
-                                len(validation_result.errors)
-                            )
-                            return cv_data
-                    LOG.warning("Job-specific adjust: completion is not a dict; using original JSON.")
-                    return cv_data
-                except Exception:
-                    LOG.warning("Job-specific adjust: invalid JSON response; using original JSON.")
-                    return cv_data
-            
-            except Exception as e:
-                # Check if it's a rate limit error
-                error_name = type(e).__name__
-                is_rate_limit = "RateLimit" in error_name or "429" in str(e)
-                
-                if is_rate_limit and attempt < max_retries - 1:
-                    # Calculate exponential backoff: base_wait * 2^attempt
-                    wait_time = base_wait * (2 ** attempt)
-                    LOG.warning(
-                        "Job-specific adjust: rate limited (attempt %d/%d), waiting %.1f seconds before retry",
-                        attempt + 1, max_retries, wait_time
-                    )
-                    time.sleep(wait_time)
-                    continue
-                
-                # Not a rate limit error or final attempt
-                LOG.warning("Job-specific adjust error (%s); using original JSON.", error_name)
-                return cv_data
+                ),
+                is_write=True,
+                op_name="Job-specific adjust completion",
+            )
+        except Exception as e:
+            LOG.warning("Job-specific adjust error (%s); using original JSON.", type(e).__name__)
+            return cv_data
+
+        content = None
+        try:
+            content = completion.choices[0].message.content if completion.choices else None
+        except Exception:
+            content = None
+
+        if not content:
+            LOG.warning("Job-specific adjust: empty completion; using original JSON.")
+            return cv_data
+
+        adjusted = _extract_json_object(content)
+        if adjusted is None:
+            LOG.warning("Job-specific adjust: invalid JSON response; using original JSON.")
+            return cv_data
+
+        # Validate adjusted CV against schema
+        cv_verifier = get_verifier("cv-schema-verifier")
+        if not cv_verifier:
+            LOG.warning("Job-specific adjust: CV schema verifier not available; using original JSON.")
+            return cv_data
+
+        try:
+            validation_result = cv_verifier.verify(adjusted)
+        except Exception as e:
+            LOG.warning("Job-specific adjust: schema validation error (%s); using original JSON.", type(e).__name__)
+            return cv_data
+
+        if validation_result.ok:
+            LOG.info("The CV was adjusted to better fit the job description.")
+            return adjusted
+
+        LOG.warning(
+            "Job-specific adjust: adjusted CV failed schema validation (%d errors); using original JSON.",
+            len(getattr(validation_result, "errors", []) or []),
+        )
+        return cv_data

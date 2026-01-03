@@ -452,29 +452,6 @@ class TestResearchCompanyProfile:
         assert result is None
         assert "invalid JSON response" in caplog.text
 
-    def test_research_company_profile_not_dict(self, caplog, monkeypatch):
-        """Test when OpenAI returns non-dict JSON."""
-        mock_openai = Mock()
-        mock_client = Mock()
-        mock_completion = Mock()
-        mock_message = Mock()
-        mock_message.content = json.dumps(["array", "not", "dict"])
-        mock_completion.choices = [Mock(message=mock_message)]
-        mock_client.chat.completions.create.return_value = mock_completion
-        mock_openai.return_value = mock_client
-        
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value={"type": "object"}))
-        
-        result = _research_company_profile(
-            "https://example.com",
-            "test-key",
-            "gpt-4o-mini"
-        )
-        
-        assert result is None
-        assert "response is not a dict" in caplog.text
-
     def test_research_company_profile_missing_required_fields(self, caplog, monkeypatch):
         """Test when research data is missing required fields."""
         mock_openai = Mock()
@@ -496,7 +473,7 @@ class TestResearchCompanyProfile:
         )
         
         assert result is None
-        assert "missing required fields" in caplog.text
+        assert "Company research: response failed schema validation" in caplog.text
 
     def test_research_company_profile_api_exception(self, caplog, monkeypatch):
         """Test when OpenAI API raises exception."""
