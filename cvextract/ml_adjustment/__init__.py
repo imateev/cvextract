@@ -1,14 +1,8 @@
 """
 ML-based CV adjustment module.
 
-This module provides ML-based adjustment of CV data to highlight aspects
-relevant to a target customer, using OpenAI to research companies and
-adjust CV content accordingly.
+This module provides prompt loading and formatting utilities for CV adjustments.
+Note: Research and adjustment functionality has been moved to the adjusters module.
 """
 
-from .adjuster import _url_to_cache_filename, _research_company_profile
-
-__all__ = [
-    "_url_to_cache_filename",
-    "_research_company_profile",
-]
+__all__ = []

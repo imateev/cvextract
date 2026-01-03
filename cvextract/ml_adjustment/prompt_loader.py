@@ -32,9 +32,9 @@ def load_prompt(prompt_name: str) -> Optional[str]:
         The prompt text, or None if the file doesn't exist or can't be read
     
     Example:
-        >>> system_prompt = load_prompt("system_prompt")
-        >>> if system_prompt:
-        ...     print(system_prompt)
+        >>> cv_system = load_prompt("cv_extraction_system")
+        >>> if cv_system:
+        ...     print(cv_system[:50])
     """
     # Try adjuster prompts folder first
     adjuster_prompt_path = _ADJUSTER_PROMPTS_DIR / f"{prompt_name}.md"
@@ -64,9 +64,9 @@ def format_prompt(prompt_name: str, **kwargs) -> Optional[str]:
         The formatted prompt text, or None if the file doesn't exist or can't be read
     
     Example:
-        >>> prompt = format_prompt("system_prompt", 
-        ...                        company_name="Example Corp",
-        ...                        domains_text="Technology")
+        >>> prompt = format_prompt("website_analysis_prompt", 
+        ...                        customer_url="https://example.com",
+        ...                        schema="{}")
         >>> if prompt:
         ...     print(prompt[:50])
     """

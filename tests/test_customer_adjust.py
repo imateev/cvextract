@@ -4,10 +4,8 @@ import json
 import logging
 import os
 from unittest.mock import Mock
-from cvextract.ml_adjustment import (
-    _url_to_cache_filename,
-)
 from cvextract.adjusters.openai_company_research_adjuster import (
+    _url_to_cache_filename,
     _fetch_customer_page,
     _research_company_profile,
     _load_research_schema,

@@ -15,7 +15,7 @@ from typing import List, Tuple, Optional
 from .cli_config import UserConfig, ExtractStage
 from .cli_execute import execute_pipeline
 from .logging_utils import LOG
-from .ml_adjustment import _url_to_cache_filename, _research_company_profile
+from .adjusters.openai_company_research_adjuster import _url_to_cache_filename, _research_company_profile
 import os
 
 

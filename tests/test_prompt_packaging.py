@@ -30,7 +30,6 @@ class TestPromptPackaging:
         
         # Verify all expected prompt files exist
         expected_prompts = [
-            "system_prompt.md",
             "website_analysis_prompt.md",
             "cv_extraction_system.md",
             "cv_extraction_user.md",
@@ -69,7 +68,6 @@ class TestPromptPackaging:
         from cvextract.ml_adjustment.prompt_loader import load_prompt
         
         prompts_to_test = [
-            "system_prompt",
             "website_analysis_prompt",
             "adjuster_promp_for_specific_job",
             "cv_extraction_system",

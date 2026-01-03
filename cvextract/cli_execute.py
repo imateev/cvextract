@@ -18,7 +18,7 @@ from .cli_prepare import _collect_inputs
 from .logging_utils import LOG, fmt_issues
 from .adjusters import get_adjuster
 from .extractors import get_extractor
-from .ml_adjustment import _url_to_cache_filename
+from .adjusters.openai_company_research_adjuster import _url_to_cache_filename
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
