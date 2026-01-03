@@ -33,6 +33,7 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 from .prompt_loader import format_prompt, load_prompt
+from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
 
@@ -101,8 +102,22 @@ def _fetch_customer_page(url: str) -> str:
 
 
 def _validate_research_data(data: Any) -> bool:
-    """Validate that research data has required fields."""
-    return isinstance(data, dict) and "name" in data and "domains" in data
+    """
+    Validate that research data conforms to the company profile schema.
+    
+    Uses the CompanyProfileVerifier to ensure the data structure
+    matches the research_schema.json requirements.
+    """
+    if not isinstance(data, dict):
+        return False
+    
+    try:
+        verifier = get_verifier("company-profile-verifier")
+        result = verifier.verify(data)
+        return result.ok
+    except Exception as e:
+        LOG.warning("Failed to validate research data with verifier: %s", e)
+        return False
 
 
 def _research_company_profile(

@@ -13,9 +13,9 @@ Automated company research with JSON caching enables efficient, cost-effective C
 The company research feature:
 1. Fetches and analyzes company website content
 2. Extracts structured company information using OpenAI
-3. Caches research results as JSON files
-4. Reuses cached data for subsequent CV adjustments
-5. Validates research data against schema before caching
+3. Validates research data using CompanyProfileVerifier against schema
+4. Caches research results as JSON files
+5. Reuses cached data for subsequent CV adjustments
 
 ## Entry Points
 
@@ -86,14 +86,16 @@ Defined in `cvextract/contracts/research_schema.json`:
 ### Cache Storage
 
 - **Format**: JSON file
-- **Validation**: Checked against research schema before caching
+- **Validation**: Checked against research schema using `CompanyProfileVerifier` before caching
 - **Reuse**: Subsequent adjustments check cache before making API calls
+- **Validator**: `cvextract.ml_adjustment.adjuster._validate_research_data()` uses registry-based `CompanyProfileVerifier`
 
 ## Dependencies
 
 ### Internal Dependencies
 
-- `cvextract.ml_adjustment.MLAdjuster` - Research performer
+- `cvextract.ml_adjustment.MLAdjuster` - Research performer schema
+- `cvextract.verifiers.CompanyProfileVerifier` - Research data validation
 - `cvextract.contracts.research_schema.json` - Data validation
 
 ### External Dependencies
@@ -131,6 +133,7 @@ Caching was added to reduce API costs and improve performance for batch processi
 
 ## Related Documentation
 
+- [Company Profile Verifier](../../verification/company-profile-verifier/README.md)
 - [ML Adjustment](../ml-adjustment/README.md)
 - [Named Adjusters](../named-adjusters/README.md)
 - Module README: `cvextract/ml_adjustment/README.md`
