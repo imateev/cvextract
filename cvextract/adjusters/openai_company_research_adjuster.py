@@ -25,7 +25,7 @@ except Exception:  # pragma: no cover
     requests = None  # type: ignore
 
 from .base import CVAdjuster
-from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
+from ..shared import load_prompt, format_prompt
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")

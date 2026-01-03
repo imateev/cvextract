@@ -24,7 +24,7 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 from .base import CVAdjuster
-from ..ml_adjustment.prompt_loader import format_prompt
+from ..shared import format_prompt
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")

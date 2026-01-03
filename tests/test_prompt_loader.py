@@ -1,6 +1,6 @@
-"""Tests for ml_adjustment.prompt_loader module."""
+"""Tests for prompt loading functions."""
 
-from cvextract.ml_adjustment.prompt_loader import load_prompt, format_prompt
+from cvextract.shared import load_prompt, format_prompt
 
 
 class TestLoadPrompt:

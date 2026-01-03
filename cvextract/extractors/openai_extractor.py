@@ -15,7 +15,7 @@ from typing import Any, Dict
 from openai import OpenAI
 
 from .base import CVExtractor
-from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
+from ..shared import load_prompt, format_prompt
 from ..verifiers import get_verifier
 
 
