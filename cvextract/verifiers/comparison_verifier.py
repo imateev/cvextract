@@ -16,7 +16,7 @@ from .base import CVVerifier
 from ..shared import VerificationResult
 
 
-class ComparisonVerifier(CVVerifier):
+class RoundtripVerifier(CVVerifier):
     """
     Verifier for comparing two CV data structures.
     
@@ -98,7 +98,7 @@ class ComparisonVerifier(CVVerifier):
             errors.append(f"value mismatch at {path or '<root>'}: {a!r} vs {b!r}")
 
 
-class FileComparisonVerifier(CVVerifier):
+class FileRoundtripVerifier(CVVerifier):
     """
     Verifier for comparing two CV data files.
     
@@ -106,7 +106,7 @@ class FileComparisonVerifier(CVVerifier):
     """
 
     def __init__(self):
-        self._comparison_verifier = ComparisonVerifier()
+        self._roundtrip_verifier = RoundtripVerifier()
 
     def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
         """
@@ -130,4 +130,4 @@ class FileComparisonVerifier(CVVerifier):
         with Path(target_file).open("r", encoding="utf-8") as f:
             target_data = json.load(f)
         
-        return self._comparison_verifier.verify(source_data, target_data=target_data)
+        return self._roundtrip_verifier.verify(source_data, target_data=target_data)

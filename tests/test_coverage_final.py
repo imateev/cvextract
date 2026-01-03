@@ -3,7 +3,7 @@
 import json
 from zipfile import ZipFile
 
-from cvextract.verifiers import ComparisonVerifier, FileComparisonVerifier
+from cvextract.verifiers import get_verifier, FileComparisonVerifier
 from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
     extract_all_header_paragraphs,
@@ -15,7 +15,7 @@ class TestIsEnvironmentPath:
 
     def setup_method(self):
         """Setup a ComparisonVerifier instance for testing."""
-        self.verifier = ComparisonVerifier()
+        self.verifier = get_verifier("roundtrip-verifier")
 
     def test_is_environment_path_true(self):
         """Test detection of environment path."""
@@ -147,7 +147,7 @@ class TestCompareDataStructures:
         original = {"key": "value1"}
         new = {"key": "value2"}
         
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)

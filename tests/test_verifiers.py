@@ -7,7 +7,7 @@ import tempfile
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
-    ComparisonVerifier,
+    get_verifier,
     FileComparisonVerifier,
     SchemaVerifier,
 )
@@ -82,7 +82,7 @@ class TestComparisonVerifier:
 
     def test_verifier_accepts_identical_structures(self):
         """Identical structures should pass comparison."""
-        verifier = ComparisonVerifier()
+        verifier = get_verifier("roundtrip-verifier")
         data = {"x": 1, "y": [1, 2], "z": {"k": "v"}}
         result = verifier.verify(data, target_data=data)
         assert result.ok is True

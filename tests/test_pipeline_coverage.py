@@ -143,7 +143,7 @@ class TestRenderAndVerify:
         
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, \
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
-             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
+             patch("cvextract.verifiers.get_verifier('roundtrip-verifier').verify") as mock_compare:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = json.loads(json_path.read_text())
@@ -201,7 +201,7 @@ class TestRenderAndVerify:
         
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, \
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
-             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
+             patch("cvextract.verifiers.get_verifier('roundtrip-verifier').verify") as mock_compare:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = test_data
@@ -234,7 +234,7 @@ class TestRenderAndVerify:
         
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, \
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
-             patch("cvextract.verifiers.ComparisonVerifier.verify") as mock_compare:
+             patch("cvextract.verifiers.get_verifier('roundtrip-verifier').verify") as mock_compare:
             
             mock_render.return_value = rendered_docx
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}

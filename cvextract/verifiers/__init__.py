@@ -17,7 +17,7 @@ from .verifier_registry import (
 
  # Register built-in verifiers
 register_verifier("private-internal-verifier", ExtractedDataVerifier)
-register_verifier("comparison-verifier", ComparisonVerifier)
+register_verifier("roundtrip-verifier", ComparisonVerifier)
 register_verifier("file-comparison-verifier", FileComparisonVerifier)
 register_verifier("schema-verifier", SchemaVerifier)
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
-from cvextract.verifiers import get_verifier, ComparisonVerifier
+from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
 
@@ -88,7 +88,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
         return VerificationResult(ok=True, errors=[], warnings=[])
 
     # Mock the ComparisonVerifier instance method
-    comparison_verifier = ComparisonVerifier()
+    comparison_verifier = get_verifier("roundtrip-verifier")
     comparison_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
