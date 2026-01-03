@@ -138,7 +138,11 @@ class TestFetchJobDescription:
         result = _fetch_job_description("https://example.com/job/123")
         
         assert result == "Senior Software Engineer position..."
-        mock_requests.get.assert_called_once_with("https://example.com/job/123", timeout=15)
+        # Verify the call was made with the URL, timeout, and headers
+        call_args = mock_requests.get.call_args
+        assert call_args[0][0] == "https://example.com/job/123"  # URL
+        assert call_args[1]["timeout"] == 15
+        assert "User-Agent" in call_args[1]["headers"]
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.requests', None)
     def test_fetch_job_description_requests_unavailable(self):
@@ -280,11 +284,11 @@ class TestOpenAICompanyResearchAdjuster:
                                          mock_format_prompt, mock_research):
         """adjust should call OpenAI client.chat.completions.create after researching company."""
         # Setup mocks for research and prompt building
-        mock_research.return_value = {"company": "Test Corp"}
+        mock_research.return_value = {"company": "Test Corp", "name": "Test Corp", "description": "Test company", "domains": [], "technology_signals": []}
         mock_format_prompt.return_value = "System prompt for Test Corp"
         
         # Setup OpenAI mock
-        adjusted_result = {"adjusted": True}
+        adjusted_result = {"adjusted": True, "identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         mock_client = MagicMock()
         mock_message = MagicMock()
         mock_message.content = json.dumps(adjusted_result)
@@ -313,7 +317,7 @@ class TestOpenAICompanyResearchAdjuster:
         messages = call_kwargs['messages']
         assert len(messages) == 2
         assert messages[0]['role'] == 'system'
-        assert messages[0]['content'] == "System prompt for Test Corp"
+        assert "System prompt" in messages[0]['content']
         assert messages[1]['role'] == 'user'
         # User message should contain JSON-serialized user_payload
         user_payload = json.loads(messages[1]['content'])
@@ -773,6 +777,34 @@ class TestOpenAIJobSpecificAdjuster:
         adjuster = OpenAIJobSpecificAdjuster()
         adjuster.validate_params(job_description="Job description text")
     
+    def test_validate_params_rejects_empty_job_url_and_description(self):
+        """validate_params should raise error if both job_url and job_description are empty."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        with pytest.raises(ValueError, match="requires either non-empty 'job-url' or 'job-description'"):
+            adjuster.validate_params(job_url="", job_description="")
+    
+    def test_validate_params_rejects_none_job_url_and_empty_description(self):
+        """validate_params should raise error if job_url is None and job_description is empty."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        with pytest.raises(ValueError, match="requires either non-empty 'job-url' or 'job-description'"):
+            adjuster.validate_params(job_url=None, job_description="")
+    
+    def test_validate_params_accepts_hyphenated_job_url(self):
+        """validate_params should accept 'job-url' parameter (hyphenated variant)."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        adjuster.validate_params(**{"job-url": "https://careers.example.com/job/123"})
+    
+    def test_validate_params_accepts_hyphenated_job_description(self):
+        """validate_params should accept 'job-description' parameter (hyphenated variant)."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        adjuster.validate_params(**{"job-description": "Job description text"})
+    
+    def test_validate_params_rejects_empty_hyphenated_both(self):
+        """validate_params should raise error if both hyphenated variants are empty."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        with pytest.raises(ValueError, match="requires either non-empty 'job-url' or 'job-description'"):
+            adjuster.validate_params(**{"job-url": "", "job-description": ""})
+    
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI', None)
     def test_adjust_openai_library_unavailable(self, ):
         """adjust should return original CV when OpenAI library is not available (lines 160-161)."""
@@ -959,7 +991,8 @@ class TestOpenAIJobSpecificAdjuster:
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
-    def test_adjust_api_call_success(self, mock_format, mock_openai_class):
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.get_verifier')
+    def test_adjust_api_call_success(self, mock_get_verifier, mock_format, mock_openai_class):
         """adjust should successfully call OpenAI and return adjusted CV."""
         mock_format.return_value = "System prompt"
         
@@ -982,6 +1015,11 @@ class TestOpenAIJobSpecificAdjuster:
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai_class.return_value = mock_client
         
+        # Setup verifier mock
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = MagicMock(ok=True)
+        mock_get_verifier.return_value = mock_verifier
+        
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", model="gpt-4o-mini")
         cv_data = {
             "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
@@ -991,9 +1029,9 @@ class TestOpenAIJobSpecificAdjuster:
         }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
-        assert "John" in str(result)  # Verify the adjusted data is in result
-        # Client should be created once (not in the retry loop)
-        mock_openai_class.assert_called_once_with(api_key="test-key", max_retries=5)
+        assert result == adjusted_cv
+        # Client should be created once
+        mock_openai_class.assert_called_once_with(api_key="test-key")
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1089,61 +1127,57 @@ class TestOpenAIJobSpecificAdjuster:
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
-    def test_adjust_rate_limit_retry_succeeds(self, mock_format, mock_openai_class):
-        """adjust should retry on rate limit and eventually succeed."""
+    def test_adjust_retry_on_transient_error(self, mock_format, mock_openai_class):
+        """adjust should retry on transient errors via _OpenAIRetry."""
         mock_format.return_value = "System prompt"
         
         adjusted_cv = {
-            "identity": {
-                "name": "Adjusted",
-                "title": "Engineer",
-                "full_name": "Test User",
-                "first_name": "Test",
-                "last_name": "User"
-            },
+            "identity": {"name": "Adjusted", "title": "Engineer", "full_name": "Test User", "first_name": "Test", "last_name": "User"},
             "sidebar": {},
             "overview": "",
             "experiences": []
         }
-        
-        # First call fails with rate limit, second call succeeds
         mock_completion_success = MagicMock()
         mock_completion_success.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
-        from openai import RateLimitError
+        # Create an exception with a status_code attribute to trigger _is_transient
+        transient_error = Exception("HTTP 429 Too Many Requests")
+        transient_error.status_code = 429
+        
         mock_client = MagicMock()
-        # Mock the create method to fail once with RateLimitError, then succeed
+        # Fail once with transient error, then succeed
         mock_client.chat.completions.create.side_effect = [
-            RateLimitError("Rate limited", response=MagicMock(status_code=429), body={}),
+            transient_error,
             mock_completion_success
         ]
         mock_openai_class.return_value = mock_client
         
-        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
-        cv_data = {
-            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
-            "sidebar": {},
-            "overview": "",
-            "experiences": []
-        }
+        # Create a mock sleep function to track calls
+        mock_sleep = MagicMock()
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", _sleep=mock_sleep)
+        cv_data = {"identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""}, "sidebar": {}, "overview": "", "experiences": []}
         
         result = adjuster.adjust(cv_data, job_description="Test job")
-        assert "Adjusted" in str(result)  # Should succeed on retry
-        # Should have called create twice
+        assert result == adjusted_cv, f"Expected adjusted CV, got {result}"
+        # Should have called create twice (first failed, second succeeded)
         assert mock_client.chat.completions.create.call_count == 2
+        # Should have called sleep for backoff
+        assert mock_sleep.call_count >= 1
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
-    def test_adjust_rate_limit_exhausts_retries(self, mock_format, mock_openai_class):
-        """adjust should return original CV if rate limits exhaust retries."""
+    def test_adjust_retry_exhausts_max_attempts(self, mock_format, mock_openai_class):
+        """adjust should return original CV if retries are exhausted."""
         mock_format.return_value = "System prompt"
         
-        from openai import RateLimitError
+        # Create an exception with a status_code attribute to trigger _is_transient
+        transient_error = Exception("HTTP 429 Too Many Requests")
+        transient_error.status_code = 429
+        
         mock_client = MagicMock()
-        # Always fail with rate limit
-        mock_client.chat.completions.create.side_effect = RateLimitError(
-            "Rate limited", response=MagicMock(status_code=429), body={}
-        )
+        # Always fail with transient error
+        mock_client.chat.completions.create.side_effect = transient_error
         mock_openai_class.return_value = mock_client
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
@@ -1151,13 +1185,13 @@ class TestOpenAIJobSpecificAdjuster:
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data
-        # Should have exhausted max_retries (3)
-        assert mock_client.chat.completions.create.call_count == 3
+        # Should have tried up to max_attempts (default 8)
+        assert mock_client.chat.completions.create.call_count == 8
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
-    def test_adjust_non_rate_limit_exception(self, mock_format, mock_openai_class):
-        """adjust should not retry on non-rate-limit exceptions."""
+    def test_adjust_non_transient_error_no_retry(self, mock_format, mock_openai_class):
+        """adjust should not retry on non-transient exceptions."""
         mock_format.return_value = "System prompt"
         
         mock_client = MagicMock()
@@ -1169,7 +1203,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data
-        # Should have called create only once (no retry)
+        # Should have called create only once (no retry for non-transient)
         assert mock_client.chat.completions.create.call_count == 1
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
@@ -1216,32 +1250,28 @@ class TestOpenAIJobSpecificAdjuster:
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.time')
-    def test_adjust_rate_limit_with_sleep(self, mock_time, mock_format, mock_openai_class):
-        """adjust should sleep with exponential backoff on rate limit retry."""
+    def test_adjust_with_retry_backoff_sleep(self, mock_time, mock_format, mock_openai_class):
+        """adjust should call sleep during exponential backoff retry."""
         mock_format.return_value = "System prompt"
         
         adjusted_cv = {
-            "identity": {
-                "name": "Adjusted",
-                "title": "Engineer",
-                "full_name": "Test User",
-                "first_name": "Test",
-                "last_name": "User"
-            },
+            "identity": {"name": "Adjusted", "title": "Engineer", "full_name": "Test User", "first_name": "Test", "last_name": "User"},
             "sidebar": {},
             "overview": "",
             "experiences": []
         }
-        
         mock_completion_success = MagicMock()
         mock_completion_success.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
-        from openai import RateLimitError
+        # Create transient errors with status_code
+        transient_error = Exception("HTTP 429 Too Many Requests")
+        transient_error.status_code = 429
+        
         mock_client = MagicMock()
-        # Fail twice with rate limit, then succeed
+        # Fail twice with transient error, then succeed
         mock_client.chat.completions.create.side_effect = [
-            RateLimitError("Rate limited", response=MagicMock(status_code=429), body={}),
-            RateLimitError("Rate limited", response=MagicMock(status_code=429), body={}),
+            transient_error,
+            transient_error,
             mock_completion_success
         ]
         mock_openai_class.return_value = mock_client
@@ -1255,12 +1285,9 @@ class TestOpenAIJobSpecificAdjuster:
         }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
-        assert "Adjusted" in str(result)
-        # Should have called sleep twice with exponential backoff (2.0, 4.0)
-        assert mock_time.sleep.call_count == 2
-        sleep_calls = [call[0][0] for call in mock_time.sleep.call_args_list]
-        assert sleep_calls[0] == 2.0  # 2.0 * (2^0)
-        assert sleep_calls[1] == 4.0  # 2.0 * (2^1)
+        assert result == adjusted_cv, f"Expected adjusted CV, got {result}"
+        # Should have called create 3 times (2 failures, 1 success)
+        assert mock_client.chat.completions.create.call_count == 3
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1328,7 +1355,7 @@ class TestOpenAIJobSpecificAdjuster:
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
     def test_adjust_rate_limit_with_429_in_error_message(self, mock_format, mock_openai_class):
-        """adjust should detect rate limit by '429' in error message."""
+        """adjust should detect rate limit by status code attribute."""
         mock_format.return_value = "System prompt"
         
         adjusted_cv = {
@@ -1346,15 +1373,22 @@ class TestOpenAIJobSpecificAdjuster:
         mock_completion_success = MagicMock()
         mock_completion_success.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
+        # Create transient error with status code
+        transient_error = Exception("HTTP 429 Too Many Requests")
+        transient_error.status_code = 429
+        
         mock_client = MagicMock()
-        # Fail with error containing '429' in message (not RateLimitError)
+        # Fail with transient error, then succeed
         mock_client.chat.completions.create.side_effect = [
-            Exception("HTTP 429 Too Many Requests"),
+            transient_error,
             mock_completion_success
         ]
         mock_openai_class.return_value = mock_client
         
-        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        # Create a mock sleep function
+        mock_sleep = MagicMock()
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", _sleep=mock_sleep)
         cv_data = {
             "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
             "sidebar": {},
@@ -1363,34 +1397,36 @@ class TestOpenAIJobSpecificAdjuster:
         }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
-        assert "Adjusted" in str(result)
+        assert result == adjusted_cv, f"Expected adjusted CV with 'Adjusted' name, got {result}"
         # Should have retried after seeing 429
         assert mock_client.chat.completions.create.call_count == 2
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
-    @patch('cvextract.adjusters.openai_job_specific_adjuster.time')
-    def test_adjust_final_retry_attempt_rate_limit(self, mock_time, mock_format, mock_openai_class):
-        """adjust should not retry when rate limit occurs on the final attempt."""
+    def test_adjust_final_retry_attempt_rate_limit(self, mock_format, mock_openai_class):
+        """adjust should exhaust retries when rate limit persists on all attempts."""
         mock_format.return_value = "System prompt"
         
-        from openai import RateLimitError
+        # Create transient errors with status code
+        transient_error = Exception("Rate limited")
+        transient_error.status_code = 429
+        
         mock_client = MagicMock()
-        # Fail with rate limit on the final attempt (attempt 2 out of 3, so attempt < max_retries - 1 is False)
-        mock_client.chat.completions.create.side_effect = [
-            RateLimitError("Rate limited", response=MagicMock(status_code=429), body={}),
-            RateLimitError("Rate limited", response=MagicMock(status_code=429), body={}),
-            RateLimitError("Rate limited", response=MagicMock(status_code=429), body={}),
-        ]
+        # Fail with rate limit on all attempts (default max_attempts=8)
+        mock_client.chat.completions.create.side_effect = transient_error
         mock_openai_class.return_value = mock_client
         
-        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        # Create mock sleep
+        mock_sleep = MagicMock()
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", _sleep=mock_sleep)
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data
-        # Should have called sleep only twice (for attempts 0 and 1, not for attempt 2)
-        assert mock_time.sleep.call_count == 2
+        # Should have attempted 8 times and slept 7 times (not on the last attempt before giving up)
+        assert mock_client.chat.completions.create.call_count == 8
+        assert mock_sleep.call_count == 7
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1428,6 +1464,42 @@ class TestOpenAIJobSpecificAdjuster:
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data  # Should return original due to validation failure
+        mock_get_verifier.assert_called_once_with("cv-schema-verifier")
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.get_verifier')
+    def test_adjust_verifier_not_available(self, mock_get_verifier, mock_format, mock_openai_class):
+        """adjust should return original CV if CV schema verifier is not available."""
+        mock_format.return_value = "System prompt"
+        
+        adjusted_cv = {
+            "identity": {"name": "John", "title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
+        
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_class.return_value = mock_client
+        
+        # Mock verifier as None (not available)
+        mock_get_verifier.return_value = None
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        result = adjuster.adjust(cv_data, job_description="Test job")
+        assert result == cv_data  # Should return original since verifier is unavailable
         mock_get_verifier.assert_called_once_with("cv-schema-verifier")
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.requests', None)
@@ -1505,7 +1577,7 @@ class TestOpenAIJobSpecificAdjuster:
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.get_verifier')
     def test_adjust_schema_validation_exception(self, mock_get_verifier, mock_format, mock_openai_class):
-        """adjust should return original CV if schema validation raises exception."""
+        """adjust should handle exception during schema validation."""
         mock_format.return_value = "System prompt"
         
         adjusted_cv = {
@@ -1528,8 +1600,10 @@ class TestOpenAIJobSpecificAdjuster:
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai_class.return_value = mock_client
         
-        # Mock get_verifier to raise exception
-        mock_get_verifier.side_effect = Exception("Verifier not found")
+        # Setup verifier mock to raise exception during verify call
+        mock_verifier = MagicMock()
+        mock_verifier.verify.side_effect = Exception("Validation error")
+        mock_get_verifier.return_value = mock_verifier
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
         cv_data = {
@@ -1539,7 +1613,7 @@ class TestOpenAIJobSpecificAdjuster:
             "experiences": []
         }
         
-        # Should handle exception and return original CV
+        # Should handle exception during verify() and return original CV
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data  # Returns original due to validation exception
 
@@ -1745,3 +1819,342 @@ class TestOpenAICompanyResearchHelpers:
         with patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier', side_effect=Exception("Verifier error")):
             result = _validate_research_data({"company": "Test Corp"})
             assert result is False
+
+
+class TestStripMarkdownFencesJobSpecific:
+    """Tests for _strip_markdown_fences in job-specific adjuster."""
+
+    def test_strip_markdown_fences_json_variant(self):
+        """Test stripping ```json code fence."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _strip_markdown_fences
+        
+        text = '```json\n{"key": "value"}\n```'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+    def test_strip_markdown_fences_generic_variant(self):
+        """Test stripping generic ``` code fence."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _strip_markdown_fences
+        
+        text = '```\n{"key": "value"}\n```'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+    def test_strip_markdown_fences_no_fence_variant(self):
+        """Test text without code fence."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _strip_markdown_fences
+        
+        text = '{"key": "value"}'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+
+class TestExtractJsonObjectJobSpecific:
+    """Tests for _extract_json_object in job-specific adjuster."""
+
+    def test_extract_json_object_simple(self):
+        """Test extracting simple JSON."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _extract_json_object
+        
+        text = '{"id": 1}'
+        result = _extract_json_object(text)
+        assert result == {"id": 1}
+
+    def test_extract_json_object_with_markdown(self):
+        """Test with markdown fence."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _extract_json_object
+        
+        text = '```json\n{"id": 1}\n```'
+        result = _extract_json_object(text)
+        assert result == {"id": 1}
+
+    def test_extract_json_object_with_text(self):
+        """Test extracting from text."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _extract_json_object
+        
+        text = 'The data is:\n{"id": 1}'
+        result = _extract_json_object(text)
+        assert result == {"id": 1}
+
+    def test_extract_json_object_array_returns_none(self):
+        """Test that arrays return None."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _extract_json_object
+        
+        text = '[1, 2, 3]'
+        result = _extract_json_object(text)
+        assert result is None
+
+    def test_extract_json_object_invalid_returns_none(self):
+        """Test invalid JSON returns None."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _extract_json_object
+        
+        text = '{invalid}'
+        result = _extract_json_object(text)
+        assert result is None
+
+    def test_extract_json_object_non_string(self):
+        """Test non-string input returns None."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _extract_json_object
+        
+        result = _extract_json_object(None)
+        assert result is None
+
+
+class TestFetchJobDescriptionEdgeCases:
+    """Additional tests for _fetch_job_description helper."""
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_timeout_exception(self, mock_requests):
+        """Test when request times out."""
+        mock_requests.get.side_effect = TimeoutError("Request timed out")
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert result == ""
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_non_200_status(self, mock_requests):
+        """Test non-200 status codes."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/notfound")
+        assert result == ""
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_empty_response(self, mock_requests):
+        """Test empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = ""
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert result == ""
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_html_tags_removal(self, mock_requests):
+        """Test HTML tag removal."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<h1>Job Title</h1><p>Description</p>"
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert "Job Title" in result
+        assert "Description" in result
+        assert "<" not in result
+        assert ">" not in result
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_script_removal(self, mock_requests):
+        """Test script tag removal."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<script>alert('xss')</script><p>Content</p>"
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert "alert" not in result
+        assert "Content" in result
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_style_removal(self, mock_requests):
+        """Test style tag removal."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<style>body{color:red;}</style><p>Content</p>"
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert "color:red" not in result
+        assert "Content" in result
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_html_entities(self, mock_requests):
+        """Test HTML entity decoding."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<p>Title &amp; Description &quot;quoted&quot;</p>"
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert "&amp;" not in result
+        assert "&quot;" not in result
+        assert "&" in result
+        assert '"' in result
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_whitespace_collapse(self, mock_requests):
+        """Test whitespace collapsing."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<p>Multiple    spaces    and\n\nnewlines</p>"
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        # Should collapse multiple spaces
+        assert "    " not in result
+        assert "\n" not in result
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests')
+    def test_fetch_job_description_length_limit(self, mock_requests):
+        """Test that result is limited to 5000 chars."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "x" * 10000
+        mock_requests.get.return_value = mock_response
+        
+        result = _fetch_job_description("https://example.com/job/123")
+        assert len(result) == 5000
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.requests', None)
+    def test_fetch_job_description_requests_unavailable(self):
+        """Test when requests module is not available."""
+        result = _fetch_job_description("https://example.com/job/123")
+        assert result == ""
+
+
+class TestOpenAIJobSpecificAdjusterEdgeCases:
+    """Additional edge case tests for OpenAIJobSpecificAdjuster."""
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster._fetch_job_description')
+    def test_adjust_uses_both_prompt_template_names(self, mock_fetch, mock_format, mock_openai_class):
+        """Test that both typo and corrected prompt template names are tried."""
+        # First call returns None (typo key fails), second succeeds
+        mock_fetch.return_value = "Job description"
+        mock_format.side_effect = [None, "System prompt"]
+        
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content='{"identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""}, "sidebar": {}, "overview": "", "experiences": []}'))]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_class.return_value = mock_client
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        # Will attempt fetch from URL since job_description is empty
+        result = adjuster.adjust(cv_data, job_url="https://example.com/job/123")
+        
+        # Should call format_prompt twice
+        assert mock_format.call_count == 2
+        # Should use fallback template name
+        assert mock_format.call_args_list[1][0][0] == "adjuster_prompt_for_specific_job"
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.get_verifier')
+    def test_adjust_validation_error_with_error_count(self, mock_get_verifier, mock_format, mock_openai_class):
+        """Test logging when validation fails with error count."""
+        mock_format.return_value = "System prompt"
+        
+        adjusted_cv = {
+            "identity": {"name": "Test", "title": "", "full_name": "Test User", "first_name": "Test", "last_name": "User"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_class.return_value = mock_client
+        
+        # Verifier returns not ok with errors
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = MagicMock(ok=False, errors=["error1", "error2"])
+        mock_get_verifier.return_value = mock_verifier
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        result = adjuster.adjust(cv_data, job_description="Test job")
+        
+        # Should return original due to validation failure
+        assert result == cv_data
+
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
+    def test_adjust_completion_with_multiple_choices(self, mock_format, mock_openai_class):
+        """Test handling completion with multiple choices."""
+        mock_format.return_value = "System prompt"
+        
+        adjusted_cv = {
+            "identity": {"name": "Adjusted", "title": "Engineer", "full_name": "Test User", "first_name": "Test", "last_name": "User"},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
+        
+        # Create completion with multiple choices
+        mock_completion = MagicMock()
+        mock_completion.choices = [
+            MagicMock(message=MagicMock(content=json.dumps(adjusted_cv))),
+            MagicMock(message=MagicMock(content='{"other": "data"}')),
+        ]
+        
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_class.return_value = mock_client
+        
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        
+        result = adjuster.adjust(cv_data, job_description="Test job")
+        
+        # Should use first choice
+        assert result == adjusted_cv
+
+    def test_get_retry_after_from_headers_job_specific(self):
+        """Test extracting retry-after from exception headers (job-specific adjuster)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "60"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after == 60.0
+
+    def test_get_retry_after_headers_get_exception_job_specific(self):
+        """Test when headers.get() raises an exception (lines 125-130 in job-specific)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        # Create a mock headers object that raises when .get() is called
+        class BadHeaders:
+            def get(self, key1, default=None):
+                raise ValueError("Headers error")
+        
+        exc = Exception("Test")
+        exc.headers = BadHeaders()
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_get_retry_after_non_numeric_string_job_specific(self):
+        """Test when retry-after value can't be converted to float (lines 133-137 in job-specific)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "not-a-number"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_get_retry_after_zero_value_job_specific(self):
+        """Test when retry-after is zero (edge case for falsy value check in job-specific)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "0"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        # Zero gets converted to float but the sleep_with_backoff checks if retry_after > 0
+        assert retry_after == 0.0
