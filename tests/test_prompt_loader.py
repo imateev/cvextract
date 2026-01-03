@@ -41,8 +41,8 @@ class TestLoadPrompt:
         assert "Extraction guidelines" in result
 
     def test_load_job_specific_prompt(self):
-        """Test loading job_specific_prompt.md file."""
-        result = load_prompt("job_specific_prompt")
+        """Test loading adjuster_promp_for_specific_job.md file."""
+        result = load_prompt("adjuster_promp_for_specific_job")
         assert result is not None
         assert isinstance(result, str)
         assert len(result) > 0

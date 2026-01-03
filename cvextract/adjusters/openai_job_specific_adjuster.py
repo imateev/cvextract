@@ -145,7 +145,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 return cv_data
         
         # Build prompt using template
-        system_prompt = format_prompt("job_specific_prompt", job_description=job_description)
+        system_prompt = format_prompt("adjuster_promp_for_specific_job", job_description=job_description)
         
         if not system_prompt:
             LOG.warning("Job-specific adjust skipped: failed to load prompt template")

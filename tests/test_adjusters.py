@@ -790,7 +790,7 @@ class TestOpenAIJobSpecificAdjuster:
         )
         assert result == adjusted_cv
         # format_prompt should be called with the direct job_description, not fetched from URL
-        mock_format.assert_called_once_with("job_specific_prompt", job_description="Direct description")
+        mock_format.assert_called_once_with("adjuster_promp_for_specific_job", job_description="Direct description")
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
