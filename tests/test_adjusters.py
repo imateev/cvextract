@@ -1572,3 +1572,143 @@ class TestCLIMultipleAdjusters:
                 "--adjust", "customer-url=https://example.com",
                 "--target", "/output"
             ])
+
+
+class TestOpenAICompanyResearchHelpers:
+    """Tests for helper functions in openai_company_research_adjuster."""
+    
+    def test_url_to_cache_filename_converts_https_url_to_domain_hash(self):
+        """_url_to_cache_filename() converts a URL to a safe filename with domain and hash."""
+        from cvextract.adjusters.openai_company_research_adjuster import _url_to_cache_filename
+        
+        result = _url_to_cache_filename("https://www.example.com/path/to/page")
+        assert "example.com" in result
+        assert result.endswith(".research.json")
+        assert "-" in result  # has hash separator
+    
+    def test_url_to_cache_filename_removes_protocol_and_www(self):
+        """_url_to_cache_filename() properly handles protocol and www prefix."""
+        from cvextract.adjusters.openai_company_research_adjuster import _url_to_cache_filename
+        
+        result1 = _url_to_cache_filename("https://www.example.com")
+        result2 = _url_to_cache_filename("http://example.com")
+        result3 = _url_to_cache_filename("https://example.com")
+        
+        # All should have the same domain part
+        assert "example.com" in result1
+        assert "example.com" in result2
+        assert "example.com" in result3
+    
+    def test_url_to_cache_filename_handles_complex_urls_with_port(self):
+        """_url_to_cache_filename() handles URLs with ports and query parameters."""
+        from cvextract.adjusters.openai_company_research_adjuster import _url_to_cache_filename
+        
+        result = _url_to_cache_filename("https://example.com:8080/path?query=value#fragment")
+        assert "example.com" in result
+        assert "8080" not in result  # port should be stripped
+        assert "?" not in result     # query should be stripped
+        assert "#" not in result     # fragment should be stripped
+    
+    def test_load_research_schema_loads_valid_schema(self):
+        """_load_research_schema() loads the research schema from file."""
+        from cvextract.adjusters.openai_company_research_adjuster import _load_research_schema
+        
+        schema = _load_research_schema()
+        assert schema is not None
+        assert isinstance(schema, dict)
+        assert "$id" in schema or "properties" in schema or "$schema" in schema
+    
+    def test_load_research_schema_returns_cached_value_on_second_call(self):
+        """_load_research_schema() caches the schema and returns it on subsequent calls."""
+        from cvextract.adjusters.openai_company_research_adjuster import _load_research_schema, _RESEARCH_SCHEMA
+        import cvextract.adjusters.openai_company_research_adjuster as adj_module
+        
+        # Reset the global cache
+        adj_module._RESEARCH_SCHEMA = None
+        
+        schema1 = _load_research_schema()
+        schema2 = _load_research_schema()
+        
+        # Should return the same object
+        assert schema1 is schema2
+    
+    def test_fetch_customer_page_returns_empty_string_if_requests_unavailable(self):
+        """_fetch_customer_page() returns empty string when requests module is not available."""
+        from cvextract.adjusters.openai_company_research_adjuster import _fetch_customer_page
+        import cvextract.adjusters.openai_company_research_adjuster as adj_module
+        
+        # Temporarily patch requests to None
+        original_requests = adj_module.requests
+        try:
+            adj_module.requests = None
+            result = _fetch_customer_page("https://example.com")
+            assert result == ""
+        finally:
+            adj_module.requests = original_requests
+    
+    def test_fetch_customer_page_success(self):
+        """_fetch_customer_page() successfully fetches and returns page content."""
+        from cvextract.adjusters.openai_company_research_adjuster import _fetch_customer_page
+        from unittest.mock import patch, MagicMock
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html>Test content</html>"
+        
+        with patch('cvextract.adjusters.openai_company_research_adjuster.requests.get', return_value=mock_response):
+            result = _fetch_customer_page("https://example.com")
+            assert result == "<html>Test content</html>"
+    
+    def test_fetch_customer_page_returns_empty_on_non_200_status(self):
+        """_fetch_customer_page() returns empty string on non-200 status code."""
+        from cvextract.adjusters.openai_company_research_adjuster import _fetch_customer_page
+        from unittest.mock import patch, MagicMock
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        
+        with patch('cvextract.adjusters.openai_company_research_adjuster.requests.get', return_value=mock_response):
+            result = _fetch_customer_page("https://example.com")
+            assert result == ""
+    
+    def test_fetch_customer_page_returns_empty_on_exception(self):
+        """_fetch_customer_page() returns empty string on any exception."""
+        from cvextract.adjusters.openai_company_research_adjuster import _fetch_customer_page
+        from unittest.mock import patch
+        
+        with patch('cvextract.adjusters.openai_company_research_adjuster.requests.get', side_effect=Exception("Network error")):
+            result = _fetch_customer_page("https://example.com")
+            assert result == ""
+    
+    def test_validate_research_data_returns_false_for_non_dict(self):
+        """_validate_research_data() returns False if data is not a dict."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        
+        assert _validate_research_data(None) is False
+        assert _validate_research_data("string") is False
+        assert _validate_research_data([1, 2, 3]) is False
+        assert _validate_research_data(123) is False
+    
+    def test_validate_research_data_uses_verifier(self):
+        """_validate_research_data() validates data using company-profile-verifier."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        from unittest.mock import patch, MagicMock
+        
+        mock_verifier = MagicMock()
+        mock_result = MagicMock()
+        mock_result.ok = True
+        mock_verifier.verify.return_value = mock_result
+        
+        with patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier', return_value=mock_verifier):
+            result = _validate_research_data({"company": "Test Corp"})
+            assert result is True
+            mock_verifier.verify.assert_called_once_with({"company": "Test Corp"})
+    
+    def test_validate_research_data_returns_false_on_verifier_error(self):
+        """_validate_research_data() returns False if verifier raises exception."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        from unittest.mock import patch
+        
+        with patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier', side_effect=Exception("Verifier error")):
+            result = _validate_research_data({"company": "Test Corp"})
+            assert result is False
