@@ -54,7 +54,6 @@ Locations:
 - `cvextract/renderers/README.md`
 - `cvextract/verifiers/README.md`
 - `cvextract/contracts/README.md`
-- `cvextract/ml_adjustment/README.md`
 
 ## Configuration
 

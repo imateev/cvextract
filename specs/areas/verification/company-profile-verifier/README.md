@@ -36,7 +36,7 @@ result = verifier.verify(company_data)
 
 ### Integration Points
 
-Used by `cvextract.ml_adjustment.adjuster._validate_research_data()` to validate company research before caching and using in adjustments.
+Used by `cvextract.adjusters.openai_company_research_adjuster._validate_research_data()` to validate company research before caching and using in adjustments.
 
 ## Configuration
 
@@ -140,7 +140,7 @@ None - uses only standard library JSON
 
 ### Integration Points
 
-- Used by `cvextract.ml_adjustment.adjuster._validate_research_data()`
+- Used by `cvextract.adjusters.OpenAICompanyResearchAdjuster`
 - Ensures company research data quality before caching and usage
 
 ## Test Coverage

@@ -86,7 +86,8 @@ python -m cvextract.cli \
 ### Internal Dependencies
 
 - `cvextract.adjusters.base.CVAdjuster` - Base class
-- `cvextract.ml_adjustment` - ML adjustment logic
+- `cvextract.shared.format_prompt` - Prompt formatting
+- `cvextract.verifiers.get_verifier` - Schema validation
 - `cvextract.contracts.cv_schema.json` - CV schema
 
 ### External Dependencies
@@ -117,7 +118,7 @@ The job-specific adjuster was added to complement the company research adjuster,
 
 **Key Files**:
 - `cvextract/adjusters/openai_job_specific_adjuster.py` - Implementation
-- `cvextract/ml_adjustment/prompts/job_specific_prompt.md` - Adjustment prompt
+- `cvextract/adjusters/prompts/adjuster_promp_for_specific_job.md` - Adjustment prompt
 
 ## Open Questions
 
@@ -128,7 +129,7 @@ The job-specific adjuster was added to complement the company research adjuster,
 ## File Paths
 
 - Implementation: `cvextract/adjusters/openai_job_specific_adjuster.py`
-- Prompt: `cvextract/ml_adjustment/prompts/job_specific_prompt.md`
+- Prompt: `cvextract/adjusters/prompts/adjuster_promp_for_specific_job.md`
 - Tests: `tests/test_adjusters.py`
 - Documentation: `cvextract/adjusters/README.md`
 
