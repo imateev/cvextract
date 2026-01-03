@@ -61,7 +61,7 @@ else:
 Validates CV data against the JSON schema defined in `cv_schema.json`:
 
 ```python
-from cvextract.verifiers import CVSchemaVerifier
+from cvextract.verifiers import get_verifier
 from pathlib import Path
 
 # Use default schema location (cv_schema.json in contracts/ directory)
@@ -191,7 +191,7 @@ The verifiers are now used directly throughout the codebase:
 from cvextract.verifiers import ExtractedDataVerifier, get_verifier
 
 # Verify extracted CV data
-result = ExtractedDataVerifier().verify(cv_data)
+data_result = get_verifier("private-internal-verifier").verify(cv_data)
 
 # Compare two CV data structures
 result = get_verifier("roundtrip-verifier").verify(original_data, target_data=roundtrip_data)
@@ -202,7 +202,7 @@ result = get_verifier("roundtrip-verifier").verify(original_data, target_data=ro
 ### Using Multiple Verifiers
 
 ```python
-from cvextract.verifiers import ExtractedDataVerifier, CVSchemaVerifier
+from cvextract.verifiers import get_verifier
 
 cv_data = {...}
 

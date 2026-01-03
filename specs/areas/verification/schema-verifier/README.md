@@ -21,15 +21,15 @@ The `CVSchemaVerifier` class:
 ### Programmatic API
 
 ```python
-from cvextract.verifiers import CVSchemaVerifier
+from cvextract.verifiers import get_verifier
 from pathlib import Path
 
 # Use default schema
-verifier = CVSchemaVerifier()
+verifier = get_verifier("cv-schema-verifier")
 result = verifier.verify(cv_data)
 
 # Use custom schema
-verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
+verifier = get_verifier("cv-schema-verifier", schema_path=Path("custom_schema.json"))
 result = verifier.verify(cv_data)
 ```
 
@@ -38,7 +38,7 @@ result = verifier.verify(cv_data)
 Can be used alongside other verifiers:
 
 ```python
-from cvextract.verifiers import ExtractedDataVerifier, CVSchemaVerifier
+from cvextract.verifiers import get_verifier
 
 # First check schema
 schema_result = CVSchemaVerifier().verify(cv_data)

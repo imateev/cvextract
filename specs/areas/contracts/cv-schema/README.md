@@ -25,9 +25,9 @@ Location: `cvextract/contracts/cv_schema.json`
 ### Programmatic Validation
 
 ```python
-from cvextract.verifiers import CVSchemaVerifier
+from cvextract.verifiers import get_verifier
 
-verifier = CVSchemaVerifier()
+verifier = get_verifier("cv-schema-verifier")
 result = verifier.verify(cv_data)
 
 if not result.ok:

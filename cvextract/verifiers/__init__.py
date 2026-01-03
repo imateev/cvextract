@@ -24,10 +24,6 @@ register_verifier("cv-schema-verifier", CVSchemaVerifier)
 
 __all__ = [
     "CVVerifier",
-    "ExtractedDataVerifier",
-    "RoundtripVerifier",
-    "FileRoundtripVerifier",
-    "CVSchemaVerifier",
     "register_verifier",
     "get_verifier",
     "list_verifiers",

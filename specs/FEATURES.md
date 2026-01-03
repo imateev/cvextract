@@ -4,15 +4,29 @@ This document provides a comprehensive index of all features in the cvextract pr
 
 ## Table of Contents
 
-- [Extraction](#extraction)
-- [Adjustment](#adjustment)
-- [Rendering](#rendering)
-- [Verification](#verification)
-- [CLI](#cli)
-- [Contracts](#contracts)
-- [Templates](#templates)
-- [Examples](#examples)
-- [CI/CD](#cicd)
+- [cvextract Features Index](#cvextract-features-index)
+  - [Table of Contents](#table-of-contents)
+  - [Extraction](#extraction)
+    - [Features](#features)
+  - [Adjustment](#adjustment)
+    - [Features](#features-1)
+  - [Rendering](#rendering)
+    - [Features](#features-2)
+  - [Verification](#verification)
+    - [Features](#features-3)
+  - [CLI](#cli)
+    - [Features](#features-4)
+  - [Contracts](#contracts)
+    - [Features](#features-5)
+  - [Templates](#templates)
+    - [Features](#features-6)
+  - [Examples](#examples)
+    - [Features](#features-7)
+  - [CI/CD](#cicd)
+    - [Features](#features-8)
+  - [Feature Status Legend](#feature-status-legend)
+  - [Integration Map](#integration-map)
+  - [Provenance Notes](#provenance-notes)
 
 ---
 
@@ -76,8 +90,8 @@ The verification area provides data validation and quality checking capabilities
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
 | [Extracted Data Verifier](areas/verification/extracted-data-verifier/README.md) | Active | Validates completeness and structure of extracted data | `cvextract.verifiers.ExtractedDataVerifier` | N/A |
-| [Comparison Verifiers](areas/verification/comparison-verifiers/README.md) | Active | Compares data structures for roundtrip verification | `cvextract.verifiers.{RoundtripVerifier, FileRoundtripVerifier}` | N/A |
-| [Schema Verifier](areas/verification/schema-verifier/README.md) | Active | Validates CV data against JSON schema | `cvextract.verifiers.CVSchemaVerifier` | `schema_path` parameter |
+| [Roundtrip Verifiers](areas/verification/comparison-verifiers/README.md) | Active | Compares data structures for roundtrip verification | `cvextract.verifiers.{RoundtripVerifier, FileRoundtripVerifier}` | N/A |
+| [CV Schema Verifier](areas/verification/schema-verifier/README.md) | Active | Validates CV data against JSON schema | `cvextract.verifiers.CVSchemaVerifier` | `schema_path` parameter |
 | [Verifier Registry](areas/verification/verifier-registry/README.md) | Active | Pluggable verifier registration and lookup system | `cvextract.verifiers.{register_verifier, get_verifier, list_verifiers}` | N/A |
 
 ---

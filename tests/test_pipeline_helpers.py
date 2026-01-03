@@ -2,7 +2,8 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
-from cvextract.verifiers import get_verifier, RoundtripVerifier, FileRoundtripVerifier, ExtractedDataVerifier
+from cvextract.verifiers import get_verifier
+from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
 
 

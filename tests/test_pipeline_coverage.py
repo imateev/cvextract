@@ -9,7 +9,7 @@ from cvextract.pipeline_helpers import (
     render_and_verify,
     infer_source_root,
 )
-from cvextract.verifiers import RoundtripVerifier, FileRoundtripVerifier, get_verifier
+from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
 

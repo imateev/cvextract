@@ -22,9 +22,9 @@ The `ExtractedDataVerifier` class checks:
 ### Programmatic API
 
 ```python
-from cvextract.verifiers import ExtractedDataVerifier
+from cvextract.verifiers import get_verifier
 
-verifier = ExtractedDataVerifier()
+verifier = get_verifier("private-internal-verifier")
 result = verifier.verify(cv_data)
 
 if result.ok:

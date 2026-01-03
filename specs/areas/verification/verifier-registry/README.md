@@ -168,8 +168,8 @@ Direct instantiation of verifier classes remains supported:
 verifier = get_verifier('data-verifier')
 
 # Direct instantiation (still works)
-from cvextract.verifiers import ExtractedDataVerifier
-verifier = ExtractedDataVerifier()
+from cvextract.verifiers import get_verifier
+verifier = get_verifier("private-internal-verifier")
 ```
 
 ## Testing

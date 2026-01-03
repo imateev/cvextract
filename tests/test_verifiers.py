@@ -7,11 +7,10 @@ import tempfile
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
-    ExtractedDataVerifier,
-    RoundtripVerifier,
-    FileRoundtripVerifier,
-    CVSchemaVerifier,
 )
+from cvextract.verifiers.data_verifier import ExtractedDataVerifier
+from cvextract.verifiers.comparison_verifier import RoundtripVerifier, FileRoundtripVerifier
+from cvextract.verifiers.schema_verifier import CVSchemaVerifier
 from cvextract.shared import VerificationResult
 
 
