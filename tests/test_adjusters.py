@@ -272,23 +272,40 @@ class TestOpenAICompanyResearchAdjuster:
         adjuster = OpenAICompanyResearchAdjuster()
         adjuster.validate_params(customer_url="https://example.com")
     
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.MLAdjuster')
-    def test_adjust_calls_ml_adjuster(self, mock_ml_adjuster):
-        """adjust should delegate to MLAdjuster."""
-        mock_instance = MagicMock()
-        mock_instance.adjust.return_value = {"adjusted": True}
-        mock_ml_adjuster.return_value = mock_instance
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_calls_ml_adjuster(self, mock_get_verifier, mock_ml_adjuster, 
+                                       mock_build_prompt, mock_research):
+        """adjust should delegate to MLAdjuster after researching company."""
+        # Setup mocks for research and prompt building
+        mock_research.return_value = {"company": "Test Corp"}
+        mock_build_prompt.return_value = "System prompt for Test Corp"
+        
+        # Setup MLAdjuster mock
+        mock_ml_instance = MagicMock()
+        mock_ml_instance.adjust.return_value = {"adjusted": True}
+        mock_ml_adjuster.return_value = mock_ml_instance
+        
+        # Setup verifier mock
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = MagicMock(ok=True)
+        mock_get_verifier.return_value = mock_verifier
         
         adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         result = adjuster.adjust(cv_data, customer_url="https://example.com")
         
+        # Should return the adjusted result
         assert result == {"adjusted": True}
-        mock_instance.adjust.assert_called_once_with(
-            cv_data,
-            "https://example.com",
-            cache_path=None
-        )
+        
+        # Verify MLAdjuster was called with system_prompt and user_context
+        mock_ml_instance.adjust.assert_called_once()
+        call_args = mock_ml_instance.adjust.call_args
+        assert call_args[0][0] == cv_data  # cv_data
+        assert call_args[0][1] == "System prompt for Test Corp"  # system_prompt
+        assert 'user_context' in call_args[1]  # user_context kwarg
 
 
 class TestOpenAIJobSpecificAdjuster:

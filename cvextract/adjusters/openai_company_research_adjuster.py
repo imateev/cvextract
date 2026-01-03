@@ -7,10 +7,22 @@ Adjusts CV data based on target company research using OpenAI.
 from __future__ import annotations
 
 import os
+import json
+import logging
 from typing import Any, Dict, Optional
+from pathlib import Path
+
+try:
+    from openai import OpenAI  # type: ignore
+except Exception:  # pragma: no cover
+    OpenAI = None  # type: ignore
 
 from .base import CVAdjuster
-from ..ml_adjustment import MLAdjuster
+from ..ml_adjustment.adjuster import MLAdjuster, _research_company_profile, _build_system_prompt
+from ..ml_adjustment.prompt_loader import load_prompt
+from ..verifiers import get_verifier
+
+LOG = logging.getLogger("cvextract")
 
 
 class OpenAICompanyResearchAdjuster(CVAdjuster):
@@ -18,7 +30,13 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
     Adjuster that uses OpenAI to tailor CV based on company research.
     
     This adjuster researches a target company and adjusts the CV to highlight
-    relevant experience, skills, and technologies.
+    relevant experience, skills, and technologies. It follows the clean adjuster
+    pattern:
+    1. Fetch company research
+    2. Build system prompt
+    3. Call MLAdjuster service
+    4. Validate result with schema verifier
+    5. Return adjusted CV or original on failure
     """
     
     def __init__(self, model: str = "gpt-4o-mini", api_key: Optional[str] = None):
@@ -31,7 +49,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         """
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self._adjuster = MLAdjuster(model=self._model, api_key=self._api_key)
+        self._ml_adjuster = MLAdjuster(model=self._model, api_key=self._api_key)
     
     def name(self) -> str:
         """Return adjuster name."""
@@ -66,12 +84,69 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             **kwargs: Must contain 'customer_url' (or 'customer-url'), optional 'cache_path'
         
         Returns:
-            Adjusted CV data
+            Adjusted CV data, or original data if adjustment fails
         """
         self.validate_params(**kwargs)
+        
+        if not self._api_key or OpenAI is None:
+            LOG.warning("Company research adjust skipped: OpenAI unavailable or API key missing.")
+            return cv_data
         
         # Normalize parameter names (CLI uses hyphens, Python uses underscores)
         customer_url = kwargs.get('customer_url', kwargs.get('customer-url'))
         cache_path = kwargs.get('cache_path')
         
-        return self._adjuster.adjust(cv_data, customer_url, cache_path=cache_path)
+        # Step 1: Research company profile
+        LOG.info("Researching company at %s", customer_url)
+        research_data = _research_company_profile(
+            customer_url, 
+            self._api_key, 
+            self._model, 
+            cache_path
+        )
+        
+        if not research_data:
+            LOG.warning("Company research adjust: failed to research company; using original CV.")
+            return cv_data
+        
+        # Step 2: Build system prompt from research data
+        system_prompt = _build_system_prompt(research_data)
+        
+        if not system_prompt:
+            LOG.warning("Company research adjust: failed to build prompt; using original CV.")
+            return cv_data
+        
+        # Step 3: Call MLAdjuster service (pure service - no validation)
+        user_context = {
+            "customer_url": customer_url,
+            "company_profile": research_data,
+        }
+        
+        adjusted = self._ml_adjuster.adjust(cv_data, system_prompt, user_context=user_context)
+        
+        if adjusted is None:
+            LOG.warning("Company research adjust: API call failed; using original CV.")
+            return cv_data
+        
+        # Step 4: Validate adjusted CV against schema
+        if not isinstance(adjusted, dict):
+            LOG.warning("Company research adjust: result is not a dict; using original CV.")
+            return cv_data
+        
+        try:
+            cv_verifier = get_verifier("cv-schema-verifier")
+            validation_result = cv_verifier.verify(adjusted)
+            
+            if validation_result.ok:
+                LOG.info("The CV was adjusted to better fit the target company.")
+                return adjusted
+            else:
+                LOG.warning(
+                    "Company research adjust: adjusted CV failed schema validation (%d errors); using original CV.",
+                    len(validation_result.errors)
+                )
+                return cv_data
+        except Exception as e:
+            LOG.warning("Company research adjust: schema validation error (%s); using original CV.", type(e).__name__)
+            return cv_data
+

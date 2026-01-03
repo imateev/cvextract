@@ -1,41 +1,46 @@
 """
-ML-based CV adjustment using OpenAI.
+Pure service layer for OpenAI API communication.
 
-Given extracted JSON data and a customer URL, research the company and adjust
-the CV to highlight customer-relevant aspects (e.g., reordering bullets, 
-emphasizing tools). The adjusted CV is validated against the CV schema before
-being returned to ensure data integrity.
+This module provides a clean, focused service for communicating with OpenAI's
+chat completion API. It handles:
+- Client initialization and retry logic
+- API calls with appropriate error handling  
+- Response parsing
 
-Notes:
-- Requires OPENAI_API_KEY in the environment.
-- Optional OPENAI_MODEL env var to override default model.
-- Adjusted CV data is validated against cv_schema.json.
-- Fails gracefully (returns original data) if API/HTTP errors or validation fails.
+Note: This is a PURE SERVICE LAYER - it does NOT handle:
+- Prompt loading (caller provides system_prompt)
+- Data validation (caller validates results)
+- Business logic or orchestration (caller handles this)
+
+Adjusters using this service should:
+1. Load their own prompts
+2. Call adjust() or call_openai() with pre-built system_prompt
+3. Validate the result themselves
+4. Handle failures and return original data
 """
 from __future__ import annotations
 
 import os
 import json
-import hashlib
 import re
+import hashlib
 from typing import Any, Dict, Optional
 from pathlib import Path
 
 import logging
 
-try:
-    import requests  # type: ignore
-except Exception:  # pragma: no cover
-    requests = None  # type: ignore
+from .prompt_loader import format_prompt
+from ..verifiers import get_verifier
 
 try:
-    # OpenAI >= 1.0 style client
     from openai import OpenAI  # type: ignore
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
-from .prompt_loader import format_prompt, load_prompt
-from ..verifiers import get_verifier
+try:
+    import requests
+except Exception:  # pragma: no cover
+    requests = None  # type: ignore
 
 LOG = logging.getLogger("cvextract")
 
@@ -335,15 +340,23 @@ def _build_system_prompt(research_data: Dict[str, Any]) -> Optional[str]:
 
 class MLAdjuster:
     """
-    ML-based CV adjuster using OpenAI.
+    Pure service for OpenAI API communication.
     
-    This class provides a clean interface for adjusting CV data based on
-    a target company's profile and technology interests.
+    This class is a focused service layer for calling OpenAI's chat completion
+    API. It is NOT responsible for:
+    - Loading or building prompts (caller provides system_prompt)
+    - Validating results (caller must validate)
+    - Business logic or orchestration (caller handles this)
+    
+    Usage:
+        adjuster = MLAdjuster(api_key="...")
+        response = adjuster.adjust(cv_data, system_prompt)
+        # Caller now owns: validation, error handling, retry logic
     """
     
     def __init__(self, model: str = "gpt-4o-mini", api_key: Optional[str] = None):
         """
-        Initialize the ML adjuster.
+        Initialize the OpenAI service.
         
         Args:
             model: OpenAI model to use (default: "gpt-4o-mini")
@@ -355,53 +368,31 @@ class MLAdjuster:
     def adjust(
         self, 
         cv_data: Dict[str, Any], 
-        target_url: str,
-        cache_path: Optional[Path] = None
-    ) -> Dict[str, Any]:
+        system_prompt: str,
+        user_context: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
         """
-        Adjust CV data using ML based on target URL.
+        Call OpenAI API to adjust CV data using a system prompt.
         
         Args:
-            cv_data: The extracted CV data
-            target_url: URL to the target customer's website
-            cache_path: Optional path to cache research results
+            cv_data: The CV data to adjust
+            system_prompt: System prompt for the AI (caller provides this)
+            user_context: Optional additional context for the user message (e.g., company profile, job description)
         
         Returns:
-            Adjusted CV data dict, or original data if adjustment fails
+            OpenAI response parsed as dict, or None if parsing/API fails
+            NOTE: Caller must validate the response - this method does NOT validate
         """
         if not self.api_key or OpenAI is None:
-            LOG.warning("Customer adjust skipped: OpenAI unavailable or API key missing.")
-            return cv_data
+            LOG.warning("MLAdjuster: OpenAI unavailable or API key missing.")
+            return None
 
-        # Step 1: Research company profile
-        research_data = _research_company_profile(
-            target_url, 
-            self.api_key, 
-            self.model, 
-            cache_path
-        )
-        
-        # If research fails, skip adjustment entirely
-        if not research_data:
-            LOG.warning("Customer adjust skipped: company research failed")
-            return cv_data
-
-        # Step 2: Build system prompt from research data
-        system_prompt = _build_system_prompt(research_data)
-        
-        if not system_prompt:
-            LOG.warning("Customer adjust skipped: failed to build system prompt")
-            return cv_data
-
-        # Step 3: Call OpenAI to adjust the CV
         client = OpenAI(api_key=self.api_key)
-
-        user_payload = {
-            "customer_url": target_url,
-            "company_profile": research_data,
-            "original_json": cv_data,
-            "adjusted_json": "",
-        }
+        
+        # Build user payload
+        user_payload = user_context or {}
+        user_payload["original_json"] = cv_data
+        user_payload["adjusted_json"] = ""
 
         try:
             completion = client.chat.completions.create(
@@ -414,35 +405,20 @@ class MLAdjuster:
             )
             content = completion.choices[0].message.content if completion.choices else None
             if not content:
-                LOG.warning("Customer adjust: empty completion; using original JSON.")
-                return cv_data
+                LOG.warning("MLAdjuster: empty completion response.")
+                return None
             
-            # Try to parse JSON; if parsing fails, keep original
+            # Parse and return JSON response
             try:
                 adjusted = json.loads(content)
-                if adjusted is None or not isinstance(adjusted, dict):
-                    LOG.warning("Customer adjust: completion is not a dict; using original JSON.")
-                    return cv_data
-                
-                # Validate adjusted CV against schema
-                try:
-                    schema_verifier = get_verifier("cv-schema-verifier")
-                    result = schema_verifier.verify(adjusted)
-                    if result.ok:
-                        LOG.info("The CV was adjusted to better fit the target customer.")
-                        return adjusted
-                    else:
-                        LOG.warning("Customer adjust: adjusted CV failed schema validation (%d errors); using original JSON.", len(result.errors))
-                        return cv_data
-                except Exception as e:
-                    LOG.warning("Customer adjust: schema validation error (%s); using original JSON.", type(e).__name__)
-                    return cv_data
-            except Exception:
-                LOG.warning("Customer adjust: invalid JSON response; using original JSON.")
-                return cv_data
+                return adjusted
+            except Exception as e:
+                LOG.warning("MLAdjuster: invalid JSON response (%s).", type(e).__name__)
+                return None
         except Exception as e:
-            LOG.warning("Customer adjust error (%s); using original JSON.", type(e).__name__)
-            return cv_data
+            LOG.warning("MLAdjuster: OpenAI API error (%s).", type(e).__name__)
+            return None
+
 
 
 # Legacy function for backward compatibility
@@ -455,19 +431,28 @@ def adjust_for_customer(
     cache_path: Optional[Path] = None
 ) -> Dict[str, Any]:
     """
-    Use OpenAI to adjust extracted JSON for a specific customer.
-    Returns a new dict; on any error, returns the original data unchanged.
+    DEPRECATED: Use OpenAICompanyResearchAdjuster instead.
+    
+    This function is kept for backward compatibility only.
+    New code should use OpenAICompanyResearchAdjuster.adjust() instead.
     
     Args:
         data: The extracted CV data
         customer_url: URL to the customer's website
         api_key: Optional OpenAI API key (defaults to OPENAI_API_KEY env var)
         model: Optional OpenAI model (defaults to OPENAI_MODEL env var or 'gpt-4o-mini')
-        cache_path: Optional path to cache research results (e.g., <cv_name>.research.json)
+        cache_path: Optional path to cache research results
     
     Returns:
         Adjusted CV data dict, or original data if adjustment fails
     """
-    model = model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
-    adjuster = MLAdjuster(model=model, api_key=api_key)
-    return adjuster.adjust(data, customer_url, cache_path=cache_path)
+    from ..adjusters import get_adjuster
+    
+    try:
+        model = model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+        adjuster = get_adjuster("openai-company-research", model=model, api_key=api_key)
+        return adjuster.adjust(data, customer_url=customer_url, cache_path=cache_path)
+    except Exception as e:
+        LOG.warning("adjust_for_customer: failed (%s); returning original data.", type(e).__name__)
+        return data
+

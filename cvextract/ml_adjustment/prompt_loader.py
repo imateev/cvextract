@@ -2,20 +2,28 @@
 Utility for loading prompt templates from Markdown files.
 
 This module provides a simple, cross-platform way to load prompts from the
-prompts/ subdirectory using pathlib.
+prompts/ subdirectory using pathlib. Searches in both adjuster and ml_adjustment
+directories with fallback behavior.
+
+Search order:
+1. Adjuster prompts directory: cvextract/adjusters/prompts/{prompt_name}.md
+2. ML adjustment prompts directory: cvextract/ml_adjustment/prompts/{prompt_name}.md
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
 
-# Path to the prompts directory
-_PROMPTS_DIR = Path(__file__).parent / "prompts"
+# Paths to prompts directories
+_ADJUSTER_PROMPTS_DIR = Path(__file__).parent.parent / "adjusters" / "prompts"
+_ML_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 def load_prompt(prompt_name: str) -> Optional[str]:
     """
     Load a prompt template from a Markdown file.
+    
+    Searches in adjuster prompts folder first, then falls back to ml_adjustment folder.
     
     Args:
         prompt_name: Name of the prompt file (without .md extension)
@@ -28,10 +36,18 @@ def load_prompt(prompt_name: str) -> Optional[str]:
         >>> if system_prompt:
         ...     print(system_prompt)
     """
-    prompt_path = _PROMPTS_DIR / f"{prompt_name}.md"
+    # Try adjuster prompts folder first
+    adjuster_prompt_path = _ADJUSTER_PROMPTS_DIR / f"{prompt_name}.md"
+    if adjuster_prompt_path.exists():
+        try:
+            return adjuster_prompt_path.read_text(encoding="utf-8")
+        except Exception:
+            return None
     
+    # Fall back to ml_adjustment prompts folder
+    ml_prompt_path = _ML_PROMPTS_DIR / f"{prompt_name}.md"
     try:
-        return prompt_path.read_text(encoding="utf-8")
+        return ml_prompt_path.read_text(encoding="utf-8")
     except Exception:
         return None
 
