@@ -196,7 +196,7 @@ class OpenAICVExtractor(CVExtractor):
             Validated CV data
         """
         # Clean up response (remove markdown code blocks if present)
-        text = response_text.value.strip()
+        text = response_text.strip() if isinstance(response_text, str) else response_text.value.strip()
          
         if text.startswith('```json'):
             text = text[7:]
@@ -221,5 +221,4 @@ class OpenAICVExtractor(CVExtractor):
         if not result.ok:
             raise ValueError(f"Response does not match schema: {result.errors}")
         
-        return data
         return data
