@@ -12,7 +12,7 @@ The schema verifier validates CV data against the formal JSON Schema definition,
 
 The `CVSchemaVerifier` class:
 1. Loads JSON Schema from `cvextract/contracts/cv_schema.json`
-2. Validates CV data using `jsonschema` library
+2. Validates CV data against schema structure
 3. Reports schema violations as errors
 4. Supports custom schema paths for testing
 
@@ -41,10 +41,12 @@ Can be used alongside other verifiers:
 from cvextract.verifiers import get_verifier
 
 # First check schema
-schema_result = CVSchemaVerifier().verify(cv_data)
+schema_verifier = get_verifier("cv-schema-verifier")
+schema_result = schema_verifier.verify(cv_data)
 
 # Then check completeness
-data_result = ExtractedDataVerifier().verify(cv_data)
+data_verifier = get_verifier("private-internal-verifier")
+data_result = data_verifier.verify(cv_data)
 ```
 
 ## Configuration
@@ -101,7 +103,7 @@ The CV schema (`cv_schema.json`) defines:
 
 ### External Dependencies
 
-- `jsonschema` - JSON Schema validation library
+None - uses basic Python structure validation
 
 ### Integration Points
 

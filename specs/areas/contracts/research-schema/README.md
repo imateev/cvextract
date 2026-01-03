@@ -12,9 +12,11 @@ The research schema (`research_schema.json`) defines the formal JSON Schema for 
 
 The schema defines structure for company research results:
 1. **Company Information**: Name, description, domains
-2. **Technology Signals**: Technologies and their importance scores
-3. **Corporate History**: Acquisitions, rebrandings
-4. **Product Ecosystem**: Owned and used products
+2. **Technology Signals**: Technologies with categories, interest levels, and confidence scores
+3. **Industry Classification**: NAICS/SIC codes
+4. **Corporate Details**: Founded year, headquarters, size, ownership
+5. **Historical Information**: Acquisition history, rebranding
+6. **Product Ecosystem**: Owned products, used products, related companies
 
 ## Entry Points
 
@@ -56,16 +58,26 @@ with open(schema_path) as f:
 ```json
 {
   "type": "object",
-  "required": ["name", "description", "domains", "technology_signals"],
+  "required": ["name", "domains"],
   "properties": {
     "name": {"type": "string"},
     "description": {"type": "string"},
     "domains": {...},
     "technology_signals": {...},
+    "industry_classification": {...},
+    "founded_year": {...},
+    "headquarters": {...},
+    "company_size": {...},
+    "employee_count": {...},
+    "ownership_type": {...},
+    "website": {...},
+    "tags": {...},
+    "confidence_score": {...},
     "acquisition_history": {...},
     "rebranded_from": {...},
     "owned_products": {...},
-    "used_products": {...}
+    "used_products": {...},
+    "related_companies": {...}
   }
 }
 ```
@@ -88,12 +100,17 @@ with open(schema_path) as f:
 ```json
 {
   "technology_signals": {
-    "type": "object",
-    "patternProperties": {
-      ".*": {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 5
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": ["technology"],
+      "properties": {
+        "technology": {"type": "string"},
+        "category": {"type": "string"},
+        "interest_level": {"enum": ["low", "medium", "high"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "signals": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "string"}
       }
     }
   }
