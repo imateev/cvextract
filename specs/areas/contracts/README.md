@@ -46,7 +46,7 @@ Company Research → Produces research data conforming to research_schema.json
 ## Dependencies
 
 - **Internal**: Used by all major modules (extractors, adjusters, renderers, verifiers)
-- **External**: `jsonschema` library for validation
+- **External**: None (verifiers use basic structure validation)
 
 ## File References
 
