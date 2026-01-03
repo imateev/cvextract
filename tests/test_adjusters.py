@@ -777,6 +777,34 @@ class TestOpenAIJobSpecificAdjuster:
         adjuster = OpenAIJobSpecificAdjuster()
         adjuster.validate_params(job_description="Job description text")
     
+    def test_validate_params_rejects_empty_job_url_and_description(self):
+        """validate_params should raise error if both job_url and job_description are empty."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        with pytest.raises(ValueError, match="requires either non-empty 'job-url' or 'job-description'"):
+            adjuster.validate_params(job_url="", job_description="")
+    
+    def test_validate_params_rejects_none_job_url_and_empty_description(self):
+        """validate_params should raise error if job_url is None and job_description is empty."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        with pytest.raises(ValueError, match="requires either non-empty 'job-url' or 'job-description'"):
+            adjuster.validate_params(job_url=None, job_description="")
+    
+    def test_validate_params_accepts_hyphenated_job_url(self):
+        """validate_params should accept 'job-url' parameter (hyphenated variant)."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        adjuster.validate_params(**{"job-url": "https://careers.example.com/job/123"})
+    
+    def test_validate_params_accepts_hyphenated_job_description(self):
+        """validate_params should accept 'job-description' parameter (hyphenated variant)."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        adjuster.validate_params(**{"job-description": "Job description text"})
+    
+    def test_validate_params_rejects_empty_hyphenated_both(self):
+        """validate_params should raise error if both hyphenated variants are empty."""
+        adjuster = OpenAIJobSpecificAdjuster()
+        with pytest.raises(ValueError, match="requires either non-empty 'job-url' or 'job-description'"):
+            adjuster.validate_params(**{"job-url": "", "job-description": ""})
+    
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI', None)
     def test_adjust_openai_library_unavailable(self, ):
         """adjust should return original CV when OpenAI library is not available (lines 160-161)."""
@@ -2080,3 +2108,53 @@ class TestOpenAIJobSpecificAdjusterEdgeCases:
         
         # Should use first choice
         assert result == adjusted_cv
+
+    def test_get_retry_after_from_headers_job_specific(self):
+        """Test extracting retry-after from exception headers (job-specific adjuster)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "60"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after == 60.0
+
+    def test_get_retry_after_headers_get_exception_job_specific(self):
+        """Test when headers.get() raises an exception (lines 125-130 in job-specific)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        # Create a mock headers object that raises when .get() is called
+        class BadHeaders:
+            def get(self, key1, default=None):
+                raise ValueError("Headers error")
+        
+        exc = Exception("Test")
+        exc.headers = BadHeaders()
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_get_retry_after_non_numeric_string_job_specific(self):
+        """Test when retry-after value can't be converted to float (lines 133-137 in job-specific)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "not-a-number"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_get_retry_after_zero_value_job_specific(self):
+        """Test when retry-after is zero (edge case for falsy value check in job-specific)."""
+        from cvextract.adjusters.openai_job_specific_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "0"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        # Zero gets converted to float but the sleep_with_backoff checks if retry_after > 0
+        assert retry_after == 0.0

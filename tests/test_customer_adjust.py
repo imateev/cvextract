@@ -757,6 +757,45 @@ class TestOpenAIRetryMethods:
         retry_after = retryer._get_retry_after_s(exc)
         assert retry_after is None
 
+    def test_get_retry_after_headers_get_exception(self, monkeypatch):
+        """Test when headers.get() raises an exception (lines 125-130)."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        # Create a mock headers object that raises when .get() is called
+        class BadHeaders:
+            def get(self, key1, default=None):
+                raise ValueError("Headers error")
+        
+        exc = Exception("Test")
+        exc.headers = BadHeaders()
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_get_retry_after_non_numeric_string(self, monkeypatch):
+        """Test when retry-after value can't be converted to float (lines 133-137)."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "not-a-number"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_get_retry_after_zero_value(self, monkeypatch):
+        """Test when retry-after is zero (edge case for falsy value check)."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "0"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        # Zero gets converted to float but the sleep_with_backoff checks if retry_after > 0
+        assert retry_after == 0.0
+
     def test_is_transient_500_error(self, monkeypatch):
         """Test that 5xx errors are transient."""
         from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
