@@ -180,17 +180,16 @@ class TestAdjustForCustomer:
         # Mock research to return valid data
         research_data = {"name": "Test", "domains": ["Tech"]}
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster._research_company_profile", Mock(return_value=research_data))
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._research_company_profile", Mock(return_value=research_data))
+        
+        # Mock format_prompt for company research adjuster
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.format_prompt", Mock(return_value="Test prompt"))
         
         # Mock verifier in both places where it's used
         mock_verifier = Mock()
         mock_verifier.verify.return_value = Mock(ok=True)
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.get_verifier", Mock(return_value=mock_verifier))
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.get_verifier", Mock(return_value=mock_verifier))
-        
-        mock_openai = Mock()
-        mock_client = Mock()
-        mock_completion = Mock()
-        mock_message = Mock()
         
         # Adjusted JSON must conform to CV schema
         adjusted_json = {
@@ -204,6 +203,24 @@ class TestAdjustForCustomer:
             "overview": "Adjusted overview",
             "experiences": []
         }
+        
+        # Mock OpenAI for company research adjuster
+        mock_openai_company = Mock()
+        mock_client_company = Mock()
+        mock_completion_company = Mock()
+        mock_message_company = Mock()
+        mock_message_company.content = json.dumps(adjusted_json)
+        mock_completion_company.choices = [Mock(message=mock_message_company)]
+        mock_client_company.chat.completions.create.return_value = mock_completion_company
+        mock_openai_company.return_value = mock_client_company
+        
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai_company)
+        
+        # Mock OpenAI for ml_adjustment (job-specific adjuster)
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
         mock_message.content = json.dumps(adjusted_json)
         mock_completion.choices = [Mock(message=mock_message)]
         mock_client.chat.completions.create.return_value = mock_completion
@@ -345,18 +362,31 @@ class TestAdjustForCustomer:
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.get_verifier", Mock(return_value=mock_verifier))
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster.get_verifier", Mock(return_value=mock_verifier))
         
-        mock_openai = Mock()
-        mock_client = Mock()
-        mock_completion = Mock()
-        mock_message = Mock()
+        # Mock OpenAI in adjusters module
+        mock_openai_adjuster = Mock()
+        mock_client_adjuster = Mock()
+        mock_completion_adjuster = Mock()
+        mock_message_adjuster = Mock()
         
         # Return JSON null, which parses to Python None
-        mock_message.content = json.dumps(None)
-        mock_completion.choices = [Mock(message=mock_message)]
-        mock_client.chat.completions.create.return_value = mock_completion
-        mock_openai.return_value = mock_client
+        mock_message_adjuster.content = json.dumps(None)
+        mock_completion_adjuster.choices = [Mock(message=mock_message_adjuster)]
+        mock_client_adjuster.chat.completions.create.return_value = mock_completion_adjuster
+        mock_openai_adjuster.return_value = mock_client_adjuster
         
-        monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai_adjuster)
+        
+        # Also mock OpenAI in ml_adjustment for job-specific
+        mock_openai_ml = Mock()
+        mock_client_ml = Mock()
+        mock_completion_ml = Mock()
+        mock_message_ml = Mock()
+        mock_message_ml.content = json.dumps(None)
+        mock_completion_ml.choices = [Mock(message=mock_message_ml)]
+        mock_client_ml.chat.completions.create.return_value = mock_completion_ml
+        mock_openai_ml.return_value = mock_client_ml
+        
+        monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai_ml)
         
         data = {"identity": {"title": "Original"}}
         result = adjust_for_customer(
@@ -367,7 +397,7 @@ class TestAdjustForCustomer:
         
         # Should return original data since adjusted is None
         assert result == data
-        assert "result is not a dict" in caplog.text or "API call failed" in caplog.text
+        assert "API call returned null" in caplog.text or "API call failed" in caplog.text
 
     def test_adjust_for_customer_api_exception(self, monkeypatch, caplog):
         """Test when OpenAI API call raises exception."""
@@ -926,7 +956,8 @@ class TestAdjustForCustomerWithResearch:
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
         
-        monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
+        # Mock OpenAI in the adjusters module (for company research)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
         
         data = {
             "identity": {
@@ -998,7 +1029,8 @@ class TestAdjustForCustomerWithResearch:
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai.return_value = mock_client
         
-        monkeypatch.setattr("cvextract.ml_adjustment.adjuster.OpenAI", mock_openai)
+        # Mock OpenAI in the adjusters module
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
         
         cache_file = tmp_path / "test.research.json"
         result = adjust_for_customer(

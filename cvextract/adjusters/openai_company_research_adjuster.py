@@ -18,7 +18,7 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 from .base import CVAdjuster
-from ..ml_adjustment.adjuster import MLAdjuster, _research_company_profile
+from ..ml_adjustment.adjuster import _research_company_profile
 from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
 from ..verifiers import get_verifier
 
@@ -49,7 +49,6 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         """
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self._ml_adjuster = MLAdjuster(model=self._model, api_key=self._api_key)
     
     def name(self) -> str:
         """Return adjuster name."""
@@ -160,18 +159,29 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             "adjusted_json": "",
         }
         
-        # Step 5: Call MLAdjuster service with payload context
-        adjusted = self._ml_adjuster.adjust(
-            cv_data, 
-            system_prompt, 
-            user_context={
-                "customer_url": customer_url,
-                "user_payload": json.dumps(user_payload),
-            }
-        )
+        # Step 5: Call OpenAI API directly
+        try:
+            client = OpenAI(api_key=self._api_key)
+            completion = client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": json.dumps(user_payload)},
+                ],
+                temperature=0.2,
+            )
+            
+            adjusted_json_str = completion.choices[0].message.content
+            adjusted = json.loads(adjusted_json_str)
+        except (json.JSONDecodeError, ValueError, KeyError, IndexError, AttributeError) as e:
+            LOG.warning("Company research adjust: failed to parse response (%s); using original CV.", type(e).__name__)
+            return cv_data
+        except Exception as e:
+            LOG.warning("Company research adjust: API call failed (%s); using original CV.", type(e).__name__)
+            return cv_data
         
         if adjusted is None:
-            LOG.warning("Company research adjust: API call failed; using original CV.")
+            LOG.warning("Company research adjust: API call returned null; using original CV.")
             return cv_data
         
         # Step 6: Validate adjusted CV against schema
