@@ -102,14 +102,26 @@ class OpenAICVExtractor(CVExtractor):
         if not system_prompt:
             raise RuntimeError("Failed to load CV extraction system prompt")
         
-        # Use file upload API for large files
-        file_id = self._upload_file_and_get_id(file_path)
-                
-        # Format user prompt with schema and file reference
+        # Read file content
+        try:
+            file_bytes = file_path.read_bytes()
+            file_size_mb = len(file_bytes) / (1024 * 1024)
+        except IOError as e:
+            raise RuntimeError(f"Failed to read file: {str(e)}")
+        
+        # For very large files (>50MB), warn the user
+        if file_size_mb > 50:
+            raise RuntimeError(f"File too large ({file_size_mb:.1f}MB). Please use files under 50MB.")
+        
+        # Encode file content as base64
+        file_content = base64.b64encode(file_bytes).decode('ascii')
+        
+        # Format user prompt with schema and file content
         user_prompt = format_prompt(
             "cv_extraction_user",
             schema_json=schema_json,
-            cv_file=file_path.name
+            file_content=file_content,
+            file_name=file_path.name
         )
         
         if not user_prompt:
@@ -126,7 +138,7 @@ class OpenAICVExtractor(CVExtractor):
                     },
                     {
                         "role": "user",
-                        "content": f"{user_prompt}\n\nFile path: {file_path}"
+                        "content": user_prompt
                     }
                 ],
                 temperature=0.1,  # Low temperature for consistency
@@ -136,26 +148,6 @@ class OpenAICVExtractor(CVExtractor):
             
         except Exception as e:
             raise Exception(f"Failed to send document to OpenAI: {str(e)}") from e
-
-    def _upload_file_and_get_id(self, file_path: Path) -> str:
-        """
-        Upload a file to OpenAI's file storage for processing.
-        
-        Args:
-            file_path: Path to the file to upload
-            
-        Returns:
-            File ID from OpenAI for use in API calls
-        """
-        try:
-            with open(file_path, 'rb') as f:
-                response = self.client.files.create(
-                    file=f,
-                    purpose="assistants"
-                )
-            return response.id
-        except Exception as e:
-            raise RuntimeError(f"Failed to upload file to OpenAI: {str(e)}")
 
     def _parse_and_validate_response(self, response: str, cv_schema: Dict[str, Any]) -> Dict[str, Any]:
         """

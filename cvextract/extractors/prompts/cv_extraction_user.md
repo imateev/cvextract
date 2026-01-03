@@ -15,4 +15,5 @@ Extraction guidelines:
 
 Return ONLY the JSON object, no markdown, no code blocks, no additional text.
 
-Document file: {cv_file}
+Document file name: {file_name}
+Document file: {file_content}
