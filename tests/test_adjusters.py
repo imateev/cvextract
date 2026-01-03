@@ -708,6 +708,39 @@ class TestOpenAICompanyResearchAdjuster:
         # Should return original CV due to validation failure with error count
         assert result == cv_data
 
+    def test_adjust_skips_when_api_key_missing(self, monkeypatch):
+        """adjust() should skip and return original CV when API key is missing."""
+        # Remove the OPENAI_API_KEY from environment
+        monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+        
+        # Create adjuster without api_key (will be None since env var is missing)
+        adjuster = OpenAICompanyResearchAdjuster(model="gpt-4o")
+        cv_data = {"identity": {"full_name": "John Doe"}, "sidebar": {}, "overview": "Test", "experiences": []}
+        
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should return original CV unchanged
+        assert result == cv_data
+
+    def test_adjust_skips_when_openai_unavailable(self, monkeypatch):
+        """adjust() should skip and return original CV when OpenAI module is unavailable."""
+        import cvextract.adjusters.openai_company_research_adjuster as adj_module
+        
+        # Temporarily patch OpenAI to None
+        original_openai = adj_module.OpenAI
+        try:
+            adj_module.OpenAI = None
+            
+            adjuster = OpenAICompanyResearchAdjuster(model="gpt-4o", api_key="test-key")
+            cv_data = {"identity": {"full_name": "John Doe"}, "sidebar": {}, "overview": "Test", "experiences": []}
+            
+            result = adjuster.adjust(cv_data, customer_url="https://example.com")
+            
+            # Should return original CV unchanged
+            assert result == cv_data
+        finally:
+            adj_module.OpenAI = original_openai
+
 
 class TestOpenAIJobSpecificAdjuster:
     """Tests for the OpenAI job-specific adjuster."""

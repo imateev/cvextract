@@ -86,3 +86,52 @@ class TestPromptLoading:
         )
         assert result is None
 
+    def test_load_prompt_handles_read_error_from_extractor_prompts(self, monkeypatch):
+        """load_prompt() returns None if reading from extractor prompts folder fails."""
+        from pathlib import Path
+        from unittest.mock import MagicMock
+        
+        # Mock the extractor prompt path to exist but fail on read_text()
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.read_text.side_effect = OSError("Permission denied")
+        
+        monkeypatch.setattr(
+            "cvextract.shared._EXTRACTOR_PROMPTS_DIR",
+            MagicMock(__truediv__=lambda self, name: mock_path)
+        )
+        
+        result = cvextract.shared.load_prompt("test_prompt")
+        assert result is None
+
+    def test_load_prompt_handles_read_error_from_adjuster_prompts(self, monkeypatch):
+        """load_prompt() returns None if reading from adjuster prompts folder fails."""
+        from pathlib import Path
+        from unittest.mock import MagicMock
+        
+        # Mock both extractor (doesn't exist) and adjuster (exists but fails to read)
+        mock_extractor = MagicMock(spec=Path)
+        mock_extractor.exists.return_value = False
+        
+        mock_adjuster = MagicMock(spec=Path)
+        mock_adjuster.exists.return_value = True
+        mock_adjuster.read_text.side_effect = IOError("Read failed")
+        
+        def create_extractor_path(name):
+            return mock_extractor
+        
+        def create_adjuster_path(name):
+            return mock_adjuster
+        
+        monkeypatch.setattr(
+            "cvextract.shared._EXTRACTOR_PROMPTS_DIR",
+            MagicMock(__truediv__=lambda self, name: create_extractor_path(name))
+        )
+        monkeypatch.setattr(
+            "cvextract.shared._ADJUSTER_PROMPTS_DIR",
+            MagicMock(__truediv__=lambda self, name: create_adjuster_path(name))
+        )
+        
+        result = cvextract.shared.load_prompt("test_prompt")
+        assert result is None
+
