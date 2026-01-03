@@ -336,8 +336,8 @@ class TestAdjustForCustomer:
         monkeypatch.setattr("cvextract.ml_adjustment.adjuster._research_company_profile", Mock(return_value=research_data))
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._research_company_profile", Mock(return_value=research_data))
         
-        # Mock _build_system_prompt
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._build_system_prompt", Mock(return_value="Test prompt"))
+        # Mock format_prompt
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.format_prompt", Mock(return_value="Test prompt"))
         
         # Mock verifier in both places
         mock_verifier = Mock()
@@ -914,8 +914,8 @@ class TestAdjustForCustomerWithResearch:
         # Mock _research_company_profile where it's imported in the adjuster
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._research_company_profile", Mock(return_value=research_data))
         
-        # Mock _build_system_prompt where it's imported in the adjuster
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._build_system_prompt", Mock(return_value="Test prompt"))
+        # Mock format_prompt where it's imported in the adjuster
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.format_prompt", Mock(return_value="Test prompt"))
         
         mock_openai = Mock()
         mock_client = Mock()
@@ -969,7 +969,8 @@ class TestAdjustForCustomerWithResearch:
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._research_company_profile", mock_research)
         
         # Mock _build_system_prompt
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._build_system_prompt", Mock(return_value="Test prompt"))
+        # Mock format_prompt
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.format_prompt", Mock(return_value="Test prompt"))
         
         # Mock verifier in both places
         mock_verifier = Mock()

@@ -70,4 +70,4 @@ the job requirements and qualifications.
 - You MUST NOT include **any explanations, comments, or markdown**.
 - You MUST NOT wrap the JSON in code fences or quotes.
 - The output MUST be **valid, strictly parseable JSON**.
-- The output MUST use **exactly the same schema, structure, and keys** as the input CV JSON.
+- The output MUST use **exactly the same schema, structure, and keys** as the original_json the user gave you to adjust.

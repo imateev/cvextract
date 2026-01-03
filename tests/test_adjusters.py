@@ -273,15 +273,15 @@ class TestOpenAICompanyResearchAdjuster:
         adjuster.validate_params(customer_url="https://example.com")
     
     @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
-    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.MLAdjuster')
     @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
     def test_adjust_calls_ml_adjuster(self, mock_get_verifier, mock_ml_adjuster, 
-                                       mock_build_prompt, mock_research):
+                                       mock_format_prompt, mock_research):
         """adjust should delegate to MLAdjuster after researching company."""
         # Setup mocks for research and prompt building
         mock_research.return_value = {"company": "Test Corp"}
-        mock_build_prompt.return_value = "System prompt for Test Corp"
+        mock_format_prompt.return_value = "System prompt for Test Corp"
         
         # Setup MLAdjuster mock
         mock_ml_instance = MagicMock()
@@ -300,21 +300,24 @@ class TestOpenAICompanyResearchAdjuster:
         # Should return the adjusted result
         assert result == {"adjusted": True}
         
-        # Verify MLAdjuster was called with system_prompt and user_context
+        # Verify MLAdjuster was called with system_prompt and user_context containing payload
         mock_ml_instance.adjust.assert_called_once()
         call_args = mock_ml_instance.adjust.call_args
         assert call_args[0][0] == cv_data  # cv_data
         assert call_args[0][1] == "System prompt for Test Corp"  # system_prompt
-        assert 'user_context' in call_args[1]  # user_context kwarg
+        # Verify user_context includes the payload
+        user_context = call_args[1]['user_context']
+        assert 'user_payload' in user_context
+        assert 'customer_url' in user_context
     
     @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
-    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
-    def test_adjust_build_system_prompt_returns_none(self, mock_get_verifier, mock_build_prompt, mock_research):
-        """adjust should return original CV when _build_system_prompt returns None (lines 116-117)."""
+    def test_adjust_build_system_prompt_returns_none(self, mock_get_verifier, mock_format_prompt, mock_research):
+        """adjust should return original CV when format_prompt returns None."""
         # Setup mocks
         mock_research.return_value = {"company": "Test Corp"}
-        mock_build_prompt.return_value = None  # Simulate failed prompt building
+        mock_format_prompt.return_value = None  # Simulate failed prompt loading
         
         adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
@@ -327,15 +330,15 @@ class TestOpenAICompanyResearchAdjuster:
         mock_get_verifier.assert_not_called()
     
     @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
-    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.MLAdjuster')
     @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
     def test_adjust_ml_adjuster_returns_none(self, mock_get_verifier, mock_ml_adjuster, 
-                                              mock_build_prompt, mock_research):
-        """adjust should return original CV when MLAdjuster.adjust returns None (lines 133-134)."""
+                                              mock_format_prompt, mock_research):
+        """adjust should return original CV when MLAdjuster.adjust returns None."""
         # Setup mocks
         mock_research.return_value = {"company": "Test Corp"}
-        mock_build_prompt.return_value = "System prompt for Test Corp"
+        mock_format_prompt.return_value = "System prompt for Test Corp"
         
         # MLAdjuster.adjust returns None
         mock_ml_instance = MagicMock()
@@ -354,15 +357,15 @@ class TestOpenAICompanyResearchAdjuster:
         mock_get_verifier.assert_not_called()
     
     @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
-    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.MLAdjuster')
     @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
     def test_adjust_schema_validation_exception(self, mock_get_verifier, mock_ml_adjuster, 
-                                                 mock_build_prompt, mock_research):
-        """adjust should return original CV when schema validation raises exception (lines 144-151)."""
+                                                 mock_format_prompt, mock_research):
+        """adjust should return original CV when schema validation raises exception."""
         # Setup mocks
         mock_research.return_value = {"company": "Test Corp"}
-        mock_build_prompt.return_value = "System prompt for Test Corp"
+        mock_format_prompt.return_value = "System prompt for Test Corp"
         
         # MLAdjuster returns valid adjusted data
         mock_ml_instance = MagicMock()
@@ -385,15 +388,15 @@ class TestOpenAICompanyResearchAdjuster:
         mock_verifier.verify.assert_called_once_with(adjusted_data)
     
     @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
-    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.MLAdjuster')
     @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
     def test_adjust_validation_fails(self, mock_get_verifier, mock_ml_adjuster, 
-                                     mock_build_prompt, mock_research):
-        """adjust should return original CV when adjusted CV fails schema validation (lines 144-151)."""
+                                     mock_format_prompt, mock_research):
+        """adjust should return original CV when adjusted CV fails schema validation."""
         # Setup mocks
         mock_research.return_value = {"company": "Test Corp"}
-        mock_build_prompt.return_value = "System prompt for Test Corp"
+        mock_format_prompt.return_value = "System prompt for Test Corp"
         
         # MLAdjuster returns valid dict but with issues
         mock_ml_instance = MagicMock()
@@ -416,15 +419,15 @@ class TestOpenAICompanyResearchAdjuster:
         mock_verifier.verify.assert_called_once_with(adjusted_data)
     
     @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
-    @patch('cvextract.adjusters.openai_company_research_adjuster._build_system_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
     @patch('cvextract.adjusters.openai_company_research_adjuster.MLAdjuster')
     @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
     def test_adjust_non_dict_result(self, mock_get_verifier, mock_ml_adjuster, 
-                                    mock_build_prompt, mock_research):
-        """adjust should return original CV when MLAdjuster returns non-dict (lines 133-134)."""
+                                    mock_format_prompt, mock_research):
+        """adjust should return original CV when MLAdjuster returns non-dict."""
         # Setup mocks
         mock_research.return_value = {"company": "Test Corp"}
-        mock_build_prompt.return_value = "System prompt for Test Corp"
+        mock_format_prompt.return_value = "System prompt for Test Corp"
         
         # MLAdjuster returns non-dict (invalid)
         mock_ml_instance = MagicMock()

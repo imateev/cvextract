@@ -18,8 +18,8 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 from .base import CVAdjuster
-from ..ml_adjustment.adjuster import MLAdjuster, _research_company_profile, _build_system_prompt
-from ..ml_adjustment.prompt_loader import load_prompt
+from ..ml_adjustment.adjuster import MLAdjuster, _research_company_profile
+from ..ml_adjustment.prompt_loader import load_prompt, format_prompt
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
@@ -109,26 +109,72 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             LOG.warning("Company research adjust: failed to research company; using original CV.")
             return cv_data
         
-        # Step 2: Build system prompt from research data
-        system_prompt = _build_system_prompt(research_data)
+        # Step 2: Build research context text
+        # Extract key information from research data for the system prompt
+        domains_text = ", ".join(research_data.get("domains", []))
+        company_name = research_data.get("name", "the company")
+        company_desc = research_data.get("description", "")
+        
+        # Build technology signals context
+        tech_signals_parts = []
+        if research_data.get("technology_signals"):
+            tech_signals_parts.append("Key Technology Signals:")
+            for signal in research_data["technology_signals"]:
+                tech = signal.get("technology", "Unknown")
+                interest = signal.get("interest_level", "unknown")
+                confidence = signal.get("confidence", 0)
+                evidence = signal.get("signals", [])
+                
+                # Format confidence safely
+                try:
+                    conf_str = f"{float(confidence):.2f}"
+                except (TypeError, ValueError):
+                    conf_str = "0.00"
+                
+                tech_signals_parts.append(f"\n- {tech} (interest: {interest}, confidence: {conf_str})")
+                if evidence:
+                    tech_signals_parts.append(f"\n  Evidence: {'; '.join(evidence[:2])}")
+        
+        tech_signals_text = "".join(tech_signals_parts)
+        
+        # Build the research context
+        research_context = f"Company: {company_name}\n"
+        if company_desc:
+            research_context += f"Description: {company_desc}\n"
+        if domains_text:
+            research_context += f"Domains: {domains_text}\n"
+        if tech_signals_text:
+            research_context += f"{tech_signals_text}"
+        
+        # Step 3: Load system prompt template with research context
+        system_prompt = format_prompt("adjuster_promp_for_a_company", research_context=research_context)
         
         if not system_prompt:
-            LOG.warning("Company research adjust: failed to build prompt; using original CV.")
+            LOG.warning("Company research adjust: failed to load prompt template; using original CV.")
             return cv_data
         
-        # Step 3: Call MLAdjuster service (pure service - no validation)
-        user_context = {
-            "customer_url": customer_url,
-            "company_profile": research_data,
+        # Step 4: Create user payload with research data and cv_data
+        user_payload = {
+            "company_research": research_data,
+            "original_json": cv_data,
+            "adjusted_json": "",
         }
         
-        adjusted = self._ml_adjuster.adjust(cv_data, system_prompt, user_context=user_context)
+        # Step 5: Call MLAdjuster service with payload context
+        adjusted = self._ml_adjuster.adjust(
+            cv_data, 
+            system_prompt, 
+            user_context={
+                "customer_url": customer_url,
+                "user_payload": json.dumps(user_payload),
+            }
+        )
         
         if adjusted is None:
             LOG.warning("Company research adjust: API call failed; using original CV.")
             return cv_data
         
-        # Step 4: Validate adjusted CV against schema
+        # Step 6: Validate adjusted CV against schema
         if not isinstance(adjusted, dict):
             LOG.warning("Company research adjust: result is not a dict; using original CV.")
             return cv_data
