@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
-from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
+from cvextract.verifiers import get_verifier, ComparisonVerifier
 from cvextract.shared import VerificationResult
 
 
@@ -241,7 +241,7 @@ def test_verify_extracted_data_missing_identity():
         "sidebar": {"languages": ["EN"]},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    verifier = ExtractedDataVerifier()
+    verifier = get_verifier("private-internal-verifier")
     result = verifier.verify(data)
     assert result.ok is False
     assert "identity" in result.errors

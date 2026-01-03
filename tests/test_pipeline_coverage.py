@@ -30,7 +30,7 @@ class TestExtractSingle:
         }
         
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
+             patch("cvextract.verifiers.get_verifier('private-internal-verifier').verify") as mock_verify:
             
             mock_extract.return_value = mock_data
             mock_verify.return_value = VerificationResult(ok=True, errors=[], warnings=[])
@@ -50,7 +50,7 @@ class TestExtractSingle:
         mock_data = {"identity": {}}  # Missing required fields
         
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
+             patch("cvextract.verifiers.get_verifier('private-internal-verifier').verify") as mock_verify:
             
             mock_extract.return_value = mock_data
             mock_verify.return_value = VerificationResult(
@@ -107,7 +107,7 @@ class TestExtractSingle:
         }
         
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract, \
-             patch("cvextract.verifiers.ExtractedDataVerifier.verify") as mock_verify:
+             patch("cvextract.verifiers.get_verifier('private-internal-verifier').verify") as mock_verify:
             
             mock_extract.return_value = mock_data
             mock_verify.return_value = VerificationResult(

@@ -20,7 +20,7 @@ from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor
 from .pipeline_highlevel import process_single_docx, render_cv_data
-from .verifiers import ExtractedDataVerifier, ComparisonVerifier
+from .verifiers import get_verifier, ComparisonVerifier
 
 
 def infer_source_root(inputs: List[Path]) -> Path:
@@ -66,7 +66,8 @@ def extract_single(
     """
     try:
         data = process_single_docx(source_file, out=out_json, extractor=extractor)
-        result = ExtractedDataVerifier().verify(data)
+        verifier = get_verifier("private-internal-verifier")
+        result = verifier.verify(data)
         return result.ok, result.errors, result.warnings
     except Exception as e:
         if debug:

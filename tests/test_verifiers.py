@@ -6,7 +6,7 @@ import json
 import tempfile
 from cvextract.verifiers import (
     CVVerifier,
-    ExtractedDataVerifier,
+    get_verifier,
     ComparisonVerifier,
     FileComparisonVerifier,
     SchemaVerifier,
@@ -19,7 +19,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_accepts_valid_cv_data(self):
         """Valid CV data should pass verification."""
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         data = {
             "identity": {
                 "title": "Senior Engineer",

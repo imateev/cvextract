@@ -3,7 +3,7 @@
 import json
 from unittest.mock import Mock, patch
 from cvextract.pipeline_highlevel import extract_cv_structure, render_cv_data, process_single_docx
-from cvextract.verifiers import ExtractedDataVerifier
+from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
 
@@ -242,7 +242,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "Jan 2020 - Present", "description": "d", "bullets": ["b"], "environment": ["Python"]}],
         }
-        verifier = ExtractedDataVerifier()
+        verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert isinstance(res, VerificationResult)
         assert res.ok is True
