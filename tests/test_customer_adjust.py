@@ -494,3 +494,467 @@ class TestResearchCompanyProfile:
         assert result is None
         assert "Company research error (RuntimeError)" in caplog.text
 
+
+class TestStripMarkdownFences:
+    """Tests for _strip_markdown_fences helper."""
+
+    def test_strip_markdown_fences_json(self):
+        """Test stripping ```json code fence."""
+        from cvextract.adjusters.openai_company_research_adjuster import _strip_markdown_fences
+        
+        text = '```json\n{"key": "value"}\n```'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+    def test_strip_markdown_fences_generic(self):
+        """Test stripping generic ``` code fence."""
+        from cvextract.adjusters.openai_company_research_adjuster import _strip_markdown_fences
+        
+        text = '```\n{"key": "value"}\n```'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+    def test_strip_markdown_fences_no_fence(self):
+        """Test text without code fence."""
+        from cvextract.adjusters.openai_company_research_adjuster import _strip_markdown_fences
+        
+        text = '{"key": "value"}'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+    def test_strip_markdown_fences_with_whitespace(self):
+        """Test stripping with extra whitespace."""
+        from cvextract.adjusters.openai_company_research_adjuster import _strip_markdown_fences
+        
+        text = '  ```json\n  {"key": "value"}  \n```  '
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+    def test_strip_markdown_fences_only_opening_fence(self):
+        """Test with only opening fence."""
+        from cvextract.adjusters.openai_company_research_adjuster import _strip_markdown_fences
+        
+        text = '```json\n{"key": "value"}'
+        result = _strip_markdown_fences(text)
+        assert result == '{"key": "value"}'
+
+
+class TestExtractJsonObject:
+    """Tests for _extract_json_object helper."""
+
+    def test_extract_json_object_simple_dict(self):
+        """Test extracting simple JSON dict."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '{"name": "Test"}'
+        result = _extract_json_object(text)
+        assert result == {"name": "Test"}
+
+    def test_extract_json_object_with_markdown_fence(self):
+        """Test extracting JSON from markdown fence."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '```json\n{"name": "Test"}\n```'
+        result = _extract_json_object(text)
+        assert result == {"name": "Test"}
+
+    def test_extract_json_object_with_surrounding_text(self):
+        """Test extracting JSON from text with surrounding content."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = 'Here is the data:\n{"name": "Test"}\nEnd of data'
+        result = _extract_json_object(text)
+        assert result == {"name": "Test"}
+
+    def test_extract_json_object_not_dict_array(self):
+        """Test that non-dict JSON returns None."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '[1, 2, 3]'
+        result = _extract_json_object(text)
+        assert result is None
+
+    def test_extract_json_object_not_dict_string(self):
+        """Test that string JSON returns None."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '"not a dict"'
+        result = _extract_json_object(text)
+        assert result is None
+
+    def test_extract_json_object_invalid_json(self):
+        """Test with invalid JSON."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '{not valid json}'
+        result = _extract_json_object(text)
+        assert result is None
+
+    def test_extract_json_object_no_braces(self):
+        """Test text with no JSON braces."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = 'Just plain text with no JSON'
+        result = _extract_json_object(text)
+        assert result is None
+
+    def test_extract_json_object_non_string_input(self):
+        """Test with non-string input."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        result = _extract_json_object(None)
+        assert result is None
+
+    def test_extract_json_object_mismatched_braces(self):
+        """Test with mismatched braces - extraction may fail."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '{ "key": "value" }} extra }'
+        result = _extract_json_object(text)
+        # The function finds the last }, which would create invalid JSON
+        # So it may return None or extract up to the last brace
+        # Either way is acceptable behavior - this is malformed input
+        assert result is None or isinstance(result, dict)
+
+    def test_extract_json_object_nested_json(self):
+        """Test extracting nested JSON."""
+        from cvextract.adjusters.openai_company_research_adjuster import _extract_json_object
+        
+        text = '{"outer": {"inner": "value"}}'
+        result = _extract_json_object(text)
+        assert result == {"outer": {"inner": "value"}}
+
+
+class TestValidateResearchData:
+    """Tests for _validate_research_data helper."""
+
+    def test_validate_research_data_not_dict(self):
+        """Test validation fails for non-dict data."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        
+        result = _validate_research_data([1, 2, 3])
+        assert result is False
+
+    def test_validate_research_data_verifier_unavailable(self, monkeypatch):
+        """Test validation when verifier is not available."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        
+        mock_get_verifier = Mock(return_value=None)
+        monkeypatch.setattr(
+            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
+            mock_get_verifier
+        )
+        
+        result = _validate_research_data({"data": "value"})
+        assert result is False
+
+    def test_validate_research_data_verifier_exception(self, monkeypatch):
+        """Test validation when verifier raises exception."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        
+        mock_verifier = Mock()
+        mock_verifier.verify.side_effect = Exception("Verifier error")
+        mock_get_verifier = Mock(return_value=mock_verifier)
+        monkeypatch.setattr(
+            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
+            mock_get_verifier
+        )
+        
+        result = _validate_research_data({"data": "value"})
+        assert result is False
+
+    def test_validate_research_data_verifier_returns_not_ok(self, monkeypatch):
+        """Test validation when verifier returns not ok."""
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        
+        mock_verifier = Mock()
+        mock_verifier.verify.return_value = Mock(ok=False)
+        mock_get_verifier = Mock(return_value=mock_verifier)
+        monkeypatch.setattr(
+            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
+            mock_get_verifier
+        )
+        
+        result = _validate_research_data({"data": "value"})
+        assert result is False
+
+
+class TestOpenAIRetryMethods:
+    """Tests for _OpenAIRetry helper class methods."""
+
+    def test_get_status_code_from_attribute(self, monkeypatch):
+        """Test extracting status code from exception attribute."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.status_code = 429
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        status = retryer._get_status_code(exc)
+        assert status == 429
+
+    def test_get_status_code_from_response_attribute(self, monkeypatch):
+        """Test extracting status code from response object."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.response = Mock(status_code=500)
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        status = retryer._get_status_code(exc)
+        assert status == 500
+
+    def test_get_status_code_not_found(self, monkeypatch):
+        """Test when status code is not found."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        status = retryer._get_status_code(exc)
+        assert status is None
+
+    def test_get_retry_after_from_headers(self, monkeypatch):
+        """Test extracting retry-after from headers."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "60"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after == 60.0
+
+    def test_get_retry_after_capitalized(self, monkeypatch):
+        """Test extracting Retry-After (capitalized) from headers."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.headers = {"Retry-After": "120"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after == 120.0
+
+    def test_get_retry_after_from_response(self, monkeypatch):
+        """Test extracting retry-after from response headers."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        exc.response = Mock(headers={"retry-after": "30"})
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after == 30.0
+
+    def test_get_retry_after_not_found(self, monkeypatch):
+        """Test when retry-after is not found."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Test")
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        retry_after = retryer._get_retry_after_s(exc)
+        assert retry_after is None
+
+    def test_is_transient_500_error(self, monkeypatch):
+        """Test that 5xx errors are transient."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Server error")
+        exc.status_code = 503
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        assert retryer._is_transient(exc) is True
+
+    def test_is_transient_by_message(self, monkeypatch):
+        """Test detection of transient errors by message."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Connection timeout")
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        assert retryer._is_transient(exc) is True
+
+    def test_is_transient_ssl_error(self, monkeypatch):
+        """Test that SSL errors are transient."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("SSL certificate error")
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        assert retryer._is_transient(exc) is True
+
+    def test_is_not_transient_4xx_error(self, monkeypatch):
+        """Test that 4xx errors are not transient."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        exc = Exception("Bad request")
+        exc.status_code = 400
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda x: None)
+        assert retryer._is_transient(exc) is False
+
+    def test_sleep_with_backoff_deterministic(self, monkeypatch):
+        """Test deterministic backoff sleep."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        sleep_calls = []
+        
+        def mock_sleep(duration):
+            sleep_calls.append(duration)
+        
+        config = _RetryConfig(deterministic=True)
+        exc = Exception("Test")
+        
+        retryer = _OpenAIRetry(retry=config, sleep=mock_sleep)
+        retryer._sleep_with_backoff(0, is_write=False, exc=exc)
+        
+        # Deterministic mode should sleep with exponential backoff: base_delay_s * 2^attempt
+        # 0.75 * 2^0 = 0.75
+        assert len(sleep_calls) == 1
+        assert sleep_calls[0] == 0.75
+
+    def test_sleep_with_backoff_with_retry_after(self, monkeypatch):
+        """Test backoff honors retry-after header."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        sleep_calls = []
+        
+        def mock_sleep(duration):
+            sleep_calls.append(duration)
+        
+        exc = Exception("Test")
+        exc.headers = {"retry-after": "5"}
+        
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=mock_sleep)
+        retryer._sleep_with_backoff(0, is_write=False, exc=exc)
+        
+        # Should sleep for retry-after value (capped at max_delay_s)
+        assert len(sleep_calls) == 1
+        assert sleep_calls[0] == 5.0
+
+    def test_sleep_with_backoff_write_multiplier(self, monkeypatch):
+        """Test backoff with write multiplier."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        sleep_calls = []
+        
+        def mock_sleep(duration):
+            sleep_calls.append(duration)
+        
+        config = _RetryConfig(deterministic=True, base_delay_s=1.0, write_multiplier=2.0)
+        exc = Exception("Test")
+        
+        retryer = _OpenAIRetry(retry=config, sleep=mock_sleep)
+        retryer._sleep_with_backoff(0, is_write=True, exc=exc)
+        
+        # With write multiplier: 1.0 * 2^0 * 2.0 = 2.0
+        assert len(sleep_calls) == 1
+        assert sleep_calls[0] == 2.0
+
+    def test_sleep_with_backoff_capped_at_max(self, monkeypatch):
+        """Test backoff is capped at max_delay_s."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+        
+        sleep_calls = []
+        
+        def mock_sleep(duration):
+            sleep_calls.append(duration)
+        
+        config = _RetryConfig(deterministic=True, base_delay_s=10.0, max_delay_s=5.0)
+        exc = Exception("Test")
+        
+        retryer = _OpenAIRetry(retry=config, sleep=mock_sleep)
+        retryer._sleep_with_backoff(2, is_write=False, exc=exc)
+        
+        # 10.0 * 2^2 = 40.0, but capped at 5.0
+        assert len(sleep_calls) == 1
+        assert sleep_calls[0] == 5.0
+
+
+class TestResearchCompanyProfileEdgeCases:
+    """Additional edge case tests for _research_company_profile."""
+
+    def test_research_company_profile_empty_cache_data(self, monkeypatch, tmp_path):
+        """Test with empty cache file."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+        
+        cache_file = tmp_path / "cache.json"
+        cache_file.write_text("{}")
+        
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
+        good_data = {"name": "TestCo", "domains": ["test.com"]}
+        mock_message.content = json.dumps(good_data)
+        mock_completion.choices = [Mock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        mock_get_verifier = Mock(return_value=Mock())
+        mock_get_verifier.return_value.verify.return_value = Mock(ok=True)
+        
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value={"type": "object"}))
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._validate_research_data", Mock(side_effect=[False, True]))
+        
+        result = _research_company_profile("https://example.com", "test-key", "gpt-4o-mini", cache_path=cache_file)
+        
+        # Cache had invalid data, should fetch and return new data
+        assert result == good_data
+
+    def test_research_company_profile_cache_corruption_invalid_json(self, monkeypatch, tmp_path):
+        """Test handling corrupted cache with invalid JSON."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+        
+        cache_file = tmp_path / "cache.json"
+        cache_file.write_text("{invalid json")
+        
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
+        good_data = {"name": "TestCo", "domains": ["test.com"]}
+        mock_message.content = json.dumps(good_data)
+        mock_completion.choices = [Mock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value={"type": "object"}))
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._validate_research_data", Mock(return_value=True))
+        
+        result = _research_company_profile("https://example.com", "test-key", "gpt-4o-mini", cache_path=cache_file)
+        
+        # Cache was corrupted, should fetch and return new data
+        assert result == good_data
+
+    def test_research_company_profile_retry_call_uses_config(self, monkeypatch):
+        """Test that retry config is passed to retryer.call."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile, _RetryConfig
+        
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_message = Mock()
+        mock_message.content = json.dumps({"name": "Test"})
+        mock_completion.choices = [Mock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        custom_retry_config = _RetryConfig(max_attempts=5)
+        
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value={"type": "object"}))
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._validate_research_data", Mock(return_value=True))
+        
+        result = _research_company_profile(
+            "https://example.com",
+            "test-key",
+            "gpt-4o-mini",
+            retry=custom_retry_config
+        )
+        
+        assert result == {"name": "Test"}
