@@ -1,4 +1,4 @@
-"""Tests for ml_adjustment module."""
+"""Tests for research and company analysis functions."""
 
 import json
 import logging

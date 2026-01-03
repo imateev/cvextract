@@ -18,8 +18,8 @@ packages = ["cvextract"]
 [tool.setuptools.package-data]
 cvextract = [
     "contracts/*.json",
-    "ml_adjustment/prompts/*.md",
-    "adjusters/prompts/*.md"
+    "extractors/prompts/*.md",
+    "adjusters/prompts/*.md",
 ]
 
 [tool.pytest.ini_options]
