@@ -12,14 +12,14 @@ dependencies = [
 name = "cvextract"
 version = "0.6.0"
 
-[tool.setuptools]
-packages = ["cvextract"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cvextract*"]
 
 [tool.setuptools.package-data]
 cvextract = [
-    "contracts/*.json",
-    "extractors/prompts/*.md",
-    "adjusters/prompts/*.md",
+  "contracts/*.json",
+  "**/prompts/*.md",
 ]
 
 [tool.pytest.ini_options]
