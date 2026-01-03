@@ -13,7 +13,7 @@ class TestIsEnvironmentPath:
     """Tests for _is_environment_path helper."""
 
     def setup_method(self):
-        """Setup a ComparisonVerifier instance for testing."""
+        """Setup a RoundtripVerifier instance for testing."""
         self.verifier = get_verifier("roundtrip-verifier")
 
     def test_is_environment_path_true(self):
@@ -33,7 +33,7 @@ class TestNormalizeEnvironmentList:
     """Tests for _normalize_environment_list function."""
 
     def setup_method(self):
-        """Setup a ComparisonVerifier instance for testing."""
+        """Setup a RoundtripVerifier instance for testing."""
         self.verifier = get_verifier("roundtrip-verifier")
 
     def test_normalize_single_items(self):
@@ -85,7 +85,7 @@ class TestNormalizeEnvironmentList:
 
 
 class TestCompareJsonFiles:
-    """Tests for FileComparisonVerifier."""
+    """Tests for FileRoundtripVerifier."""
 
     def test_compare_identical_json_files(self, tmp_path):
         """Test comparing identical JSON files."""
@@ -138,7 +138,7 @@ class TestCompareJsonFiles:
 
 
 class TestCompareDataStructures:
-    """Tests for ComparisonVerifier."""
+    """Tests for RoundtripVerifier."""
 
     def test_compare_primitive_value_mismatch(self):
         """Test detection of primitive value mismatches."""

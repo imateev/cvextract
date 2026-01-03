@@ -73,14 +73,14 @@ verifier = SchemaVerifier(schema_path=Path("custom_schema.json"))
 result = verifier.verify(cv_data)
 ```
 
-#### ComparisonVerifier
+#### RoundtripVerifier
 
 Compares two CV data structures for equivalence:
 
 ```python
-from cvextract.verifiers import ComparisonVerifier
+from cvextract.verifiers import get_verifier
 
-verifier = ComparisonVerifier()
+verifier = get_verifier("roundtrip-verifier")
 original_data = {...}
 roundtrip_data = {...}
 
@@ -89,20 +89,20 @@ if result.ok:
     print("Data structures match!")
 ```
 
-#### FileComparisonVerifier
+#### FileRoundtripVerifier
 
 Compares two CV data JSON files:
 
 ```python
-from cvextract.verifiers import FileComparisonVerifier
+from cvextract.verifiers import get_verifier
 from pathlib import Path
 
-verifier = FileComparisonVerifier()
+verifier = get_verifier("file-roundtrip-verifier")
 result = verifier.verify(
     {},  # Not used for file comparison
     source_file=Path("original.json"),
     target_file=Path("roundtrip.json")
-)
+))
 ```
 
 ## CV Data Schema
@@ -167,7 +167,7 @@ result = verifier.verify(cv_data)
 ### Example: Comparing External Data Sources
 
 ```python
-from cvextract.verifiers import ComparisonVerifier
+from cvextract.verifiers import get_verifier
 import json
 
 # Load data from different sources
@@ -178,7 +178,7 @@ with open("target_cv.json", "r") as f:
     target_data = json.load(f)
 
 # Compare them
-verifier = ComparisonVerifier()
+verifier = get_verifier("roundtrip-verifier")
 result = verifier.verify(source_data, target_data=target_data)
 ```
 
@@ -188,13 +188,13 @@ The verifiers are now used directly throughout the codebase:
 
 ```python
 # Use verifiers directly from cvextract.verifiers
-from cvextract.verifiers import ExtractedDataVerifier, ComparisonVerifier
+from cvextract.verifiers import ExtractedDataVerifier, get_verifier
 
 # Verify extracted CV data
 result = ExtractedDataVerifier().verify(cv_data)
 
 # Compare two CV data structures
-result = ComparisonVerifier().verify(original_data, target_data=roundtrip_data)
+result = get_verifier("roundtrip-verifier").verify(original_data, target_data=roundtrip_data)
 ```
 
 ## Examples
@@ -226,7 +226,7 @@ if schema_result.ok:
 ```python
 from cvextract.extractors import DocxCVExtractor
 from cvextract.renderers import DocxCVRenderer
-from cvextract.verifiers import ComparisonVerifier
+from cvextract.verifiers import get_verifier
 from pathlib import Path
 
 # Extract original data
@@ -241,7 +241,7 @@ renderer.render(original_data, Path("template.docx"), Path("output.docx"))
 roundtrip_data = extractor.extract(Path("output.docx"))
 
 # Verify they match
-verifier = ComparisonVerifier()
+verifier = get_verifier("roundtrip-verifier")
 result = verifier.verify(original_data, target_data=roundtrip_data)
 
 if result.ok:
@@ -286,7 +286,7 @@ cvextract/verifiers/
 ├── __init__.py              # Public API exports
 ├── base.py                  # CVVerifier abstract base class
 ├── data_verifier.py         # ExtractedDataVerifier implementation
-├── comparison_verifier.py   # ComparisonVerifier and FileComparisonVerifier
+├── comparison_verifier.py   # RoundtripVerifier and FileRoundtripVerifier
 ├── schema_verifier.py       # SchemaVerifier implementation
 └── README.md                # This file
 ```

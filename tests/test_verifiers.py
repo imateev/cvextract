@@ -78,8 +78,8 @@ class TestExtractedDataVerifier:
         assert any("missing sidebar" in w for w in result.warnings)
 
 
-class TestComparisonVerifier:
-    """Tests for ComparisonVerifier."""
+class TestRoundtripVerifier:
+    """Tests for RoundtripVerifier."""
 
     def test_verifier_accepts_identical_structures(self):
         """Identical structures should pass comparison."""
@@ -130,8 +130,8 @@ class TestComparisonVerifier:
             verifier.verify({"x": 1})
 
 
-class TestFileComparisonVerifier:
-    """Tests for FileComparisonVerifier."""
+class TestFileRoundtripVerifier:
+    """Tests for FileRoundtripVerifier."""
 
     def test_verifier_compares_json_files(self):
         """Verifier should load and compare JSON files."""

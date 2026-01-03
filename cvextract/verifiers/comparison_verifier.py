@@ -37,7 +37,7 @@ class RoundtripVerifier(CVVerifier):
         """
         target_data = kwargs.get("target_data")
         if target_data is None:
-            raise ValueError("ComparisonVerifier requires 'target_data' parameter")
+            raise ValueError("RoundtripVerifier requires 'target_data' parameter")
         
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
@@ -102,7 +102,7 @@ class FileRoundtripVerifier(CVVerifier):
     """
     Verifier for comparing two CV data files.
     
-    Loads JSON files and delegates to ComparisonVerifier.
+    Loads JSON files and delegates to RoundtripVerifier.
     """
 
     def __init__(self):
@@ -123,7 +123,7 @@ class FileRoundtripVerifier(CVVerifier):
         target_file = kwargs.get("target_file")
         
         if not source_file or not target_file:
-            raise ValueError("FileComparisonVerifier requires 'source_file' and 'target_file' parameters")
+            raise ValueError("FileRoundtripVerifier requires 'source_file' and 'target_file' parameters")
         
         with Path(source_file).open("r", encoding="utf-8") as f:
             source_data = json.load(f)
