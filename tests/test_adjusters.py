@@ -469,6 +469,245 @@ class TestOpenAICompanyResearchAdjuster:
         # Verifier should not be called for non-dict
         mock_get_verifier.assert_not_called()
 
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_research_returns_falsy(self, mock_get_verifier, mock_openai, 
+                                          mock_format_prompt, mock_research):
+        """adjust should return original CV when research returns falsy value."""
+        # Setup mocks - research_company_profile returns None/empty
+        mock_research.return_value = None
+        
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should return original CV when research returns None
+        assert result == cv_data
+        # format_prompt and OpenAI should not be called
+        mock_format_prompt.assert_not_called()
+        mock_openai.assert_not_called()
+    
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_with_technology_signals(self, mock_get_verifier, mock_openai, 
+                                            mock_format_prompt, mock_research):
+        """adjust should include technology signals when building research context."""
+        # Setup mocks with technology signals
+        mock_research.return_value = {
+            "company": "Test Corp",
+            "name": "Test Corp",
+            "description": "A great company",
+            "domains": ["python", "kubernetes"],
+            "technology_signals": [
+                {
+                    "technology": "Python",
+                    "interest_level": "high",
+                    "confidence": 0.95,
+                    "signals": ["Uses Python in production", "Django framework"]
+                },
+                {
+                    "technology": "Kubernetes",
+                    "interest_level": "medium",
+                    "confidence": 0.75,
+                    "signals": ["Container orchestration", "Cloud-native"]
+                }
+            ]
+        }
+        mock_format_prompt.return_value = "System prompt with signals"
+        
+        # Setup OpenAI mock
+        adjusted_result = {"identity": {}, "sidebar": {}, "overview": "Adjusted", "experiences": []}
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = json.dumps(adjusted_result)
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        # Setup verifier mock
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = MagicMock(ok=True)
+        mock_get_verifier.return_value = mock_verifier
+        
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should succeed and return adjusted data
+        assert result == adjusted_result
+        
+        # Verify format_prompt was called with research context including tech signals
+        mock_format_prompt.assert_called_once()
+        call_kwargs = mock_format_prompt.call_args[1]
+        research_context = call_kwargs.get('research_context', '')
+        assert 'Key Technology Signals:' in research_context
+        assert 'Python' in research_context
+        assert 'Kubernetes' in research_context
+        assert 'high' in research_context
+        assert '0.95' in research_context
+
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_with_invalid_confidence_value(self, mock_get_verifier, mock_openai, 
+                                                  mock_format_prompt, mock_research):
+        """adjust should handle non-numeric confidence values safely."""
+        # Setup mocks with invalid confidence value
+        mock_research.return_value = {
+            "name": "Test Corp",
+            "description": "A company",
+            "domains": [],
+            "technology_signals": [
+                {
+                    "technology": "Java",
+                    "interest_level": "low",
+                    "confidence": "invalid",  # Non-numeric
+                    "signals": []
+                }
+            ]
+        }
+        mock_format_prompt.return_value = "System prompt"
+        
+        # Setup OpenAI mock
+        adjusted_result = {"identity": {}, "sidebar": {}, "overview": "Adjusted", "experiences": []}
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = json.dumps(adjusted_result)
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        # Setup verifier mock
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = MagicMock(ok=True)
+        mock_get_verifier.return_value = mock_verifier
+        
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should succeed and handle invalid confidence gracefully
+        assert result == adjusted_result
+        
+        # Verify format_prompt was called with context containing confidence as "0.00"
+        mock_format_prompt.assert_called_once()
+        call_kwargs = mock_format_prompt.call_args[1]
+        research_context = call_kwargs.get('research_context', '')
+        assert '0.00' in research_context  # Should default to 0.00
+
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_openai_api_exception(self, mock_get_verifier, mock_openai, 
+                                        mock_format_prompt, mock_research):
+        """adjust should return original CV when OpenAI API raises exception."""
+        # Setup mocks
+        mock_research.return_value = {"name": "Test Corp"}
+        mock_format_prompt.return_value = "System prompt"
+        
+        # OpenAI raises exception
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = RuntimeError("API connection failed")
+        mock_openai.return_value = mock_client
+        
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should return original CV due to API exception
+        assert result == cv_data
+        # Verifier should not be called
+        mock_get_verifier.assert_not_called()
+
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_json_decode_exception(self, mock_get_verifier, mock_openai, 
+                                          mock_format_prompt, mock_research):
+        """adjust should return original CV when OpenAI response is invalid JSON."""
+        # Setup mocks
+        mock_research.return_value = {"name": "Test Corp"}
+        mock_format_prompt.return_value = "System prompt"
+        
+        # OpenAI returns invalid JSON
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = "not valid json {]"
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should return original CV due to JSON decode error
+        assert result == cv_data
+        # Verifier should not be called
+        mock_get_verifier.assert_not_called()
+
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_validate_research_data_verifier_exception(self, mock_get_verifier):
+        """_validate_research_data should return False when verifier raises exception."""
+        # Import the helper function
+        from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
+        
+        # Verifier raises exception
+        mock_verifier = MagicMock()
+        mock_verifier.verify.side_effect = RuntimeError("Verifier error")
+        mock_get_verifier.return_value = mock_verifier
+        
+        # Should return False due to exception
+        result = _validate_research_data({"name": "Test"})
+        assert result is False
+        
+        # Verify exception was caught
+        mock_get_verifier.assert_called_once_with("company-profile-verifier")
+        mock_verifier.verify.assert_called_once()
+
+    @patch('cvextract.adjusters.openai_company_research_adjuster._research_company_profile')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI')
+    @patch('cvextract.adjusters.openai_company_research_adjuster.get_verifier')
+    def test_adjust_validation_result_has_errors_count(self, mock_get_verifier, mock_openai, 
+                                                       mock_format_prompt, mock_research):
+        """adjust should log validation error count when validation fails."""
+        # Setup mocks
+        mock_research.return_value = {"name": "Test Corp"}
+        mock_format_prompt.return_value = "System prompt"
+        
+        # OpenAI returns valid dict
+        adjusted_data = {"identity": {}, "sidebar": {}, "overview": "Adjusted", "experiences": []}
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = json.dumps(adjusted_data)
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=mock_message)]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+        
+        # Verifier returns multiple validation errors
+        mock_verifier = MagicMock()
+        mock_verifier.verify.return_value = MagicMock(ok=False, errors=["error1", "error2", "error3"])
+        mock_get_verifier.return_value = mock_verifier
+        
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        result = adjuster.adjust(cv_data, customer_url="https://example.com")
+        
+        # Should return original CV due to validation failure with error count
+        assert result == cv_data
+
 
 class TestOpenAIJobSpecificAdjuster:
     """Tests for the OpenAI job-specific adjuster."""
