@@ -1,5 +1,6 @@
 """Tests for adjuster framework and registry."""
 
+import json
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -412,16 +413,32 @@ class TestOpenAIJobSpecificAdjuster:
         """adjust should successfully call OpenAI and return adjusted CV."""
         mock_format.return_value = "System prompt"
         
-        adjusted_cv = {"identity": {"name": "John"}, "sidebar": {}, "overview": "Adjusted", "experiences": []}
+        adjusted_cv = {
+            "identity": {
+                "name": "John",
+                "title": "Software Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "sidebar": {},
+            "overview": "Adjusted",
+            "experiences": []
+        }
         mock_completion = MagicMock()
-        mock_completion.choices = [MagicMock(message=MagicMock(content=str(adjusted_cv).replace("'", '"')))]
+        mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai_class.return_value = mock_client
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", model="gpt-4o-mini")
-        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert "John" in str(result)  # Verify the adjusted data is in result
@@ -485,7 +502,7 @@ class TestOpenAIJobSpecificAdjuster:
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
     def test_adjust_non_dict_json(self, mock_format, mock_openai_class):
-        """adjust should return JSON-parsed content even if not a dict (per the code logic)."""
+        """adjust should return original CV if JSON response is not a dict."""
         mock_format.return_value = "System prompt"
         
         mock_completion = MagicMock()
@@ -499,7 +516,7 @@ class TestOpenAIJobSpecificAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         
         result = adjuster.adjust(cv_data, job_description="Test job")
-        assert result == [1, 2, 3]  # Code accepts any JSON-parsed value that's not None
+        assert result == cv_data  # Should return original since schema validation expects dict
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -526,11 +543,22 @@ class TestOpenAIJobSpecificAdjuster:
         """adjust should retry on rate limit and eventually succeed."""
         mock_format.return_value = "System prompt"
         
-        adjusted_cv = {"identity": {"name": "Adjusted"}, "sidebar": {}, "overview": "", "experiences": []}
+        adjusted_cv = {
+            "identity": {
+                "name": "Adjusted",
+                "title": "Engineer",
+                "full_name": "Test User",
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         # First call fails with rate limit, second call succeeds
         mock_completion_success = MagicMock()
-        mock_completion_success.choices = [MagicMock(message=MagicMock(content=str(adjusted_cv).replace("'", '"')))]
+        mock_completion_success.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
         from openai import RateLimitError
         mock_client = MagicMock()
@@ -542,7 +570,12 @@ class TestOpenAIJobSpecificAdjuster:
         mock_openai_class.return_value = mock_client
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
-        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert "Adjusted" in str(result)  # Should succeed on retry
@@ -637,10 +670,21 @@ class TestOpenAIJobSpecificAdjuster:
         """adjust should sleep with exponential backoff on rate limit retry."""
         mock_format.return_value = "System prompt"
         
-        adjusted_cv = {"identity": {"name": "Adjusted"}, "sidebar": {}, "overview": "", "experiences": []}
+        adjusted_cv = {
+            "identity": {
+                "name": "Adjusted",
+                "title": "Engineer",
+                "full_name": "Test User",
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         mock_completion_success = MagicMock()
-        mock_completion_success.choices = [MagicMock(message=MagicMock(content=str(adjusted_cv).replace("'", '"')))]
+        mock_completion_success.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
         from openai import RateLimitError
         mock_client = MagicMock()
@@ -653,7 +697,12 @@ class TestOpenAIJobSpecificAdjuster:
         mock_openai_class.return_value = mock_client
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
-        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert "Adjusted" in str(result)
@@ -688,17 +737,33 @@ class TestOpenAIJobSpecificAdjuster:
         """adjust should prefer job_description when both job_url and job_description are provided."""
         mock_format.return_value = "System prompt"
         
-        adjusted_cv = {"identity": {"name": "Test"}, "sidebar": {}, "overview": "", "experiences": []}
+        adjusted_cv = {
+            "identity": {
+                "name": "Test",
+                "title": "Engineer",
+                "full_name": "Test User",
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         mock_completion = MagicMock()
-        mock_completion.choices = [MagicMock(message=MagicMock(content=str(adjusted_cv).replace("'", '"')))]
+        mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai_class.return_value = mock_client
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
-        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         # Pass both job_url and job_description - should use job_description
         result = adjuster.adjust(
@@ -716,9 +781,20 @@ class TestOpenAIJobSpecificAdjuster:
         """adjust should detect rate limit by '429' in error message."""
         mock_format.return_value = "System prompt"
         
-        adjusted_cv = {"identity": {"name": "Adjusted"}, "sidebar": {}, "overview": "", "experiences": []}
+        adjusted_cv = {
+            "identity": {
+                "name": "Adjusted",
+                "title": "Engineer",
+                "full_name": "Test User",
+                "first_name": "Test",
+                "last_name": "User"
+            },
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         mock_completion_success = MagicMock()
-        mock_completion_success.choices = [MagicMock(message=MagicMock(content=str(adjusted_cv).replace("'", '"')))]
+        mock_completion_success.choices = [MagicMock(message=MagicMock(content=json.dumps(adjusted_cv)))]
         
         mock_client = MagicMock()
         # Fail with error containing '429' in message (not RateLimitError)
@@ -729,7 +805,12 @@ class TestOpenAIJobSpecificAdjuster:
         mock_openai_class.return_value = mock_client
         
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
-        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        cv_data = {
+            "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
+            "sidebar": {},
+            "overview": "",
+            "experiences": []
+        }
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert "Adjusted" in str(result)

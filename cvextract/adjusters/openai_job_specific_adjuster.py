@@ -25,6 +25,7 @@ except Exception:  # pragma: no cover
 
 from .base import CVAdjuster
 from ..ml_adjustment.prompt_loader import format_prompt
+from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
 
@@ -190,8 +191,19 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 try:
                     adjusted = json.loads(content)
                     if adjusted is not None:
-                        LOG.info("The CV was adjusted to better fit the job description.")
-                        return adjusted
+                        # Validate adjusted CV against schema
+                        cv_verifier = get_verifier("cv-schema-verifier")
+                        validation_result = cv_verifier.verify(adjusted)
+                        
+                        if validation_result.ok:
+                            LOG.info("The CV was adjusted to better fit the job description.")
+                            return adjusted
+                        else:
+                            LOG.warning(
+                                "Job-specific adjust: adjusted CV failed schema validation (%d errors); using original JSON.",
+                                len(validation_result.errors)
+                            )
+                            return cv_data
                     LOG.warning("Job-specific adjust: completion is not a dict; using original JSON.")
                     return cv_data
                 except Exception:
