@@ -127,12 +127,13 @@ class OpenAICVExtractor(CVExtractor):
         if not user_prompt:
             raise RuntimeError("Failed to format user prompt")
         
-        # Create an assistant for CV extraction
+        # Create an assistant for CV extraction with file_search enabled
         try:  
             assistant = self.client.beta.assistants.create(
                 name="CV Extractor",
                 instructions=system_prompt,
-                model=self.model
+                model=self.model,
+                tools=[{"type": "file_search"}]
             )
         except Exception as e:
             raise RuntimeError(f"Failed to create OpenAI assistant: {e}")
@@ -196,6 +197,7 @@ class OpenAICVExtractor(CVExtractor):
         """
         # Clean up response (remove markdown code blocks if present)
         text = response_text.value.strip()
+         
         if text.startswith('```json'):
             text = text[7:]
         elif text.startswith('```'):
@@ -208,7 +210,7 @@ class OpenAICVExtractor(CVExtractor):
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse response as JSON: {e}")
+            raise ValueError(f"Failed to parse response as JSON: {e}\nResponse was: {text[:500]}")
         
         # Validate using the verifier
         verifier = get_verifier("cv-schema-verifier")
@@ -219,4 +221,5 @@ class OpenAICVExtractor(CVExtractor):
         if not result.ok:
             raise ValueError(f"Response does not match schema: {result.errors}")
         
+        return data
         return data
