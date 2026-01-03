@@ -47,10 +47,11 @@ for v in verifiers:
 
 Example output:
 ```
-roundtrip-verifier: Verifier for comparing two CV data structures.
-data-verifier: Verifier for extracted CV data completeness and validity.
-file-roundtrip-verifier: Verifier for comparing two CV data files.
+company-profile-verifier: Verifier that validates company profile data against research_schema.json.
 cv-schema-verifier: Verifier that validates CV data against cv_schema.json.
+file-roundtrip-verifier: Verifier for comparing two CV data files.
+private-internal-verifier: Verifier for extracted CV data completeness and validity.
+roundtrip-verifier: Verifier for comparing two CV data structures.
 ```
 
 ### Getting a Verifier Instance
@@ -59,7 +60,7 @@ cv-schema-verifier: Verifier that validates CV data against cv_schema.json.
 from cvextract.verifiers import get_verifier
 
 # Get a verifier by name
-verifier = get_verifier('data-verifier')
+verifier = get_verifier('private-internal-verifier')
 result = verifier.verify(cv_data)
 
 # Pass constructor arguments
@@ -93,10 +94,11 @@ The following verifiers are registered by default:
 
 | Name | Class | Description |
 |------|-------|-------------|
-| `data-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
+| `private-internal-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
 | `file-roundtrip-verifier` | `FileRoundtripVerifier` | Compares two CV data JSON files |
-| `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against JSON schema |
+| `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against cv_schema.json |
+| `company-profile-verifier` | `CompanyProfileVerifier` | Validates company research data against research_schema.json |
 
 ## Implementation Details
 
@@ -136,10 +138,11 @@ All verifier registration happens in `cvextract/verifiers/__init__.py`:
 from .verifier_registry import register_verifier
 
 # Register built-in verifiers
-register_verifier("data-verifier", ExtractedDataVerifier)
+register_verifier("private-internal-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("file-roundtrip-verifier", FileRoundtripVerifier)
 register_verifier("cv-schema-verifier", CVSchemaVerifier)
+register_verifier("company-profile-verifier", CompanyProfileVerifier)
 ```
 
 ### With Public API
@@ -164,12 +167,12 @@ __all__ = [
 Direct instantiation of verifier classes remains supported:
 
 ```python
-# Registry-based (new)
-verifier = get_verifier('data-verifier')
+# Registry-based (recommended)
+verifier = get_verifier('private-internal-verifier')
 
 # Direct instantiation (still works)
-from cvextract.verifiers import get_verifier
-verifier = get_verifier("private-internal-verifier")
+from cvextract.verifiers import ExtractedDataVerifier
+verifier = ExtractedDataVerifier()
 ```
 
 ## Testing
@@ -194,6 +197,7 @@ Tests are provided in `tests/test_verifier_registry.py`:
 - [Extracted Data Verifier](../extracted-data-verifier/README.md)
 - [Comparison Verifiers](../comparison-verifiers/README.md)
 - [Schema Verifier](../schema-verifier/README.md)
+- [Company Profile Verifier](../company-profile-verifier/README.md)
 - [Extractor Registry](../../extraction/extractor-registry/README.md)
 
 ## Design Rationale

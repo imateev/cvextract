@@ -30,7 +30,7 @@ verifier = get_verifier("company-profile-verifier")
 result = verifier.verify(company_data)
 
 # Use custom schema
-verifier = CompanyProfileVerifier(schema_path=Path("custom_research_schema.json"))
+verifier = get_verifier("company-profile-verifier", schema_path=Path("custom_research_schema.json"))
 result = verifier.verify(company_data)
 ```
 
