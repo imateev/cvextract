@@ -64,7 +64,8 @@ class TestFormatPrompt:
         result = format_prompt(
             "cv_extraction_user",
             schema_json='{"type": "object"}',
-            file_name="test.docx"
+            file_name="test.docx",
+            file_content="Sample CV content here"
         )
         assert result is not None
         assert '"type": "object"' in result

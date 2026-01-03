@@ -102,19 +102,8 @@ class OpenAICVExtractor(CVExtractor):
         if not system_prompt:
             raise RuntimeError("Failed to load CV extraction system prompt")
         
-        # Read file content
-        try:
-            file_bytes = file_path.read_bytes()
-            file_size_mb = len(file_bytes) / (1024 * 1024)
-        except IOError as e:
-            raise RuntimeError(f"Failed to read file: {str(e)}")
-        
-        # For very large files (>50MB), warn the user
-        if file_size_mb > 50:
-            raise RuntimeError(f"File too large ({file_size_mb:.1f}MB). Please use files under 50MB.")
-        
-        # Encode file content as base64
-        file_content = base64.b64encode(file_bytes).decode('ascii')
+        # Extract file content (as text for DOCX, base64 for others)
+        file_content = self._extract_file_content(file_path)
         
         # Format user prompt with schema and file content
         user_prompt = format_prompt(
@@ -148,6 +137,55 @@ class OpenAICVExtractor(CVExtractor):
             
         except Exception as e:
             raise Exception(f"Failed to send document to OpenAI: {str(e)}") from e
+
+    def _extract_file_content(self, file_path: Path) -> str:
+        """
+        Extract file content in an efficient format.
+        
+        For DOCX files, extracts text directly to reduce payload.
+        For other files, encodes as base64.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            File content as string
+            
+        Raises:
+            RuntimeError: If file cannot be read or is too large
+        """
+        # Try to extract text from DOCX files first
+        if file_path.suffix.lower() == '.docx':
+            try:
+                from docx import Document
+                doc = Document(file_path)
+                text_content = '\n'.join(paragraph.text for paragraph in doc.paragraphs)
+                
+                # Check size of extracted text
+                text_size_mb = len(text_content.encode('utf-8')) / (1024 * 1024)
+                if text_size_mb > 10:
+                    raise RuntimeError(f"Extracted text too large ({text_size_mb:.1f}MB). Please use smaller documents.")
+                
+                return text_content
+            except ImportError:
+                # Fall back to base64 if python-docx not available
+                pass
+            except Exception as e:
+                raise RuntimeError(f"Failed to extract DOCX content: {str(e)}")
+        
+        # For other file types or if DOCX extraction failed, use base64
+        try:
+            file_bytes = file_path.read_bytes()
+            file_size_mb = len(file_bytes) / (1024 * 1024)
+        except IOError as e:
+            raise RuntimeError(f"Failed to read file: {str(e)}")
+        
+        # For very large files, reject them
+        if file_size_mb > 10:
+            raise RuntimeError(f"File too large ({file_size_mb:.1f}MB). Please use files under 10MB.")
+        
+        # Encode file as base64
+        return base64.b64encode(file_bytes).decode('ascii')
 
     def _parse_and_validate_response(self, response: str, cv_schema: Dict[str, Any]) -> Dict[str, Any]:
         """
