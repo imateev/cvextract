@@ -231,9 +231,6 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     failed_files = []
     completed_count = 0  # Track completed files for progress
     
-    # Get output controller
-    controller = get_output_controller()
-    
     # Process files in parallel (but logging is serialized)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         # Submit all tasks

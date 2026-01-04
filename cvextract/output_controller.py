@@ -15,7 +15,6 @@ Key features:
 
 from __future__ import annotations
 
-import io
 import logging
 import sys
 import threading
@@ -23,7 +22,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, TextIO
+from typing import List, Optional
 
 
 class VerbosityLevel(Enum):
@@ -292,36 +291,3 @@ def initialize_output_controller(
             enable_buffering=enable_buffering,
         )
     return _controller
-
-
-@contextmanager
-def suppress_third_party_output(verbosity: VerbosityLevel):
-    """
-    Context manager to suppress third-party library output.
-    
-    Captures and suppresses stdout/stderr and third-party logging
-    based on verbosity level.
-    
-    Args:
-        verbosity: Current verbosity level
-    """
-    if verbosity == VerbosityLevel.MINIMAL:
-        # Suppress all third-party output in minimal mode
-        
-        # Save original stdout/stderr
-        original_stdout = sys.stdout
-        original_stderr = sys.stderr
-        
-        # Redirect to null
-        sys.stdout = io.StringIO()
-        sys.stderr = original_stderr
-        
-        try:
-            yield
-        finally:
-            # Restore stdout/stderr
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
-    else:
-        # In verbose/debug mode, allow third-party output
-        yield
