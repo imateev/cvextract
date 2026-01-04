@@ -108,7 +108,7 @@ The CLI area provides command-line interface with stage-based architecture and m
 |---------|--------|-------------|--------------|------------|
 | [Stage-Based Interface](areas/cli/stage-based-interface/README.md) | Active | Explicit flags for extract/adjust/apply operations | `--extract`, `--adjust`, `--apply` | N/A |
 | [Batch Processing](areas/cli/batch-processing/README.md) | Active | Process multiple files recursively from directories | `source=<dir>` in extract/adjust/apply | N/A |
-| [Parallel Processing](areas/cli/parallel-processing/README.md) | Active | Multi-worker parallel file processing | `--parallel source=<dir> n=<workers>` | N/A |
+| [Parallel Processing](areas/cli/parallel-processing/README.md) | Active | Multi-worker parallel file processing with progress indicator | `--parallel source=<dir> n=<workers> [file-type=<pattern>]` | N/A |
 | [Directory Structure Preservation](areas/cli/directory-structure-preservation/README.md) | Active | Maintains source directory hierarchy in outputs | Automatic in batch/parallel modes | N/A |
 | [Named Flags](areas/cli/named-flags/README.md) | Active | Modern key=value parameter syntax | `key=value` format for all parameters | N/A |
 

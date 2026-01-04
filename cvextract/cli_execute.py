@@ -238,11 +238,14 @@ def execute_pipeline(config: UserConfig) -> int:
         
         extract_errs = render_errs
     
-    # Log result
     combined_warns = (extract_warns or []) + (apply_warns or [])
-    x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
-    LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
-             fmt_issues(extract_errs, combined_warns))
+    config.last_warnings = combined_warns
+
+    # Log result (unless suppressed for parallel mode)
+    if not config.suppress_file_logging:
+        x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
+        LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
+                 fmt_issues(extract_errs, combined_warns))
     
     # Log summary (unless suppressed for parallel mode)
     if not config.suppress_summary:

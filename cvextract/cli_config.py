@@ -7,7 +7,7 @@ the three-phase CLI architecture.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -50,6 +50,7 @@ class ParallelStage:
     """Configuration for the parallel processing stage."""
     source: Path  # Input directory to scan recursively
     n: int = 1  # Number of parallel workers (default=1)
+    file_type: str = "*.docx"  # File pattern to match (default=*.docx)
 
 
 @dataclass
@@ -71,6 +72,8 @@ class UserConfig:
     log_file: Optional[str] = None
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
     input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)
+    suppress_file_logging: bool = False  # Suppress individual file logging (used in parallel mode)
+    last_warnings: List[str] = field(default_factory=list)  # Warnings from the most recent run
     
     @property
     def has_extract(self) -> bool:

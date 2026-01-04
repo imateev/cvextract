@@ -354,3 +354,17 @@ class TestGatherUserRequirements:
                 "--adjust",  # No parameters
                 "--target", "/output"
             ])
+    
+    def test_parallel_with_file_type(self):
+        """Test parallel with file-type parameter."""
+        config = cli_gather.gather_user_requirements([
+            '--parallel', 'source=/input', 'n=5', 'file-type=*.txt',
+            '--extract',
+            '--target', '/output'
+        ])
+        
+        assert config.parallel is not None
+        assert config.parallel.source == Path('/input')
+        assert config.parallel.n == 5
+        assert config.parallel.file_type == '*.txt'
+
