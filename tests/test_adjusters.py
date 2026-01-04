@@ -958,7 +958,7 @@ class TestOpenAIJobSpecificAdjuster:
         """
         # This documents the limitation: we can achieve 98% coverage (95/97 statements)
         # with the remaining 2 statements (lines 160-161) being unreachable by design.
-        pass
+        pytest.skip("Redundant defensive check is unreachable by design.")
     
     def test_adjust_validate_params_called(self):
         """adjust should call validate_params and raise if params invalid."""
