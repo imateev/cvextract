@@ -31,6 +31,7 @@ from cvextract.cli_gather import gather_user_requirements
 from cvextract.cli_prepare import prepare_execution_environment
 from cvextract.cli_execute import execute_pipeline
 from cvextract.logging_utils import LOG, setup_logging
+from cvextract.output_controller import initialize_output_controller, VerbosityLevel
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -48,6 +49,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     if config.log_file:
         Path(config.log_file).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     setup_logging(config.debug, log_file=config.log_file)
+    
+    # Initialize output controller
+    verbosity_map = {
+        'minimal': VerbosityLevel.MINIMAL,
+        'verbose': VerbosityLevel.VERBOSE,
+        'debug': VerbosityLevel.DEBUG,
+    }
+    verbosity = verbosity_map.get(config.verbosity, VerbosityLevel.MINIMAL)
+    enable_buffering = config.parallel is not None
+    initialize_output_controller(verbosity=verbosity, enable_buffering=enable_buffering)
     
     try:
         # Phase 2: Prepare environment

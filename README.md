@@ -225,6 +225,10 @@ python -m cvextract.cli \
 - `--target <dir>` - Output directory (required unless using `--list`)
 - `--list {adjusters,renderers,extractors}` - List available components and exit
 - `--debug` - Verbose logging with stack traces
+- `--verbosity {minimal,verbose,debug}` - Output verbosity level (default: minimal)
+  - `minimal`: One line per file with status icons, no third-party library output
+  - `verbose`: Grouped per-file output blocks with warnings and major steps
+  - `debug`: Full per-file output including captured third-party logs
 - `--log-file <path>` - Optional log file path for persistent logging
 
 ### Listing Available Components
@@ -502,7 +506,12 @@ python -m cvextract.cli \
 
 # Processes all .docx files in /path/to/cv_folder recursively
 # Outputs: /output/structured_data/{preserved_directory_structure}/{filename}.json
-# Shows progress: [1/50 | 2%], [2/50 | 4%], ...
+# Default minimal verbosity: Shows one line per file with status icons
+# Example output:
+# Processing 50 files matching '*.docx' with 10 parallel workers
+# ✅ [1/50 | 2%] consultant1.docx
+# ✅ [2/50 | 4%] consultant2.docx
+# ...
 ```
 
 ```bash
@@ -516,6 +525,18 @@ python -m cvextract.cli \
 
 # Processes all .txt files with OpenAI extractor
 # Shows progress indicator: [1/25 | 4%], [2/25 | 8%], ...
+```
+
+```bash
+# Use verbose mode to see detailed output per file
+python -m cvextract.cli \
+  --parallel source=/path/to/cv_folder n=10 \
+  --extract \
+  --target /output \
+  --verbosity verbose
+
+# In verbose mode, each file's processing details are shown together,
+# preventing output from different files from interleaving
 ```
 
 #### Batch Processing - Extract + Apply

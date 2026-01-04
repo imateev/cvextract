@@ -180,6 +180,9 @@ Examples:
     parser.add_argument("--target", help="Target output directory (required unless using --list)")
     parser.add_argument("--debug", action="store_true", 
                         help="Verbose logs + stack traces on failure.")
+    parser.add_argument("--verbosity", choices=['minimal', 'verbose', 'debug'],
+                        default='minimal',
+                        help="Output verbosity level. Default: minimal (one line per file with icons)")
     parser.add_argument("--log-file", 
                         help="Optional path to a log file. If set, all output is also written there.")
     
@@ -311,5 +314,6 @@ Examples:
         parallel=parallel_stage,
         target_dir=Path(args.target),
         debug=args.debug,
+        verbosity=args.verbosity,
         log_file=args.log_file,
     )

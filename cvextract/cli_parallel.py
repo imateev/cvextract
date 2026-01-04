@@ -15,6 +15,7 @@ from typing import List, Tuple, Optional
 from .cli_config import UserConfig, ExtractStage
 from .cli_execute import execute_pipeline
 from .logging_utils import LOG, fmt_issues
+from .output_controller import get_output_controller
 from .adjusters.openai_company_research_adjuster import _url_to_cache_filename, _research_company_profile
 import os
 
@@ -131,37 +132,42 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
     Returns:
         Tuple of (success: bool, message: str, exit_code: int, has_warnings: bool)
     """
+    # Get output controller and establish file context
+    controller = get_output_controller()
+    
     try:
-        # Create a new config for this specific file
-        file_config = UserConfig(
-            target_dir=config.target_dir,
-            extract=ExtractStage(
-                source=file_path,
-                output=config.extract.output if config.extract else None,
-                name=config.extract.name if config.extract else "private-internal-extractor"
-            ) if config.extract else None,
-            adjust=config.adjust,
-            apply=config.apply,
-            parallel=None,  # No nested parallel processing
-            debug=config.debug,
-            log_file=config.log_file,
-            suppress_summary=True,  # Suppress summary in parallel mode
-            suppress_file_logging=True,  # Suppress per-file status logging (we log in parallel wrapper with progress)
-            input_dir=config.parallel.source  # Pass the root input directory for relative path calculation
-        )
-        
-        # Execute the pipeline for this file
-        exit_code = execute_pipeline(file_config)
-        warning_message = ""
-        if file_config.last_warnings:
-            warning_message = fmt_issues([], file_config.last_warnings)
-        
-        has_warnings = bool(file_config.last_warnings)
+        with controller.file_context(file_path):
+            # Create a new config for this specific file
+            file_config = UserConfig(
+                target_dir=config.target_dir,
+                extract=ExtractStage(
+                    source=file_path,
+                    output=config.extract.output if config.extract else None,
+                    name=config.extract.name if config.extract else "private-internal-extractor"
+                ) if config.extract else None,
+                adjust=config.adjust,
+                apply=config.apply,
+                parallel=None,  # No nested parallel processing
+                debug=config.debug,
+                verbosity=config.verbosity,
+                log_file=config.log_file,
+                suppress_summary=True,  # Suppress summary in parallel mode
+                suppress_file_logging=True,  # Suppress per-file status logging (we log in parallel wrapper with progress)
+                input_dir=config.parallel.source  # Pass the root input directory for relative path calculation
+            )
+            
+            # Execute the pipeline for this file
+            exit_code = execute_pipeline(file_config)
+            warning_message = ""
+            if file_config.last_warnings:
+                warning_message = fmt_issues([], file_config.last_warnings)
+            
+            has_warnings = bool(file_config.last_warnings)
 
-        if exit_code == 0:
-            return (True, warning_message, exit_code, has_warnings)
-        else:
-            return (False, "pipeline execution failed", exit_code, False)
+            if exit_code == 0:
+                return (True, warning_message, exit_code, has_warnings)
+            else:
+                return (False, "pipeline execution failed", exit_code, False)
             
     except Exception as e:
         error_msg = str(e)
@@ -215,8 +221,8 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     # Log start of parallel processing
     n_workers = config.parallel.n
     total_files = len(files)
-    LOG.info("Processing %d files matching '%s' with %d parallel workers", 
-             total_files, config.parallel.file_type, n_workers)
+    controller = get_output_controller()
+    controller.direct_print(f"Processing {total_files} files matching '{config.parallel.file_type}' with {n_workers} parallel workers")
     
     # Track results - categorize as fully successful, partial (warnings), or failed
     full_success_count = 0
@@ -257,14 +263,25 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                     failed_count += 1
                     failed_files.append(str(file_path))
                 
-                # Log with progress indicator
+                # Build summary line for atomic flush
                 if message:
+                    summary_line = f"{status_icon} {progress_str} {file_path.name} | {message}"
+                    # Log with original format for tests and file logging
                     LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
                 else:
+                    summary_line = f"{status_icon} {progress_str} {file_path.name}"
+                    # Log with original format for tests and file logging
                     LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
+                
+                # Flush output atomically for this file (console only)
+                controller.flush_file(file_path, summary_line)
                     
             except Exception as e:
-                LOG.error("❌ %s %s | Unexpected error: %s", progress_str, file_path.name, str(e))
+                error_summary = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
+                # Log the error message
+                LOG.error(error_summary)
+                # Flush output atomically for this file
+                controller.flush_file(file_path, error_summary)
                 if config.debug:
                     LOG.error(traceback.format_exc())
                 failed_count += 1
@@ -273,17 +290,24 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     # Log summary
     total_files = len(files)
     success_count = full_success_count + partial_success_count
+    controller.direct_print("=" * 60)
     LOG.info("=" * 60)
+    
     if partial_success_count > 0:
-        LOG.info("Completed: %d/%d files succeeded (%d full, %d partial), %d failed", 
-                 success_count, total_files, full_success_count, partial_success_count, failed_count)
+        summary_msg = f"Completed: {success_count}/{total_files} files succeeded ({full_success_count} full, {partial_success_count} partial), {failed_count} failed"
+        controller.direct_print(summary_msg)
+        LOG.info(summary_msg)
     else:
-        LOG.info("Completed: %d/%d files succeeded, %d failed", success_count, total_files, failed_count)
+        summary_msg = f"Completed: {success_count}/{total_files} files succeeded, {failed_count} failed"
+        controller.direct_print(summary_msg)
+        LOG.info(summary_msg)
     
     # Only show failed files list in debug mode or log file
     if failed_files and config.debug:
+        controller.direct_print("Failed files:")
         LOG.info("Failed files:")
         for failed_file in failed_files:
+            controller.direct_print(f"  - {failed_file}")
             LOG.info("  - %s", failed_file)
     
     # Return exit code
