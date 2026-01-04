@@ -151,6 +151,14 @@ class OutputController:
     Ensures deterministic, non-interleaved output in parallel execution
     by buffering output per file and flushing atomically when complete.
     """
+
+    _THIRD_PARTY_LOGGERS = [
+        'openai',
+        'httpx',
+        'httpcore',
+        'requests',
+        'urllib3',
+    ]
     
     def __init__(
         self,
@@ -206,29 +214,13 @@ class OutputController:
     
     def _suppress_third_party_loggers(self) -> None:
         """Suppress third-party library loggers."""
-        third_party_loggers = [
-            'openai',
-            'httpx',
-            'httpcore',
-            'requests',
-            'urllib3',
-        ]
-        
-        for logger_name in third_party_loggers:
+        for logger_name in self._THIRD_PARTY_LOGGERS:
             logger = logging.getLogger(logger_name)
             logger.setLevel(logging.CRITICAL + 1)  # Effectively silence
     
     def _setup_external_provider_handlers(self) -> None:
         """Setup handlers for external provider loggers to route through buffering."""
-        third_party_loggers = [
-            'openai',
-            'httpx',
-            'httpcore',
-            'requests',
-            'urllib3',
-        ]
-        
-        for logger_name in third_party_loggers:
+        for logger_name in self._THIRD_PARTY_LOGGERS:
             logger = logging.getLogger(logger_name)
             # Set level to DEBUG to capture all logs
             logger.setLevel(logging.DEBUG)
