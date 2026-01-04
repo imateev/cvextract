@@ -296,17 +296,7 @@ class TestGatherUserRequirements:
         assert config.extract is not None
         assert config.parallel is not None
     
-    def test_flags_debug_and_strict(self):
-        """--debug and --strict flags are stored."""
-        config = cli_gather.gather_user_requirements([
-            "--extract", "source=cv.docx",
-            "--target", "/output",
-            "--debug",
-            "--strict"
-        ])
-        
-        assert config.debug is True
-        assert config.strict is True
+    # Removed: test_flags_debug_and_strict - --debug flag has been removed
     
     def test_log_file_parameter(self):
         """--log-file parameter is stored."""
@@ -325,14 +315,14 @@ class TestGatherUserRequirements:
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=template.docx",
             "--target", "/output",
-            "--debug"
+            "-vv"  # Use -vv instead of --debug
         ])
         
         assert config.extract is not None
         assert config.adjust is not None
         assert config.apply is not None
         assert config.target_dir == Path("/output")
-        assert config.debug is True
+        assert config.verbosity == 2
     
     def test_adjust_output_parameter(self):
         """--adjust output parameter is resolved relative to target."""

@@ -68,7 +68,7 @@ class TestCliEdgeCases:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
 
         # Mock extract_single to return success with warnings
-        def fake_extract_single(docx_file, out_json, debug, extractor=None):
+        def fake_extract_single(docx_file, out_json, verbosity=0, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text('{"identity": {}, "sidebar": {}, "overview": "", "experiences": []}')
             return True, [], ["warning"]

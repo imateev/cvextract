@@ -254,11 +254,10 @@ python -m cvextract.cli \
 - `--target <dir>` - Output directory (required unless using `--list`)
 - `--list {adjusters,renderers,extractors}` - List available components and exit
 - `--strict` - Treat warnings as errors (exit code 2)
-- `--debug` - Verbose logging with stack traces
-- `-v, --verbose` - Increase output verbosity (can be repeated: -v for normal, -vv for debug)
+- `-v, --verbose` - Increase output verbosity (can be repeated: -v for normal, -vv for verbose)
   - **Default (no flag)**: Minimal output - one line per file in parallel mode
   - **-v**: Normal output with status icons, progress indicators, and summaries
-  - **-vv**: Verbose output with detailed debug information
+  - **-vv**: Verbose output with detailed debug information and stack traces
 - `--log-file <path>` - Optional log file path for persistent logging
 
 ### Listing Available Components

@@ -17,19 +17,14 @@ VERBOSITY_QUIET = 0    # Minimal output (default)
 VERBOSITY_NORMAL = 1   # Standard output with status icons
 VERBOSITY_VERBOSE = 2  # Detailed debug output
 
-def setup_logging(debug: bool, log_file: Optional[str] = None, verbosity: int = VERBOSITY_QUIET) -> None:
+def setup_logging(log_file: Optional[str] = None, verbosity: int = VERBOSITY_QUIET) -> None:
     """
     Setup logging with verbosity control.
     
     Args:
-        debug: Legacy debug flag (overrides verbosity to VERBOSITY_VERBOSE)
         log_file: Optional log file path
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose)
     """
-    # Debug flag overrides verbosity
-    if debug:
-        verbosity = VERBOSITY_VERBOSE
-    
     # Map verbosity to log level
     if verbosity >= VERBOSITY_VERBOSE:
         level = logging.DEBUG

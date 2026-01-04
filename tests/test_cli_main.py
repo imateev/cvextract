@@ -17,7 +17,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
@@ -43,7 +42,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = "/tmp/test.log"
-        mock_config.debug = False
         mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
@@ -72,7 +70,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
@@ -94,7 +91,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = True
+        mock_config.verbosity = 2
         mock_config.verbosity = 2
         mock_gather.return_value = mock_config
         
@@ -138,7 +135,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
@@ -162,7 +158,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
@@ -186,7 +181,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
@@ -211,7 +205,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = True
+        mock_config.verbosity = 2
         mock_gather.return_value = mock_config
         
         # Make prepare raise a complex exception

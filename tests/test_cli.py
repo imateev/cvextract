@@ -160,14 +160,7 @@ class TestStageBasedParsing:
         ])
         assert config.strict is True
 
-    def test_parse_with_debug_flag_enables_debug_mode(self):
-        """When --debug flag is provided, debug mode should be enabled."""
-        config = cli.gather_user_requirements([
-            "--extract", "source=/path/to/cvs",
-            "--target", "/path/to/output",
-            "--debug"
-        ])
-        assert config.debug is True
+    # Removed: test_parse_with_debug_flag_enables_debug_mode - --debug flag has been removed
 
     def test_parse_with_log_file_path_stores_path(self):
         """When --log-file is provided, should store the path as string."""
@@ -532,7 +525,7 @@ class TestMainErrorHandling:
             rc = cli.main([
                 "--extract", f"source={str(docx)}",
                 "--target", str(target),
-                "--debug"
+                "-vv"
             ])
         
         assert rc == 1

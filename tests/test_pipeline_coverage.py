@@ -39,7 +39,7 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings = extract_single(docx_path, out_json, verbosity=0)
             
             assert ok is True
             assert errors == []
@@ -57,7 +57,7 @@ class TestExtractSingle:
             
             mock_extract.return_value = mock_data
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings = extract_single(docx_path, out_json, verbosity=0)
             
             # The actual verifier will catch these errors
             assert ok is False
@@ -73,7 +73,7 @@ class TestExtractSingle:
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings = extract_single(docx_path, out_json, verbosity=0)
             
             assert ok is False
             assert any("exception" in e.lower() or "ValueError" in e for e in errors)
@@ -89,7 +89,7 @@ class TestExtractSingle:
             
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=True)
+            ok, errors, warnings = extract_single(docx_path, out_json, verbosity=2)
             
             assert ok is False
 
@@ -119,7 +119,7 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings = extract_single(docx_path, out_json, verbosity=0)
             
             assert ok is True
             assert "Warning message" in warnings
@@ -156,7 +156,7 @@ class TestRenderAndVerify:
             mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+                json_path, template_path, out_dir, verbosity=0
             )
             
             assert ok is True
@@ -181,7 +181,7 @@ class TestRenderAndVerify:
             mock_render.return_value = out_dir / "test_NEW.docx"
             
             ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False, skip_compare=True
+                json_path, template_path, out_dir, verbosity=0, skip_compare=True
             )
             
             assert ok is True
@@ -217,7 +217,7 @@ class TestRenderAndVerify:
             mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False,
+                json_path, template_path, out_dir, verbosity=0,
                 roundtrip_dir=roundtrip_dir
             )
             
@@ -257,7 +257,7 @@ class TestRenderAndVerify:
             mock_get_verifier.return_value = mock_verifier
             
             ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+                json_path, template_path, out_dir, verbosity=0
             )
             
             assert ok is False
@@ -277,7 +277,7 @@ class TestRenderAndVerify:
             mock_render.side_effect = RuntimeError("Render failed")
             
             ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+                json_path, template_path, out_dir, verbosity=0
             )
             
             assert ok is False

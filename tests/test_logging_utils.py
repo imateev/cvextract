@@ -36,13 +36,13 @@ class TestLoggingSetup:
     """Tests for logging configuration."""
 
     def test_setup_with_info_level_adds_handlers(self):
-        """When debug is False, should configure logging at INFO level."""
-        setup_logging(debug=False)
+        """When verbosity is 1, should configure logging at INFO level."""
+        setup_logging(verbosity=1)
         assert len(logging.root.handlers) > 0
 
     def test_setup_with_debug_level_adds_handlers(self):
-        """When debug is True, should configure logging at DEBUG level."""
-        setup_logging(debug=True)
+        """When verbosity is 2, should configure logging at DEBUG level."""
+        setup_logging(verbosity=2)
         assert len(logging.root.handlers) > 0
 
     def test_setup_with_file_creates_log_file(self, tmp_path: Path):
@@ -50,7 +50,7 @@ class TestLoggingSetup:
         LOG.handlers.clear()
         
         log_file = tmp_path / "test.log"
-        setup_logging(debug=False, log_file=log_file)
+        setup_logging(verbosity=0, log_file=log_file)
         
         LOG.info("test message")
         

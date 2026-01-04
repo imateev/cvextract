@@ -77,7 +77,6 @@ class TestExecutePipelineNoInput:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -101,7 +100,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -120,7 +118,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -140,7 +137,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=True,
-            debug=False,
             log_file=None
         )
 
@@ -160,7 +156,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -178,7 +173,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -196,7 +190,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -217,7 +210,6 @@ class TestExecutePipelineExtractOnly:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -247,7 +239,6 @@ class TestExecutePipelineExtractApply:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -271,7 +262,6 @@ class TestExecutePipelineExtractApply:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -296,7 +286,6 @@ class TestExecutePipelineExtractApply:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=True,
-            debug=False,
             log_file=None
         )
 
@@ -321,7 +310,6 @@ class TestExecutePipelineApplyOnly:
             apply=ApplyStage(template=mock_template, data=mock_json, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -344,7 +332,6 @@ class TestExecutePipelineApplyOnly:
             apply=ApplyStage(template=mock_template, data=mock_json, output=custom_output),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -368,7 +355,7 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug, extractor=None):
+        def fake_extract(docx_file, out_json, verbosity=0, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -398,7 +385,6 @@ class TestExecutePipelineAdjust:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -417,7 +403,7 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug, extractor=None):
+        def fake_extract(docx_file, out_json, verbosity=0, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -445,7 +431,6 @@ class TestExecutePipelineAdjust:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -483,7 +468,6 @@ class TestExecutePipelineAdjust:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -524,7 +508,6 @@ class TestExecutePipelineAdjust:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -550,7 +533,7 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug, extractor=None):
+        def fake_extract(docx_file, out_json, verbosity=0, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -579,7 +562,6 @@ class TestExecutePipelineAdjust:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -604,7 +586,6 @@ class TestExecutePipelineDirectoryRejection:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -628,7 +609,6 @@ class TestExecutePipelineDirectoryRejection:
             apply=ApplyStage(template=template, data=json_dir, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -650,7 +630,7 @@ class TestExecutePipelineDebugMode:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=True,
+            verbosity=2,
             log_file=None
         )
 
@@ -687,7 +667,7 @@ class TestExecutePipelineDebugMode:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=True,
+            verbosity=2,
             log_file=None
         )
 
@@ -709,7 +689,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
             apply=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -733,7 +712,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
             apply=ApplyStage(template=template, data=txt_file, output=None),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
 
@@ -763,7 +741,6 @@ class TestFolderStructurePreservation:
             apply=None,
             target_dir=tmp_path / "output",
             strict=False,
-            debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root  # Mirror how parallel mode seeds rel_path
         )
@@ -791,7 +768,7 @@ class TestFolderStructurePreservation:
 
         mock_collect.return_value = [input_file]
 
-        def fake_extract(docx_file, out_json, debug, extractor=None):
+        def fake_extract(docx_file, out_json, verbosity=0, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -819,7 +796,6 @@ class TestFolderStructurePreservation:
             apply=None,
             target_dir=tmp_path / "output",
             strict=False,
-            debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root
         )
@@ -841,7 +817,7 @@ class TestFolderStructurePreservation:
 
         mock_collect.return_value = [input_file]
 
-        def fake_extract(docx_file, out_json, debug, extractor=None):
+        def fake_extract(docx_file, out_json, verbosity=0, extractor=None):
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return True, [], []
@@ -855,7 +831,6 @@ class TestFolderStructurePreservation:
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "output",
             strict=False,
-            debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root
         )
@@ -891,7 +866,6 @@ class TestFolderStructurePreservation:
             apply=None,
             target_dir=tmp_path / "output",
             strict=False,
-            debug=False,
             log_file=None,
             input_dir=None  # No input_dir specified, behavior depends on source
         )
@@ -919,7 +893,6 @@ class TestFolderStructurePreservation:
                 apply=None,
                 target_dir=tmp_path / "output",
                 strict=False,
-                debug=False,
                 log_file=None,
                 parallel=True  # Enable parallel mode
             )
@@ -945,7 +918,6 @@ class TestFolderStructurePreservation:
             apply=None,
             target_dir=tmp_path / "output",
             strict=False,
-            debug=False,
             log_file=None,
             input_dir=tmp_path / "other_dir"  # Different from the file's parent
         )

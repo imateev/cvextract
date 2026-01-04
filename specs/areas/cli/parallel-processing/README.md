@@ -182,7 +182,7 @@ python -m cvextract.cli \
   --extract \
   --target out/ \
   --log-file out/parallel.log \
-  --debug
+  -vv  # Verbose mode for detailed debug output
 ```
 
 ## File Paths

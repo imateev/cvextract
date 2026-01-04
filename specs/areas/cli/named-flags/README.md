@@ -159,7 +159,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 
 # Global boolean flags
 --strict
---debug
+-v  # or --verbose (can be repeated: -vv for verbose mode)
 ```
 
 ### Paths with Spaces

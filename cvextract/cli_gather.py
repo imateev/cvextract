@@ -180,8 +180,6 @@ Examples:
     parser.add_argument("--target", help="Target output directory (required unless using --list)")
     parser.add_argument("--strict", action="store_true", 
                         help="Treat warnings as failure (non-zero exit code).")
-    parser.add_argument("--debug", action="store_true", 
-                        help="Verbose logs + stack traces on failure.")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                         help="Increase output verbosity. Use -v for normal output, -vv for detailed debug output. Default is minimal output.")
     parser.add_argument("--log-file", 
@@ -315,7 +313,6 @@ Examples:
         parallel=parallel_stage,
         target_dir=Path(args.target),
         strict=args.strict,
-        debug=args.debug,
         verbosity=args.verbose,
         log_file=args.log_file,
     )

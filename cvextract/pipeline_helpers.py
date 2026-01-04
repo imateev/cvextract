@@ -49,7 +49,7 @@ def safe_relpath(p: Path, root: Path) -> str:
 def extract_single(
     source_file: Path, 
     out_json: Path, 
-    debug: bool,
+    verbosity: int = 0,
     extractor: Optional[CVExtractor] = None
 ) -> tuple[bool, List[str], List[str]]:
     """
@@ -58,7 +58,7 @@ def extract_single(
     Args:
         source_file: Path to source file to extract
         out_json: Output JSON path
-        debug: Enable debug logging
+        verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose)
         extractor: Optional CVExtractor instance to use
     
     Returns:
@@ -70,7 +70,7 @@ def extract_single(
         result = verifier.verify(data)
         return result.ok, result.errors, result.warnings
     except Exception as e:
-        if debug:
+        if verbosity >= 2:
             LOG.error(traceback.format_exc())
             dump_body_sample(source_file, n=30)
         return False, [f"exception: {type(e).__name__}"], []
@@ -80,7 +80,7 @@ def render_and_verify(
     json_path: Path, 
     template_path: Path, 
     output_docx: Path, 
-    debug: bool, 
+    verbosity: int = 0, 
     *, 
     skip_compare: bool = False, 
     roundtrip_dir: Optional[Path] = None
@@ -92,7 +92,7 @@ def render_and_verify(
         json_path: Path to input JSON file
         template_path: Path to DOCX template
         output_docx: Explicit path where rendered DOCX should be saved
-        debug: Enable debug logging
+        verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose)
         skip_compare: Skip comparison verification
         roundtrip_dir: Optional directory for roundtrip JSON files
     
@@ -126,7 +126,7 @@ def render_and_verify(
 
         verifier = get_verifier("roundtrip-verifier")
         cmp = verifier.verify(original_data, target_data=roundtrip_data)
-        if not debug and roundtrip_dir is None:
+        if verbosity < 2 and roundtrip_dir is None:
             try:
                 roundtrip_json.unlink(missing_ok=True)
             except Exception:
@@ -136,7 +136,7 @@ def render_and_verify(
             return True, [], cmp.warnings, True
         return False, cmp.errors, cmp.warnings, False
     except Exception as e:
-        if debug:
+        if verbosity >= 2:
             LOG.error(traceback.format_exc())
         return False, [f"render: {type(e).__name__}"], [], None
 

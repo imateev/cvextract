@@ -144,7 +144,6 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             apply=config.apply,
             parallel=None,  # No nested parallel processing
             strict=config.strict,
-            debug=config.debug,
             verbosity=config.verbosity,
             log_file=config.log_file,
             suppress_summary=True,  # Suppress summary in parallel mode
@@ -170,7 +169,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             
     except Exception as e:
         error_msg = str(e)
-        if config.debug:
+        if config.verbosity >= 2:
             error_msg = traceback.format_exc()
         return (False, error_msg, 1, False)
 
@@ -203,7 +202,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         files = scan_directory_for_files(input_dir, config.parallel.file_type)
     except Exception as e:
         LOG.error("Failed to scan directory: %s", e)
-        if config.debug:
+        if config.verbosity >= 2:
             LOG.error(traceback.format_exc())
         return 1
     

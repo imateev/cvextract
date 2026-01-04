@@ -63,7 +63,7 @@ def execute_pipeline(config: UserConfig) -> int:
         inputs = _collect_inputs(source, is_extraction, template_path)
     except Exception as e:
         LOG.error(str(e))
-        if config.debug:
+        if config.verbosity >= 2:
             LOG.error(traceback.format_exc())
         return 1
 
@@ -137,7 +137,7 @@ def execute_pipeline(config: UserConfig) -> int:
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
         extract_ok, extract_errs, extract_warns = extract_single(
-            input_file, out_json, config.debug, extractor=extractor
+            input_file, out_json, verbosity=config.verbosity, extractor=extractor
         )
         
         # If extraction failed and we need to apply, exit early
@@ -215,7 +215,7 @@ def execute_pipeline(config: UserConfig) -> int:
             render_json = adjusted_json
         except Exception as e:
             # If adjust fails, proceed with original JSON
-            if config.debug or config.verbosity >= 2:
+            if config.verbosity >= 2:
                 LOG.error("Adjustment failed: %s", traceback.format_exc())
             render_json = out_json
     
@@ -234,7 +234,7 @@ def execute_pipeline(config: UserConfig) -> int:
             json_path=render_json,
             template_path=config.apply.template,
             output_docx=output_docx,
-            debug=config.debug,
+            verbosity=config.verbosity,
             skip_compare=not config.should_compare or skip_roundtrip,
             roundtrip_dir=verify_dir,
         )

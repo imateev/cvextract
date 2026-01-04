@@ -114,7 +114,6 @@ class TestProcessSingleFileWrapper:
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -138,7 +137,6 @@ class TestProcessSingleFileWrapper:
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -161,7 +159,6 @@ class TestProcessSingleFileWrapper:
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -184,7 +181,6 @@ class TestProcessSingleFileWrapper:
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -211,7 +207,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -240,7 +235,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -259,7 +253,6 @@ class TestExecuteParallelPipeline:
             parallel=None,  # No parallel config
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -275,7 +268,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=tmp_path / "does_not_exist", n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -294,7 +286,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=empty_dir, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -313,7 +304,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=not_dir, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -335,7 +325,7 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=True,
+            verbosity=2,
             log_file=None
         )
         
@@ -369,7 +359,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -391,7 +380,7 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=True,  # Strict mode enabled
-            debug=False,
+            verbosity=0,
             log_file=None
         )
         
@@ -418,7 +407,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -441,7 +429,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=True,
             verbosity=2,
             log_file=None
         )
@@ -467,7 +454,6 @@ class TestExecuteParallelPipeline:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=True,
             verbosity=2,  # Verbose mode shows failed files
             log_file=None
         )
@@ -503,7 +489,6 @@ class TestPerformUpfrontResearch:
             parallel=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -522,7 +507,6 @@ class TestPerformUpfrontResearch:
             parallel=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -548,7 +532,6 @@ class TestPerformUpfrontResearch:
             parallel=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -577,7 +560,6 @@ class TestPerformUpfrontResearch:
             parallel=None,
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -678,7 +660,6 @@ class TestFileTypeParameter:
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -700,7 +681,6 @@ class TestFileTypeParameter:
             parallel=ParallelStage(source=test_directory, n=2),  # No file_type specified
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -727,7 +707,6 @@ class TestFileTypeParameter:
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             log_file=None
         )
         
@@ -769,7 +748,6 @@ class TestProgressIndicator:
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             verbosity=2,  # Need verbose mode to see progress indicators
             log_file=None
         )
@@ -804,7 +782,6 @@ class TestProgressIndicator:
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
             strict=False,
-            debug=False,
             verbosity=2,  # Need verbose mode to see progress percentages
             log_file=None
         )
