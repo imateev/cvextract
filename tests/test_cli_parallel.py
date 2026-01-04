@@ -118,11 +118,12 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
         
         assert success
         assert message == ""
         assert exit_code == 0
+        assert not has_warnings
         mock_execute.assert_called_once()
     
     @patch('cvextract.cli_parallel.execute_pipeline')
@@ -141,11 +142,12 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
         
         assert success
         assert "warnings" in message.lower()
         assert exit_code == 2
+        assert has_warnings
     
     @patch('cvextract.cli_parallel.execute_pipeline')
     def test_process_single_file_failure(self, mock_execute, tmp_path: Path, mock_docx: Path):
@@ -163,11 +165,12 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
         
         assert not success
         assert "failed" in message.lower()
         assert exit_code == 1
+        assert not has_warnings
     
     @patch('cvextract.cli_parallel.execute_pipeline')
     def test_process_single_file_exception(self, mock_execute, tmp_path: Path, mock_docx: Path):
@@ -185,11 +188,12 @@ class TestProcessSingleFileWrapper:
             log_file=None
         )
         
-        success, message, exit_code = process_single_file_wrapper(mock_docx, config)
+        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
         
         assert not success
         assert "Test error" in message
         assert exit_code == 1
+        assert not has_warnings
 
 
 class TestExecuteParallelPipeline:
@@ -198,7 +202,7 @@ class TestExecuteParallelPipeline:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_all_success(self, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with all files succeeding."""
-        mock_process.return_value = (True, "", 0)
+        mock_process.return_value = (True, "", 0, False)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -222,11 +226,11 @@ class TestExecuteParallelPipeline:
         """Test parallel pipeline with some files failing - should return 0 (success)."""
         # Alternate between success and failure
         mock_process.side_effect = [
-            (True, "", 0),
-            (False, "Error", 1),
-            (True, "", 0),
-            (False, "Error", 1),
-            (True, "", 0),
+            (True, "", 0, False),
+            (False, "Error", 1, False),
+            (True, "", 0, False),
+            (False, "Error", 1, False),
+            (True, "", 0, False),
         ]
         
         config = UserConfig(
@@ -347,7 +351,7 @@ class TestExecuteParallelPipeline:
     def test_parallel_pipeline_with_adjust(self, mock_research, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with adjust stage performs upfront research."""
         mock_research.return_value = tmp_path / "research.json"
-        mock_process.return_value = (True, "", 0)
+        mock_process.return_value = (True, "", 0, False)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -378,7 +382,7 @@ class TestExecuteParallelPipeline:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_strict_mode_with_warnings(self, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline in strict mode with warnings returns exit code 2."""
-        mock_process.return_value = (True, "warnings (strict mode)", 2)
+        mock_process.return_value = (True, "warnings (strict mode)", 2, True)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -400,11 +404,11 @@ class TestExecuteParallelPipeline:
         """Test parallel pipeline tracks partial successes (files with warnings)."""
         # Mix of full success, partial success (warnings), and failures
         mock_process.side_effect = [
-            (True, "", 0),  # Full success
-            (True, "warnings (strict mode)", 2),  # Partial success
-            (False, "Error", 1),  # Failure
-            (True, "", 0),  # Full success
-            (True, "warnings", 2),  # Partial success
+            (True, "", 0, False),  # Full success
+            (True, "warnings (strict mode)", 2, True),  # Partial success
+            (False, "Error", 1, False),  # Failure
+            (True, "", 0, False),  # Full success
+            (True, "warnings", 2, True),  # Partial success
         ]
         
         config = UserConfig(
@@ -454,7 +458,7 @@ class TestExecuteParallelPipeline:
     def test_parallel_pipeline_logs_failed_files_in_debug_mode(self, mock_process, mock_log_info,
                                                                tmp_path: Path, test_directory: Path):
         """Debug mode should list failed files after processing."""
-        mock_process.return_value = (False, "Error", 1)
+        mock_process.return_value = (False, "Error", 1, False)
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
@@ -655,7 +659,7 @@ class TestFileTypeParameter:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_with_custom_file_type(self, mock_process, tmp_path: Path):
         """Test parallel processing with custom file type."""
-        mock_process.return_value = (True, "", 0)
+        mock_process.return_value = (True, "", 0, False)
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -685,7 +689,7 @@ class TestFileTypeParameter:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_default_file_type(self, mock_process, test_directory: Path, tmp_path: Path):
         """Test parallel processing uses default *.docx file type."""
-        mock_process.return_value = (True, "", 0)
+        mock_process.return_value = (True, "", 0, False)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -754,7 +758,7 @@ class TestProgressIndicator:
     @patch('cvextract.cli_parallel.LOG.info')
     def test_progress_indicator_shown(self, mock_log_info, mock_process, test_directory: Path, tmp_path: Path):
         """Test that progress indicator is included in log output."""
-        mock_process.return_value = (True, "", 0)
+        mock_process.return_value = (True, "", 0, False)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -781,7 +785,7 @@ class TestProgressIndicator:
     @patch('cvextract.cli_parallel.LOG.info')
     def test_progress_percentage_calculated(self, mock_log_info, mock_process, tmp_path: Path):
         """Test that progress percentage is calculated correctly."""
-        mock_process.return_value = (True, "", 0)
+        mock_process.return_value = (True, "", 0, False)
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()

@@ -120,7 +120,7 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
         return None
 
 
-def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bool, str, int]:
+def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bool, str, int, bool]:
     """
     Wrapper to process a single file through the existing pipeline.
     
@@ -129,7 +129,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
         config: User configuration with parallel settings
     
     Returns:
-        Tuple of (success: bool, message: str, exit_code: int)
+        Tuple of (success: bool, message: str, exit_code: int, has_warnings: bool)
     """
     try:
         # Create a new config for this specific file
@@ -157,19 +157,21 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
         if file_config.last_warnings:
             warning_message = fmt_issues([], file_config.last_warnings)
         
+        has_warnings = bool(file_config.last_warnings)
+
         if exit_code == 0:
-            return (True, warning_message, exit_code)
+            return (True, warning_message, exit_code, has_warnings)
         elif exit_code == 2:
             message = warning_message or "warnings (strict mode)"
-            return (True, message, exit_code)
+            return (True, message, exit_code, True)
         else:
-            return (False, "pipeline execution failed", exit_code)
+            return (False, "pipeline execution failed", exit_code, False)
             
     except Exception as e:
         error_msg = str(e)
         if config.debug:
             error_msg = traceback.format_exc()
-        return (False, error_msg, 1)
+        return (False, error_msg, 1, False)
 
 
 def execute_parallel_pipeline(config: UserConfig) -> int:
@@ -245,15 +247,15 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             progress_str = f"[{completed_count}/{total_files} | {progress_pct}%]"
             
             try:
-                success, message, exit_code = future.result()
+                success, message, exit_code, has_warnings = future.result()
                 
                 # Determine status icons (same as in cli_execute.py)
-                if success and exit_code == 0:
-                    status_icon = "✅"
-                    full_success_count += 1
-                elif success and exit_code == 2:
+                if success and (exit_code == 2 or has_warnings):
                     status_icon = "⚠️ "
                     partial_success_count += 1
+                elif success and exit_code == 0:
+                    status_icon = "✅"
+                    full_success_count += 1
                 else:
                     status_icon = "❌"
                     failed_count += 1
