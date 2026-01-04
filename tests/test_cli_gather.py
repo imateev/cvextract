@@ -368,3 +368,32 @@ class TestGatherUserRequirements:
         assert config.parallel.n == 5
         assert config.parallel.file_type == '*.txt'
 
+
+
+class TestVerbosityFlag:
+    """Tests for verbosity flag."""
+    
+    def test_verbosity_default_is_zero(self):
+        """Default verbosity should be 0 (quiet)."""
+        config = cli_gather.gather_user_requirements(['--extract', 'source=test.docx', '--target', '/tmp'])
+        assert config.verbosity == 0
+    
+    def test_verbosity_single_v(self):
+        """Single -v should set verbosity to 1 (normal)."""
+        config = cli_gather.gather_user_requirements(['-v', '--extract', 'source=test.docx', '--target', '/tmp'])
+        assert config.verbosity == 1
+    
+    def test_verbosity_double_v(self):
+        """Double -vv should set verbosity to 2 (verbose)."""
+        config = cli_gather.gather_user_requirements(['-vv', '--extract', 'source=test.docx', '--target', '/tmp'])
+        assert config.verbosity == 2
+    
+    def test_verbosity_with_verbose_flag(self):
+        """--verbose flag should work like -v."""
+        config = cli_gather.gather_user_requirements(['--verbose', '--extract', 'source=test.docx', '--target', '/tmp'])
+        assert config.verbosity == 1
+    
+    def test_verbosity_triple_v(self):
+        """Triple -vvv should set verbosity to 3 (same as -vv for our purposes)."""
+        config = cli_gather.gather_user_requirements(['-vvv', '--extract', 'source=test.docx', '--target', '/tmp'])
+        assert config.verbosity == 3

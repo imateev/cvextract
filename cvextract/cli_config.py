@@ -70,6 +70,7 @@ class UserConfig:
     strict: bool = False
     debug: bool = False
     log_file: Optional[str] = None
+    verbosity: int = 0  # Verbosity level (0=quiet, 1=normal, 2=verbose)
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
     input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)
     suppress_file_logging: bool = False  # Suppress individual file logging (used in parallel mode)

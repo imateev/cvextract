@@ -47,7 +47,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Setup logging (side effect necessary for all phases)
     if config.log_file:
         Path(config.log_file).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
-    setup_logging(config.debug, log_file=config.log_file)
+    setup_logging(config.debug, log_file=config.log_file, verbosity=config.verbosity)
     
     try:
         # Phase 2: Prepare environment
@@ -57,7 +57,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return execute_pipeline(config)
     except Exception as e:
         LOG.error(str(e))
-        if config.debug:
+        if config.debug or config.verbosity >= 2:
             LOG.error(traceback.format_exc())
         return 1
 

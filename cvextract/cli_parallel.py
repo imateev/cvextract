@@ -145,6 +145,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             parallel=None,  # No nested parallel processing
             strict=config.strict,
             debug=config.debug,
+            verbosity=config.verbosity,
             log_file=config.log_file,
             suppress_summary=True,  # Suppress summary in parallel mode
             suppress_file_logging=True,  # Suppress per-file status logging (we log in parallel wrapper with progress)
@@ -216,11 +217,12 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         # Research is performed and cached for reuse by individual file processing
         _perform_upfront_research(config)
     
-    # Log start of parallel processing
+    # Log start of parallel processing (only in normal/verbose mode)
     n_workers = config.parallel.n
     total_files = len(files)
-    LOG.info("Processing %d files matching '%s' with %d parallel workers", 
-             total_files, config.parallel.file_type, n_workers)
+    if config.verbosity >= 1:
+        LOG.info("Processing %d files matching '%s' with %d parallel workers", 
+                 total_files, config.parallel.file_type, n_workers)
     
     # Track results - categorize as fully successful, partial (warnings), or failed
     full_success_count = 0
@@ -261,38 +263,57 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                     failed_count += 1
                     failed_files.append(str(file_path))
                 
-                # Log with progress indicator
-                if message:
-                    LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
+                # Log based on verbosity level
+                if config.verbosity >= 2:
+                    # Verbose mode: show everything with progress and icons
+                    if message:
+                        LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
+                    else:
+                        LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
+                elif config.verbosity >= 1:
+                    # Normal mode: show status icon and filename
+                    LOG.info("%s %s", status_icon, file_path.name)
                 else:
-                    LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
+                    # Quiet mode: only show filename (one line per file, no prefix)
+                    print(file_path.name)
                     
             except Exception as e:
-                LOG.error("❌ %s %s | Unexpected error: %s", progress_str, file_path.name, str(e))
-                if config.debug:
-                    LOG.error(traceback.format_exc())
                 failed_count += 1
                 failed_files.append(str(file_path))
+                
+                # Log errors based on verbosity
+                if config.verbosity >= 2:
+                    LOG.error("❌ %s %s | Unexpected error: %s", progress_str, file_path.name, str(e))
+                    if config.debug or config.verbosity >= 2:
+                        LOG.error(traceback.format_exc())
+                elif config.verbosity >= 1:
+                    LOG.error("❌ %s | %s", file_path.name, str(e))
+                else:
+                    # Quiet mode: just the filename with error marker
+                    print(f"ERROR: {file_path.name}")
     
-    # Log summary
+    # Log summary based on verbosity
     total_files = len(files)
     success_count = full_success_count + partial_success_count
-    LOG.info("=" * 60)
-    if partial_success_count > 0:
-        LOG.info("Completed: %d/%d files succeeded (%d full, %d partial), %d failed", 
-                 success_count, total_files, full_success_count, partial_success_count, failed_count)
-    else:
-        LOG.info("Completed: %d/%d files succeeded, %d failed", success_count, total_files, failed_count)
     
-    # Only show failed files list in debug mode or log file
-    if failed_files and config.debug:
-        LOG.info("Failed files:")
-        for failed_file in failed_files:
-            LOG.info("  - %s", failed_file)
+    if config.verbosity >= 1:
+        LOG.info("=" * 60)
+        if partial_success_count > 0:
+            LOG.info("Completed: %d/%d files succeeded (%d full, %d partial), %d failed", 
+                     success_count, total_files, full_success_count, partial_success_count, failed_count)
+        else:
+            LOG.info("Completed: %d/%d files succeeded, %d failed", success_count, total_files, failed_count)
+        
+        # Only show failed files list in verbose mode
+        if failed_files and config.verbosity >= 2:
+            LOG.info("Failed files:")
+            for failed_file in failed_files:
+                LOG.info("  - %s", failed_file)
     
     # Return exit code - only fail in strict mode with warnings, not for file failures
     if config.strict and partial_success_count > 0:
-        LOG.error("Strict mode enabled: warnings treated as failure.")
+        if config.verbosity >= 1:
+            LOG.error("Strict mode enabled: warnings treated as failure.")
         return 2
     else:
         # Success even if some files failed (user request)

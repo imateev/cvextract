@@ -12,15 +12,45 @@ from typing import List, Optional
 
 LOG = logging.getLogger("cvextract")
 
-def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
-    level = logging.DEBUG if debug else logging.INFO
+# Verbosity levels
+VERBOSITY_QUIET = 0    # Minimal output (default)
+VERBOSITY_NORMAL = 1   # Standard output with status icons
+VERBOSITY_VERBOSE = 2  # Detailed debug output
+
+def setup_logging(debug: bool, log_file: Optional[str] = None, verbosity: int = VERBOSITY_QUIET) -> None:
+    """
+    Setup logging with verbosity control.
+    
+    Args:
+        debug: Legacy debug flag (overrides verbosity to VERBOSITY_VERBOSE)
+        log_file: Optional log file path
+        verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose)
+    """
+    # Debug flag overrides verbosity
+    if debug:
+        verbosity = VERBOSITY_VERBOSE
+    
+    # Map verbosity to log level
+    if verbosity >= VERBOSITY_VERBOSE:
+        level = logging.DEBUG
+    elif verbosity >= VERBOSITY_NORMAL:
+        level = logging.INFO
+    else:
+        level = logging.WARNING  # Quiet mode: only warnings and errors
 
     handlers: List[logging.Handler] = []
 
     # Console output
     console = logging.StreamHandler()
     console.setLevel(level)
-    console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    
+    # Simpler format for normal/verbose modes
+    if verbosity >= VERBOSITY_NORMAL:
+        console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    else:
+        # Minimal format for quiet mode - no prefix
+        console.setFormatter(logging.Formatter("%(message)s"))
+    
     handlers.append(console)
 
     # Optional file output
@@ -35,7 +65,13 @@ def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
         )
         handlers.append(file_handler)
 
-    logging.basicConfig(level=level, handlers=handlers)
+    logging.basicConfig(level=level, handlers=handlers, force=True)
+    
+    # Suppress noisy third-party libraries
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 def fmt_issues(errors: List[str], warnings: List[str]) -> str:
     """
