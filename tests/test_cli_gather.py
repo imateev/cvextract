@@ -313,15 +313,13 @@ class TestGatherUserRequirements:
             "--extract", "source=cv.docx",
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=template.docx",
-            "--target", "/output",
-            "--debug"
+            "--target", "/output"
         ])
         
         assert config.extract is not None
         assert config.adjust is not None
         assert config.apply is not None
         assert config.target_dir == Path("/output")
-        assert config.debug is True
     
     def test_adjust_output_parameter(self):
         """--adjust output parameter is resolved relative to target."""

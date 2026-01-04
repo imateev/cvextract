@@ -494,33 +494,6 @@ class TestMainErrorHandling:
         ])
         assert rc == 1
 
-    def test_main_with_collect_inputs_exception_in_debug_logs_traceback(self, monkeypatch, tmp_path: Path, caplog):
-        """When collect_inputs raises exception in debug mode, should log traceback."""
-        import logging
-        import zipfile
-        from cvextract import cli_prepare
-        
-        docx = tmp_path / "test.docx"
-        with zipfile.ZipFile(docx, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
-        target = tmp_path / "output"
-        
-        def fake_collect_inputs(*args, **kwargs):
-            raise ValueError("Test error")
-        
-        monkeypatch.setattr(cli_prepare, "_collect_inputs", fake_collect_inputs)
-        
-        with caplog.at_level(logging.ERROR):
-            rc = cli.main([
-                "--extract", f"source={str(docx)}",
-                "--target", str(target),
-                "--debug"
-            ])
-        
-        assert rc == 1
-        assert "Traceback" in caplog.text or "Test error" in caplog.text
-
 
 class TestParallelParsing:
     """Tests for parallel stage argument parsing."""

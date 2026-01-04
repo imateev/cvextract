@@ -126,10 +126,9 @@ class TestProcessSingleFileWrapper:
     
     @patch('cvextract.cli_parallel.execute_pipeline')
     def test_process_single_file_with_warnings(self, mock_execute, tmp_path: Path, mock_docx: Path):
-        """Test processing file with warnings (exit code 2)."""
-        mock_execute.return_value = 2
-        
-        config = UserConfig(
+        """Test processing file with warnings (exit code 0)."""
+        # Create a mock config with warnings
+        mock_config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
             apply=None,
@@ -137,12 +136,15 @@ class TestProcessSingleFileWrapper:
             target_dir=tmp_path / "out",
             log_file=None
         )
+        mock_config.last_warnings = ["warning message"]
+        mock_execute.return_value = 0
         
-        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
+        # Patch the UserConfig creation to return our mock
+        with patch('cvextract.cli_parallel.UserConfig', return_value=mock_config):
+            success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, mock_config)
         
         assert success
-        assert "warnings" in message.lower()
-        assert exit_code == 2
+        assert exit_code == 0
         assert has_warnings
     
     @patch('cvextract.cli_parallel.execute_pipeline')
@@ -302,8 +304,8 @@ class TestExecuteParallelPipeline:
 
     @patch('cvextract.cli_parallel.LOG.error')
     @patch('cvextract.cli_parallel.scan_directory_for_files')
-    def test_parallel_pipeline_scan_directory_failure_debug_logs(self, mock_scan, mock_log_error, tmp_path: Path):
-        """Scan failures should log details and return error when debug enabled."""
+    def test_parallel_pipeline_scan_directory_failure_logs_error(self, mock_scan, mock_log_error, tmp_path: Path):
+        """Scan failures should log error and return error code."""
         mock_scan.side_effect = RuntimeError("scan failed")
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -320,8 +322,8 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
         mock_scan.assert_called_once_with(input_dir, "*.docx")
-        # One log for the failure message and one for the traceback
-        assert mock_log_error.call_count == 2
+        # Only one log for the failure message (no traceback without debug mode)
+        assert mock_log_error.call_count == 1
         assert "Failed to scan directory" in mock_log_error.call_args_list[0][0][0]
     
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
@@ -401,8 +403,8 @@ class TestExecuteParallelPipeline:
         assert exit_code == 0
         doc_count = len(scan_directory_for_docx(test_directory))
         assert mock_process.call_count == doc_count
-        # Each exception logs the user-facing message and the traceback
-        assert mock_log_error.call_count == doc_count * 2
+        # Each exception logs only the user-facing message (no traceback without debug mode)
+        assert mock_log_error.call_count == doc_count
         assert any("Unexpected error" in call.args[0] for call in mock_log_error.call_args_list)
 
 

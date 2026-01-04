@@ -167,7 +167,7 @@ class TestMainFunction:
     @patch('cvextract.cli.prepare_execution_environment')
     @patch('cvextract.cli.gather_user_requirements')
     def test_main_exception_with_complex_error(self, mock_gather, mock_prepare, mock_execute, mock_log):
-        """main() should handle complex exceptions with debug logging."""
+        """main() should handle complex exceptions."""
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
@@ -187,5 +187,5 @@ class TestMainFunction:
         
         # Verify
         assert result == 1
-        # Should have called LOG.error twice
-        assert mock_log.error.call_count == 2
+        # Should have called LOG.error once (no traceback without debug mode)
+        assert mock_log.error.call_count == 1
