@@ -167,14 +167,24 @@ class OutputController:
         self.verbosity = verbosity
         self.enable_buffering = enable_buffering
         self._handler: Optional[BufferingLogHandler] = None
+        self._removed_console_handlers: List[logging.Handler] = []
         
         if enable_buffering:
             # Create and install buffering handler
             self._handler = BufferingLogHandler(verbosity)
             self._handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
             
-            # Install handler on cvextract logger
+            # Get cvextract logger
             logger = logging.getLogger("cvextract")
+            
+            # Remove console handlers to prevent double output
+            # (buffering controller will handle console output)
+            for handler in logger.handlers[:]:
+                if isinstance(handler, logging.StreamHandler) and handler.stream in (sys.stdout, sys.stderr):
+                    logger.removeHandler(handler)
+                    self._removed_console_handlers.append(handler)
+            
+            # Install buffering handler
             logger.addHandler(self._handler)
             
             # Also suppress third-party loggers in minimal mode
