@@ -83,30 +83,54 @@ class TestExtractFileValidation:
         extractor = OpenAICVExtractor()
         cache_dir = tmp_path / "cvextract"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_path = cache_dir / "cv_schema.json"
-        cache_path.write_text(json.dumps({"type": "object"}))
-        with patch('cvextract.extractors.openai_extractor.files') as mock_files:
-            mock_files.return_value.joinpath.return_value = cache_path
-            result = extractor._load_cv_schema()
-            assert result["type"] == "object"
-    def test_load_cv_schema_permission_error(self):
+        schema_resource = tmp_path / "schema_resource.json"
+        schema_resource.write_text(json.dumps({"type": "resource"}))
+        with patch('cvextract.extractors.openai_extractor.tempfile.gettempdir', return_value=str(tmp_path)):
+            with patch('cvextract.extractors.openai_extractor.version', return_value="1.2.3"):
+                cache_path = cache_dir / "cv_schema.1.2.3.json"
+                cache_path.write_text(json.dumps({"type": "object"}))
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    mock_files.return_value.joinpath.return_value = schema_resource
+                    result = extractor._load_cv_schema()
+                    assert result["type"] == "object"
+    def test_load_cv_schema_permission_error(self, tmp_path):
         """Test schema loading with permission error."""
         from cvextract.extractors.openai_extractor import OpenAICVExtractor
         extractor = OpenAICVExtractor()
-        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
-        cache_path = cache_dir / "cv_schema.json"
-        if cache_path.exists():
-            cache_path.unlink()
-        with patch('cvextract.extractors.openai_extractor.files') as mock_files:
-            tmp_file = Path('/tmp/test_perm.json')
-            tmp_file.write_text(json.dumps({"type": "object"}))
-            tmp_file.chmod(0)
-            mock_files.return_value.joinpath.return_value = tmp_file
-            try:
-                with pytest.raises(PermissionError):
-                    extractor._load_cv_schema()
-            finally:
-                tmp_file.chmod(0o644)
+        with patch('cvextract.extractors.openai_extractor.tempfile.gettempdir', return_value=str(tmp_path)):
+            with patch('cvextract.extractors.openai_extractor.version', return_value="1.2.3"):
+                cache_dir = tmp_path / "cvextract"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                cache_path = cache_dir / "cv_schema.1.2.3.json"
+                if cache_path.exists():
+                    cache_path.unlink()
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    tmp_file = tmp_path / "test_perm.json"
+                    tmp_file.write_text(json.dumps({"type": "object"}))
+                    tmp_file.chmod(0)
+                    mock_files.return_value.joinpath.return_value = tmp_file
+                    try:
+                        with pytest.raises(PermissionError):
+                            extractor._load_cv_schema()
+                    finally:
+                        tmp_file.chmod(0o644)
+    def test_load_cv_schema_refreshes_invalid_cache(self, tmp_path):
+        """_load_cv_schema() refreshes when cache is invalid JSON."""
+        from cvextract.extractors.openai_extractor import OpenAICVExtractor
+        extractor = OpenAICVExtractor()
+        schema_resource = tmp_path / "schema_resource.json"
+        schema_resource.write_text(json.dumps({"type": "object", "properties": {}}))
+        cache_dir = tmp_path / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        with patch('cvextract.extractors.openai_extractor.tempfile.gettempdir', return_value=str(tmp_path)):
+            with patch('cvextract.extractors.openai_extractor.version', return_value="1.2.3"):
+                cache_path = cache_dir / "cv_schema.1.2.3.json"
+                cache_path.write_text("{not valid json")
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    mock_files.return_value.joinpath.return_value = schema_resource
+                    result = extractor._load_cv_schema()
+                    assert result["type"] == "object"
+                    assert json.loads(cache_path.read_text())["type"] == "object"
     def test_call_with_retry_jitter_and_deterministic(self):
         """Test call_with_retry with jitter and deterministic modes."""
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
@@ -1069,5 +1093,3 @@ class TestCleanupErrorHandling:
             
             # Should not raise
             extractor._delete_file("file_123")
-
-

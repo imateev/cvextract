@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
 from openai import OpenAI
+from importlib.metadata import PackageNotFoundError, version
 
 try:
     # Python 3.9+
@@ -139,16 +141,32 @@ class OpenAICVExtractor(CVExtractor):
         cache_dir = Path(tempfile.gettempdir()) / "cvextract"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-        cache_path = cache_dir / "cv_schema.json"
+        version_tag = self._get_cache_version_tag()
+        cache_path = cache_dir / f"cv_schema.{version_tag}.json"
         if not cache_path.exists():
-            with as_file(schema_resource) as p:
-                src = Path(p)
-                if not src.exists():
-                    raise FileNotFoundError("cv_schema.json resource not available")
-                cache_path.write_bytes(src.read_bytes())
+            self._refresh_cv_schema_cache(cache_path, schema_resource)
 
-        with open(cache_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            self._refresh_cv_schema_cache(cache_path, schema_resource)
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+
+    def _get_cache_version_tag(self) -> str:
+        try:
+            pkg_version = version("cvextract")
+        except PackageNotFoundError:
+            pkg_version = "dev"
+        return re.sub(r"[^A-Za-z0-9_.-]", "_", pkg_version)
+
+    def _refresh_cv_schema_cache(self, cache_path: Path, schema_resource: Any) -> None:
+        with as_file(schema_resource) as p:
+            src = Path(p)
+            if not src.exists():
+                raise FileNotFoundError("cv_schema.json resource not available")
+            cache_path.write_bytes(src.read_bytes())
 
     # --------------------------
     # Retry / Backoff utilities
