@@ -17,7 +17,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -42,7 +41,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = "/tmp/test.log"
-        mock_config.debug = False
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -70,7 +68,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_gather.return_value = mock_config
         
         # Make prepare raise an exception
@@ -81,33 +78,6 @@ class TestMainFunction:
         
         # Verify
         assert result == 1
-    
-    @patch('cvextract.cli.LOG')
-    @patch('cvextract.cli.execute_pipeline')
-    @patch('cvextract.cli.prepare_execution_environment')
-    @patch('cvextract.cli.gather_user_requirements')
-    def test_main_exception_with_debug(self, mock_gather, mock_prepare, mock_execute, mock_log):
-        """main() should log traceback when debug is True."""
-        # Setup mocks
-        mock_config = MagicMock()
-        mock_config.log_file = None
-        mock_config.debug = True
-        mock_gather.return_value = mock_config
-        
-        # Make prepare raise an exception
-        error_msg = "Test debug error"
-        mock_prepare.side_effect = ValueError(error_msg)
-        
-        # Call main
-        result = cli.main(["--extract", "source=cv.docx", "--target", "/output"])
-        
-        # Verify
-        assert result == 1
-        # Should have called LOG.error twice (once for error message, once for traceback)
-        assert mock_log.error.call_count == 2
-        # Second call should have traceback
-        traceback_call = mock_log.error.call_args_list[1]
-        assert "Traceback" in str(traceback_call) or "ValueError" in str(traceback_call)
     
     @patch('cvextract.cli.LOG')
     @patch('cvextract.cli.execute_pipeline')
@@ -134,7 +104,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -157,7 +126,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -180,7 +148,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -204,7 +171,6 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = True
         mock_gather.return_value = mock_config
         
         # Make prepare raise a complex exception
