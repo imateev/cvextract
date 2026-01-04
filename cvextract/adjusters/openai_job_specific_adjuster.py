@@ -20,8 +20,10 @@ import logging
 import os
 import random
 import re
+import tempfile
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 try:
@@ -34,6 +36,13 @@ try:
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
+try:
+    # Python 3.9+
+    from importlib.resources import files, as_file
+except ModuleNotFoundError:
+    # Python < 3.9 backport
+    from importlib_resources import files, as_file  # type: ignore
+
 from .base import CVAdjuster
 from ..shared import format_prompt
 from ..verifiers import get_verifier
@@ -41,6 +50,54 @@ from ..verifiers import get_verifier
 LOG = logging.getLogger("cvextract")
 
 T = TypeVar("T")
+
+
+# CV schema cache (bundled-safe)
+_CV_SCHEMA: Optional[Dict[str, Any]] = None
+
+
+def _get_cv_schema_path() -> Optional[Path]:
+    """Get path to CV schema, handling bundled executables (PyInstaller)."""
+    try:
+        schema_resource = files("cvextract.contracts").joinpath("cv_schema.json")
+
+        # Cache to a stable location so returning Path is safe even after `as_file` closes.
+        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        cache_path = cache_dir / "cv_schema.json"
+        if cache_path.exists():
+            return cache_path
+
+        with as_file(schema_resource) as p:
+            src = Path(p)
+            if not src.exists():
+                return None
+            cache_path.write_bytes(src.read_bytes())
+
+        return cache_path if cache_path.exists() else None
+    except Exception:
+        return None
+
+
+_SCHEMA_PATH = _get_cv_schema_path()
+
+
+def _load_cv_schema() -> Optional[Dict[str, Any]]:
+    """Load the CV schema from file (cached)."""
+    global _CV_SCHEMA
+    if _CV_SCHEMA is not None:
+        return _CV_SCHEMA
+    if not _SCHEMA_PATH:
+        LOG.warning("Failed to load CV schema: schema path not available")
+        return None
+    try:
+        with open(_SCHEMA_PATH, "r", encoding="utf-8") as f:
+            _CV_SCHEMA = json.load(f)
+        return _CV_SCHEMA
+    except Exception as e:
+        LOG.warning("Failed to load CV schema: %s", e)
+        return None
 
 
 @dataclass(frozen=True)
@@ -259,11 +316,13 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         api_key: Optional[str] = None,
         *,
         retry_config: Optional[_RetryConfig] = None,
+        request_timeout_s: float = 60.0,
         _sleep: Callable[[float], None] = time.sleep,
     ):
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self._retry = retry_config or _RetryConfig()
+        self._request_timeout_s = float(request_timeout_s)
         self._sleep = _sleep
 
     def name(self) -> str:
@@ -335,6 +394,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                         {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
                     ],
                     temperature=0.2,
+                    timeout=self._request_timeout_s,
                 ),
                 is_write=True,
                 op_name="Job-specific adjust completion",
@@ -344,10 +404,19 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             return cv_data
 
         content = None
+        finish_reason = None
         try:
-            content = completion.choices[0].message.content if completion.choices else None
+            if completion.choices:
+                choice = completion.choices[0]
+                finish_reason = getattr(choice, "finish_reason", None)
+                content = choice.message.content
         except Exception:
             content = None
+            finish_reason = None
+
+        if isinstance(finish_reason, str) and finish_reason != "stop":
+            LOG.warning("Job-specific adjust: completion not finished (%s); using original JSON.", finish_reason)
+            return cv_data
 
         if not content:
             LOG.warning("Job-specific adjust: empty completion; using original JSON.")
@@ -359,6 +428,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             return cv_data
 
         # Validate adjusted CV against schema
+        _ = _load_cv_schema()
         cv_verifier = get_verifier("cv-schema-verifier")
         if not cv_verifier:
             LOG.warning("Job-specific adjust: CV schema verifier not available; using original JSON.")

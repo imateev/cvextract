@@ -1,6 +1,7 @@
 """Tests for OpenAI CV extractor implementation with retry and adaptive polling."""
 
 import json
+import tempfile
 import pytest
 import time
 from pathlib import Path
@@ -63,6 +64,117 @@ class TestExtractFileValidation:
             test_dir.mkdir()
             with pytest.raises(ValueError, match="must be a file"):
                 extractor.extract(test_dir)
+                
+        def test_extract_loads_schema_and_validates(self, tmp_path, monkeypatch):
+            """extract() loads schema and validates after file checks."""
+            with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+                extractor = OpenAICVExtractor()
+                test_file = tmp_path / "test.docx"
+                test_file.write_text("test content")
+                extractor._extract_with_openai = MagicMock(return_value='{"identity": {}}')
+                extractor._parse_and_validate = MagicMock(return_value={"identity": {}})
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    mock_files.return_value.joinpath.return_value = test_file
+                    result = extractor.extract(str(test_file))
+                    assert result == {"identity": {}}
+    def test_resource_cache_created_and_used(self, tmp_path, monkeypatch):
+        """Test that resource cache is created and reused."""
+        from cvextract.extractors.openai_extractor import OpenAICVExtractor
+        extractor = OpenAICVExtractor()
+        cache_dir = tmp_path / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        schema_resource = tmp_path / "schema_resource.json"
+        schema_resource.write_text(json.dumps({"type": "resource"}))
+        with patch('cvextract.extractors.openai_extractor.tempfile.gettempdir', return_value=str(tmp_path)):
+            with patch('cvextract.extractors.openai_extractor.version', return_value="1.2.3"):
+                cache_path = cache_dir / "cv_schema.1.2.3.json"
+                cache_path.write_text(json.dumps({"type": "object"}))
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    mock_files.return_value.joinpath.return_value = schema_resource
+                    result = extractor._load_cv_schema()
+                    assert result["type"] == "object"
+    def test_load_cv_schema_permission_error(self, tmp_path):
+        """Test schema loading with permission error."""
+        from cvextract.extractors.openai_extractor import OpenAICVExtractor
+        extractor = OpenAICVExtractor()
+        with patch('cvextract.extractors.openai_extractor.tempfile.gettempdir', return_value=str(tmp_path)):
+            with patch('cvextract.extractors.openai_extractor.version', return_value="1.2.3"):
+                cache_dir = tmp_path / "cvextract"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                cache_path = cache_dir / "cv_schema.1.2.3.json"
+                if cache_path.exists():
+                    cache_path.unlink()
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    tmp_file = tmp_path / "test_perm.json"
+                    tmp_file.write_text(json.dumps({"type": "object"}))
+                    tmp_file.chmod(0)
+                    mock_files.return_value.joinpath.return_value = tmp_file
+                    try:
+                        with pytest.raises(PermissionError):
+                            extractor._load_cv_schema()
+                    finally:
+                        tmp_file.chmod(0o644)
+    def test_load_cv_schema_refreshes_invalid_cache(self, tmp_path):
+        """_load_cv_schema() refreshes when cache is invalid JSON."""
+        from cvextract.extractors.openai_extractor import OpenAICVExtractor
+        extractor = OpenAICVExtractor()
+        schema_resource = tmp_path / "schema_resource.json"
+        schema_resource.write_text(json.dumps({"type": "object", "properties": {}}))
+        cache_dir = tmp_path / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        with patch('cvextract.extractors.openai_extractor.tempfile.gettempdir', return_value=str(tmp_path)):
+            with patch('cvextract.extractors.openai_extractor.version', return_value="1.2.3"):
+                cache_path = cache_dir / "cv_schema.1.2.3.json"
+                cache_path.write_text("{not valid json")
+                with patch('cvextract.extractors.openai_extractor.files') as mock_files:
+                    mock_files.return_value.joinpath.return_value = schema_resource
+                    result = extractor._load_cv_schema()
+                    assert result["type"] == "object"
+                    assert json.loads(cache_path.read_text())["type"] == "object"
+    def test_call_with_retry_jitter_and_deterministic(self):
+        """Test call_with_retry with jitter and deterministic modes."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            attempt_count = [0]
+            def failing_fn():
+                attempt_count[0] += 1
+                if attempt_count[0] < 2:
+                    exc = Exception("Temporary network error")
+                    exc.status_code = 503
+                    raise exc
+                return "success"
+            config = _RetryConfig(deterministic=False)
+            extractor = OpenAICVExtractor(retry_config=config, _sleep=lambda x: ...)
+            result = extractor._call_with_retry(
+                failing_fn,
+                is_write=False,
+                op_name="Test op"
+            )
+            assert result == "success"
+            config2 = _RetryConfig(deterministic=True)
+            extractor2 = OpenAICVExtractor(retry_config=config2, _sleep=lambda x: ...)
+            attempt_count[0] = 0
+            result2 = extractor2._call_with_retry(
+                failing_fn,
+                is_write=False,
+                op_name="Test op"
+            )
+            assert result2 == "success"
+    def test_parse_and_validate_markdown_variants(self):
+        """Test parsing JSON with various markdown fences."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+            schema = {"type": "object"}
+            for text in [
+                '```json\n{"identity": {}}\n```',
+                '```\n{"identity": {}}\n```',
+                '{"identity": {}}',
+            ]:
+                with patch('cvextract.extractors.openai_extractor.get_verifier') as mock_get_verifier:
+                    mock_verifier = MagicMock()
+                    mock_verifier.verify.return_value = MagicMock(ok=True)
+                    mock_get_verifier.return_value = mock_verifier
+                    result = extractor._parse_and_validate(text, schema)
+                    assert result == {"identity": {}}
 
     def test_extract_accepts_any_file_type(self, tmp_path):
         """extract() accepts any file type."""
@@ -747,10 +859,13 @@ class TestDeterministicBackoff:
             
             # Call multiple times and collect sleep values
             sleep_values = []
-            for i in range(5):
-                mock_sleep.reset_mock()
-                extractor._sleep_with_backoff(0, is_write=False, exc=exc)
-                sleep_values.append(mock_sleep.call_args[0][0])
+            with patch('cvextract.extractors.openai_extractor.random.random',
+                       side_effect=[0.1, 0.2, 0.3, 0.4, 0.5]) as mock_random:
+                for i in range(5):
+                    mock_sleep.reset_mock()
+                    extractor._sleep_with_backoff(0, is_write=False, exc=exc)
+                    sleep_values.append(mock_sleep.call_args[0][0])
+                assert mock_random.call_count == 5
             
             # Should have variation in values (jitter applied)
             # All should be between 0.25 and 1.0
@@ -942,6 +1057,20 @@ class TestMessageExtractionFallbacks:
             result = extractor._extract_text_from_messages(messages)
             assert result == ""
 
+    def test_extract_text_fallback_uses_non_assistant_message(self):
+        """_extract_text_from_messages() can fall back to non-assistant messages."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+
+            text_obj = MagicMock(value="Fallback from user")
+            part = MagicMock(text=text_obj)
+            user_msg = MagicMock(role="user", content=[part])
+
+            messages = MagicMock(data=[user_msg])
+
+            result = extractor._extract_text_from_messages(messages)
+            assert result == "Fallback from user"
+
 
 class TestCleanupErrorHandling:
     """Tests for graceful error handling in cleanup operations."""
@@ -967,6 +1096,3 @@ class TestCleanupErrorHandling:
             
             # Should not raise
             extractor._delete_file("file_123")
-
-
-

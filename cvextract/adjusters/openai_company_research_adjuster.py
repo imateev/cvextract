@@ -37,6 +37,13 @@ try:
 except Exception:  # pragma: no cover
     requests = None  # type: ignore
 
+try:
+    # Python 3.9+
+    from importlib.resources import files, as_file
+except ModuleNotFoundError:
+    # Python < 3.9 backport
+    from importlib_resources import files, as_file  # type: ignore
+
 from .base import CVAdjuster
 from ..shared import format_prompt
 from ..verifiers import get_verifier
@@ -47,8 +54,34 @@ T = TypeVar("T")
 
 
 # Research schema cache
-_SCHEMA_PATH = Path(__file__).parent.parent / "contracts" / "research_schema.json"
 _RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
+
+
+def _get_research_schema_path() -> Optional[Path]:
+    """Get path to research schema, handling bundled executables (PyInstaller)."""
+    try:
+        schema_resource = files("cvextract.contracts").joinpath("research_schema.json")
+
+        # Cache to a stable location so returning Path is safe even after `as_file` closes.
+        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        cache_path = cache_dir / "research_schema.json"
+        if cache_path.exists():
+            return cache_path
+
+        with as_file(schema_resource) as p:
+            src = Path(p)
+            if not src.exists():
+                return None
+            cache_path.write_bytes(src.read_bytes())
+
+        return cache_path if cache_path.exists() else None
+    except Exception:
+        return None
+
+
+_SCHEMA_PATH = _get_research_schema_path()
 
 
 @dataclass(frozen=True)
@@ -93,6 +126,9 @@ def _load_research_schema() -> Optional[Dict[str, Any]]:
     global _RESEARCH_SCHEMA
     if _RESEARCH_SCHEMA is not None:
         return _RESEARCH_SCHEMA
+    if not _SCHEMA_PATH:
+        LOG.warning("Failed to load research schema: schema path not available")
+        return None
     try:
         with open(_SCHEMA_PATH, "r", encoding="utf-8") as f:
             _RESEARCH_SCHEMA = json.load(f)
@@ -297,6 +333,7 @@ def _research_company_profile(
     *,
     retry: Optional[_RetryConfig] = None,
     sleep: Callable[[float], None] = time.sleep,
+    request_timeout_s: float = 60.0,
 ) -> Optional[Dict[str, Any]]:
     """
     Research a company profile from its URL using OpenAI.
@@ -342,6 +379,7 @@ def _research_company_profile(
                 model=model,
                 messages=[{"role": "user", "content": research_prompt}],
                 temperature=0.2,
+                timeout=float(request_timeout_s),
             ),
             is_write=True,
             op_name="Company research completion",
@@ -351,10 +389,19 @@ def _research_company_profile(
         return None
 
     content = None
+    finish_reason = None
     try:
-        content = completion.choices[0].message.content if completion.choices else None
+        if completion.choices:
+            choice = completion.choices[0]
+            finish_reason = getattr(choice, "finish_reason", None)
+            content = choice.message.content
     except Exception:
         content = None
+        finish_reason = None
+
+    if isinstance(finish_reason, str) and finish_reason != "stop":
+        LOG.warning("Company research: completion not finished (%s)", finish_reason)
+        return None
 
     if not content:
         LOG.warning("Company research: empty completion")
@@ -392,6 +439,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         api_key: Optional[str] = None,
         *,
         retry_config: Optional[_RetryConfig] = None,
+        request_timeout_s: float = 60.0,
         _sleep: Callable[[float], None] = time.sleep,
     ):
         """
@@ -406,6 +454,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self._retry = retry_config or _RetryConfig()
+        self._request_timeout_s = float(request_timeout_s)
         self._sleep = _sleep
 
     def name(self) -> str:
@@ -438,6 +487,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             cache_path,
             retry=self._retry,
             sleep=self._sleep,
+            request_timeout_s=self._request_timeout_s,
         )
 
         if not research_data:

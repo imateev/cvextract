@@ -17,12 +17,22 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
 from openai import OpenAI
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    # Python 3.9+
+    from importlib.resources import files, as_file
+except ModuleNotFoundError:
+    # Python < 3.9 backport
+    from importlib_resources import files, as_file  # type: ignore
 
 from .base import CVExtractor
 from ..shared import load_prompt, format_prompt
@@ -56,6 +66,7 @@ class OpenAICVExtractor(CVExtractor):
         self,
         model: str = "gpt-4o",
         *,
+        api_key: Optional[str] = None,
         # Polling / rate-limit knobs
         run_timeout_s: float = 180.0,
         # Retry config knobs
@@ -77,12 +88,24 @@ class OpenAICVExtractor(CVExtractor):
             **kwargs: Additional arguments (reserved for future use)
         """
         self.model = model
-        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self._api_key = api_key
+        self._client: Optional[OpenAI] = None
 
         self._run_timeout_s = float(run_timeout_s)
         self._retry = retry_config or _RetryConfig()
         self._sleep = _sleep
         self._time = _time
+
+    @property
+    def client(self) -> OpenAI:
+        if self._client is None:
+            api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                raise RuntimeError(
+                    "OPENAI_API_KEY must be set to use OpenAICVExtractor"
+                )
+            self._client = OpenAI(api_key=api_key)
+        return self._client
 
     def extract(self, file_path: str | Path) -> dict[str, Any]:
         """
@@ -112,9 +135,38 @@ class OpenAICVExtractor(CVExtractor):
 
     def _load_cv_schema(self) -> dict[str, Any]:
         """Load the CV schema."""
-        schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
-        with open(schema_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        schema_resource = files("cvextract.contracts").joinpath("cv_schema.json")
+
+        # Cache to a stable location so returning Path is safe even after `as_file` closes.
+        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        version_tag = self._get_cache_version_tag()
+        cache_path = cache_dir / f"cv_schema.{version_tag}.json"
+        if not cache_path.exists():
+            self._refresh_cv_schema_cache(cache_path, schema_resource)
+
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            self._refresh_cv_schema_cache(cache_path, schema_resource)
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+
+    def _get_cache_version_tag(self) -> str:
+        try:
+            pkg_version = version("cvextract")
+        except PackageNotFoundError:
+            pkg_version = "dev"
+        return re.sub(r"[^A-Za-z0-9_.-]", "_", pkg_version)
+
+    def _refresh_cv_schema_cache(self, cache_path: Path, schema_resource: Any) -> None:
+        with as_file(schema_resource) as p:
+            src = Path(p)
+            if not src.exists():
+                raise FileNotFoundError("cv_schema.json resource not available")
+            cache_path.write_bytes(src.read_bytes())
 
     # --------------------------
     # Retry / Backoff utilities

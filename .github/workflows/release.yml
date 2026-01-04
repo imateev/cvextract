@@ -90,7 +90,7 @@ jobs:
 
       - name: Build with PyInstaller (macOS)
         run: |
-          pyinstaller --onefile -n cvextract cvextract/cli.py
+          pyinstaller --onefile --collect-all cvextract -n cvextract cvextract/cli.py
           chmod +x dist/cvextract
 
       - name: Upload Release Asset (macOS)
@@ -126,7 +126,7 @@ jobs:
 
       - name: Build with PyInstaller (Windows)
         run: |
-          pyinstaller --onefile -n cvextract cvextract/cli.py
+          pyinstaller --onefile --collect-all cvextract -n cvextract cvextract/cli.py
 
       - name: Upload Release Asset (Windows)
         uses: actions/upload-release-asset@v1
