@@ -37,6 +37,13 @@ try:
 except Exception:  # pragma: no cover
     requests = None  # type: ignore
 
+try:
+    # Python 3.9+
+    from importlib.resources import files, as_file
+except ModuleNotFoundError:
+    # Python < 3.9 backport
+    from importlib_resources import files, as_file  # type: ignore
+
 from .base import CVAdjuster
 from ..shared import format_prompt
 from ..verifiers import get_verifier
@@ -47,8 +54,34 @@ T = TypeVar("T")
 
 
 # Research schema cache
-_SCHEMA_PATH = Path(__file__).parent.parent / "contracts" / "research_schema.json"
 _RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
+
+
+def _get_research_schema_path() -> Optional[Path]:
+    """Get path to research schema, handling bundled executables (PyInstaller)."""
+    try:
+        schema_resource = files("cvextract.contracts").joinpath("research_schema.json")
+
+        # Cache to a stable location so returning Path is safe even after `as_file` closes.
+        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        cache_path = cache_dir / "research_schema.json"
+        if cache_path.exists():
+            return cache_path
+
+        with as_file(schema_resource) as p:
+            src = Path(p)
+            if not src.exists():
+                return None
+            cache_path.write_bytes(src.read_bytes())
+
+        return cache_path if cache_path.exists() else None
+    except Exception:
+        return None
+
+
+_SCHEMA_PATH = _get_research_schema_path()
 
 
 @dataclass(frozen=True)
@@ -93,6 +126,9 @@ def _load_research_schema() -> Optional[Dict[str, Any]]:
     global _RESEARCH_SCHEMA
     if _RESEARCH_SCHEMA is not None:
         return _RESEARCH_SCHEMA
+    if not _SCHEMA_PATH:
+        LOG.warning("Failed to load research schema: schema path not available")
+        return None
     try:
         with open(_SCHEMA_PATH, "r", encoding="utf-8") as f:
             _RESEARCH_SCHEMA = json.load(f)

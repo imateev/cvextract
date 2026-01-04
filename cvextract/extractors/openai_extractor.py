@@ -17,12 +17,20 @@ from __future__ import annotations
 import json
 import os
 import random
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
 from openai import OpenAI
+
+try:
+    # Python 3.9+
+    from importlib.resources import files, as_file
+except ModuleNotFoundError:
+    # Python < 3.9 backport
+    from importlib_resources import files, as_file  # type: ignore
 
 from .base import CVExtractor
 from ..shared import load_prompt, format_prompt
@@ -112,8 +120,21 @@ class OpenAICVExtractor(CVExtractor):
 
     def _load_cv_schema(self) -> dict[str, Any]:
         """Load the CV schema."""
-        schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
-        with open(schema_path, "r", encoding="utf-8") as f:
+        schema_resource = files("cvextract.contracts").joinpath("cv_schema.json")
+
+        # Cache to a stable location so returning Path is safe even after `as_file` closes.
+        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        cache_path = cache_dir / "cv_schema.json"
+        if not cache_path.exists():
+            with as_file(schema_resource) as p:
+                src = Path(p)
+                if not src.exists():
+                    raise FileNotFoundError("cv_schema.json resource not available")
+                cache_path.write_bytes(src.read_bytes())
+
+        with open(cache_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
     # --------------------------
