@@ -226,8 +226,7 @@ class OutputController:
             logger.setLevel(logging.DEBUG)
             # Add our buffering handler to capture the logs
             logger.addHandler(self._handler)
-            # Don't propagate to root to avoid duplication
-            logger.propagate = False
+            logger.propagate = True
     
     @contextmanager
     def file_context(self, file_path: Path):
