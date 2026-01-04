@@ -859,10 +859,13 @@ class TestDeterministicBackoff:
             
             # Call multiple times and collect sleep values
             sleep_values = []
-            for i in range(5):
-                mock_sleep.reset_mock()
-                extractor._sleep_with_backoff(0, is_write=False, exc=exc)
-                sleep_values.append(mock_sleep.call_args[0][0])
+            with patch('cvextract.extractors.openai_extractor.random.random',
+                       side_effect=[0.1, 0.2, 0.3, 0.4, 0.5]) as mock_random:
+                for i in range(5):
+                    mock_sleep.reset_mock()
+                    extractor._sleep_with_backoff(0, is_write=False, exc=exc)
+                    sleep_values.append(mock_sleep.call_args[0][0])
+                assert mock_random.call_count == 5
             
             # Should have variation in values (jitter applied)
             # All should be between 0.25 and 1.0
