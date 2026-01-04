@@ -1030,6 +1030,20 @@ class TestMessageExtractionFallbacks:
             result = extractor._extract_text_from_messages(messages)
             assert result == ""
 
+    def test_extract_text_fallback_uses_non_assistant_message(self):
+        """_extract_text_from_messages() can fall back to non-assistant messages."""
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            extractor = OpenAICVExtractor()
+
+            text_obj = MagicMock(value="Fallback from user")
+            part = MagicMock(text=text_obj)
+            user_msg = MagicMock(role="user", content=[part])
+
+            messages = MagicMock(data=[user_msg])
+
+            result = extractor._extract_text_from_messages(messages)
+            assert result == "Fallback from user"
+
 
 class TestCleanupErrorHandling:
     """Tests for graceful error handling in cleanup operations."""
@@ -1055,6 +1069,5 @@ class TestCleanupErrorHandling:
             
             # Should not raise
             extractor._delete_file("file_123")
-
 
 
