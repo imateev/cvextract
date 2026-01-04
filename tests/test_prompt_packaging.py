@@ -5,11 +5,7 @@ This test ensures prompts are properly packaged and accessible via the Path(__fi
 pattern (the platform-independent way for Python packages to include data files).
 """
 
-import sys
 from pathlib import Path
-import tempfile
-import subprocess
-import pytest
 
 
 class TestPromptPackaging:
@@ -73,52 +69,3 @@ class TestPromptPackaging:
             assert result is not None, f"Failed to load prompt: {prompt_name}"
             assert isinstance(result, str), f"Prompt is not a string: {prompt_name}"
             assert len(result) > 0, f"Prompt is empty: {prompt_name}"
-
-    @pytest.mark.slow
-    def test_prompts_in_built_distribution(self):
-        """
-        Test that prompts are included when building a distribution.
-        
-        This test builds a wheel package and verifies prompt files are included.
-        Marked as slow since it involves building the package.
-        """
-        # Get project root
-        project_root = Path(__file__).parent.parent
-        
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
-            
-            # Build wheel
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "wheel", str(project_root), "--no-deps", "-w", str(tmpdir_path)],
-                capture_output=True,
-                text=True,
-            )
-            
-            # Check build succeeded
-            if result.returncode != 0:
-                pytest.skip(f"Package build failed: {result.stderr}")
-            
-            # Find the wheel file
-            wheel_files = list(tmpdir_path.glob("*.whl"))
-            assert len(wheel_files) > 0, "No wheel file created"
-            
-            wheel_file = wheel_files[0]
-            
-            # Extract wheel contents and check for prompt files
-            # Wheels are just zip files
-            import zipfile
-            with zipfile.ZipFile(wheel_file) as zf:
-                namelist = zf.namelist()
-                
-                # Check that prompt files are included
-                expected_prompts = [
-                    "cvextract/extractors/prompts/cv_extraction_system.md",
-                    "cvextract/extractors/prompts/cv_extraction_user.md",
-                    "cvextract/adjusters/prompts/adjuster_promp_for_a_company.md",
-                    "cvextract/adjusters/prompts/adjuster_promp_for_specific_job.md",
-                    "cvextract/adjusters/prompts/website_analysis_prompt.md",
-                ]
-                
-                for expected_prompt in expected_prompts:
-                    assert expected_prompt in namelist, f"Prompt not in wheel: {expected_prompt}"

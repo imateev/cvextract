@@ -948,18 +948,6 @@ class TestOpenAIJobSpecificAdjuster:
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data
     
-    def test_adjust_second_openai_check_unreachable(self):
-        """The second OpenAI check at line 159 is logically unreachable by design.
-        
-        The first check (line 131) already handles the case where OpenAI is None,
-        so if code reaches line 159, OpenAI cannot be None (it would have returned
-        at line 131). This second check is defensive/redundant but impossible to reach
-        in normal operation without code modification between the two checks.
-        """
-        # This documents the limitation: we can achieve 98% coverage (95/97 statements)
-        # with the remaining 2 statements (lines 160-161) being unreachable by design.
-        pytest.skip("Redundant defensive check is unreachable by design.")
-    
     def test_adjust_validate_params_called(self):
         """adjust should call validate_params and raise if params invalid."""
         adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
