@@ -296,17 +296,15 @@ class TestGatherUserRequirements:
         assert config.extract is not None
         assert config.parallel is not None
     
-    def test_flags_debug_and_strict(self):
-        """--debug and --strict flags are stored."""
+    def test_debug_flag(self):
+        """--debug flag is stored."""
         config = cli_gather.gather_user_requirements([
             "--extract", "source=cv.docx",
             "--target", "/output",
-            "--debug",
-            "--strict"
+            "--debug"
         ])
         
         assert config.debug is True
-        assert config.strict is True
     
     def test_log_file_parameter(self):
         """--log-file parameter is stored."""

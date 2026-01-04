@@ -63,7 +63,6 @@ python -m cvextract.cli \
 
 - **`--target <dir>`**: Output directory (required)
 - **`--list {extractors,adjusters,renderers}`**: List available components
-- **`--strict`**: Treat warnings as errors
 - **`--debug`**: Verbose logging
 - **`--log-file <path>`**: Log file path
 
