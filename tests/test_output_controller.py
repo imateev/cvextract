@@ -4,9 +4,11 @@ Tests for output_controller module.
 Validates per-file buffering, atomic flush, and verbosity filtering.
 """
 
+import io
 import logging
 from pathlib import Path
 import pytest
+import sys
 import threading
 
 from cvextract.output_controller import (
@@ -277,3 +279,27 @@ def test_buffering_handler_filters_third_party():
     # Buffer should not contain the third-party message
     buffer = handler._buffers.get(test_file)
     assert buffer is None or len(buffer.lines) == 0
+
+
+def test_buffering_removes_root_console_handlers():
+    """Test that root console handlers are removed when buffering is enabled."""
+    root_logger = logging.getLogger()
+    original_handlers = root_logger.handlers.copy()
+    original_level = root_logger.level
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    buffer_handler = logging.StreamHandler(io.StringIO())
+    root_logger.addHandler(stdout_handler)
+    root_logger.addHandler(buffer_handler)
+
+    try:
+        OutputController(
+            verbosity=VerbosityLevel.MINIMAL,
+            enable_buffering=True,
+        )
+
+        assert stdout_handler not in root_logger.handlers
+        assert buffer_handler in root_logger.handlers
+    finally:
+        root_logger.handlers = original_handlers
+        root_logger.setLevel(original_level)
