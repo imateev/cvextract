@@ -10,6 +10,7 @@ Key features:
 - Verbosity-based filtering (minimal, verbose, debug)
 - Third-party library output capture/suppression
 - Thread-safe operation
+- Works as a logging handler to avoid changing business logic
 """
 
 from __future__ import annotations
@@ -47,101 +48,75 @@ class FileOutputBuffer:
         return "\n".join(self.lines) if self.lines else ""
 
 
-class OutputController:
+class BufferingLogHandler(logging.Handler):
     """
-    Centralized controller for all console output.
+    Custom logging handler that buffers log messages per file.
     
-    Ensures deterministic, non-interleaved output in parallel execution
-    by buffering output per file and flushing atomically when complete.
+    Used in parallel mode to capture output for each file separately
+    and emit it atomically when the file completes processing.
     """
     
-    def __init__(
-        self,
-        verbosity: VerbosityLevel = VerbosityLevel.MINIMAL,
-        enable_buffering: bool = False,
-    ):
-        """
-        Initialize the output controller.
-        
-        Args:
-            verbosity: Output verbosity level
-            enable_buffering: Enable per-file buffering (for parallel mode)
-        """
+    def __init__(self, verbosity: VerbosityLevel):
+        super().__init__()
         self.verbosity = verbosity
-        self.enable_buffering = enable_buffering
         self._buffers: dict[Path, FileOutputBuffer] = {}
         self._lock = threading.Lock()
-        self._current_file: Optional[Path] = None
         self._thread_local = threading.local()
     
-    @contextmanager
-    def file_context(self, file_path: Path):
-        """
-        Context manager for processing a file.
-        
-        All output emitted within this context is associated with the file
-        and buffered if buffering is enabled.
-        
-        Args:
-            file_path: Path of the file being processed
-        """
-        # Store file path in thread-local storage
-        previous_file = getattr(self._thread_local, 'current_file', None)
+    def set_current_file(self, file_path: Optional[Path]) -> None:
+        """Set the current file being processed in this thread."""
         self._thread_local.current_file = file_path
         
-        try:
-            # Create buffer if buffering is enabled
-            if self.enable_buffering:
-                with self._lock:
-                    if file_path not in self._buffers:
-                        self._buffers[file_path] = FileOutputBuffer(file_path)
-            yield
-        finally:
-            # Restore previous file context
-            self._thread_local.current_file = previous_file
+        if file_path and file_path not in self._buffers:
+            with self._lock:
+                if file_path not in self._buffers:
+                    self._buffers[file_path] = FileOutputBuffer(file_path)
     
-    def log(self, level: str, message: str, *args, **kwargs) -> None:
-        """
-        Log a message through the controller.
-        
-        Args:
-            level: Log level (info, warning, error, debug)
-            message: Message format string
-            *args: Format arguments
-            **kwargs: Additional keyword arguments
-        """
-        # Format the message
-        if args:
-            try:
-                formatted_message = message % args
-            except (TypeError, ValueError):
-                formatted_message = message
-        else:
-            formatted_message = message
-        
-        # Apply verbosity filtering
-        if not self._should_output(level):
-            return
-        
-        # Get current file context
-        current_file = getattr(self._thread_local, 'current_file', None)
-        
-        # Add to buffer if buffering is enabled and we have a file context
-        if self.enable_buffering and current_file:
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a log record."""
+        try:
+            # Skip output from third-party libraries in minimal mode
+            if self.verbosity == VerbosityLevel.MINIMAL:
+                if record.name.startswith(('openai', 'httpx', 'httpcore', 'urllib3', 'requests')):
+                    return
+            
+            # Get current file context
+            current_file = getattr(self._thread_local, 'current_file', None)
+            
+            if current_file is None:
+                # No file context, skip (will be handled by other handlers)
+                return
+            
+            # Format the message
+            message = self.format(record)
+            
+            # Apply verbosity filtering
+            if not self._should_output(record):
+                return
+            
+            # Add to buffer
             with self._lock:
                 if current_file in self._buffers:
-                    self._buffers[current_file].add_line(formatted_message)
-            return
+                    self._buffers[current_file].add_line(message)
         
-        # Otherwise, output immediately to console
-        self._write_to_console(level, formatted_message)
+        except Exception:
+            self.handleError(record)
+    
+    def _should_output(self, record: logging.LogRecord) -> bool:
+        """Determine if a record should be output based on verbosity."""
+        if self.verbosity == VerbosityLevel.MINIMAL:
+            # In minimal mode, buffer is discarded anyway, so suppress most output
+            return False
+        elif self.verbosity == VerbosityLevel.VERBOSE:
+            # In verbose mode, show info, warning, error (suppress debug)
+            return record.levelno >= logging.INFO
+        else:  # DEBUG
+            # In debug mode, show everything
+            return True
     
     def flush_file(self, file_path: Path, summary_line: str) -> None:
         """
         Flush buffered output for a file atomically.
-        
-        In minimal mode, only the summary line is output.
-        In verbose/debug mode, all buffered output is followed by the summary.
         
         Args:
             file_path: Path of the file to flush
@@ -167,57 +142,92 @@ class OutputController:
             # Clean up buffer
             if file_path in self._buffers:
                 del self._buffers[file_path]
+
+
+class OutputController:
+    """
+    Centralized controller for all console output.
     
-    def _should_output(self, level: str) -> bool:
+    Ensures deterministic, non-interleaved output in parallel execution
+    by buffering output per file and flushing atomically when complete.
+    """
+    
+    def __init__(
+        self,
+        verbosity: VerbosityLevel = VerbosityLevel.MINIMAL,
+        enable_buffering: bool = False,
+    ):
         """
-        Determine if a message at the given level should be output.
+        Initialize the output controller.
         
         Args:
-            level: Log level (info, warning, error, debug)
-        
-        Returns:
-            True if the message should be output
+            verbosity: Output verbosity level
+            enable_buffering: Enable per-file buffering (for parallel mode)
         """
-        level_lower = level.lower()
+        self.verbosity = verbosity
+        self.enable_buffering = enable_buffering
+        self._handler: Optional[BufferingLogHandler] = None
         
-        if self.verbosity == VerbosityLevel.MINIMAL:
-            # In minimal mode, suppress most output when buffering
-            # (buffered output is discarded, only summary is shown)
-            if self.enable_buffering:
-                return False
-            # When not buffering (single file mode), allow errors and warnings
-            return level_lower in ('error', 'warning')
-        
-        elif self.verbosity == VerbosityLevel.VERBOSE:
-            # In verbose mode, show info, warning, error (suppress debug)
-            return level_lower in ('info', 'warning', 'error')
-        
-        else:  # DEBUG
-            # In debug mode, show everything
-            return True
+        if enable_buffering:
+            # Create and install buffering handler
+            self._handler = BufferingLogHandler(verbosity)
+            self._handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+            
+            # Install handler on cvextract logger
+            logger = logging.getLogger("cvextract")
+            logger.addHandler(self._handler)
+            
+            # Also suppress third-party loggers in minimal mode
+            if verbosity == VerbosityLevel.MINIMAL:
+                self._suppress_third_party_loggers()
     
-    def _write_to_console(self, level: str, message: str) -> None:
+    def _suppress_third_party_loggers(self) -> None:
+        """Suppress third-party library loggers."""
+        third_party_loggers = [
+            'openai',
+            'httpx',
+            'httpcore',
+            'requests',
+            'urllib3',
+        ]
+        
+        for logger_name in third_party_loggers:
+            logger = logging.getLogger(logger_name)
+            logger.setLevel(logging.CRITICAL + 1)  # Effectively silence
+    
+    @contextmanager
+    def file_context(self, file_path: Path):
         """
-        Write a message directly to the console.
+        Context manager for processing a file.
+        
+        All output emitted within this context is associated with the file
+        and buffered if buffering is enabled.
         
         Args:
-            level: Log level
-            message: Formatted message
+            file_path: Path of the file being processed
         """
-        # Use logging to maintain consistent format
-        logger = logging.getLogger("cvextract")
-        level_lower = level.lower()
+        if self._handler:
+            self._handler.set_current_file(file_path)
         
-        if level_lower == 'debug':
-            logger.debug(message)
-        elif level_lower == 'info':
-            logger.info(message)
-        elif level_lower == 'warning':
-            logger.warning(message)
-        elif level_lower == 'error':
-            logger.error(message)
+        try:
+            yield
+        finally:
+            if self._handler:
+                self._handler.set_current_file(None)
+    
+    def flush_file(self, file_path: Path, summary_line: str) -> None:
+        """
+        Flush buffered output for a file atomically.
+        
+        Args:
+            file_path: Path of the file to flush
+            summary_line: One-line summary to output
+        """
+        if self._handler:
+            self._handler.flush_file(file_path, summary_line)
         else:
-            logger.info(message)
+            # No buffering, just print summary
+            print(summary_line, flush=True)
     
     def direct_print(self, message: str) -> None:
         """
@@ -294,22 +304,7 @@ def suppress_third_party_output(verbosity: VerbosityLevel):
         
         # Redirect to null
         sys.stdout = io.StringIO()
-        sys.stderr = io.StringIO()
-        
-        # Suppress third-party library loggers
-        third_party_loggers = [
-            'openai',
-            'httpx',
-            'httpcore',
-            'requests',
-            'urllib3',
-        ]
-        
-        original_levels = {}
-        for logger_name in third_party_loggers:
-            logger = logging.getLogger(logger_name)
-            original_levels[logger_name] = logger.level
-            logger.setLevel(logging.CRITICAL + 1)  # Effectively silence
+        sys.stderr = original_stderr
         
         try:
             yield
@@ -317,10 +312,6 @@ def suppress_third_party_output(verbosity: VerbosityLevel):
             # Restore stdout/stderr
             sys.stdout = original_stdout
             sys.stderr = original_stderr
-            
-            # Restore logger levels
-            for logger_name, level in original_levels.items():
-                logging.getLogger(logger_name).setLevel(level)
     else:
         # In verbose/debug mode, allow third-party output
         yield
