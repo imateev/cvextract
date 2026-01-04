@@ -182,6 +182,13 @@ class OutputController:
                 if isinstance(handler, logging.StreamHandler) and handler.stream in (sys.stdout, sys.stderr):
                     logger.removeHandler(handler)
                     self._removed_console_handlers.append(handler)
+
+            # Remove root console handlers to prevent propagation bypassing buffering.
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers[:]:
+                if isinstance(handler, logging.StreamHandler) and handler.stream in (sys.stdout, sys.stderr):
+                    root_logger.removeHandler(handler)
+                    self._removed_console_handlers.append(handler)
             
             # Install buffering handler
             logger.addHandler(self._handler)
