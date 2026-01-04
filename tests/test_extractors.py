@@ -45,12 +45,38 @@ class TestDocxCVExtractor:
         with pytest.raises(ValueError, match="must be a .docx file"):
             extractor.extract(txt_file)
 
-    def test_extract_returns_dict_with_required_keys(self, tmp_path):
+    def test_extract_returns_dict_with_required_keys(self, tmp_path, monkeypatch):
         """extract() returns a dictionary with identity, sidebar, overview, experiences."""
-        # This test requires a valid DOCX file fixture
-        # For now, we'll just verify the structure with a mock
-        # In a real scenario, you'd have a test DOCX file
-        pass
+        from cvextract.extractors import docx_extractor
+
+        docx_path = tmp_path / "test.docx"
+        docx_path.write_text("test")
+
+        monkeypatch.setattr(docx_extractor, "parse_cv_from_docx_body", lambda _: ("overview", [{"heading": "Job"}]))
+        monkeypatch.setattr(docx_extractor, "extract_all_header_paragraphs", lambda _: ["header"])
+
+        class FakeIdentity:
+            def as_dict(self):
+                return {
+                    "title": "Engineer",
+                    "full_name": "Test User",
+                    "first_name": "Test",
+                    "last_name": "User",
+                }
+
+        monkeypatch.setattr(
+            docx_extractor,
+            "split_identity_and_sidebar",
+            lambda _: (FakeIdentity(), {"languages": ["English"]}),
+        )
+
+        extractor = DocxCVExtractor()
+        result = extractor.extract(docx_path)
+
+        assert set(result.keys()) == {"identity", "sidebar", "overview", "experiences"}
+        assert result["identity"]["full_name"] == "Test User"
+        assert result["overview"] == "overview"
+        assert result["experiences"] == [{"heading": "Job"}]
 
     def test_docx_extractor_implements_cv_extractor(self):
         """DocxCVExtractor properly implements CVExtractor interface."""
