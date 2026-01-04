@@ -316,11 +316,13 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         api_key: Optional[str] = None,
         *,
         retry_config: Optional[_RetryConfig] = None,
+        request_timeout_s: float = 60.0,
         _sleep: Callable[[float], None] = time.sleep,
     ):
         self._model = model
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self._retry = retry_config or _RetryConfig()
+        self._request_timeout_s = float(request_timeout_s)
         self._sleep = _sleep
 
     def name(self) -> str:
@@ -392,6 +394,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                         {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
                     ],
                     temperature=0.2,
+                    timeout=self._request_timeout_s,
                 ),
                 is_write=True,
                 op_name="Job-specific adjust completion",
@@ -401,10 +404,19 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             return cv_data
 
         content = None
+        finish_reason = None
         try:
-            content = completion.choices[0].message.content if completion.choices else None
+            if completion.choices:
+                choice = completion.choices[0]
+                finish_reason = getattr(choice, "finish_reason", None)
+                content = choice.message.content
         except Exception:
             content = None
+            finish_reason = None
+
+        if isinstance(finish_reason, str) and finish_reason != "stop":
+            LOG.warning("Job-specific adjust: completion not finished (%s); using original JSON.", finish_reason)
+            return cv_data
 
         if not content:
             LOG.warning("Job-specific adjust: empty completion; using original JSON.")

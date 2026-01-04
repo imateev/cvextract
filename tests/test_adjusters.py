@@ -1874,6 +1874,65 @@ class TestCompanyResearchRetryHelpers:
         retryer._sleep_with_backoff(0, is_write=False, exc=exc)
         mock_sleep.assert_called_once_with(1.5)
 
+    def test_sleep_with_backoff_deterministic_write_multiplier(self):
+        """_sleep_with_backoff() applies write multiplier without jitter."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+
+        mock_sleep = MagicMock()
+        retryer = _OpenAIRetry(
+            retry=_RetryConfig(base_delay_s=1.0, max_delay_s=10.0, write_multiplier=2.0, deterministic=True),
+            sleep=mock_sleep,
+        )
+        exc = Exception("Rate limited")
+        exc.status_code = 429
+
+        retryer._sleep_with_backoff(0, is_write=True, exc=exc)
+        mock_sleep.assert_called_once_with(2.0)
+
+    def test_get_retry_after_with_missing_headers(self):
+        """_get_retry_after_s() returns None when headers are missing."""
+        from cvextract.adjusters.openai_company_research_adjuster import _OpenAIRetry, _RetryConfig
+
+        exc = Exception("No headers")
+        retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda _: None)
+        assert retryer._get_retry_after_s(exc) is None
+
+
+class TestCompanyResearchSchemaLoading:
+    """Tests for research schema loading edge cases."""
+
+    def test_load_research_schema_missing_path(self):
+        """_load_research_schema() returns None when schema path is missing."""
+        import cvextract.adjusters.openai_company_research_adjuster as adj_module
+
+        original_schema_path = adj_module._SCHEMA_PATH
+        original_cache = adj_module._RESEARCH_SCHEMA
+        try:
+            adj_module._SCHEMA_PATH = None
+            adj_module._RESEARCH_SCHEMA = None
+            assert adj_module._load_research_schema() is None
+        finally:
+            adj_module._SCHEMA_PATH = original_schema_path
+            adj_module._RESEARCH_SCHEMA = original_cache
+
+    def test_load_research_schema_open_failure(self, tmp_path):
+        """_load_research_schema() returns None when open fails."""
+        import cvextract.adjusters.openai_company_research_adjuster as adj_module
+
+        schema_path = tmp_path / "research_schema.json"
+        schema_path.write_text("{bad json")
+
+        original_schema_path = adj_module._SCHEMA_PATH
+        original_cache = adj_module._RESEARCH_SCHEMA
+        try:
+            adj_module._SCHEMA_PATH = schema_path
+            adj_module._RESEARCH_SCHEMA = None
+            with patch("cvextract.adjusters.openai_company_research_adjuster.open", side_effect=OSError("nope")):
+                assert adj_module._load_research_schema() is None
+        finally:
+            adj_module._SCHEMA_PATH = original_schema_path
+            adj_module._RESEARCH_SCHEMA = original_cache
+
 
 class TestResearchCompanyProfileCache:
     """Tests for _research_company_profile cache behavior."""
@@ -1924,6 +1983,170 @@ class TestResearchCompanyProfileCache:
 
         assert result == research_data
         assert json.loads(cache_path.read_text(encoding="utf-8")) == research_data
+
+
+class TestResearchCompanyProfileFailures:
+    """Tests for failure paths in _research_company_profile."""
+
+    def test_research_company_profile_skips_when_openai_missing(self):
+        """_research_company_profile() returns None when OpenAI is unavailable."""
+        import cvextract.adjusters.openai_company_research_adjuster as adj_module
+
+        original_openai = adj_module.OpenAI
+        try:
+            adj_module.OpenAI = None
+            result = adj_module._research_company_profile(
+                "https://example.com",
+                "test-key",
+                "gpt-4o-mini",
+                None,
+            )
+            assert result is None
+        finally:
+            adj_module.OpenAI = original_openai
+
+    def test_research_company_profile_skips_when_schema_missing(self):
+        """_research_company_profile() returns None when schema is missing."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value=None):
+            result = _research_company_profile(
+                "https://example.com",
+                "test-key",
+                "gpt-4o-mini",
+                None,
+            )
+            assert result is None
+
+    def test_research_company_profile_skips_when_prompt_missing(self):
+        """_research_company_profile() returns None when prompt template is missing."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
+            with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value=None):
+                result = _research_company_profile(
+                    "https://example.com",
+                    "test-key",
+                    "gpt-4o-mini",
+                    None,
+                )
+                assert result is None
+
+    def test_research_company_profile_empty_completion(self):
+        """_research_company_profile() returns None when completion is empty."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        mock_completion = MagicMock()
+        mock_completion.choices = []
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI', return_value=mock_client):
+            with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
+                with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value="prompt"):
+                    result = _research_company_profile(
+                        "https://example.com",
+                        "test-key",
+                        "gpt-4o-mini",
+                        None,
+                    )
+                    assert result is None
+
+    def test_research_company_profile_invalid_json(self):
+        """_research_company_profile() returns None when JSON parsing fails."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content="not json"))]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI', return_value=mock_client):
+            with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
+                with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value="prompt"):
+                    result = _research_company_profile(
+                        "https://example.com",
+                        "test-key",
+                        "gpt-4o-mini",
+                        None,
+                    )
+                    assert result is None
+
+    def test_research_company_profile_validation_failure(self):
+        """_research_company_profile() returns None when validation fails."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content='{"name": "Bad Co"}'))]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI', return_value=mock_client):
+            with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
+                with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value="prompt"):
+                    with patch('cvextract.adjusters.openai_company_research_adjuster._validate_research_data', return_value=False):
+                        result = _research_company_profile(
+                            "https://example.com",
+                            "test-key",
+                            "gpt-4o-mini",
+                            None,
+                        )
+                        assert result is None
+
+    def test_research_company_profile_non_stop_finish_reason(self):
+        """_research_company_profile() returns None when finish_reason is non-stop."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "length"
+        mock_choice.message = MagicMock(content='{"name": "Long Co"}')
+
+        mock_completion = MagicMock()
+        mock_completion.choices = [mock_choice]
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI', return_value=mock_client):
+            with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
+                with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value="prompt"):
+                    result = _research_company_profile(
+                        "https://example.com",
+                        "test-key",
+                        "gpt-4o-mini",
+                        None,
+                    )
+                    assert result is None
+
+    def test_research_company_profile_passes_timeout(self):
+        """_research_company_profile() passes request timeout to OpenAI."""
+        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message = MagicMock(content='{"name": "Timeout Co"}')
+
+        mock_completion = MagicMock()
+        mock_completion.choices = [mock_choice]
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+
+        with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI', return_value=mock_client):
+            with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
+                with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value="prompt"):
+                    with patch('cvextract.adjusters.openai_company_research_adjuster._validate_research_data', return_value=True):
+                        result = _research_company_profile(
+                            "https://example.com",
+                            "test-key",
+                            "gpt-4o-mini",
+                            None,
+                            request_timeout_s=12.5,
+                        )
+                        assert result == {"name": "Timeout Co"}
+
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        assert call_kwargs["timeout"] == 12.5
 
 
 class TestStripMarkdownFencesJobSpecific:
