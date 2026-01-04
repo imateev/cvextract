@@ -1283,8 +1283,6 @@ class TestOpenAIJobSpecificAdjuster:
         assert mock_client.chat.completions.create.call_count == 3
         # Sleep should have been called twice (once after each failure)
         assert mock_sleep.call_count == 2
-        # Should have called create 3 times (2 failures, 1 success)
-        assert mock_client.chat.completions.create.call_count == 3
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
