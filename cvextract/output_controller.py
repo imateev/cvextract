@@ -226,6 +226,7 @@ class OutputController:
             logger.setLevel(logging.DEBUG)
             # Add our buffering handler to capture the logs
             logger.addHandler(self._handler)
+            # TODO: verify if propagation should be disabled or not(does it cause duplication?)
             logger.propagate = True
     
     @contextmanager

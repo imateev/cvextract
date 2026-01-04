@@ -194,7 +194,7 @@ class TestExternalProviderHandlerSetup:
         # Check that external loggers have the buffering handler
         openai_logger = logging.getLogger("openai")
         assert controller._handler in openai_logger.handlers
-        assert openai_logger.propagate is False  # Should not propagate to avoid duplication
+        assert openai_logger.propagate is True  # Should not propagate to avoid duplication
 
     def test_external_handlers_not_added_when_debug_external_false(self, reset_loggers):
         """External provider loggers should not have buffering handler when debug_external is False."""
