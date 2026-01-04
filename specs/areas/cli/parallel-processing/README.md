@@ -11,21 +11,30 @@ Parallel processing enables multi-worker concurrent file processing for high-thr
 ## Description
 
 Features:
-1. **Multi-Worker**: Uses Python `multiprocessing` to process files concurrently
-2. **Worker Pools**: Configurable number of worker processes (`n=<count>`)
-3. **Pre-Research**: Optional company research before parallel execution
-4. **Independent Workers**: Each worker processes files independently
-5. **Progress Tracking**: Real-time progress and error reporting
+1. **Multi-Worker**: Uses Python `ThreadPoolExecutor` to process files concurrently
+2. **Worker Pools**: Configurable number of worker threads (`n=<count>`)
+3. **File Type Selection**: Configurable file pattern matching (`file-type=<pattern>`)
+4. **Progress Indicator**: Real-time progress display with completion percentage (e.g., `[5/20 | 25%]`)
+5. **Pre-Research**: Optional company research before parallel execution
+6. **Independent Workers**: Each worker processes files independently
+7. **Clean Logging**: One concise line per completed file in parallel mode
 
 ## Entry Points
 
 ### CLI Usage
 
 ```bash
-# Parallel extraction (10 workers)
+# Parallel extraction (10 workers, default .docx files)
 python -m cvextract.cli \
   --parallel source=/path/to/cv_folder n=10 \
   --extract \
+  --target output/
+
+# Parallel extraction of text files using OpenAI extractor
+export OPENAI_API_KEY="sk-proj-..."
+python -m cvextract.cli \
+  --parallel source=/path/to/text_cvs n=10 file-type=*.txt \
+  --extract name=openai-extractor \
   --target output/
 
 # Parallel extract + adjust + apply (20 workers)
@@ -43,7 +52,8 @@ python -m cvextract.cli \
 ### Parameters
 
 - **`source=<dir>`**: Directory containing input files (required)
-- **`n=<count>`**: Number of worker processes (required, e.g., `n=10`)
+- **`n=<count>`**: Number of worker threads (required, e.g., `n=10`)
+- **`file-type=<pattern>`**: File pattern to match (optional, defaults to `*.docx`, e.g., `file-type=*.txt`)
 
 ### Worker Configuration
 
@@ -82,8 +92,22 @@ def _worker_process_file(args):
 
 ```python
 # In execute_parallel_pipeline
-with multiprocessing.Pool(processes=num_workers) as pool:
-    results = pool.map(_worker_process_file, worker_args)
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+with ThreadPoolExecutor(max_workers=n_workers) as executor:
+    # Submit all tasks
+    future_to_file = {
+        executor.submit(process_single_file_wrapper, file_path, config): file_path
+        for file_path in files
+    }
+    
+    # Process results as they complete with progress tracking
+    for completed_count, future in enumerate(as_completed(future_to_file), 1):
+        file_path = future_to_file[future]
+        progress_pct = int((completed_count / total_files) * 100)
+        progress_str = f"[{completed_count}/{total_files} | {progress_pct}%]"
+        # Log with progress indicator
+        LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
 ```
 
 ## Dependencies
@@ -96,7 +120,7 @@ with multiprocessing.Pool(processes=num_workers) as pool:
 
 ### External Dependencies
 
-- `multiprocessing` - Process pool management
+- `concurrent.futures.ThreadPoolExecutor` - Thread pool management
 
 ### Integration Points
 
@@ -120,9 +144,9 @@ Parallel processing was added to handle large-scale CV migrations (hundreds of c
 
 ## Open Questions
 
-1. **Error Handling**: Should we support partial failure modes (some files succeed)?
+1. **Error Handling**: ✅ Implemented - Partial failure modes supported (some files can fail)
 2. **Resource Limits**: Should we auto-detect optimal worker count?
-3. **Progress UI**: Should we add progress bar or percentage display?
+3. **Progress UI**: ✅ Implemented - Progress indicator shows completion percentage
 4. **Retry**: Should workers retry failed files automatically?
 
 ## Performance Characteristics

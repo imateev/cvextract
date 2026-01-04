@@ -152,7 +152,7 @@ python -m cvextract.cli --extract source=<file> [--adjust ...] [--apply ...] --t
 
 **Batch mode** - Process multiple files in parallel:
 ```bash
-python -m cvextract.cli --parallel source=<dir> n=<num_workers> [--extract] [--adjust ...] [--apply ...] --target <dir> [options]
+python -m cvextract.cli --parallel source=<dir> n=<num_workers> [file-type=<pattern>] [--extract] [--adjust ...] [--apply ...] --target <dir> [options]
 ```
 
 ### Stage Chaining
@@ -215,8 +215,10 @@ python -m cvextract.cli \
 **`--parallel`**: Batch processing mode (alternative to single-file stages)
 - `source=<dir>` - Input directory containing files (required)
 - `n=<num>` - Number of worker processes (required, e.g., `n=10`)
+- `file-type=<pattern>` - File pattern to match (optional, defaults to `*.docx`, e.g., `file-type=*.txt`)
 - When used, stages like `--extract`, `--adjust`, `--apply` still apply but work in parallel
 - Each worker processes files independently using the same stage configuration
+- Displays progress indicator showing completion status (e.g., `[5/20 | 25%]`)
 
 ### Global Options
 
@@ -501,6 +503,20 @@ python -m cvextract.cli \
 
 # Processes all .docx files in /path/to/cv_folder recursively
 # Outputs: /output/structured_data/{preserved_directory_structure}/{filename}.json
+# Shows progress: [1/50 | 2%], [2/50 | 4%], ...
+```
+
+```bash
+# Extract text CVs using OpenAI extractor with custom file type
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --parallel source=/path/to/text_cvs n=10 file-type=*.txt \
+  --extract name=openai-extractor \
+  --target /output
+
+# Processes all .txt files with OpenAI extractor
+# Shows progress indicator: [1/25 | 4%], [2/25 | 8%], ...
 ```
 
 #### Batch Processing - Extract + Apply
