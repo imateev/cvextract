@@ -158,7 +158,6 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 --adjust name=openai-company-research customer-url=https://example.com dry-run
 
 # Global boolean flags
---strict
 --debug
 ```
 

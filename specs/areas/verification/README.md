@@ -46,7 +46,7 @@ VerificationResult(ok, errors, warnings)
 ### Integration Points
 
 - **Pipeline**: Used in `cvextract.pipeline` for extraction and roundtrip validation
-- **CLI**: Results logged and affect exit codes (--strict mode)
+- **CLI**: Results logged and affect exit codes
 
 ## Dependencies
 

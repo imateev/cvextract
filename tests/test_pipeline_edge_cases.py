@@ -55,42 +55,6 @@ class TestCliEdgeCases:
         
         assert rc == 1
 
-    def test_main_strict_mode_with_warnings(self, monkeypatch, tmp_path: Path):
-        """Test that strict mode returns 2 when warnings are present."""
-        import cvextract.cli_execute as cli_execute
-        
-        docx = tmp_path / "a.docx"
-        with zipfile.ZipFile(docx, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        # Mock extract_single to return success with warnings
-        def fake_extract_single(docx_file, out_json, debug, extractor=None):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text('{"identity": {}, "sidebar": {}, "overview": "", "experiences": []}')
-            return True, [], ["warning"]
-        
-        monkeypatch.setattr(cli_execute, "extract_single", fake_extract_single)
-        
-        # Mock render to succeed
-        def fake_render(*args, **kwargs):
-            return True, [], [], True
-        
-        monkeypatch.setattr(cli_execute, "render_and_verify", fake_render)
-        
-        rc = cli.main([
-            "--extract", f"source={docx}",
-            "--apply", f"template={template}",
-            "--target", str(tmp_path / "out"),
-            "--strict"
-        ])
-        
-        # With warnings in strict mode, should return 2
-        assert rc == 2
-
 
 class TestPipelineEdgeCases:
     """Tests for pipeline edge cases."""
