@@ -64,6 +64,7 @@ class OpenAICVExtractor(CVExtractor):
         self,
         model: str = "gpt-4o",
         *,
+        api_key: Optional[str] = None,
         # Polling / rate-limit knobs
         run_timeout_s: float = 180.0,
         # Retry config knobs
@@ -85,12 +86,24 @@ class OpenAICVExtractor(CVExtractor):
             **kwargs: Additional arguments (reserved for future use)
         """
         self.model = model
-        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self._api_key = api_key
+        self._client: Optional[OpenAI] = None
 
         self._run_timeout_s = float(run_timeout_s)
         self._retry = retry_config or _RetryConfig()
         self._sleep = _sleep
         self._time = _time
+
+    @property
+    def client(self) -> OpenAI:
+        if self._client is None:
+            api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                raise RuntimeError(
+                    "OPENAI_API_KEY must be set to use OpenAICVExtractor"
+                )
+            self._client = OpenAI(api_key=api_key)
+        return self._client
 
     def extract(self, file_path: str | Path) -> dict[str, Any]:
         """
