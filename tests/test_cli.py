@@ -151,15 +151,7 @@ class TestStageBasedParsing:
                 "--target", "/path/to/output"
             ])
 
-    def test_parse_with_strict_flag_enables_strict_mode(self):
-        """When --strict flag is provided, strict mode should be enabled."""
-        config = cli.gather_user_requirements([
-            "--extract", "source=/path/to/cvs",
-            "--target", "/path/to/output",
-            "--strict"
-        ])
-        assert config.strict is True
-
+    # Removed: test_parse_with_strict_flag_enables_strict_mode - --strict flag has been removed
     # Removed: test_parse_with_debug_flag_enables_debug_mode - --debug flag has been removed
 
     def test_parse_with_log_file_path_stores_path(self):

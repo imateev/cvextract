@@ -67,7 +67,6 @@ class UserConfig:
     parallel: Optional[ParallelStage] = None
     
     # Execution settings
-    strict: bool = False
     log_file: Optional[str] = None
     verbosity: int = 0  # Verbosity level (0=quiet, 1=normal, 2=verbose)
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)

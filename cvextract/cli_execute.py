@@ -36,7 +36,7 @@ def execute_pipeline(config: UserConfig) -> int:
     Processes a single input file (not multiple files).
     Preserves source directory structure in output paths by default.
     
-    Returns exit code (0 = success, 1 = failure, 2 = strict mode warnings).
+    Returns exit code (0 = success, 1 = failure).
     """
     # Check if parallel mode is enabled
     if config.parallel:
@@ -274,11 +274,6 @@ def execute_pipeline(config: UserConfig) -> int:
             )
     
     # Return exit code
-    if config.strict and combined_warns:
-        if config.verbosity >= 1:
-            LOG.error("Strict mode enabled: warnings treated as failure.")
-        return 2
-    
     if not extract_ok or apply_ok is False:
         return 1
     

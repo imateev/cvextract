@@ -157,8 +157,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 # dry-run flag (no value)
 --adjust name=openai-company-research customer-url=https://example.com dry-run
 
-# Global boolean flags
---strict
+# Global boolean flag for verbosity
 -v  # or --verbose (can be repeated: -vv for verbose mode)
 ```
 

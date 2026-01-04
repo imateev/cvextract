@@ -253,7 +253,6 @@ python -m cvextract.cli \
 
 - `--target <dir>` - Output directory (required unless using `--list`)
 - `--list {adjusters,renderers,extractors}` - List available components and exit
-- `--strict` - Treat warnings as errors (exit code 2)
 - `-v, --verbose` - Increase output verbosity (can be repeated: -v for normal, -vv for verbose)
   - **Default (no flag)**: Minimal output - one line per file in parallel mode
   - **-v**: Normal output with status icons, progress indicators, and summaries
@@ -589,17 +588,6 @@ python -m cvextract.cli \
 ```
 
 #### Error Handling and Logging
-
-```bash
-# Run with strict mode (warnings treated as errors, exit code 2)
-python -m cvextract.cli \
-  --extract source=/path/to/cv.docx \
-  --apply template=/path/to/template.docx \
-  --target /output \
-  --strict
-
-# Exit code: 0 (success), 1 (failures), 2 (warnings in strict mode)
-```
 
 ```bash
 # Run with normal verbosity (status icons and summaries)

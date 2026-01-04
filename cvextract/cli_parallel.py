@@ -143,7 +143,6 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             adjust=config.adjust,
             apply=config.apply,
             parallel=None,  # No nested parallel processing
-            strict=config.strict,
             verbosity=config.verbosity,
             log_file=config.log_file,
             suppress_summary=True,  # Suppress summary in parallel mode
@@ -161,9 +160,6 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
 
         if exit_code == 0:
             return (True, warning_message, exit_code, has_warnings)
-        elif exit_code == 2:
-            message = warning_message or "warnings (strict mode)"
-            return (True, message, exit_code, True)
         else:
             return (False, "pipeline execution failed", exit_code, False)
             
@@ -182,7 +178,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         config: User configuration with parallel settings
     
     Returns:
-        Exit code (0 = all success, 1 = one or more failed, 2 = strict mode warnings)
+        Exit code (0 = all success, 1 = one or more failed)
     """
     if not config.parallel:
         raise ValueError("execute_parallel_pipeline called without parallel configuration")
@@ -310,11 +306,5 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             for failed_file in failed_files:
                 LOG.info("  - %s", failed_file)
     
-    # Return exit code - only fail in strict mode with warnings, not for file failures
-    if config.strict and partial_success_count > 0:
-        if config.verbosity >= 1:
-            LOG.error("Strict mode enabled: warnings treated as failure.")
-        return 2
-    else:
-        # Success even if some files failed (user request)
-        return 0
+    # Return exit code (success even if some files failed - user request)
+    return 0
