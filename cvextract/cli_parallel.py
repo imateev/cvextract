@@ -14,7 +14,7 @@ from typing import List, Tuple, Optional
 
 from .cli_config import UserConfig, ExtractStage
 from .cli_execute import execute_pipeline
-from .logging_utils import LOG
+from .logging_utils import LOG, fmt_issues
 from .adjusters.openai_company_research_adjuster import _url_to_cache_filename, _research_company_profile
 import os
 
@@ -153,11 +153,15 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
         
         # Execute the pipeline for this file
         exit_code = execute_pipeline(file_config)
+        warning_message = ""
+        if file_config.last_warnings:
+            warning_message = fmt_issues([], file_config.last_warnings)
         
         if exit_code == 0:
-            return (True, "", exit_code)
+            return (True, warning_message, exit_code)
         elif exit_code == 2:
-            return (True, "warnings (strict mode)", exit_code)
+            message = warning_message or "warnings (strict mode)"
+            return (True, message, exit_code)
         else:
             return (False, "pipeline execution failed", exit_code)
             
