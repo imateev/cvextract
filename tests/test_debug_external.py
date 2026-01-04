@@ -21,6 +21,45 @@ from cvextract.output_controller import (
 from cvextract.cli_gather import gather_user_requirements
 
 
+@pytest.fixture
+def reset_loggers():
+    """
+    Fixture to reset logger state before and after each test.
+    
+    Ensures tests don't interfere with each other by cleaning up
+    handlers, levels, and propagate settings.
+    """
+    logger_names = ['cvextract', 'openai', 'httpx', 'httpcore', 'urllib3', 'requests']
+    
+    # Save original state
+    original_state = {}
+    for name in logger_names:
+        logger = logging.getLogger(name)
+        original_state[name] = {
+            'handlers': logger.handlers.copy(),
+            'level': logger.level,
+            'propagate': logger.propagate,
+        }
+    
+    # Clear for test
+    for name in logger_names:
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.setLevel(logging.WARNING)  # Reset to reasonable default
+        logger.propagate = True
+    
+    yield
+    
+    # Restore original state
+    for name in logger_names:
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        for handler in original_state[name]['handlers']:
+            logger.addHandler(handler)
+        logger.setLevel(original_state[name]['level'])
+        logger.propagate = original_state[name]['propagate']
+
+
 class TestDebugExternalCLIArgument:
     """Tests for --debug-external CLI argument parsing."""
 
@@ -56,7 +95,7 @@ class TestDebugExternalCLIArgument:
 class TestExternalProviderLogSuppression:
     """Tests for external provider log suppression."""
 
-    def test_external_logs_suppressed_by_default(self):
+    def test_external_logs_suppressed_by_default(self, reset_loggers):
         """External provider loggers should be suppressed by default in parallel mode."""
         controller = OutputController(
             verbosity=VerbosityLevel.MINIMAL,
@@ -71,14 +110,8 @@ class TestExternalProviderLogSuppression:
         httpx_logger = logging.getLogger("httpx")
         assert httpx_logger.level == logging.CRITICAL + 1
 
-    def test_external_logs_not_suppressed_when_debug_external_enabled(self):
+    def test_external_logs_not_suppressed_when_debug_external_enabled(self, reset_loggers):
         """External provider loggers should not be suppressed when debug_external is True."""
-        # Clear any existing handlers on external loggers
-        for logger_name in ['openai', 'httpx', 'httpcore']:
-            logger = logging.getLogger(logger_name)
-            logger.handlers.clear()
-            logger.setLevel(logging.WARNING)  # Reset to default
-        
         controller = OutputController(
             verbosity=VerbosityLevel.DEBUG,
             enable_buffering=True,
@@ -150,14 +183,8 @@ class TestExternalProviderLogSuppression:
 class TestExternalProviderHandlerSetup:
     """Tests for external provider handler setup."""
 
-    def test_external_handlers_added_when_debug_external_true(self):
+    def test_external_handlers_added_when_debug_external_true(self, reset_loggers):
         """External provider loggers should have buffering handler when debug_external is True."""
-        # Clear any existing handlers on external loggers
-        for logger_name in ['openai', 'httpx']:
-            logger = logging.getLogger(logger_name)
-            logger.handlers.clear()
-            logger.propagate = True  # Reset to default
-        
         controller = OutputController(
             verbosity=VerbosityLevel.DEBUG,
             enable_buffering=True,
@@ -169,13 +196,8 @@ class TestExternalProviderHandlerSetup:
         assert controller._handler in openai_logger.handlers
         assert openai_logger.propagate is False  # Should not propagate to avoid duplication
 
-    def test_external_handlers_not_added_when_debug_external_false(self):
+    def test_external_handlers_not_added_when_debug_external_false(self, reset_loggers):
         """External provider loggers should not have buffering handler when debug_external is False."""
-        # Clear any existing handlers on external loggers
-        for logger_name in ['openai', 'httpx']:
-            logger = logging.getLogger(logger_name)
-            logger.handlers.clear()
-        
         controller = OutputController(
             verbosity=VerbosityLevel.DEBUG,
             enable_buffering=True,
@@ -216,14 +238,10 @@ class TestOutputControllerInitialization:
 class TestIntegration:
     """Integration tests for debug_external functionality."""
 
-    def test_external_logs_captured_in_verbose_mode_with_debug_external(self, capsys):
+    def test_external_logs_captured_in_verbose_mode_with_debug_external(self, reset_loggers, capsys):
         """External logs should be captured in verbose mode when debug_external is True."""
-        # Clear any existing handlers
+        # Set cvextract logger level
         logger = logging.getLogger("cvextract")
-        openai_logger = logging.getLogger("openai")
-        logger.handlers.clear()
-        openai_logger.handlers.clear()
-        openai_logger.propagate = True  # Reset
         logger.setLevel(logging.DEBUG)
         
         controller = OutputController(
@@ -233,6 +251,7 @@ class TestIntegration:
         )
         
         test_file = Path("/tmp/test.docx")
+        openai_logger = logging.getLogger("openai")
         
         with controller.file_context(test_file):
             # Simulate external provider log
@@ -245,13 +264,10 @@ class TestIntegration:
         # Should contain the external provider message
         assert "External provider message" in captured.out
 
-    def test_external_logs_not_captured_without_debug_external(self, capsys):
+    def test_external_logs_not_captured_without_debug_external(self, reset_loggers, capsys):
         """External logs should not be captured when debug_external is False."""
-        # Clear any existing handlers
+        # Set cvextract logger level
         logger = logging.getLogger("cvextract")
-        openai_logger = logging.getLogger("openai")
-        logger.handlers.clear()
-        openai_logger.handlers.clear()
         logger.setLevel(logging.DEBUG)
         
         controller = OutputController(
@@ -261,6 +277,7 @@ class TestIntegration:
         )
         
         test_file = Path("/tmp/test.docx")
+        openai_logger = logging.getLogger("openai")
         
         with controller.file_context(test_file):
             # Simulate external provider log (should be suppressed)
