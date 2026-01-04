@@ -67,8 +67,6 @@ class UserConfig:
     parallel: Optional[ParallelStage] = None
     
     # Execution settings
-    strict: bool = False
-    debug: bool = False
     log_file: Optional[str] = None
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
     input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)

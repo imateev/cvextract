@@ -143,8 +143,6 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             adjust=config.adjust,
             apply=config.apply,
             parallel=None,  # No nested parallel processing
-            strict=config.strict,
-            debug=config.debug,
             log_file=config.log_file,
             suppress_summary=True,  # Suppress summary in parallel mode
             suppress_file_logging=True,  # Suppress per-file status logging (we log in parallel wrapper with progress)
@@ -161,16 +159,11 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
 
         if exit_code == 0:
             return (True, warning_message, exit_code, has_warnings)
-        elif exit_code == 2:
-            message = warning_message or "warnings (strict mode)"
-            return (True, message, exit_code, True)
         else:
             return (False, "pipeline execution failed", exit_code, False)
             
     except Exception as e:
         error_msg = str(e)
-        if config.debug:
-            error_msg = traceback.format_exc()
         return (False, error_msg, 1, False)
 
 
@@ -202,8 +195,6 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         files = scan_directory_for_files(input_dir, config.parallel.file_type)
     except Exception as e:
         LOG.error("Failed to scan directory: %s", e)
-        if config.debug:
-            LOG.error(traceback.format_exc())
         return 1
     
     if not files:
@@ -269,8 +260,6 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                     
             except Exception as e:
                 LOG.error("❌ %s %s | Unexpected error: %s", progress_str, file_path.name, str(e))
-                if config.debug:
-                    LOG.error(traceback.format_exc())
                 failed_count += 1
                 failed_files.append(str(file_path))
     
@@ -284,16 +273,5 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     else:
         LOG.info("Completed: %d/%d files succeeded, %d failed", success_count, total_files, failed_count)
     
-    # Only show failed files list in debug mode or log file
-    if failed_files and config.debug:
-        LOG.info("Failed files:")
-        for failed_file in failed_files:
-            LOG.info("  - %s", failed_file)
-    
-    # Return exit code - only fail in strict mode with warnings, not for file failures
-    if config.strict and partial_success_count > 0:
-        LOG.error("Strict mode enabled: warnings treated as failure.")
-        return 2
-    else:
-        # Success even if some files failed (user request)
-        return 0
+    # Success even if some files failed (user request)
+    return 0

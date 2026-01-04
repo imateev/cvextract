@@ -178,10 +178,6 @@ Examples:
     parser.add_argument("--list", choices=['adjusters', 'renderers', 'extractors'],
                         help="List available components: adjusters, renderers, or extractors")
     parser.add_argument("--target", help="Target output directory (required unless using --list)")
-    parser.add_argument("--strict", action="store_true", 
-                        help="Treat warnings as failure (non-zero exit code).")
-    parser.add_argument("--debug", action="store_true", 
-                        help="Verbose logs + stack traces on failure.")
     parser.add_argument("--log-file", 
                         help="Optional path to a log file. If set, all output is also written there.")
     
@@ -312,7 +308,5 @@ Examples:
         apply=apply_stage,
         parallel=parallel_stage,
         target_dir=Path(args.target),
-        strict=args.strict,
-        debug=args.debug,
         log_file=args.log_file,
     )
