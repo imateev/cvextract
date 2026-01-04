@@ -734,6 +734,22 @@ class TestFileTypeParameter:
 class TestProgressIndicator:
     """Tests for progress indicator in parallel processing."""
     
+    @staticmethod
+    def _extract_progress_indicators(mock_log_info):
+        """
+        Helper to extract progress indicators from mock log calls.
+        
+        Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/5 | 20%]', 'filename.docx')
+        The progress indicator is in args[2].
+        """
+        return [
+            call.args[2] for call in mock_log_info.call_args_list
+            if len(call.args) >= 4 
+            and isinstance(call.args[2], str) 
+            and '[' in call.args[2] 
+            and '/' in call.args[2]
+        ]
+    
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     @patch('cvextract.cli_parallel.LOG.info')
     def test_progress_indicator_shown(self, mock_log_info, mock_process, test_directory: Path, tmp_path: Path):
@@ -755,19 +771,11 @@ class TestProgressIndicator:
         
         assert exit_code == 0
         
-        # Check that progress indicators were logged
-        # Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/5 | 20%]', 'filename.docx')
-        # The progress indicator is in args[2]
-        progress_logs = [
-            call for call in mock_log_info.call_args_list
-            if len(call.args) >= 4 
-            and isinstance(call.args[2], str) 
-            and '[' in call.args[2] 
-            and '/' in call.args[2]
-        ]
+        # Extract progress indicators
+        progress_indicators = self._extract_progress_indicators(mock_log_info)
         
         # Should have 5 progress log entries (one per file)
-        assert len(progress_logs) == 5
+        assert len(progress_indicators) == 5
     
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     @patch('cvextract.cli_parallel.LOG.info')
@@ -796,16 +804,8 @@ class TestProgressIndicator:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0
         
-        # Extract progress indicators from log calls
-        # Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/4 | 25%]', 'filename.docx')
-        # The progress indicator is in args[2]
-        progress_indicators = [
-            call.args[2] for call in mock_log_info.call_args_list
-            if len(call.args) >= 4 
-            and isinstance(call.args[2], str) 
-            and '[' in call.args[2] 
-            and '/' in call.args[2]
-        ]
+        # Extract progress indicators using helper
+        progress_indicators = self._extract_progress_indicators(mock_log_info)
         
         # Verify that we see expected progress indicators
         # With 4 files: [1/4 | 25%], [2/4 | 50%], [3/4 | 75%], [4/4 | 100%]
