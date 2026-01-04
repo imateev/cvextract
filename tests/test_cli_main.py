@@ -18,6 +18,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = None
         mock_config.debug = False
+        mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -43,6 +44,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = "/tmp/test.log"
         mock_config.debug = False
+        mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -71,6 +73,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = None
         mock_config.debug = False
+        mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
         # Make prepare raise an exception
@@ -92,6 +95,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = None
         mock_config.debug = True
+        mock_config.verbosity = 2
         mock_gather.return_value = mock_config
         
         # Make prepare raise an exception
@@ -135,6 +139,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = None
         mock_config.debug = False
+        mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -158,6 +163,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = None
         mock_config.debug = False
+        mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -181,6 +187,7 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_config.log_file = None
         mock_config.debug = False
+        mock_config.verbosity = 0
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()

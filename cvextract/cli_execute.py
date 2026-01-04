@@ -142,9 +142,10 @@ def execute_pipeline(config: UserConfig) -> int:
         
         # If extraction failed and we need to apply, exit early
         if not extract_ok and config.apply:
-            x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
-            LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
-                     fmt_issues(extract_errs, extract_warns))
+            if config.verbosity >= 1:
+                x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
+                LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
+                         fmt_issues(extract_errs, extract_warns))
             return 1
     else:
         # No extraction, use input JSON directly
@@ -162,11 +163,13 @@ def execute_pipeline(config: UserConfig) -> int:
                 # Add delay between adjusters to avoid rate limiting
                 # (10 seconds gives API time to recover between requests)
                 if idx > 0:
-                    LOG.debug("Waiting 10 seconds before applying next adjuster...")
+                    if config.verbosity >= 2:
+                        LOG.debug("Waiting 10 seconds before applying next adjuster...")
                     time.sleep(10.0)
                 
-                LOG.info("Applying adjuster %d/%d: %s", 
-                        idx + 1, len(config.adjust.adjusters), adjuster_config.name)
+                if config.verbosity >= 1:
+                    LOG.info("Applying adjuster %d/%d: %s", 
+                            idx + 1, len(config.adjust.adjusters), adjuster_config.name)
                 
                 # Get the adjuster instance
                 adjuster = get_adjuster(
@@ -212,7 +215,7 @@ def execute_pipeline(config: UserConfig) -> int:
             render_json = adjusted_json
         except Exception as e:
             # If adjust fails, proceed with original JSON
-            if config.debug:
+            if config.verbosity >= 2:
                 LOG.error("Adjustment failed: %s", traceback.format_exc())
             render_json = out_json
     
@@ -243,12 +246,16 @@ def execute_pipeline(config: UserConfig) -> int:
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
-        LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
-                 fmt_issues(extract_errs, combined_warns))
+        if config.verbosity >= 1:
+            x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
+            LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
+                     fmt_issues(extract_errs, combined_warns))
+        elif config.verbosity == 0:
+            # Quiet mode: just the filename
+            print(input_file.name)
     
     # Log summary (unless suppressed for parallel mode)
-    if not config.suppress_summary:
+    if not config.suppress_summary and config.verbosity >= 1:
         if config.extract and config.apply:
             LOG.info(
                 "📊 Extract+Apply complete. JSON: %s | DOCX: %s",
@@ -267,7 +274,8 @@ def execute_pipeline(config: UserConfig) -> int:
     
     # Return exit code
     if config.strict and combined_warns:
-        LOG.error("Strict mode enabled: warnings treated as failure.")
+        if config.verbosity >= 1:
+            LOG.error("Strict mode enabled: warnings treated as failure.")
         return 2
     
     if not extract_ok or apply_ok is False:
