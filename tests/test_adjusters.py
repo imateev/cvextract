@@ -1168,13 +1168,17 @@ class TestOpenAIJobSpecificAdjuster:
         mock_client.chat.completions.create.side_effect = transient_error
         mock_openai_class.return_value = mock_client
         
-        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        # Use a mock sleep function to avoid actual sleeping
+        mock_sleep = MagicMock()
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", _sleep=mock_sleep)
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == cv_data
         # Should have tried up to max_attempts (default 8)
         assert mock_client.chat.completions.create.call_count == 8
+        # Sleep should have been called for backoff (7 times for 8 attempts)
+        assert mock_sleep.call_count == 7
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1237,8 +1241,7 @@ class TestOpenAIJobSpecificAdjuster:
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
-    @patch('cvextract.adjusters.openai_job_specific_adjuster.time')
-    def test_adjust_with_retry_backoff_sleep(self, mock_time, mock_format, mock_openai_class):
+    def test_adjust_with_retry_backoff_sleep(self, mock_format, mock_openai_class):
         """adjust should call sleep during exponential backoff retry."""
         mock_format.return_value = "System prompt"
         
@@ -1264,7 +1267,9 @@ class TestOpenAIJobSpecificAdjuster:
         ]
         mock_openai_class.return_value = mock_client
         
-        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        # Use a mock sleep function to avoid actual sleeping
+        mock_sleep = MagicMock()
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key", _sleep=mock_sleep)
         cv_data = {
             "identity": {"name": "", "title": "", "full_name": "", "first_name": "", "last_name": ""},
             "sidebar": {},
@@ -1274,6 +1279,10 @@ class TestOpenAIJobSpecificAdjuster:
         
         result = adjuster.adjust(cv_data, job_description="Test job")
         assert result == adjusted_cv, f"Expected adjusted CV, got {result}"
+        # Should have called create 3 times (2 failures, 1 success)
+        assert mock_client.chat.completions.create.call_count == 3
+        # Sleep should have been called twice (once after each failure)
+        assert mock_sleep.call_count == 2
         # Should have called create 3 times (2 failures, 1 success)
         assert mock_client.chat.completions.create.call_count == 3
     
