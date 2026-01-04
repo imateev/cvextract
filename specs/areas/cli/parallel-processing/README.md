@@ -18,6 +18,7 @@ Features:
 5. **Pre-Research**: Optional company research before parallel execution
 6. **Independent Workers**: Each worker processes files independently
 7. **Clean Logging**: One concise line per completed file in parallel mode
+8. **External Provider Log Control**: Optional capture of third-party library logs via `--debug-external`
 
 ## Entry Points
 
@@ -45,6 +46,15 @@ python -m cvextract.cli \
   --adjust name=openai-company-research customer-url=https://target-company.com \
   --apply template=template.docx \
   --target output/
+
+# Parallel with external provider logging for debugging API interactions
+export OPENAI_API_KEY="sk-proj-..."
+python -m cvextract.cli \
+  --parallel source=/path/to/cvs n=10 \
+  --extract name=openai-extractor \
+  --target output/ \
+  --verbosity verbose \
+  --debug-external
 ```
 
 ## Configuration
@@ -54,6 +64,16 @@ python -m cvextract.cli \
 - **`source=<dir>`**: Directory containing input files (required)
 - **`n=<count>`**: Number of worker threads (required, e.g., `n=10`)
 - **`file-type=<pattern>`**: File pattern to match (optional, defaults to `*.docx`, e.g., `file-type=*.txt`)
+
+### Global Flags
+
+- **`--verbosity {minimal,verbose,debug}`**: Output verbosity level (default: minimal)
+- **`--debug-external`**: Capture external provider logs (OpenAI, httpx, etc.) in parallel mode
+  - By default, external provider logs are suppressed to ensure deterministic output
+  - When enabled, logs are routed through buffered output controller and grouped per file
+  - Only affects parallel mode; has no effect in single-file mode
+- **`--debug`**: Enable application debug logging with stack traces
+- **`--log-file <path>`**: Write all output to persistent log file
 
 ### Worker Configuration
 
@@ -128,11 +148,57 @@ with ThreadPoolExecutor(max_workers=n_workers) as executor:
 - Uses same pipeline as single-file mode
 - Integrates with all stages (extract, adjust, apply)
 
+## Logging Behavior
+
+### Default Behavior (No --debug-external)
+
+In parallel mode, external provider logs (e.g., OpenAI SDK, httpx, httpcore, urllib3, requests) are **suppressed by default** to ensure:
+- **Deterministic output**: No interleaved or duplicate logs
+- **Clean console**: One line per file with status icons
+- **Predictable behavior**: Same output format regardless of third-party library verbosity
+
+This suppression is intentional and by design. Application logs (from cvextract) are still captured and displayed according to verbosity settings.
+
+### With --debug-external Flag
+
+When `--debug-external` is enabled:
+1. External provider loggers are configured to route through the buffered output controller
+2. Logs are captured per-file and grouped with application logs
+3. Output remains deterministic and atomic (no interleaving)
+4. External logs appear in the per-file output block based on verbosity level:
+   - `minimal`: External logs suppressed
+   - `verbose`: External INFO and above
+   - `debug`: All external logs including DEBUG
+
+**Use Cases for --debug-external**:
+- Troubleshooting API authentication issues
+- Debugging HTTP request/response patterns
+- Investigating rate limiting or timeout errors
+- Understanding OpenAI SDK behavior
+
+**Not Recommended For**:
+- Production batch processing (excessive noise)
+- Normal operation (default suppression is optimal)
+
+### Log Routing Architecture
+
+```python
+# Default (debug_external=False)
+openai.logger -> CRITICAL+1 (suppressed)
+httpx.logger -> CRITICAL+1 (suppressed)
+
+# With --debug-external (debug_external=True)
+openai.logger -> BufferingLogHandler -> per-file buffer -> atomic flush
+httpx.logger -> BufferingLogHandler -> per-file buffer -> atomic flush
+cvextract.logger -> BufferingLogHandler -> per-file buffer -> atomic flush
+```
+
 ## Test Coverage
 
 Tested in:
 - `tests/test_cli_parallel.py` - Parallel execution tests
 - `tests/test_pipeline.py` - Multi-file integration tests
+- `tests/test_debug_external.py` - External provider log capture tests
 
 ## Implementation History
 
@@ -141,6 +207,10 @@ Parallel processing was added to handle large-scale CV migrations (hundreds of c
 **Key Files**:
 - `cvextract/cli_parallel.py` - Parallel execution implementation
 - `cvextract/cli_execute.py` - Single-file execution (reused by workers)
+- `cvextract/output_controller.py` - Buffered output and external log control
+
+**Recent Updates**:
+- **v0.6.1+**: Added `--debug-external` flag for opt-in external provider log capture
 
 ## Open Questions
 
