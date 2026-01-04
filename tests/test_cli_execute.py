@@ -76,7 +76,6 @@ class TestExecutePipelineNoInput:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -100,7 +99,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -119,7 +117,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -129,8 +126,8 @@ class TestExecutePipelineExtractOnly:
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
-    def test_extract_with_warnings_strict_mode(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
-        """Test extraction with warnings in strict mode returns 2."""
+    def test_extract_with_warnings_returns_zero(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
+        """Test extraction with warnings returns 0 (success)."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], ["warning"])
 
@@ -139,13 +136,12 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=True,
             debug=False,
             log_file=None
         )
 
         exit_code = execute_pipeline(config)
-        assert exit_code == 2
+        assert exit_code == 0
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
@@ -159,7 +155,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -177,7 +172,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -195,7 +189,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -216,7 +209,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -246,7 +238,6 @@ class TestExecutePipelineExtractApply:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -270,7 +261,6 @@ class TestExecutePipelineExtractApply:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -283,9 +273,9 @@ class TestExecutePipelineExtractApply:
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')
     @patch('cvextract.cli_execute.render_and_verify')
-    def test_extract_apply_both_warnings_strict(self, mock_render, mock_extract, mock_collect,
+    def test_extract_apply_both_warnings_returns_zero(self, mock_render, mock_extract, mock_collect,
                                                  tmp_path: Path, mock_docx: Path, mock_template: Path):
-        """Test extract + apply with warnings in strict mode."""
+        """Test extract + apply with warnings returns 0 (success)."""
         mock_collect.return_value = [mock_docx]
         mock_extract.return_value = (True, [], ["extract warning"])
         mock_render.return_value = (True, [], ["apply warning"], True)
@@ -295,13 +285,12 @@ class TestExecutePipelineExtractApply:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=True,
             debug=False,
             log_file=None
         )
 
         exit_code = execute_pipeline(config)
-        assert exit_code == 2
+        assert exit_code == 0
 
 
 class TestExecutePipelineApplyOnly:
@@ -320,7 +309,6 @@ class TestExecutePipelineApplyOnly:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=mock_json, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -343,7 +331,6 @@ class TestExecutePipelineApplyOnly:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=mock_json, output=custom_output),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -397,7 +384,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -444,7 +430,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -482,7 +467,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -523,7 +507,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -578,7 +561,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -603,7 +585,6 @@ class TestExecutePipelineDirectoryRejection:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -627,7 +608,6 @@ class TestExecutePipelineDirectoryRejection:
             adjust=None,
             apply=ApplyStage(template=template, data=json_dir, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -649,7 +629,6 @@ class TestExecutePipelineDebugMode:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=True,
             log_file=None
         )
@@ -686,7 +665,6 @@ class TestExecutePipelineDebugMode:
             ),
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=True,
             log_file=None
         )
@@ -708,7 +686,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -732,7 +709,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
             adjust=None,
             apply=ApplyStage(template=template, data=txt_file, output=None),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -762,7 +738,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "output",
-            strict=False,
             debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root  # Mirror how parallel mode seeds rel_path
@@ -818,7 +793,6 @@ class TestFolderStructurePreservation:
             ),
             apply=None,
             target_dir=tmp_path / "output",
-            strict=False,
             debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root
@@ -854,7 +828,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "output",
-            strict=False,
             debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root
@@ -890,7 +863,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "output",
-            strict=False,
             debug=False,
             log_file=None,
             input_dir=None  # No input_dir specified, behavior depends on source
@@ -918,7 +890,6 @@ class TestFolderStructurePreservation:
                 adjust=None,
                 apply=None,
                 target_dir=tmp_path / "output",
-                strict=False,
                 debug=False,
                 log_file=None,
                 parallel=True  # Enable parallel mode
@@ -944,7 +915,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "output",
-            strict=False,
             debug=False,
             log_file=None,
             input_dir=tmp_path / "other_dir"  # Different from the file's parent

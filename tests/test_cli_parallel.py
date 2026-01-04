@@ -113,7 +113,6 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -128,8 +127,13 @@ class TestProcessSingleFileWrapper:
     
     @patch('cvextract.cli_parallel.execute_pipeline')
     def test_process_single_file_with_warnings(self, mock_execute, tmp_path: Path, mock_docx: Path):
-        """Test processing file with warnings (exit code 2)."""
-        mock_execute.return_value = 2
+        """Test processing file with warnings (exit code 0, but has_warnings set)."""
+        # Simulate execute_pipeline returning 0 (success) with warnings stored in config
+        def mock_execute_fn(config):
+            config.last_warnings = ["warning message"]
+            return 0
+        
+        mock_execute.side_effect = mock_execute_fn
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -137,7 +141,6 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -145,8 +148,7 @@ class TestProcessSingleFileWrapper:
         success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
         
         assert success
-        assert "warnings" in message.lower()
-        assert exit_code == 2
+        assert exit_code == 0
         assert has_warnings
     
     @patch('cvextract.cli_parallel.execute_pipeline')
@@ -160,7 +162,6 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -183,7 +184,6 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -210,7 +210,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -239,7 +238,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -258,7 +256,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=None,  # No parallel config
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -274,7 +271,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=tmp_path / "does_not_exist", n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -293,7 +289,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=empty_dir, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -312,7 +307,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=not_dir, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -334,7 +328,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=True,
             log_file=None
         )
@@ -368,7 +361,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -380,9 +372,9 @@ class TestExecuteParallelPipeline:
         mock_research.assert_called_once_with(config)
     
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_strict_mode_with_warnings(self, mock_process, tmp_path: Path, test_directory: Path):
-        """Test parallel pipeline in strict mode with warnings returns exit code 2."""
-        mock_process.return_value = (True, "warnings (strict mode)", 2, True)
+    def test_parallel_pipeline_with_warnings_returns_zero(self, mock_process, tmp_path: Path, test_directory: Path):
+        """Test parallel pipeline with warnings returns exit code 0."""
+        mock_process.return_value = (True, "warnings", 0, True)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -390,14 +382,13 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=True,  # Strict mode enabled
             debug=False,
             log_file=None
         )
         
         exit_code = execute_parallel_pipeline(config)
         
-        assert exit_code == 2  # Strict mode with warnings
+        assert exit_code == 0  # Warnings no longer affect exit code
     
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_partial_success(self, mock_process, tmp_path: Path, test_directory: Path):
@@ -405,10 +396,10 @@ class TestExecuteParallelPipeline:
         # Mix of full success, partial success (warnings), and failures
         mock_process.side_effect = [
             (True, "", 0, False),  # Full success
-            (True, "warnings (strict mode)", 2, True),  # Partial success
+            (True, "warnings", 0, True),  # Partial success
             (False, "Error", 1, False),  # Failure
             (True, "", 0, False),  # Full success
-            (True, "warnings", 2, True),  # Partial success
+            (True, "warnings", 0, True),  # Partial success
         ]
         
         config = UserConfig(
@@ -417,7 +408,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -440,7 +430,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=True,
             log_file=None
         )
@@ -465,7 +454,6 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=True,
             log_file=None
         )
@@ -500,7 +488,6 @@ class TestPerformUpfrontResearch:
             apply=None,
             parallel=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -519,7 +506,6 @@ class TestPerformUpfrontResearch:
             apply=None,
             parallel=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -545,7 +531,6 @@ class TestPerformUpfrontResearch:
             apply=None,
             parallel=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -574,7 +559,6 @@ class TestPerformUpfrontResearch:
             apply=None,
             parallel=None,
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -675,7 +659,6 @@ class TestFileTypeParameter:
             apply=None,
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -697,7 +680,6 @@ class TestFileTypeParameter:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),  # No file_type specified
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -724,7 +706,6 @@ class TestFileTypeParameter:
             apply=None,
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -766,7 +747,6 @@ class TestProgressIndicator:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
@@ -800,7 +780,6 @@ class TestProgressIndicator:
             apply=None,
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
-            strict=False,
             debug=False,
             log_file=None
         )
