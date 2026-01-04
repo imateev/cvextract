@@ -50,6 +50,7 @@ class ParallelStage:
     """Configuration for the parallel processing stage."""
     source: Path  # Input directory to scan recursively
     n: int = 1  # Number of parallel workers (default=1)
+    file_type: str = "*.docx"  # File pattern to match (default=*.docx)
 
 
 @dataclass
@@ -71,6 +72,7 @@ class UserConfig:
     log_file: Optional[str] = None
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
     input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)
+    suppress_file_logging: bool = False  # Suppress individual file logging (used in parallel mode)
     
     @property
     def has_extract(self) -> bool:

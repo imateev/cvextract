@@ -317,7 +317,7 @@ class TestExecuteParallelPipeline:
         assert exit_code == 1
 
     @patch('cvextract.cli_parallel.LOG.error')
-    @patch('cvextract.cli_parallel.scan_directory_for_docx')
+    @patch('cvextract.cli_parallel.scan_directory_for_files')
     def test_parallel_pipeline_scan_directory_failure_debug_logs(self, mock_scan, mock_log_error, tmp_path: Path):
         """Scan failures should log details and return error when debug enabled."""
         mock_scan.side_effect = RuntimeError("scan failed")
@@ -337,7 +337,7 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
-        mock_scan.assert_called_once_with(input_dir)
+        mock_scan.assert_called_once_with(input_dir, "*.docx")
         # One log for the failure message and one for the traceback
         assert mock_log_error.call_count == 2
         assert "Failed to scan directory" in mock_log_error.call_args_list[0][0][0]
@@ -577,3 +577,237 @@ class TestPerformUpfrontResearch:
         
         cache_path = _perform_upfront_research(config)
         assert cache_path is None
+
+
+class TestScanDirectoryForFiles:
+    """Tests for scan_directory_for_files function - new generic version."""
+    
+    def test_scan_directory_for_docx_files(self, test_directory: Path):
+        """Test scanning directory for .docx files using generic function."""
+        from cvextract.cli_parallel import scan_directory_for_files
+        
+        files = scan_directory_for_files(test_directory, "*.docx")
+        
+        # Should find 5 files (3 in root, 2 in subdir, ignore temp)
+        assert len(files) == 5
+        assert all(f.suffix == ".docx" for f in files)
+    
+    def test_scan_directory_for_txt_files(self, tmp_path: Path):
+        """Test scanning directory for .txt files."""
+        from cvextract.cli_parallel import scan_directory_for_files
+        
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        # Create some TXT files
+        for i in range(3):
+            txt_file = input_dir / f"cv{i}.txt"
+            txt_file.write_text(f"CV content {i}")
+        
+        files = scan_directory_for_files(input_dir, "*.txt")
+        
+        assert len(files) == 3
+        assert all(f.suffix == ".txt" for f in files)
+    
+    def test_scan_directory_for_pdf_files(self, tmp_path: Path):
+        """Test scanning directory for .pdf files."""
+        from cvextract.cli_parallel import scan_directory_for_files
+        
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        # Create some PDF files (just empty for testing)
+        for i in range(2):
+            pdf_file = input_dir / f"cv{i}.pdf"
+            pdf_file.write_bytes(b"PDF content")
+        
+        files = scan_directory_for_files(input_dir, "*.pdf")
+        
+        assert len(files) == 2
+        assert all(f.suffix == ".pdf" for f in files)
+    
+    def test_scan_directory_mixed_file_types(self, tmp_path: Path):
+        """Test that pattern matching is precise."""
+        from cvextract.cli_parallel import scan_directory_for_files
+        
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        # Create mixed file types
+        (input_dir / "cv1.docx").write_bytes(b"docx")
+        (input_dir / "cv2.txt").write_text("txt")
+        (input_dir / "cv3.pdf").write_bytes(b"pdf")
+        
+        # Should only find .txt files
+        txt_files = scan_directory_for_files(input_dir, "*.txt")
+        assert len(txt_files) == 1
+        assert txt_files[0].suffix == ".txt"
+        
+        # Should only find .docx files
+        docx_files = scan_directory_for_files(input_dir, "*.docx")
+        assert len(docx_files) == 1
+        assert docx_files[0].suffix == ".docx"
+
+
+class TestFileTypeParameter:
+    """Tests for the file-type parameter in parallel processing."""
+    
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    def test_parallel_with_custom_file_type(self, mock_process, tmp_path: Path):
+        """Test parallel processing with custom file type."""
+        mock_process.return_value = (True, "", 0)
+        
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        # Create TXT files instead of DOCX
+        for i in range(3):
+            txt_file = input_dir / f"cv{i}.txt"
+            txt_file.write_text(f"CV {i}")
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None, name="openai-extractor"),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        
+        assert exit_code == 0
+        # Should have processed all 3 txt files
+        assert mock_process.call_count == 3
+    
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    def test_parallel_default_file_type(self, mock_process, test_directory: Path, tmp_path: Path):
+        """Test parallel processing uses default *.docx file type."""
+        mock_process.return_value = (True, "", 0)
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(source=test_directory, n=2),  # No file_type specified
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        
+        assert exit_code == 0
+        # Should have processed 5 docx files (default)
+        assert mock_process.call_count == 5
+    
+    def test_parallel_no_matching_files(self, tmp_path: Path):
+        """Test parallel processing when no files match the pattern."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        # Create only .docx files
+        for i in range(2):
+            (input_dir / f"cv{i}.docx").write_bytes(b"docx")
+        
+        # Try to process .txt files
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        
+        # Should return error since no matching files found
+        assert exit_code == 1
+
+
+class TestProgressIndicator:
+    """Tests for progress indicator in parallel processing."""
+    
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    @patch('cvextract.cli_parallel.LOG.info')
+    def test_progress_indicator_shown(self, mock_log_info, mock_process, test_directory: Path, tmp_path: Path):
+        """Test that progress indicator is included in log output."""
+        mock_process.return_value = (True, "", 0)
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(source=test_directory, n=2),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        
+        assert exit_code == 0
+        
+        # Check that progress indicators were logged
+        # Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/5 | 20%]', 'filename.docx')
+        # The progress indicator is in args[2]
+        progress_logs = [
+            call for call in mock_log_info.call_args_list
+            if len(call.args) >= 4 
+            and isinstance(call.args[2], str) 
+            and '[' in call.args[2] 
+            and '/' in call.args[2]
+        ]
+        
+        # Should have 5 progress log entries (one per file)
+        assert len(progress_logs) == 5
+    
+    @patch('cvextract.cli_parallel.process_single_file_wrapper')
+    @patch('cvextract.cli_parallel.LOG.info')
+    def test_progress_percentage_calculated(self, mock_log_info, mock_process, tmp_path: Path):
+        """Test that progress percentage is calculated correctly."""
+        mock_process.return_value = (True, "", 0)
+        
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        
+        # Create exactly 4 files for easy percentage calculation
+        for i in range(4):
+            (input_dir / f"cv{i}.docx").write_bytes(b"docx")
+        
+        config = UserConfig(
+            extract=ExtractStage(source=Path('.'), output=None),
+            adjust=None,
+            apply=None,
+            parallel=ParallelStage(source=input_dir, n=1),
+            target_dir=tmp_path / "out",
+            strict=False,
+            debug=False,
+            log_file=None
+        )
+        
+        exit_code = execute_parallel_pipeline(config)
+        assert exit_code == 0
+        
+        # Extract progress indicators from log calls
+        # Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/4 | 25%]', 'filename.docx')
+        # The progress indicator is in args[2]
+        progress_indicators = [
+            call.args[2] for call in mock_log_info.call_args_list
+            if len(call.args) >= 4 
+            and isinstance(call.args[2], str) 
+            and '[' in call.args[2] 
+            and '/' in call.args[2]
+        ]
+        
+        # Verify that we see expected progress indicators
+        # With 4 files: [1/4 | 25%], [2/4 | 50%], [3/4 | 75%], [4/4 | 100%]
+        assert "[1/4 | 25%]" in progress_indicators
+        assert "[4/4 | 100%]" in progress_indicators

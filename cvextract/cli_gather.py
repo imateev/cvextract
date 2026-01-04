@@ -172,7 +172,7 @@ Examples:
                              "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
     parser.add_argument("--parallel", nargs='*', metavar="PARAM",
                         help="Parallel stage: Process entire directory of CV files in parallel. "
-                             "Parameters: source=<directory> (required) [n=<number>] (default=1)")
+                             "Parameters: source=<directory> (required) [n=<number>] (default=1) [file-type=<pattern>] (default=*.docx)")
 
     # Global arguments
     parser.add_argument("--list", choices=['adjusters', 'renderers', 'extractors'],
@@ -223,9 +223,13 @@ Examples:
             except ValueError as e:
                 raise ValueError(f"--parallel parameter 'n' must be a valid integer: {e}")
         
+        # Get file type pattern (default to *.docx)
+        file_type = params.get('file-type', '*.docx')
+        
         parallel_stage = ParallelStage(
             source=Path(params['source']),
             n=n_workers,
+            file_type=file_type,
         )
     
     if args.extract is not None:

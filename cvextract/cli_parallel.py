@@ -19,15 +19,16 @@ from .adjusters.openai_company_research_adjuster import _url_to_cache_filename, 
 import os
 
 
-def scan_directory_for_docx(directory: Path) -> List[Path]:
+def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> List[Path]:
     """
-    Recursively scan directory for all .docx files.
+    Recursively scan directory for files matching the given pattern.
     
     Args:
         directory: Directory to scan
+        file_pattern: Glob pattern for files to match (e.g., "*.docx", "*.txt")
     
     Returns:
-        List of Path objects for all .docx files found
+        List of Path objects for all matching files found
     """
     if not directory.exists():
         raise FileNotFoundError(f"Directory not found: {directory}")
@@ -35,14 +36,30 @@ def scan_directory_for_docx(directory: Path) -> List[Path]:
     if not directory.is_dir():
         raise ValueError(f"Path is not a directory: {directory}")
     
-    docx_files = []
-    for docx_file in directory.rglob("*.docx"):
-        if docx_file.is_file():
+    files = []
+    for file in directory.rglob(file_pattern):
+        if file.is_file():
             # Skip temporary Word files (start with ~$)
-            if not docx_file.name.startswith("~$"):
-                docx_files.append(docx_file)
+            if not file.name.startswith("~$"):
+                files.append(file)
     
-    return sorted(docx_files)
+    return sorted(files)
+
+
+def scan_directory_for_docx(directory: Path) -> List[Path]:
+    """
+    Recursively scan directory for all .docx files.
+    
+    DEPRECATED: Use scan_directory_for_files() instead.
+    Kept for backward compatibility.
+    
+    Args:
+        directory: Directory to scan
+    
+    Returns:
+        List of Path objects for all .docx files found
+    """
+    return scan_directory_for_files(directory, "*.docx")
 
 
 def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
@@ -108,7 +125,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
     Wrapper to process a single file through the existing pipeline.
     
     Args:
-        file_path: Path to the DOCX file to process
+        file_path: Path to the file to process
         config: User configuration with parallel settings
     
     Returns:
@@ -120,7 +137,8 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             target_dir=config.target_dir,
             extract=ExtractStage(
                 source=file_path,
-                output=config.extract.output if config.extract else None
+                output=config.extract.output if config.extract else None,
+                name=config.extract.name if config.extract else "private-internal-extractor"
             ) if config.extract else None,
             adjust=config.adjust,
             apply=config.apply,
@@ -129,11 +147,11 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             debug=config.debug,
             log_file=config.log_file,
             suppress_summary=True,  # Suppress summary in parallel mode
+            suppress_file_logging=True,  # Suppress per-file status logging (we log in parallel wrapper with progress)
             input_dir=config.parallel.source  # Pass the root input directory for relative path calculation
         )
         
         # Execute the pipeline for this file
-        # Each file will log its status line, but not the summary
         exit_code = execute_pipeline(file_config)
         
         if exit_code == 0:
@@ -173,17 +191,18 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         LOG.error("Input path is not a directory: %s", input_dir)
         return 1
     
-    # Scan for DOCX files
+    # Scan for files matching the pattern
     try:
-        docx_files = scan_directory_for_docx(input_dir)
+        files = scan_directory_for_files(input_dir, config.parallel.file_type)
     except Exception as e:
         LOG.error("Failed to scan directory: %s", e)
         if config.debug:
             LOG.error(traceback.format_exc())
         return 1
     
-    if not docx_files:
-        LOG.error("No .docx files found in directory: %s", input_dir)
+    if not files:
+        LOG.error("No files matching pattern '%s' found in directory: %s", 
+                  config.parallel.file_type, input_dir)
         return 1
     
     # Perform upfront research if adjust is configured
@@ -193,46 +212,64 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     
     # Log start of parallel processing
     n_workers = config.parallel.n
-    LOG.info("Processing %d files with %d parallel workers", len(docx_files), n_workers)
+    total_files = len(files)
+    LOG.info("Processing %d files matching '%s' with %d parallel workers", 
+             total_files, config.parallel.file_type, n_workers)
     
     # Track results - categorize as fully successful, partial (warnings), or failed
     full_success_count = 0
     partial_success_count = 0  # Files with warnings but no errors
     failed_count = 0
     failed_files = []
+    completed_count = 0  # Track completed files for progress
     
     # Process files in parallel (but logging is serialized)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         # Submit all tasks
         future_to_file = {
             executor.submit(process_single_file_wrapper, file_path, config): file_path
-            for file_path in docx_files
+            for file_path in files
         }
         
         # Process results as they complete
         for future in as_completed(future_to_file):
             file_path = future_to_file[future]
+            completed_count += 1
+            
+            # Calculate progress percentage
+            progress_pct = int((completed_count / total_files) * 100)
+            progress_str = f"[{completed_count}/{total_files} | {progress_pct}%]"
+            
             try:
                 success, message, exit_code = future.result()
-                if success:
-                    if exit_code == 2 or "warning" in message.lower():
-                        # Partial success - has warnings
-                        partial_success_count += 1
-                    else:
-                        # Full success - no errors or warnings
-                        full_success_count += 1
+                
+                # Determine status icons (same as in cli_execute.py)
+                if success and exit_code == 0:
+                    status_icon = "✅"
+                    full_success_count += 1
+                elif success and exit_code == 2:
+                    status_icon = "⚠️ "
+                    partial_success_count += 1
                 else:
+                    status_icon = "❌"
                     failed_count += 1
                     failed_files.append(str(file_path))
+                
+                # Log with progress indicator
+                if message:
+                    LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
+                else:
+                    LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
+                    
             except Exception as e:
-                LOG.error("✗ %s | Unexpected error: %s", file_path.name, str(e))
+                LOG.error("❌ %s %s | Unexpected error: %s", progress_str, file_path.name, str(e))
                 if config.debug:
                     LOG.error(traceback.format_exc())
                 failed_count += 1
                 failed_files.append(str(file_path))
     
     # Log summary
-    total_files = len(docx_files)
+    total_files = len(files)
     success_count = full_success_count + partial_success_count
     LOG.info("=" * 60)
     if partial_success_count > 0:
