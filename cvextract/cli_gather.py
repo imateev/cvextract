@@ -183,6 +183,9 @@ Examples:
     parser.add_argument("--verbosity", choices=['minimal', 'verbose', 'debug'],
                         default='minimal',
                         help="Output verbosity level. Default: minimal (one line per file with icons)")
+    parser.add_argument("--debug-external", action="store_true",
+                        help="Capture logs from external providers (e.g., OpenAI SDK, HTTP clients) in parallel mode. "
+                             "By default, external provider logs are suppressed to ensure deterministic output.")
     parser.add_argument("--log-file", 
                         help="Optional path to a log file. If set, all output is also written there.")
     
@@ -315,5 +318,6 @@ Examples:
         target_dir=Path(args.target),
         debug=args.debug,
         verbosity=args.verbosity,
+        debug_external=args.debug_external,
         log_file=args.log_file,
     )

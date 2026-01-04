@@ -55,9 +55,10 @@ class BufferingLogHandler(logging.Handler):
     and emit it atomically when the file completes processing.
     """
     
-    def __init__(self, verbosity: VerbosityLevel):
+    def __init__(self, verbosity: VerbosityLevel, debug_external: bool = False):
         super().__init__()
         self.verbosity = verbosity
+        self.debug_external = debug_external
         self._buffers: dict[Path, FileOutputBuffer] = {}
         self._lock = threading.Lock()
         self._thread_local = threading.local()
@@ -74,8 +75,8 @@ class BufferingLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record."""
         try:
-            # Skip output from third-party libraries in minimal mode
-            if self.verbosity == VerbosityLevel.MINIMAL:
+            # Skip output from third-party libraries unless debug_external is enabled
+            if not self.debug_external:
                 if record.name.startswith(('openai', 'httpx', 'httpcore', 'urllib3', 'requests')):
                     return
             
@@ -155,6 +156,7 @@ class OutputController:
         self,
         verbosity: VerbosityLevel = VerbosityLevel.MINIMAL,
         enable_buffering: bool = False,
+        debug_external: bool = False,
     ):
         """
         Initialize the output controller.
@@ -162,15 +164,17 @@ class OutputController:
         Args:
             verbosity: Output verbosity level
             enable_buffering: Enable per-file buffering (for parallel mode)
+            debug_external: Capture external provider logs (OpenAI, httpx, etc.)
         """
         self.verbosity = verbosity
         self.enable_buffering = enable_buffering
+        self.debug_external = debug_external
         self._handler: Optional[BufferingLogHandler] = None
         self._removed_console_handlers: List[logging.Handler] = []
         
         if enable_buffering:
             # Create and install buffering handler
-            self._handler = BufferingLogHandler(verbosity)
+            self._handler = BufferingLogHandler(verbosity, debug_external)
             self._handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
             
             # Get cvextract logger
@@ -190,11 +194,14 @@ class OutputController:
                     root_logger.removeHandler(handler)
                     self._removed_console_handlers.append(handler)
             
-            # Install buffering handler
+            # Install buffering handler on cvextract logger
             logger.addHandler(self._handler)
             
-            # Also suppress third-party loggers in minimal mode
-            if verbosity == VerbosityLevel.MINIMAL:
+            # Install buffering handler on external provider loggers when debug_external is enabled
+            if debug_external:
+                self._setup_external_provider_handlers()
+            else:
+                # Suppress third-party loggers when debug_external is not enabled
                 self._suppress_third_party_loggers()
     
     def _suppress_third_party_loggers(self) -> None:
@@ -210,6 +217,25 @@ class OutputController:
         for logger_name in third_party_loggers:
             logger = logging.getLogger(logger_name)
             logger.setLevel(logging.CRITICAL + 1)  # Effectively silence
+    
+    def _setup_external_provider_handlers(self) -> None:
+        """Setup handlers for external provider loggers to route through buffering."""
+        third_party_loggers = [
+            'openai',
+            'httpx',
+            'httpcore',
+            'requests',
+            'urllib3',
+        ]
+        
+        for logger_name in third_party_loggers:
+            logger = logging.getLogger(logger_name)
+            # Set level to DEBUG to capture all logs
+            logger.setLevel(logging.DEBUG)
+            # Add our buffering handler to capture the logs
+            logger.addHandler(self._handler)
+            # Don't propagate to root to avoid duplication
+            logger.propagate = False
     
     @contextmanager
     def file_context(self, file_path: Path):
@@ -280,6 +306,7 @@ def get_output_controller() -> OutputController:
 def initialize_output_controller(
     verbosity: VerbosityLevel = VerbosityLevel.MINIMAL,
     enable_buffering: bool = False,
+    debug_external: bool = False,
 ) -> OutputController:
     """
     Initialize the global output controller.
@@ -287,6 +314,7 @@ def initialize_output_controller(
     Args:
         verbosity: Output verbosity level
         enable_buffering: Enable per-file buffering
+        debug_external: Capture external provider logs (OpenAI, httpx, etc.)
     
     Returns:
         The initialized OutputController instance
@@ -296,5 +324,6 @@ def initialize_output_controller(
         _controller = OutputController(
             verbosity=verbosity,
             enable_buffering=enable_buffering,
+            debug_external=debug_external,
         )
     return _controller

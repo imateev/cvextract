@@ -58,7 +58,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     }
     verbosity = verbosity_map.get(config.verbosity, VerbosityLevel.MINIMAL)
     enable_buffering = config.parallel is not None
-    initialize_output_controller(verbosity=verbosity, enable_buffering=enable_buffering)
+    initialize_output_controller(
+        verbosity=verbosity,
+        enable_buffering=enable_buffering,
+        debug_external=config.debug_external
+    )
     
     try:
         # Phase 2: Prepare environment
