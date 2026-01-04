@@ -184,8 +184,7 @@ The CV schema was defined in the initial implementation and has remained stable,
 
 1. **Versioning**: Should we version the schema (e.g., v1, v2)?
 2. **Extensions**: Should we support custom field extensions?
-3. **Strict Mode**: Should we enforce additional constraints (min lengths, patterns)?
-4. **Evolution**: How do we handle schema changes without breaking existing data?
+3. **Evolution**: How do we handle schema changes without breaking existing data?
 
 ## Example Valid Data
 

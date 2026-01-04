@@ -156,10 +156,6 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 ```bash
 # dry-run flag (no value)
 --adjust name=openai-company-research customer-url=https://example.com dry-run
-
-# Global boolean flags
---strict
---debug
 ```
 
 ### Paths with Spaces
@@ -186,8 +182,7 @@ python -m cvextract.cli \
   --adjust name=openai-job-specific job-url=https://target-company.com/careers/job/456 \
   --apply template="/templates/Company Template.docx" output=results/ \
   --target /output \
-  --log-file /output/processing.log \
-  --debug
+  --log-file /output/processing.log
 ```
 
 ## File Paths

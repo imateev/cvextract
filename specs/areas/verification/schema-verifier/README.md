@@ -109,7 +109,6 @@ None - uses basic Python structure validation
 
 - Can be used in pipeline (currently optional)
 - Used in testing to validate test fixtures
-- Future: Could be made mandatory in strict mode
 
 ## Test Coverage
 

@@ -224,8 +224,6 @@ python -m cvextract.cli \
 
 - `--target <dir>` - Output directory (required unless using `--list`)
 - `--list {adjusters,renderers,extractors}` - List available components and exit
-- `--strict` - Treat warnings as errors (exit code 2)
-- `--debug` - Verbose logging with stack traces
 - `--log-file <path>` - Optional log file path for persistent logging
 
 ### Listing Available Components
@@ -559,36 +557,13 @@ python -m cvextract.cli \
 #### Error Handling and Logging
 
 ```bash
-# Run with strict mode (warnings treated as errors, exit code 2)
-python -m cvextract.cli \
-  --extract source=/path/to/cv.docx \
-  --apply template=/path/to/template.docx \
-  --target /output \
-  --strict
-
-# Exit code: 0 (success), 1 (failures), 2 (warnings in strict mode)
-```
-
-```bash
-# Run with debug logging and persistent log file
+# Run with persistent log file
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --target /output \
-  --debug \
   --log-file /path/to/cvextract.log
 
-# Logs stack traces and detailed diagnostics to console and file
-```
-
-```bash
-# Batch processing with debug logging
-python -m cvextract.cli \
-  --parallel source=/data/cvs n=10 \
-  --extract \
-  --apply template=/path/to/template.docx \
-  --target /output \
-  --debug \
-  --log-file /output/batch_processing.log
+# All output is written to console and file
 ```
 
 #### Complex Directory Structure Preservation

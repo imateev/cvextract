@@ -181,8 +181,7 @@ python -m cvextract.cli \
   --parallel source=cvs/ n=10 \
   --extract \
   --target out/ \
-  --log-file out/parallel.log \
-  --debug
+  --log-file out/parallel.log
 ```
 
 ## File Paths

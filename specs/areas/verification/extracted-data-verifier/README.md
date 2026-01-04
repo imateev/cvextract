@@ -84,7 +84,7 @@ No configuration required - validates against hardcoded completeness rules.
 
 - Used in `cvextract.pipeline_helpers.extract_single()`
 - Results logged in pipeline
-- Affects CLI exit code in --strict mode
+- Affects CLI exit code
 
 ## Test Coverage
 
