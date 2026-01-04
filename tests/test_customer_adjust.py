@@ -149,18 +149,15 @@ class TestLoadResearchSchema:
         schema = {"$schema": "test", "type": "object"}
         schema_file = tmp_path / "research_schema.json"
         schema_file.write_text(json.dumps(schema))
-        
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._SCHEMA_PATH", schema_file)
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._RESEARCH_SCHEMA", None)
-        
         result = _load_research_schema()
         assert result == schema
 
-    def test_load_research_schema_caching(self, monkeypatch, tmp_path):
+    def test_load_research_schema_caching(self, monkeypatch):
         """Test that schema is cached after first load."""
         schema = {"$schema": "test", "type": "object"}
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._RESEARCH_SCHEMA", schema)
-        
         result = _load_research_schema()
         assert result == schema
 
@@ -169,10 +166,33 @@ class TestLoadResearchSchema:
         schema_file = tmp_path / "nonexistent.json"
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._SCHEMA_PATH", schema_file)
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._RESEARCH_SCHEMA", None)
-        
         result = _load_research_schema()
         assert result is None
         assert "Failed to load research schema" in caplog.text
+
+    def test_load_research_schema_invalid_json(self, monkeypatch, tmp_path, caplog):
+        """Test schema loading with invalid JSON."""
+        schema_file = tmp_path / "research_schema.json"
+        schema_file.write_text("{invalid json}")
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._SCHEMA_PATH", schema_file)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._RESEARCH_SCHEMA", None)
+        result = _load_research_schema()
+        assert result is None
+        assert "Failed to load research schema" in caplog.text
+
+    def test_load_research_schema_permission_error(self, monkeypatch, tmp_path, caplog):
+        """Test schema loading with permission error."""
+        schema_file = tmp_path / "research_schema.json"
+        schema_file.write_text(json.dumps({"type": "object"}))
+        schema_file.chmod(0)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._SCHEMA_PATH", schema_file)
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._RESEARCH_SCHEMA", None)
+        try:
+            result = _load_research_schema()
+            assert result is None
+            assert "Failed to load research schema" in caplog.text
+        finally:
+            schema_file.chmod(0o644)
 
 
 class TestResearchCompanyProfile:
