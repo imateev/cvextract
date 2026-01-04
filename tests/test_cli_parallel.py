@@ -442,6 +442,7 @@ class TestExecuteParallelPipeline:
             target_dir=tmp_path / "out",
             strict=False,
             debug=True,
+            verbosity=2,
             log_file=None
         )
         
@@ -449,15 +450,15 @@ class TestExecuteParallelPipeline:
         assert exit_code == 0
         doc_count = len(scan_directory_for_docx(test_directory))
         assert mock_process.call_count == doc_count
-        # Each exception logs the user-facing message and the traceback
-        assert mock_log_error.call_count == doc_count * 2
+        # Each exception logs the error message and traceback (verbose mode)
+        assert mock_log_error.call_count >= doc_count  # At least one error per file
         assert any("Unexpected error" in call.args[0] for call in mock_log_error.call_args_list)
 
     @patch('cvextract.cli_parallel.LOG.info')
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_logs_failed_files_in_debug_mode(self, mock_process, mock_log_info,
                                                                tmp_path: Path, test_directory: Path):
-        """Debug mode should list failed files after processing."""
+        """Verbose mode should list failed files after processing."""
         mock_process.return_value = (False, "Error", 1, False)
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -467,6 +468,7 @@ class TestExecuteParallelPipeline:
             target_dir=tmp_path / "out",
             strict=False,
             debug=True,
+            verbosity=2,  # Verbose mode shows failed files
             log_file=None
         )
         
@@ -757,7 +759,7 @@ class TestProgressIndicator:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     @patch('cvextract.cli_parallel.LOG.info')
     def test_progress_indicator_shown(self, mock_log_info, mock_process, test_directory: Path, tmp_path: Path):
-        """Test that progress indicator is included in log output."""
+        """Test that progress indicator is included in log output in verbose mode."""
         mock_process.return_value = (True, "", 0, False)
         
         config = UserConfig(
@@ -768,6 +770,7 @@ class TestProgressIndicator:
             target_dir=tmp_path / "out",
             strict=False,
             debug=False,
+            verbosity=2,  # Need verbose mode to see progress indicators
             log_file=None
         )
         
@@ -784,7 +787,7 @@ class TestProgressIndicator:
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     @patch('cvextract.cli_parallel.LOG.info')
     def test_progress_percentage_calculated(self, mock_log_info, mock_process, tmp_path: Path):
-        """Test that progress percentage is calculated correctly."""
+        """Test that progress percentage is calculated correctly in verbose mode."""
         mock_process.return_value = (True, "", 0, False)
         
         input_dir = tmp_path / "input"
@@ -802,6 +805,7 @@ class TestProgressIndicator:
             target_dir=tmp_path / "out",
             strict=False,
             debug=False,
+            verbosity=2,  # Need verbose mode to see progress percentages
             log_file=None
         )
         

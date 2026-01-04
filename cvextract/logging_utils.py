@@ -38,21 +38,37 @@ def setup_logging(debug: bool, log_file: Optional[str] = None, verbosity: int = 
     else:
         level = logging.WARNING  # Quiet mode: only warnings and errors
 
-    handlers: List[logging.Handler] = []
-
-    # Console output
-    console = logging.StreamHandler()
-    console.setLevel(level)
-    
-    # Simpler format for normal/verbose modes
-    if verbosity >= VERBOSITY_NORMAL:
-        console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    # Check if handlers are already configured (e.g., by pytest)
+    # If so, just update the level on existing handlers
+    if logging.root.handlers:
+        for handler in logging.root.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                handler.setLevel(level)
+                # Update formatter for console handlers
+                if verbosity >= VERBOSITY_NORMAL:
+                    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+                else:
+                    handler.setFormatter(logging.Formatter("%(message)s"))
+        logging.root.setLevel(level)
     else:
-        # Minimal format for quiet mode - no prefix
-        console.setFormatter(logging.Formatter("%(message)s"))
-    
-    handlers.append(console)
+        # No existing handlers, set up our own
+        handlers: List[logging.Handler] = []
 
+        # Console output
+        console = logging.StreamHandler()
+        console.setLevel(level)
+        
+        # Simpler format for normal/verbose modes
+        if verbosity >= VERBOSITY_NORMAL:
+            console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        else:
+            # Minimal format for quiet mode - no prefix
+            console.setFormatter(logging.Formatter("%(message)s"))
+        
+        handlers.append(console)
+
+        logging.basicConfig(level=level, handlers=handlers, force=True)
+    
     # Optional file output
     if log_file:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
@@ -63,9 +79,7 @@ def setup_logging(debug: bool, log_file: Optional[str] = None, verbosity: int = 
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
         )
-        handlers.append(file_handler)
-
-    logging.basicConfig(level=level, handlers=handlers, force=True)
+        logging.root.addHandler(file_handler)
     
     # Suppress noisy third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
