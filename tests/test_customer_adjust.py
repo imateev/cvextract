@@ -184,15 +184,15 @@ class TestLoadResearchSchema:
         """Test schema loading with permission error."""
         schema_file = tmp_path / "research_schema.json"
         schema_file.write_text(json.dumps({"type": "object"}))
-        schema_file.chmod(0)
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._SCHEMA_PATH", schema_file)
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._RESEARCH_SCHEMA", None)
-        try:
-            result = _load_research_schema()
-            assert result is None
-            assert "Failed to load research schema" in caplog.text
-        finally:
-            schema_file.chmod(0o644)
+        def _raise_permission_error(*args, **kwargs):
+            raise PermissionError("permission denied")
+
+        monkeypatch.setattr("builtins.open", _raise_permission_error)
+        result = _load_research_schema()
+        assert result is None
+        assert "Failed to load research schema" in caplog.text
 
 
 class TestResearchCompanyProfile:

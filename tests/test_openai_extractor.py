@@ -1,5 +1,6 @@
 """Tests for OpenAI CV extractor implementation with retry and adaptive polling."""
 
+import builtins
 import json
 import tempfile
 import pytest
@@ -102,18 +103,20 @@ class TestExtractFileValidation:
                 cache_dir = tmp_path / "cvextract"
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 cache_path = cache_dir / "cv_schema.1.2.3.json"
-                if cache_path.exists():
-                    cache_path.unlink()
+                cache_path.write_text(json.dumps({"type": "object"}))
                 with patch('cvextract.extractors.openai_extractor.files') as mock_files:
-                    tmp_file = tmp_path / "test_perm.json"
-                    tmp_file.write_text(json.dumps({"type": "object"}))
-                    tmp_file.chmod(0)
-                    mock_files.return_value.joinpath.return_value = tmp_file
-                    try:
+                    schema_resource = tmp_path / "schema_resource.json"
+                    schema_resource.write_text(json.dumps({"type": "object"}))
+                    mock_files.return_value.joinpath.return_value = schema_resource
+
+                    def _raise_permission_error(path, *args, **kwargs):
+                        if str(path) == str(cache_path):
+                            raise PermissionError("permission denied")
+                        return builtins.open(path, *args, **kwargs)
+
+                    with patch('cvextract.extractors.openai_extractor.open', _raise_permission_error):
                         with pytest.raises(PermissionError):
                             extractor._load_cv_schema()
-                    finally:
-                        tmp_file.chmod(0o644)
     def test_load_cv_schema_refreshes_invalid_cache(self, tmp_path):
         """_load_cv_schema() refreshes when cache is invalid JSON."""
         from cvextract.extractors.openai_extractor import OpenAICVExtractor
