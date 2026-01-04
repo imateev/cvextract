@@ -274,7 +274,8 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                     # Normal mode: show status icon and filename
                     LOG.info("%s %s", status_icon, file_path.name)
                 else:
-                    # Quiet mode: only show filename (one line per file, no prefix)
+                    # Quiet mode: use print() instead of logging to provide clean output
+                    # without any logging prefixes or formatting
                     print(file_path.name)
                     
             except Exception as e:
@@ -284,12 +285,12 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                 # Log errors based on verbosity
                 if config.verbosity >= 2:
                     LOG.error("❌ %s %s | Unexpected error: %s", progress_str, file_path.name, str(e))
-                    if config.debug or config.verbosity >= 2:
-                        LOG.error(traceback.format_exc())
+                    LOG.error(traceback.format_exc())
                 elif config.verbosity >= 1:
                     LOG.error("❌ %s | %s", file_path.name, str(e))
                 else:
-                    # Quiet mode: just the filename with error marker
+                    # Quiet mode: use print() instead of logging to provide clean output
+                    # without any logging prefixes or formatting
                     print(f"ERROR: {file_path.name}")
     
     # Log summary based on verbosity

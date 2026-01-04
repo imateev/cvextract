@@ -215,7 +215,7 @@ def execute_pipeline(config: UserConfig) -> int:
             render_json = adjusted_json
         except Exception as e:
             # If adjust fails, proceed with original JSON
-            if config.verbosity >= 2:
+            if config.debug or config.verbosity >= 2:
                 LOG.error("Adjustment failed: %s", traceback.format_exc())
             render_json = out_json
     
@@ -251,7 +251,8 @@ def execute_pipeline(config: UserConfig) -> int:
             LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
                      fmt_issues(extract_errs, combined_warns))
         elif config.verbosity == 0:
-            # Quiet mode: just the filename
+            # Quiet mode: use print() instead of logging to provide clean output
+            # without any logging prefixes or formatting
             print(input_file.name)
     
     # Log summary (unless suppressed for parallel mode)
