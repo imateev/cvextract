@@ -124,6 +124,35 @@ See `cvextract/verifiers/README.md` for details on creating custom verifiers.
 
 The CLI uses a stage-based architecture with explicit flags for each operation. Stages can be chained together or run independently, making the pipeline clear and composable.
 
+### Output Verbosity Control
+
+The tool provides three levels of output verbosity to suit different use cases:
+
+**Quiet mode (default)** - Minimal console output:
+```bash
+python -m cvextract.cli --extract source=file.docx --target /output
+# Output: Just the filename (one line per file in parallel mode)
+```
+
+**Normal mode (-v)** - Standard output with status indicators:
+```bash
+python -m cvextract.cli -v --extract source=file.docx --target /output
+# Output: Status icons (✅/⚠️/❌), progress indicators, and summaries
+```
+
+**Verbose mode (-vv)** - Detailed debug information:
+```bash
+python -m cvextract.cli -vv --extract source=file.docx --target /output
+# Output: Full debug logs, detailed progress, and stack traces
+```
+
+**Key benefits:**
+- **Quiet mode** is ideal for automated pipelines and batch processing where clean output is essential
+- **Normal mode** provides useful feedback during interactive use
+- **Verbose mode** helps with troubleshooting and development
+- Third-party library output (OpenAI, httpx) is automatically suppressed in all modes
+- Full debug logs can always be captured to a file with `--log-file` regardless of console verbosity
+
 ### Parameter Syntax
 
 All CLI parameters use the modern `key=value` format:
@@ -226,6 +255,10 @@ python -m cvextract.cli \
 - `--list {adjusters,renderers,extractors}` - List available components and exit
 - `--strict` - Treat warnings as errors (exit code 2)
 - `--debug` - Verbose logging with stack traces
+- `-v, --verbose` - Increase output verbosity (can be repeated: -v for normal, -vv for debug)
+  - **Default (no flag)**: Minimal output - one line per file in parallel mode
+  - **-v**: Normal output with status icons, progress indicators, and summaries
+  - **-vv**: Verbose output with detailed debug information
 - `--log-file <path>` - Optional log file path for persistent logging
 
 ### Listing Available Components
@@ -570,25 +603,71 @@ python -m cvextract.cli \
 ```
 
 ```bash
-# Run with debug logging and persistent log file
+# Run with normal verbosity (status icons and summaries)
 python -m cvextract.cli \
+  -v \
   --extract source=/path/to/cv.docx \
-  --target /output \
-  --debug \
-  --log-file /path/to/cvextract.log
+  --target /output
 
-# Logs stack traces and detailed diagnostics to console and file
+# Shows status icons and progress information
 ```
 
 ```bash
-# Batch processing with debug logging
+# Run with verbose debug logging
+python -m cvextract.cli \
+  -vv \
+  --extract source=/path/to/cv.docx \
+  --target /output
+
+# Shows detailed debug information and stack traces
+```
+
+```bash
+# Run with persistent log file (all details logged to file)
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --target /output \
+  --log-file /path/to/cvextract.log
+
+# Console shows minimal output, file contains full debug logs
+```
+
+```bash
+# Batch processing with minimal console output (quiet mode)
 python -m cvextract.cli \
   --parallel source=/data/cvs n=10 \
   --extract \
   --apply template=/path/to/template.docx \
+  --target /output
+
+# Default quiet mode: one line per file, no verbose output
+```
+
+```bash
+# Batch processing with normal verbosity
+python -m cvextract.cli \
+  -v \
+  --parallel source=/data/cvs n=10 \
+  --extract \
+  --apply template=/path/to/template.docx \
+  --target /output
+
+# Normal mode: status icons and progress indicators
+```
+
+```bash
+# Batch processing with verbose output and logging
+python -m cvextract.cli \
+  -vv \
+  --parallel source=/data/cvs n=10 \
+  --extract \
+  --apply template=/path/to/template.docx \
   --target /output \
-  --debug \
   --log-file /output/batch_processing.log
+
+# Verbose mode: detailed progress and debug information
+# All output also saved to log file
+
 ```
 
 #### Complex Directory Structure Preservation
