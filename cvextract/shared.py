@@ -35,9 +35,9 @@ class UnitOfWork:
     input/output represent the current step's paths.
     """
     config: "UserConfig"
-    initial_input: Optional[Path] = None
     input: Path
     output: Path
+    initial_input: Optional[Path] = None
     extract_ok: Optional[bool] = None
     extract_errs: List[str] = field(default_factory=list)
     extract_warns: List[str] = field(default_factory=list)
