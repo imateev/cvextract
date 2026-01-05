@@ -37,8 +37,7 @@ work = UnitOfWork(
 )
 adjusted_cv = adjuster.adjust(
     work,
-    customer_url="https://example.com",
-    cache_path=Path("cache/example.research.json")
+    customer_url="https://example.com"
 )
 ```
 
@@ -53,7 +52,7 @@ python -m cvextract.cli \
   --adjust name=openai-company-research customer-url=https://example.com \
   --target output/
 
-# Research cached at: output/research_data/<cv-name>/example_com-<hash>.research.json
+# Research cached at: output/research_data/example_com-<hash>.research.json
 ```
 
 ```bash
@@ -109,7 +108,7 @@ adjusted_cv = adjuster.adjust(
 ### Cache Configuration
 
 Cache paths are automatically determined:
-- **Pattern**: `{target}/research_data/{cv_name}/{sanitized_url}-{hash}.research.json`
+- **Pattern**: `{target}/research_data/{sanitized_url}-{hash}.research.json`
 - **Sanitization**: URLs are converted to safe filenames (e.g., `https://www.example.com/about` → `example.com-abc12345.research.json`)
 
 ## Interfaces
@@ -118,7 +117,6 @@ Cache paths are automatically determined:
 
 - `cv_data`: CV dictionary conforming to CV schema
 - `customer_url`: Company website URL (required)
-- `cache_path`: Optional custom cache path (auto-generated if not provided)
 
 ### Output
 
@@ -175,8 +173,8 @@ Defined in `cvextract/contracts/research_schema.json`:
 
 Tested in:
 - `tests/test_adjusters.py` - Adjuster integration tests
-- `tests/test_pipeline.py` - End-to-end pipeline tests with caching
-- `tests/test_cli.py` - CLI parameter handling and cache path generation
+- `tests/test_cli_execute.py` - Adjustment flow without cache injection
+- `tests/test_cli_parallel.py` - Upfront research and cache reuse
 
 ## Implementation Details
 

@@ -42,8 +42,7 @@ work = UnitOfWork(
 )
 adjusted = adjuster.adjust(
     work,
-    customer_url="https://example.com",
-    cache_path=Path("cache/example.research.json")
+    customer_url="https://example.com"
 )
 ```
 

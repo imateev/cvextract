@@ -16,7 +16,11 @@ from .cli_config import UserConfig, ExtractStage
 from .cli_execute import execute_pipeline
 from .logging_utils import LOG, fmt_issues
 from .output_controller import get_output_controller
-from .adjusters.openai_company_research_adjuster import _research_company_profile
+from .adjusters.openai_company_research_adjuster import (
+    _cache_research_data,
+    _load_cached_research,
+    _research_company_profile,
+)
 from .shared import url_to_cache_filename
 import os
 
@@ -104,6 +108,10 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
     # Determine cache file path
     cache_filename = url_to_cache_filename(customer_url)
     cache_path = research_dir / cache_filename
+
+    cached = _load_cached_research(cache_path)
+    if cached:
+        return cache_path
     
     # Perform research (will use cache if it exists)
     LOG.info("Performing upfront company research for: %s", customer_url)
@@ -111,10 +119,10 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
         customer_url,
         api_key,
         model,
-        cache_path
     )
     
     if research_data:
+        _cache_research_data(cache_path, research_data)
         LOG.info("Company research completed and cached at: %s", cache_path)
         return cache_path
     else:

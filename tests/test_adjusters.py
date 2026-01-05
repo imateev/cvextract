@@ -2003,53 +2003,27 @@ class TestCompanyResearchSchemaLoading:
 
 
 class TestResearchCompanyProfileCache:
-    """Tests for _research_company_profile cache behavior."""
+    """Tests for company research cache helpers."""
 
     def test_research_company_profile_uses_valid_cache(self, tmp_path):
-        """_research_company_profile() returns cached data when valid."""
-        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+        """_load_cached_research() returns cached data when valid."""
+        from cvextract.adjusters.openai_company_research_adjuster import _load_cached_research
 
         cached = {"name": "Cache Co", "description": "Cached", "domains": []}
         cache_path = tmp_path / "research.json"
         cache_path.write_text(json.dumps(cached))
 
         with patch('cvextract.adjusters.openai_company_research_adjuster._validate_research_data', return_value=True):
-            with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI') as mock_openai:
-                result = _research_company_profile(
-                    "https://example.com",
-                    "test-key",
-                    "gpt-4o-mini",
-                    cache_path,
-                )
-
-                assert result == cached
-                mock_openai.assert_not_called()
+            result = _load_cached_research(cache_path)
+            assert result == cached
 
     def test_research_company_profile_caches_on_success(self, tmp_path):
-        """_research_company_profile() caches research data on success."""
-        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+        """_cache_research_data() writes research data to cache."""
+        from cvextract.adjusters.openai_company_research_adjuster import _cache_research_data
 
         cache_path = tmp_path / "research.json"
         research_data = {"name": "Fresh Co", "description": "Fresh", "domains": []}
-
-        mock_completion = MagicMock()
-        mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(research_data)))]
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = mock_completion
-
-        with patch('cvextract.adjusters.openai_company_research_adjuster.OpenAI', return_value=mock_client):
-            with patch('cvextract.adjusters.openai_company_research_adjuster._load_research_schema', return_value={"type": "object"}):
-                with patch('cvextract.adjusters.openai_company_research_adjuster.format_prompt', return_value="prompt"):
-                    with patch('cvextract.adjusters.openai_company_research_adjuster._validate_research_data', return_value=True):
-                        result = _research_company_profile(
-                            "https://example.com",
-                            "test-key",
-                            "gpt-4o-mini",
-                            cache_path,
-                        )
-
-        assert result == research_data
+        _cache_research_data(cache_path, research_data)
         assert json.loads(cache_path.read_text(encoding="utf-8")) == research_data
 
 
@@ -2067,7 +2041,6 @@ class TestResearchCompanyProfileFailures:
                 "https://example.com",
                 "test-key",
                 "gpt-4o-mini",
-                None,
             )
             assert result is None
         finally:
@@ -2082,7 +2055,6 @@ class TestResearchCompanyProfileFailures:
                 "https://example.com",
                 "test-key",
                 "gpt-4o-mini",
-                None,
             )
             assert result is None
 
@@ -2096,7 +2068,6 @@ class TestResearchCompanyProfileFailures:
                     "https://example.com",
                     "test-key",
                     "gpt-4o-mini",
-                    None,
                 )
                 assert result is None
 
@@ -2116,7 +2087,6 @@ class TestResearchCompanyProfileFailures:
                         "https://example.com",
                         "test-key",
                         "gpt-4o-mini",
-                        None,
                     )
                     assert result is None
 
@@ -2136,7 +2106,6 @@ class TestResearchCompanyProfileFailures:
                         "https://example.com",
                         "test-key",
                         "gpt-4o-mini",
-                        None,
                     )
                     assert result is None
 
@@ -2157,7 +2126,6 @@ class TestResearchCompanyProfileFailures:
                             "https://example.com",
                             "test-key",
                             "gpt-4o-mini",
-                            None,
                         )
                         assert result is None
 
@@ -2182,7 +2150,6 @@ class TestResearchCompanyProfileFailures:
                         "https://example.com",
                         "test-key",
                         "gpt-4o-mini",
-                        None,
                     )
                     assert result is None
 

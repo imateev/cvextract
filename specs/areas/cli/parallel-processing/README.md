@@ -92,7 +92,7 @@ When using company research adjuster, the main process performs research once be
 # In cli_parallel.py
 if company_research_adjuster:
     # Pre-research in main process
-    research = do_company_research(customer_url, cache_path)
+    research = do_company_research(customer_url)
     # All workers reuse cached research
 ```
 

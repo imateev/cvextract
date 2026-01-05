@@ -102,6 +102,29 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     tmp_path.replace(path)
 
 
+def _load_cached_research(cache_path: Path) -> Optional[Dict[str, Any]]:
+    if not cache_path.exists():
+        return None
+    try:
+        with cache_path.open("r", encoding="utf-8") as f:
+            cached_data = json.load(f)
+        if _validate_research_data(cached_data):
+            LOG.info("Using cached company research from %s", cache_path)
+            return cached_data
+        LOG.warning("Cached company research failed validation, will re-research")
+    except Exception as e:
+        LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
+    return None
+
+
+def _cache_research_data(cache_path: Path, research_data: Dict[str, Any]) -> None:
+    try:
+        _atomic_write_json(cache_path, research_data)
+        LOG.info("Cached company research to %s", cache_path)
+    except Exception as e:
+        LOG.warning("Failed to cache research (%s)", type(e).__name__)
+
+
 def _load_research_schema() -> Optional[Dict[str, Any]]:
     """Load the research schema from file (cached)."""
     global _RESEARCH_SCHEMA
@@ -310,7 +333,6 @@ def _research_company_profile(
     customer_url: str,
     api_key: str,
     model: str,
-    cache_path: Optional[Path] = None,
     *,
     retry: Optional[_RetryConfig] = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -322,17 +344,6 @@ def _research_company_profile(
     Returns:
         Dict containing company profile data, or None if research fails
     """
-    # Check cache first
-    if cache_path and cache_path.exists():
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                cached_data = json.load(f)
-            if _validate_research_data(cached_data):
-                LOG.info("Using cached company research from %s", cache_path)
-                return cached_data
-        except Exception as e:
-            LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
-
     if not OpenAI:
         LOG.warning("Company research skipped: OpenAI unavailable")
         return None
@@ -397,14 +408,6 @@ def _research_company_profile(
         LOG.warning("Company research: response failed schema validation")
         return None
 
-    # Cache the result (atomic)
-    if cache_path:
-        try:
-            _atomic_write_json(cache_path, research_data)
-            LOG.info("Cached company research to %s", cache_path)
-        except Exception as e:
-            LOG.warning("Failed to cache research (%s)", type(e).__name__)
-
     LOG.info("Successfully researched company profile")
     return research_data
 
@@ -458,23 +461,24 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             return self._write_output_json(work, cv_data)
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
-        cache_path = kwargs.get("cache_path")
-        if cache_path is None and "cache_path" not in kwargs and customer_url:
-            cache_dir = work.config.workspace.research_dir
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            cache_path = cache_dir / url_to_cache_filename(customer_url)
+        cache_dir = work.config.workspace.research_dir
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / url_to_cache_filename(customer_url)
+        research_data = _load_cached_research(cache_path)
 
         # Step 1: Research company profile (with retries)
-        LOG.info("Researching company at %s", customer_url)
-        research_data = _research_company_profile(
-            customer_url,
-            self._api_key,
-            self._model,
-            cache_path,
-            retry=self._retry,
-            sleep=self._sleep,
-            request_timeout_s=self._request_timeout_s,
-        )
+        if not research_data:
+            LOG.info("Researching company at %s", customer_url)
+            research_data = _research_company_profile(
+                customer_url,
+                self._api_key,
+                self._model,
+                retry=self._retry,
+                sleep=self._sleep,
+                request_timeout_s=self._request_timeout_s,
+            )
+            if research_data:
+                _cache_research_data(cache_path, research_data)
 
         if not research_data:
             LOG.warning("Company research adjust: failed to research company; using original CV.")

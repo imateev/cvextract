@@ -18,7 +18,6 @@ Adjusts CV data based on target company research using OpenAI.
 
 **Parameters:**
 - `customer_url` (required): URL of the target company's website
-- `cache_path` (optional): Path to cache research results
 
 **Example:**
 ```python
@@ -35,8 +34,7 @@ work = UnitOfWork(
 )
 adjusted_work = adjuster.adjust(
     work,
-    customer_url="https://example.com",
-    cache_path=Path("research_cache.json")
+    customer_url="https://example.com"
 )
 adjusted_json = adjusted_work.output
 ```
