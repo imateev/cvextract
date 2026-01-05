@@ -207,7 +207,7 @@ def execute_pipeline(config: UserConfig) -> int:
         verify_dir = config.workspace.verification_dir / rel_path
         
         apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
-            json_path=work.input,
+            json_path=work.output,
             template_path=config.apply.template,
             output_docx=output_docx,
             debug=config.debug,
