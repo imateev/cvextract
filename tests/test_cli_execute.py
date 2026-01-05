@@ -76,7 +76,7 @@ class TestExecutePipelineNoInput:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -99,7 +99,7 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -117,7 +117,7 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -136,7 +136,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -155,7 +154,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -172,7 +170,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -189,7 +186,6 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -209,7 +205,7 @@ class TestExecutePipelineExtractOnly:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -238,7 +234,7 @@ class TestExecutePipelineExtractApply:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -261,7 +257,6 @@ class TestExecutePipelineExtractApply:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -285,7 +280,6 @@ class TestExecutePipelineExtractApply:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -309,7 +303,6 @@ class TestExecutePipelineApplyOnly:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=mock_json, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -331,7 +324,6 @@ class TestExecutePipelineApplyOnly:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=mock_json, output=custom_output),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -384,7 +376,7 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -430,7 +422,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -467,7 +458,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -507,7 +497,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -561,7 +550,6 @@ class TestExecutePipelineAdjust:
             ),
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -585,7 +573,7 @@ class TestExecutePipelineDirectoryRejection:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -608,7 +596,6 @@ class TestExecutePipelineDirectoryRejection:
             adjust=None,
             apply=ApplyStage(template=template, data=json_dir, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -629,7 +616,7 @@ class TestExecutePipelineDebugMode:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=True,
+            verbosity="debug",
             log_file=None
         )
 
@@ -665,7 +652,6 @@ class TestExecutePipelineDebugMode:
             ),
             apply=None,
             target_dir=tmp_path / "out",
-            debug=True,
             log_file=None
         )
 
@@ -686,7 +672,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "out",
-            debug=False,
+            verbosity="minimal",
             log_file=None
         )
 
@@ -709,7 +695,6 @@ class TestExecutePipelineSkipNonMatchingFiles:
             adjust=None,
             apply=ApplyStage(template=template, data=txt_file, output=None),
             target_dir=tmp_path / "out",
-            debug=False,
             log_file=None
         )
 
@@ -738,7 +723,7 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "output",
-            debug=False,
+            verbosity="minimal",
             log_file=None,
             input_dir=parallel_input_tree.root  # Mirror how parallel mode seeds rel_path
         )
@@ -793,7 +778,6 @@ class TestFolderStructurePreservation:
             ),
             apply=None,
             target_dir=tmp_path / "output",
-            debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root
         )
@@ -828,7 +812,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=ApplyStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "output",
-            debug=False,
             log_file=None,
             input_dir=parallel_input_tree.root
         )
@@ -863,7 +846,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "output",
-            debug=False,
             log_file=None,
             input_dir=None  # No input_dir specified, behavior depends on source
         )
@@ -890,7 +872,6 @@ class TestFolderStructurePreservation:
                 adjust=None,
                 apply=None,
                 target_dir=tmp_path / "output",
-                debug=False,
                 log_file=None,
                 parallel=True  # Enable parallel mode
             )
@@ -915,7 +896,6 @@ class TestFolderStructurePreservation:
             adjust=None,
             apply=None,
             target_dir=tmp_path / "output",
-            debug=False,
             log_file=None,
             input_dir=tmp_path / "other_dir"  # Different from the file's parent
         )

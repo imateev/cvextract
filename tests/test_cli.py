@@ -152,11 +152,11 @@ class TestStageBasedParsing:
             ])
 
     def test_parse_with_debug_flag_enables_debug_mode(self):
-        """When --debug flag is provided, debug mode should be enabled."""
+        """When --verbosity debug is provided, debug mode should be enabled."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
             "--target", "/path/to/output",
-            "--debug"
+            "--verbosity", "debug"
         ])
         assert config.debug is True
 
@@ -507,25 +507,25 @@ class TestMainErrorHandling:
         import logging
         import zipfile
         from cvextract import cli_prepare
-        
+
         docx = tmp_path / "test.docx"
         with zipfile.ZipFile(docx, 'w') as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
+
         target = tmp_path / "output"
-        
+
         def fake_collect_inputs(*args, **kwargs):
             raise ValueError("Test error")
-        
+
         monkeypatch.setattr(cli_prepare, "_collect_inputs", fake_collect_inputs)
-        
+
         with caplog.at_level(logging.ERROR):
             rc = cli.main([
                 "--extract", f"source={str(docx)}",
                 "--target", str(target),
-                "--debug"
+                "--verbosity", "debug"
             ])
-        
+
         assert rc == 1
         assert "Traceback" in caplog.text or "Test error" in caplog.text
 
