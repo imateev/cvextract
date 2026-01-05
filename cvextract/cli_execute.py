@@ -106,9 +106,8 @@ def execute_pipeline(config: UserConfig) -> int:
         documents_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize result tracking
-    extract_ok = True
+    work: Optional[UnitOfWork] = None
     extract_errs: List[str] = []
-    extract_warns: List[str] = []
     apply_ok: Optional[bool] = None
     compare_ok: Optional[bool] = None
     apply_warns: List[str] = []
@@ -135,20 +134,17 @@ def execute_pipeline(config: UserConfig) -> int:
             out_json=out_json,
         )
         work = extract_single(work)
-        extract_ok = bool(work.extract_ok)
-        extract_errs = work.extract_errs
-        extract_warns = work.extract_warns
 
-        if not extract_ok and extract_errs and extract_errs[0].startswith("unknown extractor:"):
+        if (not work.extract_ok) and work.extract_errs and work.extract_errs[0].startswith("unknown extractor:"):
             LOG.error("Unknown extractor: %s", config.extract.name)
             LOG.error("Use --list extractors to see available extractors")
             return 1
         
         # If extraction failed and we need to apply, exit early
-        if not extract_ok and config.apply:
-            x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
+        if (not work.extract_ok) and config.apply:
+            x_icon, a_icon, c_icon = get_status_icons(bool(work.extract_ok), bool(work.extract_warns), None, None)
             LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
-                     fmt_issues(extract_errs, extract_warns))
+                     fmt_issues(work.extract_errs, work.extract_warns))
             return 1
     else:
         # No extraction, use input JSON directly
@@ -242,11 +238,14 @@ def execute_pipeline(config: UserConfig) -> int:
         
         extract_errs = render_errs
     
+    extract_warns = work.extract_warns if work else []
+    extract_errs = extract_errs if apply_ok is not None else (work.extract_errs if work else [])
     combined_warns = (extract_warns or []) + (apply_warns or [])
     config.last_warnings = combined_warns
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
+        extract_ok = bool(work.extract_ok) if work else True
         x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
         LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
                  fmt_issues(extract_errs, combined_warns))
@@ -270,7 +269,7 @@ def execute_pipeline(config: UserConfig) -> int:
             )
     
     # Return exit code
-    if not extract_ok or apply_ok is False:
+    if (work and not work.extract_ok) or apply_ok is False:
         return 1
     
     return 0
