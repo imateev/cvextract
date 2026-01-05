@@ -45,6 +45,7 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from .base import CVAdjuster
+from ..pipeline_helpers import UnitOfWork
 from ..shared import format_prompt
 from ..verifiers import get_verifier
 
@@ -468,7 +469,8 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         if not has_customer_url or not (kwargs.get("customer_url") or kwargs.get("customer-url")):
             raise ValueError(f"Adjuster '{self.name()}' requires 'customer-url' parameter")
 
-    def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def adjust(self, work: UnitOfWork, **kwargs) -> Dict[str, Any]:
+        cv_data = self._load_input_json(work)
         self.validate_params(**kwargs)
 
         if not self._api_key or OpenAI is None:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import time
 import traceback
+from dataclasses import replace
 from pathlib import Path
 from typing import List, Optional
 
@@ -154,9 +155,14 @@ def execute_pipeline(config: UserConfig) -> int:
     render_json = out_json
     if config.adjust and out_json:
         try:
-            with out_json.open("r", encoding="utf-8") as f:
-                current_data = json.load(f)
-            
+            adjust_work = UnitOfWork(
+                config=config,
+                input=out_json,
+                output=out_json,
+            )
+            current_data = None
+            tmp_adjust_path = adjusted_json_dir / rel_path / f".adjust_tmp_{input_file.stem}.json"
+
             # Apply each adjuster in sequence
             for idx, adjuster_config in enumerate(config.adjust.adjusters):
                 # Add delay between adjusters to avoid rate limiting
@@ -197,7 +203,13 @@ def execute_pipeline(config: UserConfig) -> int:
                     raise
                 
                 # Apply adjustment
-                current_data = adjuster.adjust(current_data, **adjuster_params)
+                if current_data is not None:
+                    tmp_adjust_path.parent.mkdir(parents=True, exist_ok=True)
+                    with tmp_adjust_path.open("w", encoding="utf-8") as wf:
+                        json.dump(current_data, wf, ensure_ascii=False, indent=2)
+                    adjust_work = replace(adjust_work, input=tmp_adjust_path)
+
+                current_data = adjuster.adjust(adjust_work, **adjuster_params)
             
             # Save final adjusted JSON
             if config.adjust.output:

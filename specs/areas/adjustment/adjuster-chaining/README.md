@@ -37,20 +37,28 @@ python -m cvextract.cli \
 ### Programmatic API
 
 ```python
+import json
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.pipeline_helpers import UnitOfWork
 
-# Manual chaining
-cv_data = extract_cv(source)
+input_json = Path("cv.json")
+config = UserConfig(target_dir=Path("out"), extract=ExtractStage(source=input_json))
 
 # First adjuster
 company_adjuster = get_adjuster("openai-company-research")
-cv_data = company_adjuster.adjust(cv_data, customer_url="https://example.com")
+work = UnitOfWork(config=config, input=input_json, output=input_json)
+cv_data = company_adjuster.adjust(work, customer_url="https://example.com")
 
-# Second adjuster receives output of first
+# Persist adjusted data so the next adjuster can load it
+intermediate = Path("cv_adjusted.json")
+intermediate.write_text(json.dumps(cv_data, indent=2))
+
+# Second adjuster reads the updated JSON
 job_adjuster = get_adjuster("openai-job-specific")
-cv_data = job_adjuster.adjust(cv_data, job_url="https://example.com/job/123")
-
-# Final data is doubly-optimized
+work = UnitOfWork(config=config, input=intermediate, output=intermediate)
+cv_data = job_adjuster.adjust(work, job_url="https://example.com/job/123")
 ```
 
 ## Configuration

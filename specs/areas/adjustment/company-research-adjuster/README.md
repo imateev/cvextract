@@ -24,12 +24,19 @@ This adjuster implements a complete company research and CV adjustment pipeline:
 ### Programmatic API
 
 ```python
-from cvextract.adjusters import OpenAICompanyResearchAdjuster
 from pathlib import Path
+from cvextract.adjusters import OpenAICompanyResearchAdjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.pipeline_helpers import UnitOfWork
 
 adjuster = OpenAICompanyResearchAdjuster(model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     customer_url="https://example.com",
     cache_path=Path("cache/example.research.json")
 )
@@ -71,10 +78,18 @@ python -m cvextract.cli \
 
 ```python
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.pipeline_helpers import UnitOfWork
+from pathlib import Path
 
 adjuster = get_adjuster("openai-company-research", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     customer_url="https://example.com"
 )
 ```

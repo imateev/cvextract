@@ -22,11 +22,19 @@ Adjusts CV data based on target company research using OpenAI.
 
 **Example:**
 ```python
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.pipeline_helpers import UnitOfWork
 
 adjuster = get_adjuster("openai-company-research", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     customer_url="https://example.com",
     cache_path=Path("research_cache.json")
 )
@@ -42,11 +50,19 @@ Adjusts CV data based on a specific job description using OpenAI.
 
 **Example:**
 ```python
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.pipeline_helpers import UnitOfWork
 
 adjuster = get_adjuster("openai-job-specific", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     job_url="https://careers.example.com/job/123"
 )
 ```
@@ -64,6 +80,7 @@ To create a custom adjuster:
 
 ```python
 from cvextract.adjusters import CVAdjuster, register_adjuster
+from cvextract.pipeline_helpers import UnitOfWork
 from typing import Any, Dict
 
 class MyCustomAdjuster(CVAdjuster):
@@ -77,10 +94,10 @@ class MyCustomAdjuster(CVAdjuster):
         if 'required_param' not in kwargs:
             raise ValueError("required_param is missing")
     
-    def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def adjust(self, work: UnitOfWork, **kwargs) -> Dict[str, Any]:
         self.validate_params(**kwargs)
         # Your adjustment logic here
-        return cv_data
+        return self._load_input_json(work)
 
 # Register it
 register_adjuster(MyCustomAdjuster)

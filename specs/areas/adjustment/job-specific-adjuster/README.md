@@ -23,18 +23,26 @@ The `OpenAIJobSpecificAdjuster` class:
 ### Programmatic API
 
 ```python
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.pipeline_helpers import UnitOfWork
 
 # Using job URL
 adjuster = get_adjuster("openai-job-specific", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     job_url="https://careers.example.com/job/123"
 )
 
 # Using job description directly
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     job_description="Senior Software Engineer position..."
 )
 ```
