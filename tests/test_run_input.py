@@ -195,9 +195,12 @@ class TestRunInputWithPipeline:
         
         monkeypatch.setattr(p, "process_single_docx", fake_process)
         
-        ok, errs, warns = p.extract_single(run_input, out_json, debug=False)
+        ok, errs, warns, updated_run_input = p.extract_single(run_input, out_json, debug=False)
         assert ok is True
         assert errs == []
+        # Verify RunInput is returned with extracted_json_path set
+        assert isinstance(updated_run_input, RunInput)
+        assert updated_run_input.extracted_json_path == out_json
     
     def test_extract_single_accepts_path_backward_compatibility(self, monkeypatch, tmp_path: Path, mock_cv_data):
         """Test extract_single still accepts Path for backward compatibility."""
@@ -213,9 +216,13 @@ class TestRunInputWithPipeline:
         monkeypatch.setattr(p, "process_single_docx", fake_process)
         
         # Pass Path directly instead of RunInput
-        ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+        ok, errs, warns, updated_run_input = p.extract_single(docx, out_json, debug=False)
         assert ok is True
         assert errs == []
+        # Verify RunInput is created and returned
+        assert isinstance(updated_run_input, RunInput)
+        assert updated_run_input.file_path == docx
+        assert updated_run_input.extracted_json_path == out_json
     
     def test_process_single_docx_accepts_run_input(self, monkeypatch, tmp_path: Path, mock_cv_data_minimal):
         """Test process_single_docx accepts RunInput."""

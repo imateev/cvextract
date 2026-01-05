@@ -9,6 +9,7 @@ from cvextract.pipeline_helpers import (
     render_and_verify,
     infer_source_root,
 )
+from cvextract.run_input import RunInput
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
@@ -39,11 +40,13 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             assert ok is True
             assert errors == []
             assert warnings == []
+            assert isinstance(run_input, RunInput)
+            assert run_input.extracted_json_path == out_json
 
     def testextract_single_invalid_data(self, tmp_path):
         """Test verification failure with invalid data."""
@@ -57,7 +60,7 @@ class TestExtractSingle:
             
             mock_extract.return_value = mock_data
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             # The actual verifier will catch these errors
             assert ok is False
@@ -73,7 +76,7 @@ class TestExtractSingle:
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             assert ok is False
             assert any("exception" in e.lower() or "ValueError" in e for e in errors)
@@ -89,7 +92,7 @@ class TestExtractSingle:
             
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=True)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=True)
             
             assert ok is False
 
@@ -119,7 +122,7 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             assert ok is True
             assert "Warning message" in warnings
@@ -142,6 +145,8 @@ class TestRenderAndVerify:
         }))
         template_path.touch()
         
+        # Create RunInput with extracted_json_path set
+        run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_path)
         rendered_docx = out_dir / "test_NEW.docx"
         
         mock_verifier = MagicMock()
@@ -155,13 +160,15 @@ class TestRenderAndVerify:
             mock_process.return_value = json.loads(json_path.read_text())
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            ok, errors, warns, compare_ok, updated_run_input = render_and_verify(
+                run_input, template_path, rendered_docx, debug=False
             )
             
             assert ok is True
             assert errors == []
             assert compare_ok is True
+            assert isinstance(updated_run_input, RunInput)
+            assert updated_run_input.rendered_docx_path == rendered_docx
 
     def testrender_and_verify_skip_compare(self, tmp_path):
         """Test skip_compare parameter."""
@@ -177,15 +184,20 @@ class TestRenderAndVerify:
         }))
         template_path.touch()
         
+        # Create RunInput with extracted_json_path set
+        run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_path)
+        rendered_docx = out_dir / "test_NEW.docx"
+        
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
-            mock_render.return_value = out_dir / "test_NEW.docx"
+            mock_render.return_value = rendered_docx
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False, skip_compare=True
+            ok, errors, warns, compare_ok, updated_run_input = render_and_verify(
+                run_input, template_path, rendered_docx, debug=False, skip_compare=True
             )
             
             assert ok is True
             assert compare_ok is None  # Not executed
+            assert isinstance(updated_run_input, RunInput)
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
         """Test roundtrip_dir parameter."""
@@ -203,6 +215,8 @@ class TestRenderAndVerify:
         json_path.write_text(json.dumps(test_data))
         template_path.touch()
         
+        # Create RunInput with extracted_json_path set
+        run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_path)
         rendered_docx = out_dir / "test_NEW.docx"
         
         mock_verifier = MagicMock()
@@ -216,8 +230,8 @@ class TestRenderAndVerify:
             mock_process.return_value = test_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False,
+            ok, errors, warns, compare_ok, updated_run_input = render_and_verify(
+                run_input, template_path, rendered_docx, debug=False,
                 roundtrip_dir=roundtrip_dir
             )
             
@@ -239,6 +253,8 @@ class TestRenderAndVerify:
         }))
         template_path.touch()
         
+        # Create RunInput with extracted_json_path set
+        run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_path)
         rendered_docx = out_dir / "test_NEW.docx"
         
         mock_verifier = MagicMock()
@@ -256,8 +272,8 @@ class TestRenderAndVerify:
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            ok, errors, warns, compare_ok, updated_run_input = render_and_verify(
+                run_input, template_path, rendered_docx, debug=False
             )
             
             assert ok is False
@@ -273,11 +289,15 @@ class TestRenderAndVerify:
         json_path.write_text(json.dumps({}))
         template_path.touch()
         
+        # Create RunInput with extracted_json_path set
+        run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_path)
+        rendered_docx = out_dir / "test_NEW.docx"
+        
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
             mock_render.side_effect = RuntimeError("Render failed")
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            ok, errors, warns, compare_ok, updated_run_input = render_and_verify(
+                run_input, template_path, rendered_docx, debug=False
             )
             
             assert ok is False

@@ -153,6 +153,8 @@ def execute_pipeline(config: UserConfig) -> int:
     else:
         # No extraction, use input JSON directly
         out_json = input_file
+        # Update RunInput with extracted_json_path (since input is already JSON)
+        run_input = run_input.with_extracted_json(out_json)
     
     # Step 2: Adjust (if configured)
     render_json = out_json
