@@ -107,7 +107,12 @@ def execute_pipeline(config: UserConfig) -> int:
     apply_warns: List[str] = []
     
     # Step 1: Extract (if configured)
-    out_json = None
+    work = UnitOfWork(
+        config=config,
+        initial_input=input_file,
+        input=input_file,
+        output=input_file,
+    )
     skip_roundtrip = False  # Flag to skip roundtrip verification for certain extractors
     if config.extract:
         # Skip roundtrip verification for openai-extractor
@@ -116,17 +121,10 @@ def execute_pipeline(config: UserConfig) -> int:
         
         # Determine output path
         if config.extract.output:
-            out_json = config.extract.output
+            work.output = config.extract.output
         else:
-            out_json = config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
-        
-        out_json.parent.mkdir(parents=True, exist_ok=True)
-        work = UnitOfWork(
-            config=config,
-            initial_input=input_file,
-            input=input_file,
-            output=out_json,
-        )
+            work.output = config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
+        work.output.parent.mkdir(parents=True, exist_ok=True)
         work = extract_single(work)
 
         if (not work.extract_ok) and work.extract_errs and work.extract_errs[0].startswith("unknown extractor:"):
@@ -142,16 +140,16 @@ def execute_pipeline(config: UserConfig) -> int:
             return 1
     else:
         # No extraction, use input JSON directly
-        out_json = input_file
+        work = replace(work, output=work.input)
     
     # Step 2: Adjust (if configured)
-    render_json = out_json
-    if config.adjust and out_json:
+    if config.adjust and work.output:
+        base_work = work
         try:
             adjust_work = UnitOfWork(
                 config=config,
-                initial_input=out_json,
-                input=out_json,
+                initial_input=work.output,
+                input=work.output,
                 output=config.adjust.output or (
                     config.workspace.adjusted_json_dir / rel_path / f"{input_file.stem}.json"
                 ),
@@ -190,13 +188,12 @@ def execute_pipeline(config: UserConfig) -> int:
 
                 adjust_work = adjuster.adjust(adjust_work, **adjuster_params)
                 adjust_work = replace(adjust_work, input=adjust_work.output)
-            
-            render_json = adjust_work.output
+                work = adjust_work  # Update main work reference
         except Exception as e:
             # If adjust fails, proceed with original JSON
             if config.debug:
                 LOG.error("Adjustment failed: %s", traceback.format_exc())
-            render_json = out_json
+            work = base_work
     
     # Step 3: Apply/Render (if configured and not dry-run)
     if config.apply and not (config.adjust and config.adjust.dry_run):
@@ -210,7 +207,7 @@ def execute_pipeline(config: UserConfig) -> int:
         verify_dir = config.workspace.verification_dir / rel_path
         
         apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
-            json_path=render_json,
+            json_path=work.input,
             template_path=config.apply.template,
             output_docx=output_docx,
             debug=config.debug,
