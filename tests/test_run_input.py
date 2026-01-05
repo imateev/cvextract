@@ -37,6 +37,10 @@ class TestRunInput:
         
         assert run_input.file_path == file_path
         assert isinstance(run_input, RunInput)
+        assert run_input.extracted_json_path is None
+        assert run_input.adjusted_json_path is None
+        assert run_input.rendered_docx_path is None
+        assert run_input.metadata == {}
     
     def test_run_input_direct_construction(self, tmp_path: Path):
         """Test direct construction of RunInput."""
@@ -52,6 +56,120 @@ class TestRunInput:
         
         assert isinstance(run_input.file_path, Path)
         assert run_input.file_path == file_path
+    
+    def test_run_input_is_immutable(self, tmp_path: Path):
+        """Test that RunInput is immutable (frozen dataclass)."""
+        file_path = tmp_path / "test.docx"
+        run_input = RunInput.from_path(file_path)
+        
+        # Attempt to modify should raise an error
+        with pytest.raises(Exception):  # FrozenInstanceError or AttributeError
+            run_input.file_path = tmp_path / "other.docx"
+    
+    def test_with_extracted_json(self, tmp_path: Path):
+        """Test with_extracted_json creates new instance."""
+        file_path = tmp_path / "test.docx"
+        json_path = tmp_path / "test.json"
+        
+        run_input = RunInput.from_path(file_path)
+        updated = run_input.with_extracted_json(json_path)
+        
+        # Original unchanged
+        assert run_input.extracted_json_path is None
+        # New instance has the path
+        assert updated.extracted_json_path == json_path
+        assert updated.file_path == file_path
+        assert updated is not run_input
+    
+    def test_with_adjusted_json(self, tmp_path: Path):
+        """Test with_adjusted_json creates new instance."""
+        file_path = tmp_path / "test.docx"
+        json_path = tmp_path / "adjusted.json"
+        
+        run_input = RunInput.from_path(file_path)
+        updated = run_input.with_adjusted_json(json_path)
+        
+        # Original unchanged
+        assert run_input.adjusted_json_path is None
+        # New instance has the path
+        assert updated.adjusted_json_path == json_path
+        assert updated.file_path == file_path
+        assert updated is not run_input
+    
+    def test_with_rendered_docx(self, tmp_path: Path):
+        """Test with_rendered_docx creates new instance."""
+        file_path = tmp_path / "test.docx"
+        output_path = tmp_path / "output.docx"
+        
+        run_input = RunInput.from_path(file_path)
+        updated = run_input.with_rendered_docx(output_path)
+        
+        # Original unchanged
+        assert run_input.rendered_docx_path is None
+        # New instance has the path
+        assert updated.rendered_docx_path == output_path
+        assert updated.file_path == file_path
+        assert updated is not run_input
+    
+    def test_get_current_json_path_none(self, tmp_path: Path):
+        """Test get_current_json_path returns None when no JSON set."""
+        file_path = tmp_path / "test.docx"
+        run_input = RunInput.from_path(file_path)
+        
+        assert run_input.get_current_json_path() is None
+    
+    def test_get_current_json_path_extracted_only(self, tmp_path: Path):
+        """Test get_current_json_path returns extracted when only extracted set."""
+        file_path = tmp_path / "test.docx"
+        json_path = tmp_path / "test.json"
+        
+        run_input = RunInput.from_path(file_path).with_extracted_json(json_path)
+        
+        assert run_input.get_current_json_path() == json_path
+    
+    def test_get_current_json_path_prefers_adjusted(self, tmp_path: Path):
+        """Test get_current_json_path prefers adjusted over extracted."""
+        file_path = tmp_path / "test.docx"
+        extracted_path = tmp_path / "test.json"
+        adjusted_path = tmp_path / "adjusted.json"
+        
+        run_input = (RunInput.from_path(file_path)
+                     .with_extracted_json(extracted_path)
+                     .with_adjusted_json(adjusted_path))
+        
+        assert run_input.get_current_json_path() == adjusted_path
+    
+    def test_with_metadata(self, tmp_path: Path):
+        """Test with_metadata creates new instance with updated metadata."""
+        file_path = tmp_path / "test.docx"
+        
+        run_input = RunInput.from_path(file_path)
+        updated = run_input.with_metadata(timestamp="2024-01-01", user="test")
+        
+        # Original unchanged
+        assert run_input.metadata == {}
+        # New instance has metadata
+        assert updated.metadata == {"timestamp": "2024-01-01", "user": "test"}
+        assert updated is not run_input
+    
+    def test_chained_updates(self, tmp_path: Path):
+        """Test chaining multiple updates works correctly."""
+        file_path = tmp_path / "test.docx"
+        extracted = tmp_path / "test.json"
+        adjusted = tmp_path / "adjusted.json"
+        rendered = tmp_path / "output.docx"
+        
+        run_input = (RunInput.from_path(file_path)
+                     .with_extracted_json(extracted)
+                     .with_adjusted_json(adjusted)
+                     .with_rendered_docx(rendered)
+                     .with_metadata(version="1.0"))
+        
+        assert run_input.file_path == file_path
+        assert run_input.extracted_json_path == extracted
+        assert run_input.adjusted_json_path == adjusted
+        assert run_input.rendered_docx_path == rendered
+        assert run_input.metadata == {"version": "1.0"}
 
 
 class TestRunInputWithPipeline:
