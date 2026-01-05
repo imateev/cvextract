@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import traceback
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 import os
 
 from .logging_utils import LOG
@@ -21,6 +21,7 @@ from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import get_verifier
+from .run_input import RunInput
 
 
 def infer_source_root(inputs: List[Path]) -> Path:
@@ -47,7 +48,7 @@ def safe_relpath(p: Path, root: Path) -> str:
 
 
 def extract_single(
-    source_file: Path, 
+    source: Union[Path, RunInput], 
     out_json: Path, 
     debug: bool,
     extractor: Optional[CVExtractor] = None
@@ -56,7 +57,7 @@ def extract_single(
     Extract and verify a single file. Returns (ok, errors, warnings).
     
     Args:
-        source_file: Path to source file to extract
+        source: Path or RunInput to source file to extract
         out_json: Output JSON path
         debug: Enable debug logging
         extractor: Optional CVExtractor instance to use
@@ -64,8 +65,11 @@ def extract_single(
     Returns:
         Tuple of (success, errors, warnings)
     """
+    # Handle both Path and RunInput
+    source_file = source.file_path if isinstance(source, RunInput) else source
+    
     try:
-        data = process_single_docx(source_file, out=out_json, extractor=extractor)
+        data = process_single_docx(source, out=out_json, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
         return result.ok, result.errors, result.warnings
@@ -114,13 +118,14 @@ def render_and_verify(
         if skip_compare:
             return True, [], [], None
 
-        # Round-trip extraction from rendered DOCX
+        # Round-trip extraction from rendered DOCX - use RunInput
         if roundtrip_dir:
             roundtrip_dir.mkdir(parents=True, exist_ok=True)
             roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
         else:
             roundtrip_json = output_docx.with_suffix(".json")
-        roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
+        roundtrip_input = RunInput.from_path(output_docx)
+        roundtrip_data = process_single_docx(roundtrip_input, out=roundtrip_json)
 
         original_data = cv_data
 

@@ -24,6 +24,7 @@ from .pipeline_helpers import (
     render_and_verify,
     get_status_icons,
 )
+from .run_input import RunInput
 
 
 def execute_pipeline(config: UserConfig) -> int:
@@ -73,6 +74,9 @@ def execute_pipeline(config: UserConfig) -> int:
 
     # Single file processing
     input_file = inputs[0]
+    
+    # Create RunInput object at CLI boundary
+    run_input = RunInput.from_path(input_file)
     
     # Determine relative path for preserving directory structure
     # Prefer input_dir from config (set in parallel processing), otherwise calculate from source
@@ -137,7 +141,7 @@ def execute_pipeline(config: UserConfig) -> int:
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
         extract_ok, extract_errs, extract_warns = extract_single(
-            input_file, out_json, config.debug, extractor=extractor
+            run_input, out_json, config.debug, extractor=extractor
         )
         
         # If extraction failed and we need to apply, exit early
