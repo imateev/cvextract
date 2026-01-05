@@ -114,6 +114,17 @@ See examples in `tests/test_extractors.py`, `tests/test_renderers.py`
 - Coverage reports generated automatically in CI
 - Run locally: `python -m pytest tests/ --cov=cvextract --cov-report=term`
 
+### Documentation
+- All authoritative project documentation lives in the `specs/` directory.
+- `specs/FEATURES.md` is the single source of truth for all implemented, planned, and proposed features.
+- Any non-trivial change (feature, behavior, workflow, or refactor) should result in a documentation update.
+- The `specs/areas/` directory is organized by domain and functional area.
+- Each domain contains a `README.md` describing its purpose, concepts, and workflows.
+- New features must update `specs/FEATURES.md` and the relevant `specs/areas/<domain>/` documentation.
+- Complex areas may contain nested sub-directories, each with its own `README.md` describing a specific sub-system or pipeline.
+- Avoid duplicating documentation across areas; instead, reference related domains where necessary.
+- Documentation changes are expected to happen alongside code changes, not after the fact.
+
 ## Build and Development Commands
 
 ### Setup
