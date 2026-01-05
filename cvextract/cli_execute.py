@@ -158,10 +158,12 @@ def execute_pipeline(config: UserConfig) -> int:
         out_json = input_file
     
     # Step 2: Adjust (if configured)
-    render_json = out_json
-    if config.adjust and out_json:
+    if config.adjust:
+        # Get the current JSON path from RunInput (prefers adjusted over extracted)
+        current_json = run_input.get_current_json_path() or out_json
+        
         try:
-            with out_json.open("r", encoding="utf-8") as f:
+            with current_json.open("r", encoding="utf-8") as f:
                 current_data = json.load(f)
             
             # Apply each adjuster in sequence
@@ -216,15 +218,18 @@ def execute_pipeline(config: UserConfig) -> int:
             with adjusted_json.open("w", encoding="utf-8") as wf:
                 json.dump(current_data, wf, ensure_ascii=False, indent=2)
             
-            render_json = adjusted_json
+            # Update RunInput with adjusted JSON path
+            run_input = run_input.with_adjusted_json(adjusted_json)
         except Exception as e:
-            # If adjust fails, proceed with original JSON
+            # If adjust fails, proceed with original JSON from RunInput
             if config.debug:
                 LOG.error("Adjustment failed: %s", traceback.format_exc())
-            render_json = out_json
     
     # Step 3: Apply/Render (if configured and not dry-run)
     if config.apply and not (config.adjust and config.adjust.dry_run):
+        # Get the current JSON path from RunInput (prefers adjusted over extracted)
+        render_json = run_input.get_current_json_path() or out_json
+        
         # Determine output path
         if config.apply.output:
             output_docx = config.apply.output
