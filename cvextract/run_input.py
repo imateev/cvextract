@@ -7,7 +7,7 @@ input file path and positions for future metadata enrichment.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -70,13 +70,7 @@ class RunInput:
         Returns:
             New RunInput instance with extracted_json_path set
         """
-        return RunInput(
-            file_path=self.file_path,
-            extracted_json_path=path,
-            adjusted_json_path=self.adjusted_json_path,
-            rendered_docx_path=self.rendered_docx_path,
-            metadata=self.metadata
-        )
+        return replace(self, extracted_json_path=path)
     
     def with_adjusted_json(self, path: Path) -> RunInput:
         """
@@ -88,13 +82,7 @@ class RunInput:
         Returns:
             New RunInput instance with adjusted_json_path set
         """
-        return RunInput(
-            file_path=self.file_path,
-            extracted_json_path=self.extracted_json_path,
-            adjusted_json_path=path,
-            rendered_docx_path=self.rendered_docx_path,
-            metadata=self.metadata
-        )
+        return replace(self, adjusted_json_path=path)
     
     def with_rendered_docx(self, path: Path) -> RunInput:
         """
@@ -106,10 +94,4 @@ class RunInput:
         Returns:
             New RunInput instance with rendered_docx_path set
         """
-        return RunInput(
-            file_path=self.file_path,
-            extracted_json_path=self.extracted_json_path,
-            adjusted_json_path=self.adjusted_json_path,
-            rendered_docx_path=path,
-            metadata=self.metadata
-        )
+        return replace(self, rendered_docx_path=path)
