@@ -76,6 +76,11 @@ class UserConfig:
     last_warnings: List[str] = field(default_factory=list)  # Warnings from the most recent run
 
     @property
+    def workspace(self) -> "Workspace":
+        """Directory layout derived from target_dir."""
+        return Workspace(self.target_dir)
+
+    @property
     def debug(self) -> bool:
         """True if verbosity is 'debug'."""
         return self.verbosity == "debug"
@@ -100,3 +105,29 @@ class UserConfig:
         """Whether to run comparison verification."""
         # Only compare if applying but not adjusting
         return self.has_apply and not self.has_adjust
+
+
+@dataclass(frozen=True)
+class Workspace:
+    """Output directory layout for a run."""
+    target_dir: Path
+
+    @property
+    def json_dir(self) -> Path:
+        return self.target_dir / "structured_data"
+
+    @property
+    def adjusted_json_dir(self) -> Path:
+        return self.target_dir / "adjusted_structured_data"
+
+    @property
+    def documents_dir(self) -> Path:
+        return self.target_dir / "documents"
+
+    @property
+    def research_dir(self) -> Path:
+        return self.target_dir / "research_data"
+
+    @property
+    def verification_dir(self) -> Path:
+        return self.target_dir / "verification_structured_data"

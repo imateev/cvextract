@@ -91,11 +91,12 @@ def execute_pipeline(config: UserConfig) -> int:
         rel_path = Path(".")
     
     # Create output directories
-    json_dir = config.target_dir / "structured_data"
-    adjusted_json_dir = config.target_dir / "adjusted_structured_data"
-    documents_dir = config.target_dir / "documents"
-    research_dir = config.target_dir / "research_data"
-    verification_dir = config.target_dir / "verification_structured_data"
+    workspace = config.workspace
+    json_dir = workspace.json_dir
+    adjusted_json_dir = workspace.adjusted_json_dir
+    documents_dir = workspace.documents_dir
+    research_dir = workspace.research_dir
+    verification_dir = workspace.verification_dir
     
     if config.extract or config.adjust:
         json_dir.mkdir(parents=True, exist_ok=True)

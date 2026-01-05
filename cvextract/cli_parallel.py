@@ -97,7 +97,7 @@ def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
     model = company_research_adjuster.openai_model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
     
     # Create research cache directory
-    research_dir = config.target_dir / "research_data"
+    research_dir = config.workspace.research_dir
     research_dir.mkdir(parents=True, exist_ok=True)
     
     # Determine cache file path
