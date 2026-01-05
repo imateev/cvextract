@@ -113,7 +113,7 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -141,7 +141,7 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -162,7 +162,7 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -184,7 +184,7 @@ class TestProcessSingleFileWrapper:
             apply=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -210,7 +210,7 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -238,7 +238,7 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -256,7 +256,7 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=None,  # No parallel config
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -271,7 +271,7 @@ class TestExecuteParallelPipeline:
             apply=None,
             parallel=ParallelStage(source=tmp_path / "does_not_exist", n=1),
             target_dir=tmp_path / "out",
-                verbosity="minimal",
+            verbosity="minimal",
             log_file=None
         )
         
@@ -294,8 +294,6 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
-
-        verbosity="minimal",
         """Input path that exists but is not a directory should return error."""
         not_dir = tmp_path / "single.docx"
         not_dir.write_text("docx")
@@ -312,7 +310,6 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
 
-        verbosity="minimal",
     @patch('cvextract.cli_parallel.LOG.error')
     @patch('cvextract.cli_parallel.scan_directory_for_files')
     def test_parallel_pipeline_scan_directory_failure_debug_logs(self, mock_scan, mock_log_error, tmp_path: Path):
@@ -386,9 +383,8 @@ class TestExecuteParallelPipeline:
         )
         
         exit_code = execute_parallel_pipeline(config)
-        
         assert exit_code == 0  # Warnings no longer affect exit code
-        verbosity="minimal",
+
     @patch('cvextract.cli_parallel.process_single_file_wrapper')
     def test_parallel_pipeline_partial_success(self, mock_process, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline tracks partial successes (files with warnings)."""
@@ -412,9 +408,6 @@ class TestExecuteParallelPipeline:
         )
         
         exit_code = execute_parallel_pipeline(config)
-        
-        # Should return 0 (success) even with failures and warnings
-        verbosity="minimal",
         assert mock_process.call_count == 5
 
     @patch('cvextract.cli_parallel.LOG.error')
@@ -436,7 +429,6 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0
         doc_count = len(scan_directory_for_docx(test_directory))
-        verbosity="debug",
         # Each exception logs the user-facing message and the traceback
         # Two error logs per exception: error message and traceback
         assert mock_log_error.call_count == doc_count * 2
@@ -460,7 +452,6 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0
-        verbosity="debug",
         # Print actual log lines for debugging if needed
         # print([call.args[0] for call in mock_log_info.call_args_list])
         # Accept both the summary and at least one failed file line
