@@ -1,7 +1,30 @@
 """Tests for RunInput object."""
 
 from pathlib import Path
+import pytest
 from cvextract.run_input import RunInput
+
+
+@pytest.fixture
+def mock_cv_data():
+    """Shared fixture for mock CV data structure."""
+    return {
+        "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+        "sidebar": {"languages": ["Python"], "tools": ["x"], "industries": ["x"], 
+                   "spoken_languages": ["EN"], "academic_background": ["x"]},
+        "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
+    }
+
+
+@pytest.fixture
+def mock_cv_data_minimal():
+    """Shared fixture for minimal mock CV data structure."""
+    return {
+        "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+        "sidebar": {"languages": ["Python"], "tools": [], "industries": [], 
+                   "spoken_languages": [], "academic_background": []},
+        "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
+    }
 
 
 class TestRunInput:
@@ -34,7 +57,7 @@ class TestRunInput:
 class TestRunInputWithPipeline:
     """Test RunInput integration with pipeline functions."""
     
-    def test_extract_single_accepts_run_input(self, monkeypatch, tmp_path: Path):
+    def test_extract_single_accepts_run_input(self, monkeypatch, tmp_path: Path, mock_cv_data):
         """Test extract_single accepts RunInput."""
         from cvextract import pipeline_helpers as p
         
@@ -44,12 +67,7 @@ class TestRunInputWithPipeline:
         
         def fake_process(_source, out, extractor=None):
             out.write_text("{}", encoding="utf-8")
-            return {
-                "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-                "sidebar": {"languages": ["Python"], "tools": ["x"], "industries": ["x"], 
-                           "spoken_languages": ["EN"], "academic_background": ["x"]},
-                "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
-            }
+            return mock_cv_data
         
         monkeypatch.setattr(p, "process_single_docx", fake_process)
         
@@ -57,7 +75,7 @@ class TestRunInputWithPipeline:
         assert ok is True
         assert errs == []
     
-    def test_extract_single_accepts_path_backward_compatibility(self, monkeypatch, tmp_path: Path):
+    def test_extract_single_accepts_path_backward_compatibility(self, monkeypatch, tmp_path: Path, mock_cv_data):
         """Test extract_single still accepts Path for backward compatibility."""
         from cvextract import pipeline_helpers as p
         
@@ -66,12 +84,7 @@ class TestRunInputWithPipeline:
         
         def fake_process(_source, out, extractor=None):
             out.write_text("{}", encoding="utf-8")
-            return {
-                "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-                "sidebar": {"languages": ["Python"], "tools": ["x"], "industries": ["x"], 
-                           "spoken_languages": ["EN"], "academic_background": ["x"]},
-                "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
-            }
+            return mock_cv_data
         
         monkeypatch.setattr(p, "process_single_docx", fake_process)
         
@@ -80,7 +93,7 @@ class TestRunInputWithPipeline:
         assert ok is True
         assert errs == []
     
-    def test_process_single_docx_accepts_run_input(self, monkeypatch, tmp_path: Path):
+    def test_process_single_docx_accepts_run_input(self, monkeypatch, tmp_path: Path, mock_cv_data_minimal):
         """Test process_single_docx accepts RunInput."""
         from cvextract.pipeline_highlevel import process_single_docx
         from cvextract.extractors import DocxCVExtractor
@@ -91,12 +104,7 @@ class TestRunInputWithPipeline:
         
         # Mock the extractor
         def fake_extract(self, _path):
-            return {
-                "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-                "sidebar": {"languages": ["Python"], "tools": [], "industries": [], 
-                           "spoken_languages": [], "academic_background": []},
-                "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
-            }
+            return mock_cv_data_minimal
         
         monkeypatch.setattr(DocxCVExtractor, "extract", fake_extract)
         
@@ -105,7 +113,7 @@ class TestRunInputWithPipeline:
         assert "identity" in data
         assert out_json.exists()
     
-    def test_process_single_docx_accepts_path_backward_compatibility(self, monkeypatch, tmp_path: Path):
+    def test_process_single_docx_accepts_path_backward_compatibility(self, monkeypatch, tmp_path: Path, mock_cv_data_minimal):
         """Test process_single_docx still accepts Path for backward compatibility."""
         from cvextract.pipeline_highlevel import process_single_docx
         from cvextract.extractors import DocxCVExtractor
@@ -115,12 +123,7 @@ class TestRunInputWithPipeline:
         
         # Mock the extractor
         def fake_extract(self, _path):
-            return {
-                "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-                "sidebar": {"languages": ["Python"], "tools": [], "industries": [], 
-                           "spoken_languages": [], "academic_background": []},
-                "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
-            }
+            return mock_cv_data_minimal
         
         monkeypatch.setattr(DocxCVExtractor, "extract", fake_extract)
         
