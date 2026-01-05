@@ -170,7 +170,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             
     except Exception as e:
         error_msg = str(e)
-        if config.verbosity == "debug":
+        if config.debug:
             error_msg = traceback.format_exc()
         return (False, error_msg, 1, False)
 
@@ -203,7 +203,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         files = scan_directory_for_files(input_dir, config.parallel.file_type)
     except Exception as e:
         LOG.error("Failed to scan directory: %s", e)
-        if config.verbosity == "debug":
+        if config.debug:
             LOG.error(traceback.format_exc())
         return 1
     
@@ -281,7 +281,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                 LOG.error(error_summary)
                 # Flush output atomically for this file
                 controller.flush_file(file_path, error_summary)
-                if config.verbosity == "debug":
+                if config.debug:
                     LOG.error(traceback.format_exc())
                 failed_count += 1
                 failed_files.append(str(file_path))
@@ -302,7 +302,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         LOG.info(summary_msg)
     
     # Only show failed files list in debug mode or log file
-    if failed_files and config.verbosity == "debug":
+    if failed_files and config.debug:
         controller.direct_print("Failed files:")
         LOG.info("Failed files:")
         for failed_file in failed_files:
