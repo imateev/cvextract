@@ -120,12 +120,13 @@ def execute_pipeline(config: UserConfig) -> int:
             skip_roundtrip = True
         
         # Determine output path
-        if config.extract.output:
-            work.output = config.extract.output
-        else:
-            work.output = config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
-        work.output.parent.mkdir(parents=True, exist_ok=True)
+        output_path = config.extract.output or (
+            config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        work = replace(work, output=output_path)
         work = extract_single(work)
+        work = replace(work, input=work.output)
 
         if (not work.extract_ok) and work.extract_errs and work.extract_errs[0].startswith("unknown extractor:"):
             LOG.error("Unknown extractor: %s", config.extract.name)
@@ -140,7 +141,7 @@ def execute_pipeline(config: UserConfig) -> int:
             return 1
     else:
         # No extraction, use input JSON directly
-        work = replace(work, output=work.input)
+        work = replace(work, input=work.input, output=work.input)
     
     # Step 2: Adjust (if configured)
     if config.adjust and work.output:
