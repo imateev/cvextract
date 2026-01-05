@@ -107,7 +107,7 @@ class TestExtractSingle:
             mock_extract.side_effect = ValueError("Bad file")
             
             work = UnitOfWork(
-                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path), debug=True),
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path), verbosity="debug"),
                 input_file=docx_path,
                 out_json=out_json,
             )
