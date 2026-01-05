@@ -43,8 +43,8 @@ class TestExtractSingle:
             
             work = UnitOfWork(
                 config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
-                input_file=docx_path,
-                out_json=out_json,
+                input=docx_path,
+                output=out_json,
             )
             result = extract_single(work)
             
@@ -66,8 +66,8 @@ class TestExtractSingle:
             
             work = UnitOfWork(
                 config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
-                input_file=docx_path,
-                out_json=out_json,
+                input=docx_path,
+                output=out_json,
             )
             result = extract_single(work)
             
@@ -87,8 +87,8 @@ class TestExtractSingle:
             
             work = UnitOfWork(
                 config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
-                input_file=docx_path,
-                out_json=out_json,
+                input=docx_path,
+                output=out_json,
             )
             result = extract_single(work)
             
@@ -108,8 +108,8 @@ class TestExtractSingle:
             
             work = UnitOfWork(
                 config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path), verbosity="debug"),
-                input_file=docx_path,
-                out_json=out_json,
+                input=docx_path,
+                output=out_json,
             )
             result = extract_single(work)
             
@@ -143,8 +143,8 @@ class TestExtractSingle:
             
             work = UnitOfWork(
                 config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
-                input_file=docx_path,
-                out_json=out_json,
+                input=docx_path,
+                output=out_json,
             )
             result = extract_single(work)
             

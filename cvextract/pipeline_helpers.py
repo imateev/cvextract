@@ -31,8 +31,8 @@ class UnitOfWork:
     Container for extraction inputs and outputs.
     """
     config: UserConfig
-    input_file: Path
-    out_json: Path
+    input: Path
+    output: Path
     extract_ok: Optional[bool] = None
     extract_errs: List[str] = field(default_factory=list)
     extract_warns: List[str] = field(default_factory=list)
@@ -83,7 +83,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                     extract_warns=[],
                 )
 
-        data = process_single_docx(work.input_file, out=work.out_json, extractor=extractor)
+        data = process_single_docx(work.input, out=work.output, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
         return replace(
@@ -95,7 +95,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
-            dump_body_sample(work.input_file, n=30)
+            dump_body_sample(work.input, n=30)
         return replace(
             work,
             extract_ok=False,

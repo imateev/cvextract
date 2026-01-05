@@ -46,8 +46,8 @@ from cvextract.cli_config import UserConfig, ExtractStage
 # Verification happens internally
 work = UnitOfWork(
     config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=source_path)),
-    input_file=source_path,
-    out_json=json_output,
+    input=source_path,
+    output=json_output,
 )
 result = extract_single(work)
 ```

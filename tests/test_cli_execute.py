@@ -219,7 +219,7 @@ class TestExecutePipelineExtractOnly:
         assert exit_code == 0
         # Verify extract_single was called with custom output
         call_args = mock_extract.call_args
-        assert call_args[0][0].out_json == custom_output
+        assert call_args[0][0].output == custom_output
 
 
 class TestExecutePipelineExtractApply:
@@ -354,8 +354,8 @@ class TestExecutePipelineAdjust:
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
-            work.out_json.parent.mkdir(parents=True, exist_ok=True)
-            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            work.output.parent.mkdir(parents=True, exist_ok=True)
+            work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -402,8 +402,8 @@ class TestExecutePipelineAdjust:
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
-            work.out_json.parent.mkdir(parents=True, exist_ok=True)
-            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            work.output.parent.mkdir(parents=True, exist_ok=True)
+            work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -529,8 +529,8 @@ class TestExecutePipelineAdjust:
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
-            work.out_json.parent.mkdir(parents=True, exist_ok=True)
-            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            work.output.parent.mkdir(parents=True, exist_ok=True)
+            work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -637,8 +637,8 @@ class TestExecutePipelineDebugMode:
         """Test that adjust exceptions in debug mode are logged."""
         mock_collect.return_value = [mock_docx]
         def fake_extract(work: UnitOfWork):
-            work.out_json.parent.mkdir(parents=True, exist_ok=True)
-            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            work.output.parent.mkdir(parents=True, exist_ok=True)
+            work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return _extract_result(work, True, [], [])
         mock_extract.side_effect = fake_extract
         # Mock adjuster to raise exception
@@ -743,7 +743,7 @@ class TestFolderStructurePreservation:
 
         # Verify extract was called with the correct output path
         call_args = mock_extract.call_args
-        output_json = call_args[0][0].out_json
+        output_json = call_args[0][0].output
 
         # Output should be in DACH/Software Engineering subdirectory
         assert "DACH" in str(output_json)
@@ -762,8 +762,8 @@ class TestFolderStructurePreservation:
         mock_collect.return_value = [input_file]
 
         def fake_extract(work: UnitOfWork):
-            work.out_json.parent.mkdir(parents=True, exist_ok=True)
-            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            work.output.parent.mkdir(parents=True, exist_ok=True)
+            work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -810,8 +810,8 @@ class TestFolderStructurePreservation:
         mock_collect.return_value = [input_file]
 
         def fake_extract(work: UnitOfWork):
-            work.out_json.parent.mkdir(parents=True, exist_ok=True)
-            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            work.output.parent.mkdir(parents=True, exist_ok=True)
+            work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract

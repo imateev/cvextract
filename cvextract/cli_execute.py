@@ -130,8 +130,8 @@ def execute_pipeline(config: UserConfig) -> int:
         
         work = UnitOfWork(
             config=config,
-            input_file=input_file,
-            out_json=out_json,
+            input=input_file,
+            output=out_json,
         )
         work = extract_single(work)
 
