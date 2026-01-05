@@ -24,24 +24,28 @@ All CLI parameters use explicit naming:
 # Extract parameters
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx name=openai-extractor output=custom.json \
-  --target output/
+  --target output/ \
+  --verbosity debug
 
 # Adjust parameters
 python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 dry-run \
-  --target output/
+  --target output/ \
+  --verbosity debug
 
 # Apply parameters
 python -m cvextract.cli \
   --apply template=/path/to/template.docx data=cv.json output=result.docx \
-  --target output/
+  --target output/ \
+  --verbosity debug
 
 # Parallel parameters
 python -m cvextract.cli \
   --parallel source=/path/to/cvs n=10 \
   --extract \
-  --target output/
+  --target output/ \
+  --verbosity debug
 ```
 
 ## Configuration
