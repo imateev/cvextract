@@ -91,21 +91,14 @@ def execute_pipeline(config: UserConfig) -> int:
         rel_path = Path(".")
     
     # Create output directories
-    workspace = config.workspace
-    json_dir = workspace.json_dir
-    adjusted_json_dir = workspace.adjusted_json_dir
-    documents_dir = workspace.documents_dir
-    research_dir = workspace.research_dir
-    verification_dir = workspace.verification_dir
-    
     if config.extract or config.adjust:
-        json_dir.mkdir(parents=True, exist_ok=True)
+        config.workspace.json_dir.mkdir(parents=True, exist_ok=True)
     
     if config.adjust:
-        adjusted_json_dir.mkdir(parents=True, exist_ok=True)
+        config.workspace.adjusted_json_dir.mkdir(parents=True, exist_ok=True)
     
     if config.apply:
-        documents_dir.mkdir(parents=True, exist_ok=True)
+        config.workspace.documents_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize result tracking
     work: Optional[UnitOfWork] = None
@@ -126,7 +119,7 @@ def execute_pipeline(config: UserConfig) -> int:
         if config.extract.output:
             out_json = config.extract.output
         else:
-            out_json = json_dir / rel_path / f"{input_file.stem}.json"
+            out_json = config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
         
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
@@ -162,7 +155,7 @@ def execute_pipeline(config: UserConfig) -> int:
                 output=out_json,
             )
             current_data = None
-            tmp_adjust_path = adjusted_json_dir / rel_path / f".adjust_tmp_{input_file.stem}.json"
+            tmp_adjust_path = config.workspace.adjusted_json_dir / rel_path / f".adjust_tmp_{input_file.stem}.json"
 
             # Apply each adjuster in sequence
             for idx, adjuster_config in enumerate(config.adjust.adjusters):
@@ -190,7 +183,7 @@ def execute_pipeline(config: UserConfig) -> int:
                 
                 # Add cache_path for company research adjuster
                 if adjuster_config.name == "openai-company-research" and 'customer-url' in adjuster_params:
-                    research_cache_dir = research_dir
+                    research_cache_dir = config.workspace.research_dir
                     research_cache_dir.mkdir(parents=True, exist_ok=True)
                     adjuster_params['cache_path'] = research_cache_dir / _url_to_cache_filename(
                         adjuster_params['customer-url']
@@ -216,7 +209,7 @@ def execute_pipeline(config: UserConfig) -> int:
             if config.adjust.output:
                 adjusted_json = config.adjust.output
             else:
-                adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
+                adjusted_json = config.workspace.adjusted_json_dir / f"{input_file.stem}.json"
             
             adjusted_json.parent.mkdir(parents=True, exist_ok=True)
             with adjusted_json.open("w", encoding="utf-8") as wf:
@@ -235,10 +228,10 @@ def execute_pipeline(config: UserConfig) -> int:
         if config.apply.output:
             output_docx = config.apply.output
         else:
-            output_docx = documents_dir / rel_path / f"{input_file.stem}_NEW.docx"
+            output_docx = config.workspace.documents_dir / rel_path / f"{input_file.stem}_NEW.docx"
         
         output_docx.parent.mkdir(parents=True, exist_ok=True)
-        verify_dir = verification_dir / rel_path
+        verify_dir = config.workspace.verification_dir / rel_path
         
         apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
             json_path=render_json,
@@ -268,17 +261,17 @@ def execute_pipeline(config: UserConfig) -> int:
         if config.extract and config.apply:
             LOG.info(
                 "📊 Extract+Apply complete. JSON: %s | DOCX: %s",
-                json_dir, documents_dir
+                config.workspace.json_dir, config.workspace.documents_dir
             )
         elif config.extract:
             LOG.info(
                 "📊 Extract complete. JSON in: %s",
-                json_dir
+                config.workspace.json_dir
             )
         else:
             LOG.info(
                 "📊 Apply complete. Output in: %s",
-                documents_dir
+                config.workspace.documents_dir
             )
     
     # Return exit code
