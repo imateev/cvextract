@@ -228,7 +228,12 @@ python -m cvextract.cli \
 - `--verbosity {minimal,verbose,debug}` - Output verbosity level (default: minimal)
   - `minimal`: One line per file with status icons, no third-party library output
   - `verbose`: Grouped per-file output blocks with warnings and major steps
-  - `debug`: Full per-file output including captured third-party logs
+  - `debug`: Full per-file output including application logs
+- `--debug-external` - Capture logs from external providers (e.g., OpenAI SDK, HTTP clients)
+  - By default, external provider logs are suppressed in parallel mode to ensure deterministic output
+  - When enabled, external logs are routed through the buffered output controller
+  - Only affects parallel mode; has no effect in single-file mode
+  - Recommended for troubleshooting API interactions and HTTP requests
 - `--log-file <path>` - Optional log file path for persistent logging
 
 ### Listing Available Components
@@ -598,6 +603,20 @@ python -m cvextract.cli \
   --target /output \
   --debug \
   --log-file /output/batch_processing.log
+```
+
+```bash
+# Batch processing with external provider logging for troubleshooting
+# Captures OpenAI SDK and HTTP client logs
+python -m cvextract.cli \
+  --parallel source=/data/cvs n=10 \
+  --extract name=openai-extractor \
+  --target /output \
+  --verbosity verbose \
+  --debug-external \
+  --log-file /output/debug_external.log
+
+# Shows detailed API interactions per file in grouped output
 ```
 
 #### Complex Directory Structure Preservation
