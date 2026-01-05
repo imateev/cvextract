@@ -56,6 +56,8 @@ def extract_single(
     """
     Extract and verify a single file. Returns (ok, errors, warnings).
     
+    When source is a RunInput, the extracted_json_path is recorded back to it.
+    
     Args:
         source: Path or RunInput to source file to extract
         out_json: Output JSON path
@@ -72,12 +74,27 @@ def extract_single(
         data = process_single_docx(source, out=out_json, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
+        
+        # If source is RunInput, record the extracted JSON path
+        if isinstance(source, RunInput):
+            source.extracted_json_path = out_json
+            # Also record errors and warnings
+            for error in result.errors:
+                source.add_error(error)
+            for warning in result.warnings:
+                source.add_warning(warning)
+        
         return result.ok, result.errors, result.warnings
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
             dump_body_sample(source_file, n=30)
-        return False, [f"exception: {type(e).__name__}"], []
+        
+        error_msg = f"exception: {type(e).__name__}"
+        if isinstance(source, RunInput):
+            source.add_error(error_msg)
+        
+        return False, [error_msg], []
 
 
 def render_and_verify(
@@ -87,10 +104,14 @@ def render_and_verify(
     debug: bool, 
     *, 
     skip_compare: bool = False, 
-    roundtrip_dir: Optional[Path] = None
+    roundtrip_dir: Optional[Path] = None,
+    run_input: Optional[RunInput] = None
 ) -> tuple[bool, List[str], List[str], Optional[bool]]:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
+    
+    When run_input is provided, the rendered_output_path is recorded to it,
+    along with any errors and warnings.
     
     Args:
         json_path: Path to input JSON file
@@ -99,6 +120,7 @@ def render_and_verify(
         debug: Enable debug logging
         skip_compare: Skip comparison verification
         roundtrip_dir: Optional directory for roundtrip JSON files
+        run_input: Optional RunInput instance to record outputs and diagnostics
     
     Returns:
         Tuple of (ok, errors, warnings, compare_ok).
@@ -113,6 +135,10 @@ def render_and_verify(
         
         # Render using the new renderer interface (with explicit output path)
         render_cv_data(cv_data, template_path, output_docx)
+        
+        # Record the rendered output path if run_input is provided
+        if run_input is not None:
+            run_input.rendered_output_path = output_docx
 
         # Skip compare when explicitly requested by caller
         if skip_compare:
@@ -137,13 +163,26 @@ def render_and_verify(
             except Exception:
                 pass
 
+        # Record warnings to run_input if provided
+        if run_input is not None:
+            for warning in cmp.warnings:
+                run_input.add_warning(warning)
+            if not cmp.ok:
+                for error in cmp.errors:
+                    run_input.add_error(error)
+
         if cmp.ok:
             return True, [], cmp.warnings, True
         return False, cmp.errors, cmp.warnings, False
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
-        return False, [f"render: {type(e).__name__}"], [], None
+        
+        error_msg = f"render: {type(e).__name__}"
+        if run_input is not None:
+            run_input.add_error(error_msg)
+        
+        return False, [error_msg], [], None
 
 
 def get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool], compare_ok: Optional[bool]) -> tuple[str, str, str]:

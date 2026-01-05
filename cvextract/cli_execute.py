@@ -213,9 +213,13 @@ def execute_pipeline(config: UserConfig) -> int:
             with adjusted_json.open("w", encoding="utf-8") as wf:
                 json.dump(current_data, wf, ensure_ascii=False, indent=2)
             
+            # Record adjusted JSON path in RunInput
+            run_input.adjusted_json_path = adjusted_json
             render_json = adjusted_json
         except Exception as e:
-            # If adjust fails, proceed with original JSON
+            # If adjust fails, record error and proceed with original JSON
+            error_msg = f"Adjustment failed: {type(e).__name__}"
+            run_input.add_error(error_msg)
             if config.debug:
                 LOG.error("Adjustment failed: %s", traceback.format_exc())
             render_json = out_json
@@ -238,6 +242,7 @@ def execute_pipeline(config: UserConfig) -> int:
             debug=config.debug,
             skip_compare=not config.should_compare or skip_roundtrip,
             roundtrip_dir=verify_dir,
+            run_input=run_input,
         )
         
         extract_errs = render_errs
