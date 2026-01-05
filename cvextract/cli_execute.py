@@ -17,12 +17,12 @@ from .cli_config import UserConfig
 from .cli_prepare import _collect_inputs
 from .logging_utils import LOG, fmt_issues
 from .adjusters import get_adjuster
-from .extractors import get_extractor
 from .adjusters.openai_company_research_adjuster import _url_to_cache_filename
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
     get_status_icons,
+    UnitOfWork,
 )
 
 
@@ -117,13 +117,6 @@ def execute_pipeline(config: UserConfig) -> int:
     out_json = None
     skip_roundtrip = False  # Flag to skip roundtrip verification for certain extractors
     if config.extract:
-        # Get the extractor instance
-        extractor = get_extractor(config.extract.name)
-        if not extractor:
-            LOG.error(f"Unknown extractor: {config.extract.name}")
-            LOG.error("Use --list extractors to see available extractors")
-            return 1
-        
         # Skip roundtrip verification for openai-extractor
         if config.extract.name == "openai-extractor":
             skip_roundtrip = True
@@ -136,9 +129,20 @@ def execute_pipeline(config: UserConfig) -> int:
         
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
-        extract_ok, extract_errs, extract_warns = extract_single(
-            input_file, out_json, config.debug, extractor=extractor
+        work = UnitOfWork(
+            config=config,
+            input_file=input_file,
+            out_json=out_json,
         )
+        work = extract_single(work)
+        extract_ok = bool(work.extract_ok)
+        extract_errs = work.extract_errs
+        extract_warns = work.extract_warns
+
+        if not extract_ok and extract_errs and extract_errs[0].startswith("unknown extractor:"):
+            LOG.error("Unknown extractor: %s", config.extract.name)
+            LOG.error("Use --list extractors to see available extractors")
+            return 1
         
         # If extraction failed and we need to apply, exit early
         if not extract_ok and config.apply:

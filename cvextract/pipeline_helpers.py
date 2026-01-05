@@ -12,15 +12,30 @@ Provides utilities for:
 from __future__ import annotations
 
 import traceback
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import List, Optional
 import os
 
+from .cli_config import UserConfig
 from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
-from .extractors import CVExtractor
+from .extractors import CVExtractor, get_extractor
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import get_verifier
+
+
+@dataclass(frozen=True)
+class UnitOfWork:
+    """
+    Container for extraction inputs and outputs.
+    """
+    config: UserConfig
+    input_file: Path
+    out_json: Path
+    extract_ok: Optional[bool] = None
+    extract_errs: List[str] = field(default_factory=list)
+    extract_warns: List[str] = field(default_factory=list)
 
 
 def infer_source_root(inputs: List[Path]) -> Path:
@@ -46,34 +61,47 @@ def safe_relpath(p: Path, root: Path) -> str:
         return p.name
 
 
-def extract_single(
-    source_file: Path, 
-    out_json: Path, 
-    debug: bool,
-    extractor: Optional[CVExtractor] = None
-) -> tuple[bool, List[str], List[str]]:
+def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
-    Extract and verify a single file. Returns (ok, errors, warnings).
+    Extract and verify a single file. Returns a UnitOfWork copy with results.
     
     Args:
-        source_file: Path to source file to extract
-        out_json: Output JSON path
-        debug: Enable debug logging
-        extractor: Optional CVExtractor instance to use
+        work: UnitOfWork describing the extraction inputs
     
     Returns:
-        Tuple of (success, errors, warnings)
+        UnitOfWork copy with extract_ok, extract_errs, extract_warns populated
     """
     try:
-        data = process_single_docx(source_file, out=out_json, extractor=extractor)
+        extractor: Optional[CVExtractor] = None
+        if work.config.extract and work.config.extract.name:
+            extractor = get_extractor(work.config.extract.name)
+            if not extractor:
+                return replace(
+                    work,
+                    extract_ok=False,
+                    extract_errs=[f"unknown extractor: {work.config.extract.name}"],
+                    extract_warns=[],
+                )
+
+        data = process_single_docx(work.input_file, out=work.out_json, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
-        return result.ok, result.errors, result.warnings
+        return replace(
+            work,
+            extract_ok=result.ok,
+            extract_errs=list(result.errors),
+            extract_warns=list(result.warnings),
+        )
     except Exception as e:
-        if debug:
+        if work.config.debug:
             LOG.error(traceback.format_exc())
-            dump_body_sample(source_file, n=30)
-        return False, [f"exception: {type(e).__name__}"], []
+            dump_body_sample(work.input_file, n=30)
+        return replace(
+            work,
+            extract_ok=False,
+            extract_errs=[f"exception: {type(e).__name__}"],
+            extract_warns=[],
+        )
 
 
 def render_and_verify(

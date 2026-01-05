@@ -3,11 +3,13 @@
 import json
 import zipfile
 import pytest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage
 from cvextract.cli_execute import execute_pipeline
+from cvextract.pipeline_helpers import UnitOfWork
 
 
 @pytest.fixture
@@ -40,6 +42,10 @@ def mock_json(tmp_path: Path):
     }
     json_file.write_text(json.dumps(data, indent=2))
     return json_file
+
+
+def _extract_result(work: UnitOfWork, ok: bool, errs: list[str], warns: list[str]) -> UnitOfWork:
+    return replace(work, extract_ok=ok, extract_errs=errs, extract_warns=warns)
 
 
 @pytest.fixture
@@ -92,7 +98,7 @@ class TestExecutePipelineExtractOnly:
     def test_extract_success(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test successful extraction."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -129,7 +135,7 @@ class TestExecutePipelineExtractOnly:
     def test_extract_with_warnings_returns_zero(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test extraction with warnings returns 0 (success)."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], ["warning"])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], ["warning"])
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -147,7 +153,7 @@ class TestExecutePipelineExtractOnly:
     def test_extract_failure(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test extraction failure returns 1."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (False, ["error"], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, False, ["error"], [])
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -197,7 +203,7 @@ class TestExecutePipelineExtractOnly:
     def test_extract_with_custom_output(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
         """Test extraction with custom output path."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         custom_output = tmp_path / "custom.json"
         config = UserConfig(
@@ -213,7 +219,7 @@ class TestExecutePipelineExtractOnly:
         assert exit_code == 0
         # Verify extract_single was called with custom output
         call_args = mock_extract.call_args
-        assert call_args[0][1] == custom_output
+        assert call_args[0][0].out_json == custom_output
 
 
 class TestExecutePipelineExtractApply:
@@ -226,7 +232,7 @@ class TestExecutePipelineExtractApply:
                                    tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + apply."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
         mock_render.return_value = (True, [], [], True)
 
         config = UserConfig(
@@ -250,7 +256,7 @@ class TestExecutePipelineExtractApply:
                                           tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that apply is skipped if extract fails."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (False, ["extract error"], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, False, ["extract error"], [])
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -272,7 +278,7 @@ class TestExecutePipelineExtractApply:
                                                  tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test extract + apply with warnings returns 0 (success)."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], ["extract warning"])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], ["extract warning"])
         mock_render.return_value = (True, [], ["apply warning"], True)
 
         config = UserConfig(
@@ -347,10 +353,10 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug, extractor=None):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
-            return True, [], []
+        def fake_extract(work: UnitOfWork):
+            work.out_json.parent.mkdir(parents=True, exist_ok=True)
+            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
 
@@ -395,10 +401,10 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug, extractor=None):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
-            return True, [], []
+        def fake_extract(work: UnitOfWork):
+            work.out_json.parent.mkdir(parents=True, exist_ok=True)
+            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
         # Mock adjuster
@@ -522,10 +528,10 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
-        def fake_extract(docx_file, out_json, debug, extractor=None):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
-            return True, [], []
+        def fake_extract(work: UnitOfWork):
+            work.out_json.parent.mkdir(parents=True, exist_ok=True)
+            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
         # Mock adjuster to raise exception
@@ -630,7 +636,11 @@ class TestExecutePipelineDebugMode:
                                          tmp_path: Path, mock_docx: Path):
         """Test that adjust exceptions in debug mode are logged."""
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], [])
+        def fake_extract(work: UnitOfWork):
+            work.out_json.parent.mkdir(parents=True, exist_ok=True)
+            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return _extract_result(work, True, [], [])
+        mock_extract.side_effect = fake_extract
         # Mock adjuster to raise exception
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = Exception("Adjustment error")
@@ -716,7 +726,7 @@ class TestFolderStructurePreservation:
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
 
         mock_collect.return_value = [input_file]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
@@ -733,7 +743,7 @@ class TestFolderStructurePreservation:
 
         # Verify extract was called with the correct output path
         call_args = mock_extract.call_args
-        output_json = call_args[0][1]
+        output_json = call_args[0][0].out_json
 
         # Output should be in DACH/Software Engineering subdirectory
         assert "DACH" in str(output_json)
@@ -751,10 +761,10 @@ class TestFolderStructurePreservation:
 
         mock_collect.return_value = [input_file]
 
-        def fake_extract(docx_file, out_json, debug, extractor=None):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
-            return True, [], []
+        def fake_extract(work: UnitOfWork):
+            work.out_json.parent.mkdir(parents=True, exist_ok=True)
+            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
         # Mock adjuster
@@ -799,10 +809,10 @@ class TestFolderStructurePreservation:
 
         mock_collect.return_value = [input_file]
 
-        def fake_extract(docx_file, out_json, debug, extractor=None):
-            out_json.parent.mkdir(parents=True, exist_ok=True)
-            out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
-            return True, [], []
+        def fake_extract(work: UnitOfWork):
+            work.out_json.parent.mkdir(parents=True, exist_ok=True)
+            work.out_json.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
+            return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
         mock_render.return_value = (True, [], [], True)
@@ -839,7 +849,7 @@ class TestFolderStructurePreservation:
         input_file.write_text("docx")
 
         mock_collect.return_value = [input_file]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
@@ -864,7 +874,7 @@ class TestFolderStructurePreservation:
         mock_docx = tmp_path / "test.docx"
         mock_docx.write_text("docx")
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         with patch('cvextract.cli_parallel.execute_parallel_pipeline', return_value=0) as mock_parallel:
             config = UserConfig(
@@ -887,7 +897,7 @@ class TestFolderStructurePreservation:
         mock_docx = tmp_path / "test.docx"
         mock_docx.write_text("docx")
         mock_collect.return_value = [mock_docx]
-        mock_extract.return_value = (True, [], [])
+        mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         # Create a config where input_dir is outside of the resolved input_file parent
         # This will cause ValueError when trying to compute relative_to

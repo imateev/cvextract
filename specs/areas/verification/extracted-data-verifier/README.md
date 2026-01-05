@@ -39,10 +39,17 @@ else:
 Used automatically in `cvextract.pipeline` after extraction:
 
 ```python
-from cvextract.pipeline_helpers import extract_single
+from pathlib import Path
+from cvextract.pipeline_helpers import extract_single, UnitOfWork
+from cvextract.cli_config import UserConfig, ExtractStage
 
 # Verification happens internally
-result = extract_single(source_path, extractor, json_output)
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=source_path)),
+    input_file=source_path,
+    out_json=json_output,
+)
+result = extract_single(work)
 ```
 
 ## Configuration

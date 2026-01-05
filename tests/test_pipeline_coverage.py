@@ -8,7 +8,9 @@ from cvextract.pipeline_helpers import (
     get_status_icons,
     render_and_verify,
     infer_source_root,
+    UnitOfWork,
 )
+from cvextract.cli_config import UserConfig, ExtractStage
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
@@ -39,11 +41,16 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input_file=docx_path,
+                out_json=out_json,
+            )
+            result = extract_single(work)
             
-            assert ok is True
-            assert errors == []
-            assert warnings == []
+            assert result.extract_ok is True
+            assert result.extract_errs == []
+            assert result.extract_warns == []
 
     def testextract_single_invalid_data(self, tmp_path):
         """Test verification failure with invalid data."""
@@ -57,12 +64,17 @@ class TestExtractSingle:
             
             mock_extract.return_value = mock_data
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input_file=docx_path,
+                out_json=out_json,
+            )
+            result = extract_single(work)
             
             # The actual verifier will catch these errors
-            assert ok is False
+            assert result.extract_ok is False
             # Check that there are errors for missing fields
-            assert len(errors) > 0
+            assert len(result.extract_errs) > 0
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -73,10 +85,15 @@ class TestExtractSingle:
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input_file=docx_path,
+                out_json=out_json,
+            )
+            result = extract_single(work)
             
-            assert ok is False
-            assert any("exception" in e.lower() or "ValueError" in e for e in errors)
+            assert result.extract_ok is False
+            assert any("exception" in e.lower() or "ValueError" in e for e in result.extract_errs)
 
     def testextract_single_exception_with_debug(self, tmp_path):
         """Test exception logging with debug mode enabled."""
@@ -89,9 +106,14 @@ class TestExtractSingle:
             
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=True)
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path), debug=True),
+                input_file=docx_path,
+                out_json=out_json,
+            )
+            result = extract_single(work)
             
-            assert ok is False
+            assert result.extract_ok is False
 
     def testextract_single_with_warnings(self, tmp_path):
         """Test that warnings are preserved."""
@@ -119,10 +141,15 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input_file=docx_path,
+                out_json=out_json,
+            )
+            result = extract_single(work)
             
-            assert ok is True
-            assert "Warning message" in warnings
+            assert result.extract_ok is True
+            assert "Warning message" in result.extract_warns
 
 
 class TestRenderAndVerify:

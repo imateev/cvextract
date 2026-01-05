@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
+from cvextract.cli_config import UserConfig, ExtractStage
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
@@ -23,10 +24,15 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
-    assert ok is True
-    assert errs == []
-    assert len(warns) == 0
+    work = p.UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        input_file=docx,
+        out_json=out_json,
+    )
+    result = p.extract_single(work)
+    assert result.extract_ok is True
+    assert result.extract_errs == []
+    assert len(result.extract_warns) == 0
 
 
 def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
@@ -45,11 +51,16 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
-    assert ok is True
-    assert errs == []
-    assert len(warns) > 0
-    assert any("missing sidebar" in w for w in warns)
+    work = p.UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        input_file=docx,
+        out_json=out_json,
+    )
+    result = p.extract_single(work)
+    assert result.extract_ok is True
+    assert result.extract_errs == []
+    assert len(result.extract_warns) > 0
+    assert any("missing sidebar" in w for w in result.extract_warns)
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
@@ -62,11 +73,16 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
-    assert ok is False
-    assert len(errs) == 1
-    assert "exception: RuntimeError" in errs[0]
-    assert warns == []
+    work = p.UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        input_file=docx,
+        out_json=out_json,
+    )
+    result = p.extract_single(work)
+    assert result.extract_ok is False
+    assert len(result.extract_errs) == 1
+    assert "exception: RuntimeError" in result.extract_errs[0]
+    assert result.extract_warns == []
 
 
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):
