@@ -4,9 +4,19 @@
 
 [![codecov](https://codecov.io/gh/imateev/cvextract/graphs/tree.svg?token=PRBIB4KCWE)](https://codecov.io/gh/imateev/cvextract)
 
-cvextract is a command-line tool for extracting structured data from CV `.docx` files that conform to a very specific, predefined input format. It can optionally re-render the extracted data into a new `.docx` template based on the extracted structure.
+## cvextract
 
-The tool is not intended to handle arbitrary CV layouts out of the box. Instead, it focuses on deterministic, schema-driven extraction for known document structures. Thanks to its pluggable architecture, however, cvextract can be extended with additional extractors, renderers, or verifiers to support other formats and workflows.
+**cvextract** turns CVs into structured, validated data that can be automatically transformed for different job applications, roles, and customer requirements.
+
+The project exists to reduce the stress and emotional burden of repeatedly rewriting CVs in today’s automated hiring process. By separating CV content from presentation, individuals can adapt their CVs quickly and consistently for each opportunity, while resourcing teams can tailor large volumes of CVs to specific roles or customers without manual rewriting.
+
+cvextract already supports reliable CV extraction and adaptation workflows and is actively evolving. While it is not yet enterprise production-grade, the core adaptation capabilities are functional today and designed to grow toward more advanced, scalable use cases.
+
+### Why cvextract exists
+
+Modern hiring systems reward frequent CV customization, which is time-consuming, emotionally draining, and error-prone. cvextract aims to make CV adaptation a mechanical, repeatable process—so people can focus on opportunities rather than formatting and rewriting.
+
+### How it started
 
 This project started as a small, three-day after-hours effort to help a resourcing team migrate consultant CVs from a legacy Word template to a new standardized format. It has since evolved into a standalone playground for experimenting with CV parsing, transformation, and document rendering workflows, and is now published as an open-source project.
 
