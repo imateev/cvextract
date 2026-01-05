@@ -122,9 +122,9 @@ def execute_pipeline(config: UserConfig) -> int:
             out_json = config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
         
         out_json.parent.mkdir(parents=True, exist_ok=True)
-        
         work = UnitOfWork(
             config=config,
+            initial_input=input_file,
             input=input_file,
             output=out_json,
         )
@@ -151,11 +151,11 @@ def execute_pipeline(config: UserConfig) -> int:
         try:
             adjust_work = UnitOfWork(
                 config=config,
+                initial_input=out_json,
                 input=out_json,
                 output=out_json,
             )
-            current_data = None
-            tmp_adjust_path = config.workspace.adjusted_json_dir / rel_path / f".adjust_tmp_{input_file.stem}.json"
+            adjust_count = len(config.adjust.adjusters)
 
             # Apply each adjuster in sequence
             for idx, adjuster_config in enumerate(config.adjust.adjusters):
@@ -195,27 +195,20 @@ def execute_pipeline(config: UserConfig) -> int:
                 except ValueError as e:
                     LOG.error("Adjuster '%s' parameter validation failed: %s", adjuster_config.name, e)
                     raise
-                
-                # Apply adjustment
-                if current_data is not None:
-                    tmp_adjust_path.parent.mkdir(parents=True, exist_ok=True)
-                    with tmp_adjust_path.open("w", encoding="utf-8") as wf:
-                        json.dump(current_data, wf, ensure_ascii=False, indent=2)
-                    adjust_work = replace(adjust_work, input=tmp_adjust_path)
 
-                current_data = adjuster.adjust(adjust_work, **adjuster_params)
+                if idx == adjust_count - 1:
+                    next_output = config.adjust.output or config.workspace.adjusted_json_dir / f"{input_file.stem}.json"
+                else:
+                    next_output = (
+                        config.workspace.adjusted_json_dir
+                        / rel_path
+                        / f".adjust_tmp_{idx}_{input_file.stem}.json"
+                    )
+                adjust_work = replace(adjust_work, output=next_output)
+                adjust_work = adjuster.adjust(adjust_work, **adjuster_params)
+                adjust_work = replace(adjust_work, input=adjust_work.output)
             
-            # Save final adjusted JSON
-            if config.adjust.output:
-                adjusted_json = config.adjust.output
-            else:
-                adjusted_json = config.workspace.adjusted_json_dir / f"{input_file.stem}.json"
-            
-            adjusted_json.parent.mkdir(parents=True, exist_ok=True)
-            with adjusted_json.open("w", encoding="utf-8") as wf:
-                json.dump(current_data, wf, ensure_ascii=False, indent=2)
-            
-            render_json = adjusted_json
+            render_json = adjust_work.output
         except Exception as e:
             # If adjust fails, proceed with original JSON
             if config.debug:

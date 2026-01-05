@@ -48,6 +48,12 @@ def _extract_result(work: UnitOfWork, ok: bool, errs: list[str], warns: list[str
     return replace(work, extract_ok=ok, extract_errs=errs, extract_warns=warns)
 
 
+def _adjust_result(work: UnitOfWork, payload: dict) -> UnitOfWork:
+    work.output.parent.mkdir(parents=True, exist_ok=True)
+    work.output.write_text(json.dumps(payload))
+    return replace(work, output=work.output)
+
+
 @pytest.fixture
 def parallel_input_tree(tmp_path: Path):
     """Utility for creating nested inputs that always set input_dir properly."""
@@ -362,7 +368,9 @@ class TestExecutePipelineAdjust:
 
         # Mock adjuster
         mock_adjuster = MagicMock()
-        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
+            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
 
@@ -409,7 +417,9 @@ class TestExecutePipelineAdjust:
         mock_extract.side_effect = fake_extract
         # Mock adjuster
         mock_adjuster = MagicMock()
-        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
+            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
 
@@ -445,7 +455,9 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [mock_json]
         # Mock adjuster
         mock_adjuster = MagicMock()
-        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
+            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
         mock_render.return_value = (True, [], [], True)
@@ -483,7 +495,9 @@ class TestExecutePipelineAdjust:
         mock_collect.return_value = [input_json]
         # Mock adjuster
         mock_adjuster = MagicMock()
-        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
+            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
 
@@ -769,7 +783,9 @@ class TestFolderStructurePreservation:
         mock_extract.side_effect = fake_extract
         # Mock adjuster
         mock_adjuster = MagicMock()
-        mock_adjuster.adjust.return_value = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
+            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
 

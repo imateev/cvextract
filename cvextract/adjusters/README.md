@@ -33,11 +33,12 @@ work = UnitOfWork(
     input=Path("cv.json"),
     output=Path("cv.json"),
 )
-adjusted_cv = adjuster.adjust(
+adjusted_work = adjuster.adjust(
     work,
     customer_url="https://example.com",
     cache_path=Path("research_cache.json")
 )
+adjusted_json = adjusted_work.output
 ```
 
 ### `openai-job-specific`
@@ -61,10 +62,11 @@ work = UnitOfWork(
     input=Path("cv.json"),
     output=Path("cv.json"),
 )
-adjusted_cv = adjuster.adjust(
+adjusted_work = adjuster.adjust(
     work,
     job_url="https://careers.example.com/job/123"
 )
+adjusted_json = adjusted_work.output
 ```
 
 ## Creating Custom Adjusters
@@ -81,8 +83,6 @@ To create a custom adjuster:
 ```python
 from cvextract.adjusters import CVAdjuster, register_adjuster
 from cvextract.shared import UnitOfWork
-from typing import Any, Dict
-
 class MyCustomAdjuster(CVAdjuster):
     def name(self) -> str:
         return "my-custom-adjuster"
@@ -94,10 +94,11 @@ class MyCustomAdjuster(CVAdjuster):
         if 'required_param' not in kwargs:
             raise ValueError("required_param is missing")
     
-    def adjust(self, work: UnitOfWork, **kwargs) -> Dict[str, Any]:
+    def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
         self.validate_params(**kwargs)
+        data = self._load_input_json(work)
         # Your adjustment logic here
-        return self._load_input_json(work)
+        return self._write_output_json(work, data)
 
 # Register it
 register_adjuster(MyCustomAdjuster)

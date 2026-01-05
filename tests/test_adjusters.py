@@ -21,11 +21,17 @@ from cvextract.adjusters.openai_job_specific_adjuster import _fetch_job_descript
 def make_work(tmp_path: Path, cv_data: dict) -> UnitOfWork:
     input_path = tmp_path / "input.json"
     input_path.write_text(json.dumps(cv_data, indent=2))
+    output_path = tmp_path / "output.json"
     return UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=input_path)),
+        initial_input=input_path,
         input=input_path,
-        output=input_path,
+        output=output_path,
     )
+
+
+def read_output(work: UnitOfWork) -> dict:
+    return json.loads(work.output.read_text())
 
 
 class TestCVAdjusterBase:
@@ -43,7 +49,7 @@ class TestCVAdjusterBase:
                 def description(self):
                     return "Test"
                 def adjust(self, work, **kwargs):
-                    return self._load_input_json(work)
+                    return self._write_output_json(work, self._load_input_json(work))
             
             IncompleteAdjuster()
     
@@ -54,7 +60,7 @@ class TestCVAdjusterBase:
                 def name(self):
                     return "test"
                 def adjust(self, work, **kwargs):
-                    return self._load_input_json(work)
+                    return self._write_output_json(work, self._load_input_json(work))
             
             IncompleteAdjuster()
     
@@ -77,7 +83,7 @@ class TestCVAdjusterBase:
             def description(self):
                 return "Test"
             def adjust(self, work, **kwargs):
-                return self._load_input_json(work)
+                return self._write_output_json(work, self._load_input_json(work))
         
         adjuster = TestAdjuster()
         # Should not raise any exception with default implementation
@@ -95,7 +101,7 @@ class TestCVAdjusterBase:
             def adjust(self, work, **kwargs):
                 cv_data = self._load_input_json(work)
                 cv_data['adjusted'] = True
-                return cv_data
+                return self._write_output_json(work, cv_data)
             
             def validate_params(self, **kwargs):
                 if 'required' not in kwargs:
@@ -110,7 +116,7 @@ class TestCVAdjusterBase:
         cv = {"original": True}
         work = make_work(tmp_path, cv)
         result = adjuster.adjust(work)
-        assert result['adjusted'] is True
+        assert read_output(result)['adjusted'] is True
         
         # Validate works
         adjuster.validate_params(required="value")
@@ -123,7 +129,7 @@ class TestCVAdjusterBase:
             def description(self):
                 return "Strict test adjuster"
             def adjust(self, work, **kwargs):
-                return self._load_input_json(work)
+                return self._write_output_json(work, self._load_input_json(work))
             def validate_params(self, **kwargs):
                 if 'required_param' not in kwargs:
                     raise ValueError("required_param is required")
@@ -251,7 +257,7 @@ class TestAdjusterRegistry:
                 return "Test adjuster"
             
             def adjust(self, work, **kwargs):
-                return self._load_input_json(work)
+                return self._write_output_json(work, self._load_input_json(work))
         
         register_adjuster(CustomAdjuster)
         
@@ -320,9 +326,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return the adjusted result
-        assert result == adjusted_result
+        assert result_data == adjusted_result
         
         # Verify OpenAI was called with correct messages format
         mock_client.chat.completions.create.assert_called_once()
@@ -352,9 +359,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to None prompt
-        assert result == cv_data
+        assert result_data == cv_data
         # Verify research was called but MLAdjuster was not
         mock_research.assert_called_once()
         mock_get_verifier.assert_not_called()
@@ -383,9 +391,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to null from API
-        assert result == cv_data
+        assert result_data == cv_data
         # Verify OpenAI was called
         mock_client.chat.completions.create.assert_called_once()
         # Verifier should not be called since adjustment returned None
@@ -421,9 +430,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to validation exception
-        assert result == cv_data
+        assert result_data == cv_data
         # Verify validation was attempted
         mock_verifier.verify.assert_called_once_with(adjusted_data)
     
@@ -457,9 +467,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to validation failure
-        assert result == cv_data
+        assert result_data == cv_data
         # Verify validation was attempted
         mock_verifier.verify.assert_called_once_with(adjusted_data)
     
@@ -487,9 +498,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to non-dict result
-        assert result == cv_data
+        assert result_data == cv_data
         # Verifier should not be called for non-dict
         mock_get_verifier.assert_not_called()
 
@@ -507,9 +519,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV when research returns None
-        assert result == cv_data
+        assert result_data == cv_data
         # format_prompt and OpenAI should not be called
         mock_format_prompt.assert_not_called()
         mock_openai.assert_not_called()
@@ -563,9 +576,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should succeed and return adjusted data
-        assert result == adjusted_result
+        assert result_data == adjusted_result
         
         # Verify format_prompt was called with research context including tech signals
         mock_format_prompt.assert_called_once()
@@ -619,9 +633,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should succeed and handle invalid confidence gracefully
-        assert result == adjusted_result
+        assert result_data == adjusted_result
         
         # Verify format_prompt was called with context containing confidence as "0.00"
         mock_format_prompt.assert_called_once()
@@ -649,9 +664,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to API exception
-        assert result == cv_data
+        assert result_data == cv_data
         # Verifier should not be called
         mock_get_verifier.assert_not_called()
 
@@ -679,9 +695,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to JSON decode error
-        assert result == cv_data
+        assert result_data == cv_data
         # Verifier should not be called
         mock_get_verifier.assert_not_called()
 
@@ -734,9 +751,10 @@ class TestOpenAICompanyResearchAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
         
         # Should return original CV due to validation failure with error count
-        assert result == cv_data
+        assert result_data == cv_data
 
     def test_adjust_skips_when_api_key_missing(self, monkeypatch, tmp_path: Path):
         """adjust() should skip and return original CV when API key is missing."""
@@ -750,7 +768,7 @@ class TestOpenAICompanyResearchAdjuster:
         result = adjuster.adjust(work, customer_url="https://example.com")
         
         # Should return original CV unchanged
-        assert result == cv_data
+        assert read_output(result) == cv_data
 
     def test_adjust_skips_when_openai_unavailable(self, monkeypatch, tmp_path: Path):
         """adjust() should skip and return original CV when OpenAI module is unavailable."""
@@ -767,7 +785,7 @@ class TestOpenAICompanyResearchAdjuster:
             result = adjuster.adjust(work, customer_url="https://example.com")
             
             # Should return original CV unchanged
-            assert result == cv_data
+            assert read_output(result) == cv_data
         finally:
             adj_module.OpenAI = original_openai
 
@@ -841,7 +859,7 @@ class TestOpenAIJobSpecificAdjuster:
         # Should return original CV since OpenAI is unavailable
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job description")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     def test_adjust_openai_becomes_none_after_initial_check(self, monkeypatch, tmp_path: Path):
         """Test defensive check at line 159-161 by making OpenAI None after initial check (unreachable by design)."""
@@ -903,7 +921,7 @@ class TestOpenAIJobSpecificAdjuster:
                     # This should succeed normally (the defensive check is not reached)
                     work = make_work(tmp_path, cv_data)
                     result = adjuster.adjust(work, job_description="Test job")
-                    assert result == adjusted_cv
+                    assert read_output(result) == adjusted_cv
         finally:
             pass
     
@@ -931,7 +949,7 @@ class TestOpenAIJobSpecificAdjuster:
         with patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI', None):
             work = make_work(tmp_path, cv_data)
             result = adjuster.adjust(work, job_description="Test job")
-            assert result == cv_data  # Returns original CV due to first check
+            assert read_output(result) == cv_data  # Returns original CV due to first check
     
     def test_adjust_with_job_description(self, tmp_path: Path):
         """adjust should work with job_description parameter (no API call)."""
@@ -943,7 +961,7 @@ class TestOpenAIJobSpecificAdjuster:
         # Without API key, should return original data
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     def test_adjust_missing_api_key(self, tmp_path: Path):
         """adjust should return original CV when API key is missing."""
@@ -953,7 +971,7 @@ class TestOpenAIJobSpecificAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI', None)
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -965,7 +983,7 @@ class TestOpenAIJobSpecificAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     def test_adjust_with_openai_not_installed(self, monkeypatch, tmp_path: Path):
         """adjust should handle case where OpenAI module is not installed (monkeypatch version)."""
@@ -979,7 +997,7 @@ class TestOpenAIJobSpecificAdjuster:
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     def test_adjust_validate_params_called(self, tmp_path: Path):
         """adjust should call validate_params and raise if params invalid."""
@@ -1000,7 +1018,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_url="https://example.com/job/123")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
     def test_adjust_prompt_load_fails(self, mock_format, tmp_path: Path):
@@ -1011,7 +1029,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1054,7 +1072,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == adjusted_cv
+        assert read_output(result) == adjusted_cv
         # Client should be created once
         mock_openai_class.assert_called_once_with(api_key="test-key")
     
@@ -1076,7 +1094,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1096,7 +1114,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1113,7 +1131,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1133,7 +1151,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data  # Should return original since schema validation expects dict
+        assert read_output(result) == cv_data  # Should return original since schema validation expects dict
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1153,7 +1171,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1190,7 +1208,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == adjusted_cv, f"Expected adjusted CV, got {result}"
+        assert read_output(result) == adjusted_cv, f"Expected adjusted CV, got {read_output(result)}"
         # Should have called create twice (first failed, second succeeded)
         assert mock_client.chat.completions.create.call_count == 2
         # Should have called sleep for backoff
@@ -1218,7 +1236,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
         # Should have tried up to max_attempts (default 8)
         assert mock_client.chat.completions.create.call_count == 8
         # Sleep should have been called for backoff (7 times for 8 attempts)
@@ -1239,7 +1257,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
         # Should have called create only once (no retry for non-transient)
         assert mock_client.chat.completions.create.call_count == 1
     
@@ -1261,7 +1279,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     def test_validate_params_accepts_hyphenated_job_url(self):
         """validate_params should accept job-url (hyphenated) parameter."""
@@ -1284,7 +1302,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1326,7 +1344,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == adjusted_cv, f"Expected adjusted CV, got {result}"
+        assert read_output(result) == adjusted_cv, f"Expected adjusted CV, got {read_output(result)}"
         # Should have called create 3 times (2 failures, 1 success)
         assert mock_client.chat.completions.create.call_count == 3
         # Sleep should have been called twice (once after each failure)
@@ -1350,7 +1368,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -1393,7 +1411,7 @@ class TestOpenAIJobSpecificAdjuster:
             job_description="Direct description",
             job_url="https://example.com/job/123"
         )
-        assert result == adjusted_cv
+        assert read_output(result) == adjusted_cv
         # format_prompt should be called with the direct job_description, not fetched from URL
         mock_format.assert_called_once_with("adjuster_promp_for_specific_job", job_description="Direct description")
     
@@ -1443,7 +1461,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == adjusted_cv, f"Expected adjusted CV with 'Adjusted' name, got {result}"
+        assert read_output(result) == adjusted_cv, f"Expected adjusted CV with 'Adjusted' name, got {read_output(result)}"
         # Should have retried after seeing 429
         assert mock_client.chat.completions.create.call_count == 2
     
@@ -1470,7 +1488,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data
+        assert read_output(result) == cv_data
         # Should have attempted 8 times and slept 7 times (not on the last attempt before giving up)
         assert mock_client.chat.completions.create.call_count == 8
         assert mock_sleep.call_count == 7
@@ -1511,7 +1529,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data  # Should return original due to validation failure
+        assert read_output(result) == cv_data  # Should return original due to validation failure
         mock_get_verifier.assert_called_once_with("cv-schema-verifier")
 
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
@@ -1548,7 +1566,7 @@ class TestOpenAIJobSpecificAdjuster:
         
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data  # Should return original since verifier is unavailable
+        assert read_output(result) == cv_data  # Should return original since verifier is unavailable
         mock_get_verifier.assert_called_once_with("cv-schema-verifier")
     
     @patch('cvextract.adjusters.openai_job_specific_adjuster.requests', None)
@@ -1665,7 +1683,7 @@ class TestOpenAIJobSpecificAdjuster:
         # Should handle exception during verify() and return original CV
         work = make_work(tmp_path, cv_data)
         result = adjuster.adjust(work, job_description="Test job")
-        assert result == cv_data  # Returns original due to validation exception
+        assert read_output(result) == cv_data  # Returns original due to validation exception
 
 
 class TestCLIListAdjusters:
@@ -2455,7 +2473,7 @@ class TestOpenAIJobSpecificAdjusterEdgeCases:
         result = adjuster.adjust(work, job_description="Test job")
         
         # Should return original due to validation failure
-        assert result == cv_data
+        assert read_output(result) == cv_data
 
     @patch('cvextract.adjusters.openai_job_specific_adjuster.OpenAI')
     @patch('cvextract.adjusters.openai_job_specific_adjuster.format_prompt')
@@ -2488,7 +2506,7 @@ class TestOpenAIJobSpecificAdjusterEdgeCases:
         result = adjuster.adjust(work, job_description="Test job")
         
         # Should use first choice
-        assert result == adjusted_cv
+        assert read_output(result) == adjusted_cv
 
     def test_get_retry_after_from_headers_job_specific(self):
         """Test extracting retry-after from exception headers (job-specific adjuster)."""

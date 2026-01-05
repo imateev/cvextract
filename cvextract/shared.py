@@ -29,13 +29,21 @@ class VerificationResult:
 class UnitOfWork:
     """
     Container for extraction inputs and outputs.
+
+    initial_input preserves the original input path before adjustments.
+    input/output represent the current step's paths.
     """
     config: "UserConfig"
+    initial_input: Optional[Path] = None
     input: Path
     output: Path
     extract_ok: Optional[bool] = None
     extract_errs: List[str] = field(default_factory=list)
     extract_warns: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.initial_input is None:
+            object.__setattr__(self, "initial_input", self.input)
 
 # ------------------------- XML parsing helpers -------------------------
 
