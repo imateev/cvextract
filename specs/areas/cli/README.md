@@ -11,7 +11,6 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 - [Parallel Processing](parallel-processing/README.md) - Multi-worker parallel file processing
 - [Directory Structure Preservation](directory-structure-preservation/README.md) - Maintains source directory hierarchy
 - [Named Flags](named-flags/README.md) - Modern key=value parameter syntax
-- [Run Input Object](run-input-object/README.md) - Internal workflow input abstraction for future metadata enrichment
 
 ## Architectural Notes
 

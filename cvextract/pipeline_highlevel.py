@@ -9,23 +9,22 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from .extractors import DocxCVExtractor, CVExtractor
 from .renderers import get_renderer
-from .run_input import RunInput
     
 # ------------------------- High-level pipeline -------------------------
 
 def extract_cv_structure(
-    source: Union[Path, RunInput], 
+    source_path: Path, 
     extractor: Optional[CVExtractor] = None
 ) -> Dict[str, Any]:
     """
     Extract CV structure from a source file using the specified extractor.
     
     Args:
-        source: Path or RunInput to the source file
+        source_path: Path to the source file
         extractor: CVExtractor instance to use. If None, uses default DocxCVExtractor
     
     Returns:
@@ -33,9 +32,6 @@ def extract_cv_structure(
     """
     if extractor is None:
         extractor = DocxCVExtractor()
-    
-    # Handle both Path and RunInput for backward compatibility
-    source_path = source.file_path if isinstance(source, RunInput) else source
     return extractor.extract(source_path)
 
 def render_cv_data(cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
@@ -59,7 +55,7 @@ def render_cv_data(cv_data: Dict[str, Any], template_path: Path, output_path: Pa
     return renderer.render(cv_data, template_path, output_path)
 
 def process_single_docx(
-    source: Union[Path, RunInput], 
+    source_path: Path, 
     out: Optional[Path] = None,
     extractor: Optional[CVExtractor] = None
 ) -> Dict[str, Any]:
@@ -67,14 +63,14 @@ def process_single_docx(
     Extract CV structure and optionally write to JSON.
     
     Args:
-        source: Path or RunInput to the source file
+        source_path: Path to the source file
         out: Optional output path for JSON file
         extractor: Optional CVExtractor instance to use
     
     Returns:
         Dictionary containing extracted CV data
     """
-    data = extract_cv_structure(source, extractor)
+    data = extract_cv_structure(source_path, extractor)
 
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)

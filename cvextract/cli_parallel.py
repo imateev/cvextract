@@ -17,7 +17,6 @@ from .cli_execute import execute_pipeline
 from .logging_utils import LOG, fmt_issues
 from .output_controller import get_output_controller
 from .adjusters.openai_company_research_adjuster import _url_to_cache_filename, _research_company_profile
-from .run_input import RunInput
 import os
 
 
