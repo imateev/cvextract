@@ -7,11 +7,12 @@ input file path and positions for future metadata enrichment.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 
-@dataclass
+@dataclass(frozen=True)
 class RunInput:
     """
     Internal representation of a workflow input file.
@@ -20,10 +21,20 @@ class RunInput:
     (e.g., timestamps, source context, per-file options) without changing
     the public CLI interface.
     
+    This class is immutable. Use the with_* methods to create updated copies.
+    
     Attributes:
         file_path: Path to the workflow input file
+        extracted_json_path: Path to extracted JSON (set by extract stage)
+        adjusted_json_path: Path to adjusted JSON (set by adjust stage)
+        rendered_docx_path: Path to rendered DOCX (set by apply stage)
+        metadata: Additional metadata for future extensibility
     """
     file_path: Path
+    extracted_json_path: Optional[Path] = None
+    adjusted_json_path: Optional[Path] = None
+    rendered_docx_path: Optional[Path] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     @classmethod
     def from_path(cls, path: Path) -> RunInput:
@@ -37,3 +48,68 @@ class RunInput:
             RunInput instance
         """
         return cls(file_path=path)
+    
+    def get_current_json_path(self) -> Optional[Path]:
+        """
+        Get the current JSON path for this run.
+        
+        Prefers adjusted_json_path if set, otherwise returns extracted_json_path.
+        
+        Returns:
+            Path to the current JSON file, or None if no JSON has been produced yet
+        """
+        return self.adjusted_json_path if self.adjusted_json_path else self.extracted_json_path
+    
+    def with_extracted_json(self, path: Path) -> RunInput:
+        """
+        Create a new RunInput with extracted_json_path set.
+        
+        Args:
+            path: Path to the extracted JSON file
+            
+        Returns:
+            New RunInput instance with extracted_json_path set
+        """
+        return RunInput(
+            file_path=self.file_path,
+            extracted_json_path=path,
+            adjusted_json_path=self.adjusted_json_path,
+            rendered_docx_path=self.rendered_docx_path,
+            metadata=self.metadata
+        )
+    
+    def with_adjusted_json(self, path: Path) -> RunInput:
+        """
+        Create a new RunInput with adjusted_json_path set.
+        
+        Args:
+            path: Path to the adjusted JSON file
+            
+        Returns:
+            New RunInput instance with adjusted_json_path set
+        """
+        return RunInput(
+            file_path=self.file_path,
+            extracted_json_path=self.extracted_json_path,
+            adjusted_json_path=path,
+            rendered_docx_path=self.rendered_docx_path,
+            metadata=self.metadata
+        )
+    
+    def with_rendered_docx(self, path: Path) -> RunInput:
+        """
+        Create a new RunInput with rendered_docx_path set.
+        
+        Args:
+            path: Path to the rendered DOCX file
+            
+        Returns:
+            New RunInput instance with rendered_docx_path set
+        """
+        return RunInput(
+            file_path=self.file_path,
+            extracted_json_path=self.extracted_json_path,
+            adjusted_json_path=self.adjusted_json_path,
+            rendered_docx_path=path,
+            metadata=self.metadata
+        )
