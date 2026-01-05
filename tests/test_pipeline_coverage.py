@@ -39,11 +39,12 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             assert ok is True
             assert errors == []
             assert warnings == []
+            assert run_input.extracted_json_path == out_json
 
     def testextract_single_invalid_data(self, tmp_path):
         """Test verification failure with invalid data."""
@@ -57,7 +58,7 @@ class TestExtractSingle:
             
             mock_extract.return_value = mock_data
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             # The actual verifier will catch these errors
             assert ok is False
@@ -73,10 +74,11 @@ class TestExtractSingle:
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             assert ok is False
             assert any("exception" in e.lower() or "ValueError" in e for e in errors)
+            assert run_input.extracted_json_path is None  # Not set on error
 
     def testextract_single_exception_with_debug(self, tmp_path):
         """Test exception logging with debug mode enabled."""
@@ -89,7 +91,7 @@ class TestExtractSingle:
             
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=True)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=True)
             
             assert ok is False
 
@@ -119,7 +121,7 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
+            ok, errors, warnings, run_input = extract_single(docx_path, out_json, debug=False)
             
             assert ok is True
             assert "Warning message" in warnings
