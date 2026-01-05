@@ -140,7 +140,7 @@ def execute_pipeline(config: UserConfig) -> int:
         
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
-        extract_ok, extract_errs, extract_warns = extract_single(
+        extract_ok, extract_errs, extract_warns, run_input = extract_single(
             run_input, out_json, config.debug, extractor=extractor
         )
         
@@ -156,69 +156,75 @@ def execute_pipeline(config: UserConfig) -> int:
     
     # Step 2: Adjust (if configured)
     render_json = out_json
-    if config.adjust and out_json:
-        try:
-            with out_json.open("r", encoding="utf-8") as f:
-                current_data = json.load(f)
-            
-            # Apply each adjuster in sequence
-            for idx, adjuster_config in enumerate(config.adjust.adjusters):
-                # Add delay between adjusters to avoid rate limiting
-                # (10 seconds gives API time to recover between requests)
-                if idx > 0:
-                    LOG.debug("Waiting 10 seconds before applying next adjuster...")
-                    time.sleep(10.0)
+    if config.adjust:
+        # Use get_current_json_path() to get the input JSON path
+        input_json = run_input.get_current_json_path()
+        if input_json:
+            try:
+                with input_json.open("r", encoding="utf-8") as f:
+                    current_data = json.load(f)
                 
-                LOG.info("Applying adjuster %d/%d: %s", 
-                        idx + 1, len(config.adjust.adjusters), adjuster_config.name)
-                
-                # Get the adjuster instance
-                adjuster = get_adjuster(
-                    adjuster_config.name,
-                    model=adjuster_config.openai_model or "gpt-4o-mini"
-                )
-                
-                if not adjuster:
-                    LOG.warning("Unknown adjuster '%s', skipping", adjuster_config.name)
-                    continue
-                
-                # Prepare parameters for this adjuster
-                adjuster_params = dict(adjuster_config.params)
-                
-                # Add cache_path for company research adjuster
-                if adjuster_config.name == "openai-company-research" and 'customer-url' in adjuster_params:
-                    research_cache_dir = research_dir
-                    research_cache_dir.mkdir(parents=True, exist_ok=True)
-                    adjuster_params['cache_path'] = research_cache_dir / _url_to_cache_filename(
-                        adjuster_params['customer-url']
+                # Apply each adjuster in sequence
+                for idx, adjuster_config in enumerate(config.adjust.adjusters):
+                    # Add delay between adjusters to avoid rate limiting
+                    # (10 seconds gives API time to recover between requests)
+                    if idx > 0:
+                        LOG.debug("Waiting 10 seconds before applying next adjuster...")
+                        time.sleep(10.0)
+                    
+                    LOG.info("Applying adjuster %d/%d: %s", 
+                            idx + 1, len(config.adjust.adjusters), adjuster_config.name)
+                    
+                    # Get the adjuster instance
+                    adjuster = get_adjuster(
+                        adjuster_config.name,
+                        model=adjuster_config.openai_model or "gpt-4o-mini"
                     )
+                    
+                    if not adjuster:
+                        LOG.warning("Unknown adjuster '%s', skipping", adjuster_config.name)
+                        continue
+                    
+                    # Prepare parameters for this adjuster
+                    adjuster_params = dict(adjuster_config.params)
+                    
+                    # Add cache_path for company research adjuster
+                    if adjuster_config.name == "openai-company-research" and 'customer-url' in adjuster_params:
+                        research_cache_dir = research_dir
+                        research_cache_dir.mkdir(parents=True, exist_ok=True)
+                        adjuster_params['cache_path'] = research_cache_dir / _url_to_cache_filename(
+                            adjuster_params['customer-url']
+                        )
+                    
+                    # Validate parameters
+                    try:
+                        adjuster.validate_params(**adjuster_params)
+                    except ValueError as e:
+                        LOG.error("Adjuster '%s' parameter validation failed: %s", adjuster_config.name, e)
+                        raise
+                    
+                    # Apply adjustment
+                    current_data = adjuster.adjust(current_data, **adjuster_params)
                 
-                # Validate parameters
-                try:
-                    adjuster.validate_params(**adjuster_params)
-                except ValueError as e:
-                    LOG.error("Adjuster '%s' parameter validation failed: %s", adjuster_config.name, e)
-                    raise
+                # Save final adjusted JSON
+                if config.adjust.output:
+                    adjusted_json = config.adjust.output
+                else:
+                    adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
                 
-                # Apply adjustment
-                current_data = adjuster.adjust(current_data, **adjuster_params)
-            
-            # Save final adjusted JSON
-            if config.adjust.output:
-                adjusted_json = config.adjust.output
-            else:
-                adjusted_json = adjusted_json_dir / f"{input_file.stem}.json"
-            
-            adjusted_json.parent.mkdir(parents=True, exist_ok=True)
-            with adjusted_json.open("w", encoding="utf-8") as wf:
-                json.dump(current_data, wf, ensure_ascii=False, indent=2)
-            
-            render_json = adjusted_json
-        except Exception as e:
-            # If adjust fails, proceed with original JSON
-            if config.debug:
-                LOG.error("Adjustment failed: %s", traceback.format_exc())
-            render_json = out_json
+                adjusted_json.parent.mkdir(parents=True, exist_ok=True)
+                with adjusted_json.open("w", encoding="utf-8") as wf:
+                    json.dump(current_data, wf, ensure_ascii=False, indent=2)
+                
+                # Update RunInput with adjusted_json_path
+                run_input = run_input.with_adjusted_json(adjusted_json)
+                render_json = adjusted_json
+            except Exception as e:
+                # If adjust fails, proceed with original JSON
+                if config.debug:
+                    LOG.error("Adjustment failed: %s", traceback.format_exc())
+                render_json = input_json
+    
     
     # Step 3: Apply/Render (if configured and not dry-run)
     if config.apply and not (config.adjust and config.adjust.dry_run):
@@ -231,8 +237,8 @@ def execute_pipeline(config: UserConfig) -> int:
         output_docx.parent.mkdir(parents=True, exist_ok=True)
         verify_dir = verification_dir / rel_path
         
-        apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
-            json_path=render_json,
+        apply_ok, render_errs, apply_warns, compare_ok, run_input = render_and_verify(
+            run_input=run_input,
             template_path=config.apply.template,
             output_docx=output_docx,
             debug=config.debug,

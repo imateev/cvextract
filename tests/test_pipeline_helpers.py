@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
+from cvextract.run_input import RunInput
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
@@ -23,10 +24,13 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+    ok, errs, warns, run_input = p.extract_single(docx, out_json, debug=False)
     assert ok is True
     assert errs == []
     assert len(warns) == 0
+    # Verify RunInput is returned with extracted_json_path set
+    assert isinstance(run_input, RunInput)
+    assert run_input.extracted_json_path == out_json
 
 
 def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
@@ -45,11 +49,14 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+    ok, errs, warns, run_input = p.extract_single(docx, out_json, debug=False)
     assert ok is True
     assert errs == []
     assert len(warns) > 0
     assert any("missing sidebar" in w for w in warns)
+    # Verify RunInput is returned with extracted_json_path set
+    assert isinstance(run_input, RunInput)
+    assert run_input.extracted_json_path == out_json
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
@@ -62,11 +69,40 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+    ok, errs, warns, run_input = p.extract_single(docx, out_json, debug=False)
     assert ok is False
     assert len(errs) == 1
     assert "exception: RuntimeError" in errs[0]
     assert warns == []
+    # Verify RunInput is returned even on error (but extracted_json_path is not set)
+    assert isinstance(run_input, RunInput)
+    assert run_input.extracted_json_path is None
+
+
+def test_extract_single_with_run_input(monkeypatch, tmp_path: Path):
+    """Test extraction when RunInput is passed instead of Path."""
+    docx = tmp_path / "test.docx"
+    out_json = tmp_path / "test.json"
+    run_input = RunInput.from_path(docx)
+    
+    def fake_process(_path, out, extractor=None):
+        out.write_text("{}", encoding="utf-8")
+        return {
+            "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+            "sidebar": {"languages": ["Python"], "tools": ["x"], "industries": ["x"], 
+                       "spoken_languages": ["EN"], "academic_background": ["x"]},
+            "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
+        }
+    
+    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    
+    ok, errs, warns, updated_run_input = p.extract_single(run_input, out_json, debug=False)
+    assert ok is True
+    assert errs == []
+    # Verify returned RunInput is different instance with extracted_json_path set
+    assert updated_run_input is not run_input
+    assert updated_run_input.file_path == docx
+    assert updated_run_input.extracted_json_path == out_json
 
 
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):
@@ -76,6 +112,10 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
     out_dir.mkdir()
+    out_docx = out_dir / "output.docx"
+    
+    # Create RunInput with extracted_json_path set
+    run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_file)
 
     def fake_render(_cv_data, _template, output_path):
         return output_path
@@ -96,11 +136,17 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok, updated_run_input = p.render_and_verify(
+        run_input, template, out_docx, debug=False
+    )
     assert ok is True
     assert errs == []
     assert warns == []
     assert compare_ok is True
+    # Verify RunInput is returned with rendered_docx_path set
+    assert isinstance(updated_run_input, RunInput)
+    assert updated_run_input.rendered_docx_path == out_docx
+    assert updated_run_input.extracted_json_path == json_file
 
 
 def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
@@ -108,19 +154,27 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     json_file = tmp_path / "test.json"
     json_file.write_text('{"a": 1}', encoding="utf-8")
     template = tmp_path / "template.docx"
-    out_dir = tmp_path / "out"
+    out_docx = tmp_path / "output.docx"
+    
+    # Create RunInput with extracted_json_path set
+    run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_file)
 
     def fake_render(_cv_data, _template, _output_path):
         raise ValueError("render failed")
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok, updated_run_input = p.render_and_verify(
+        run_input, template, out_docx, debug=False
+    )
     assert ok is False
     assert len(errs) == 1
     assert "render: ValueError" in errs[0]
     assert warns == []
     assert compare_ok is None
+    # Verify original RunInput is returned on error
+    assert updated_run_input is run_input
+    assert updated_run_input.rendered_docx_path is None
 
 
 def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
@@ -130,6 +184,10 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
     out_dir.mkdir()
+    out_docx = out_dir / "output.docx"
+    
+    # Create RunInput with extracted_json_path set
+    run_input = RunInput(file_path=tmp_path / "source.docx", extracted_json_path=json_file)
 
     def fake_render(_cv_data, _template, output_path):
         return output_path
@@ -148,11 +206,34 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    ok, errs, warns, compare_ok, updated_run_input = p.render_and_verify(
+        run_input, template, out_docx, debug=False
+    )
     assert ok is False
     assert "value mismatch" in errs[0]
     assert warns == []
     assert compare_ok is False
+    # Verify RunInput is returned with rendered_docx_path set even on comparison failure
+    assert isinstance(updated_run_input, RunInput)
+    assert updated_run_input.rendered_docx_path == out_docx
+
+
+def test_render_and_verify_no_json_path(monkeypatch, tmp_path: Path):
+    """Test render_and_verify with no JSON path in RunInput."""
+    template = tmp_path / "template.docx"
+    out_docx = tmp_path / "output.docx"
+    
+    # Create RunInput without any JSON paths
+    run_input = RunInput.from_path(tmp_path / "source.docx")
+    
+    ok, errs, warns, compare_ok, updated_run_input = p.render_and_verify(
+        run_input, template, out_docx, debug=False
+    )
+    assert ok is False
+    assert "No JSON path available" in errs[0]
+    assert compare_ok is None
+    # Verify original RunInput is returned
+    assert updated_run_input is run_input
 
 
 def test_get_status_icons_extract_success_no_warnings():

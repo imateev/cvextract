@@ -52,9 +52,9 @@ def extract_single(
     out_json: Path, 
     debug: bool,
     extractor: Optional[CVExtractor] = None
-) -> tuple[bool, List[str], List[str]]:
+) -> tuple[bool, List[str], List[str], RunInput]:
     """
-    Extract and verify a single file. Returns (ok, errors, warnings).
+    Extract and verify a single file. Returns (ok, errors, warnings, updated_run_input).
     
     Args:
         source: Path or RunInput to source file to extract
@@ -63,37 +63,49 @@ def extract_single(
         extractor: Optional CVExtractor instance to use
     
     Returns:
-        Tuple of (success, errors, warnings)
+        Tuple of (success, errors, warnings, updated_run_input)
+        The updated_run_input will have extracted_json_path populated
     """
-    # Handle both Path and RunInput
-    source_file = source.file_path if isinstance(source, RunInput) else source
+    # Handle both Path and RunInput - create RunInput if needed for backward compatibility
+    if isinstance(source, RunInput):
+        run_input = source
+        source_file = source.file_path
+    else:
+        run_input = RunInput.from_path(source)
+        source_file = source
     
     try:
         data = process_single_docx(source, out=out_json, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
-        return result.ok, result.errors, result.warnings
+        
+        # Create updated RunInput with extracted_json_path set
+        updated_run_input = run_input.with_extracted_json(out_json)
+        
+        return result.ok, result.errors, result.warnings, updated_run_input
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
             dump_body_sample(source_file, n=30)
-        return False, [f"exception: {type(e).__name__}"], []
+        
+        # Return original run_input on error (no extraction happened)
+        return False, [f"exception: {type(e).__name__}"], [], run_input
 
 
 def render_and_verify(
-    json_path: Path, 
+    run_input: RunInput,
     template_path: Path, 
     output_docx: Path, 
     debug: bool, 
     *, 
     skip_compare: bool = False, 
     roundtrip_dir: Optional[Path] = None
-) -> tuple[bool, List[str], List[str], Optional[bool]]:
+) -> tuple[bool, List[str], List[str], Optional[bool], RunInput]:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
     
     Args:
-        json_path: Path to input JSON file
+        run_input: RunInput with current JSON path
         template_path: Path to DOCX template
         output_docx: Explicit path where rendered DOCX should be saved
         debug: Enable debug logging
@@ -101,10 +113,16 @@ def render_and_verify(
         roundtrip_dir: Optional directory for roundtrip JSON files
     
     Returns:
-        Tuple of (ok, errors, warnings, compare_ok).
+        Tuple of (ok, errors, warnings, compare_ok, updated_run_input).
         compare_ok is None if comparison did not run (e.g., render error).
+        updated_run_input has rendered_docx_path populated.
     """
     import json
+    
+    # Get the current JSON path from RunInput
+    json_path = run_input.get_current_json_path()
+    if json_path is None:
+        return False, ["No JSON path available in RunInput"], [], None, run_input
     
     try:
         # Load CV data from JSON
@@ -113,10 +131,13 @@ def render_and_verify(
         
         # Render using the new renderer interface (with explicit output path)
         render_cv_data(cv_data, template_path, output_docx)
+        
+        # Update RunInput with rendered_docx_path
+        updated_run_input = run_input.with_rendered_docx(output_docx)
 
         # Skip compare when explicitly requested by caller
         if skip_compare:
-            return True, [], [], None
+            return True, [], [], None, updated_run_input
 
         # Round-trip extraction from rendered DOCX - use RunInput
         if roundtrip_dir:
@@ -138,12 +159,12 @@ def render_and_verify(
                 pass
 
         if cmp.ok:
-            return True, [], cmp.warnings, True
-        return False, cmp.errors, cmp.warnings, False
+            return True, [], cmp.warnings, True, updated_run_input
+        return False, cmp.errors, cmp.warnings, False, updated_run_input
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
-        return False, [f"render: {type(e).__name__}"], [], None
+        return False, [f"render: {type(e).__name__}"], [], None, run_input
 
 
 def get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool], compare_ok: Optional[bool]) -> tuple[str, str, str]:
