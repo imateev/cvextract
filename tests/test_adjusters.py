@@ -1765,21 +1765,21 @@ class TestOpenAICompanyResearchHelpers:
         assert json.loads(target.read_text(encoding="utf-8")) == payload
     
     def test_url_to_cache_filename_converts_https_url_to_domain_hash(self):
-        """_url_to_cache_filename() converts a URL to a safe filename with domain and hash."""
-        from cvextract.adjusters.openai_company_research_adjuster import _url_to_cache_filename
+        """url_to_cache_filename() converts a URL to a safe filename with domain and hash."""
+        from cvextract.shared import url_to_cache_filename
         
-        result = _url_to_cache_filename("https://www.example.com/path/to/page")
+        result = url_to_cache_filename("https://www.example.com/path/to/page")
         assert "example.com" in result
         assert result.endswith(".research.json")
         assert "-" in result  # has hash separator
     
     def test_url_to_cache_filename_removes_protocol_and_www(self):
-        """_url_to_cache_filename() properly handles protocol and www prefix."""
-        from cvextract.adjusters.openai_company_research_adjuster import _url_to_cache_filename
+        """url_to_cache_filename() properly handles protocol and www prefix."""
+        from cvextract.shared import url_to_cache_filename
         
-        result1 = _url_to_cache_filename("https://www.example.com")
-        result2 = _url_to_cache_filename("http://example.com")
-        result3 = _url_to_cache_filename("https://example.com")
+        result1 = url_to_cache_filename("https://www.example.com")
+        result2 = url_to_cache_filename("http://example.com")
+        result3 = url_to_cache_filename("https://example.com")
         
         # All should have the same domain part
         assert "example.com" in result1
@@ -1787,10 +1787,10 @@ class TestOpenAICompanyResearchHelpers:
         assert "example.com" in result3
     
     def test_url_to_cache_filename_handles_complex_urls_with_port(self):
-        """_url_to_cache_filename() handles URLs with ports and query parameters."""
-        from cvextract.adjusters.openai_company_research_adjuster import _url_to_cache_filename
+        """url_to_cache_filename() handles URLs with ports and query parameters."""
+        from cvextract.shared import url_to_cache_filename
         
-        result = _url_to_cache_filename("https://example.com:8080/path?query=value#fragment")
+        result = url_to_cache_filename("https://example.com:8080/path?query=value#fragment")
         assert "example.com" in result
         assert "8080" not in result  # port should be stripped
         assert "?" not in result     # query should be stripped

@@ -169,7 +169,7 @@ Defined in `cvextract/contracts/research_schema.json`:
 
 - Registered in `cvextract/adjusters/__init__.py` as `"openai-company-research"`
 - Used by `cvextract.pipeline` for adjustment stage
-- Cache managed by `cvextract.cli_execute.execute_pipeline()`
+- Cache managed by `cvextract/adjusters/openai_company_research_adjuster.py`
 
 ## Test Coverage
 
@@ -183,8 +183,8 @@ Tested in:
 ### Cache Filename Generation
 
 ```python
-def _url_to_cache_filename(url: str) -> str:
-    """Convert URL to safe filename."""
+def url_to_cache_filename(url: str) -> str:
+    """Convert URL to safe filename (from cvextract.shared)."""
     # Extract domain: https://www.example.com/path → example.com
     # Add hash for uniqueness: example.com-abc12345.research.json
 ```

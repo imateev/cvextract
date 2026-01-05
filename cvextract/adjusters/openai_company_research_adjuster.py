@@ -15,12 +15,10 @@ Improvements included:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
 import random
-import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -45,8 +43,7 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from .base import CVAdjuster
-from ..shared import UnitOfWork
-from ..shared import format_prompt
+from ..shared import UnitOfWork, format_prompt, url_to_cache_filename
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
@@ -103,23 +100,6 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
         os.fsync(tmp.fileno())
         tmp_path = Path(tmp.name)
     tmp_path.replace(path)
-
-
-def _url_to_cache_filename(url: str) -> str:
-    """
-    Convert a URL to a safe, deterministic filename for caching.
-
-    Returns:
-        "example.com-abc123.research.json"
-    """
-    domain = re.sub(r"^https?://", "", url.lower())
-    domain = re.sub(r"^www\.", "", domain)
-    domain = domain.split("/")[0].split("?")[0].split("#")[0]
-    domain = domain.split(":")[0]
-
-    url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
-    safe_domain = re.sub(r"[^a-z0-9.-]", "_", domain)
-    return f"{safe_domain}-{url_hash}.research.json"
 
 
 def _load_research_schema() -> Optional[Dict[str, Any]]:
@@ -479,6 +459,10 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
         cache_path = kwargs.get("cache_path")
+        if cache_path is None and "cache_path" not in kwargs and customer_url:
+            cache_dir = work.config.workspace.research_dir
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_path = cache_dir / url_to_cache_filename(customer_url)
 
         # Step 1: Research company profile (with retries)
         LOG.info("Researching company at %s", customer_url)

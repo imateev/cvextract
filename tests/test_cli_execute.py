@@ -486,10 +486,9 @@ class TestExecutePipelineAdjust:
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.get_adjuster')
-    @patch('cvextract.cli_execute._url_to_cache_filename', return_value="cache.json")
-    def test_adjust_research_cache_is_rooted(self, mock_cache_name, mock_get_adjuster, mock_collect,
-                                             tmp_path: Path, parallel_input_tree):
-        """Research cache should always live under target/research_data regardless of input path."""
+    def test_adjust_research_cache_is_delegated(self, mock_get_adjuster, mock_collect,
+                                                tmp_path: Path, parallel_input_tree):
+        """Research cache decision is delegated to the adjuster, not CLI."""
         payload = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         input_json = parallel_input_tree.json("folder/profile.json", payload)
         mock_collect.return_value = [input_json]
@@ -524,13 +523,9 @@ class TestExecutePipelineAdjust:
         assert exit_code == 0
 
         mock_adjuster.adjust.assert_called_once()
-        # Check that cache_path was passed in the adjuster params
+        # CLI should not inject cache_path into adjuster params
         call_kwargs = mock_adjuster.adjust.call_args.kwargs
-        assert 'cache_path' in call_kwargs
-        cache_path = call_kwargs["cache_path"]
-        expected_cache = tmp_path / "out" / "research_data" / "cache.json"
-        assert cache_path == expected_cache
-        assert cache_path.parent.exists()
+        assert 'cache_path' not in call_kwargs
 
     @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute.extract_single')

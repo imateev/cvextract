@@ -18,7 +18,6 @@ from .cli_config import UserConfig
 from .cli_prepare import _collect_inputs
 from .logging_utils import LOG, fmt_issues
 from .adjusters import get_adjuster
-from .adjusters.openai_company_research_adjuster import _url_to_cache_filename
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
@@ -181,14 +180,6 @@ def execute_pipeline(config: UserConfig) -> int:
                 
                 # Prepare parameters for this adjuster
                 adjuster_params = dict(adjuster_config.params)
-                
-                # Add cache_path for company research adjuster
-                if adjuster_config.name == "openai-company-research" and 'customer-url' in adjuster_params:
-                    research_cache_dir = config.workspace.research_dir
-                    research_cache_dir.mkdir(parents=True, exist_ok=True)
-                    adjuster_params['cache_path'] = research_cache_dir / _url_to_cache_filename(
-                        adjuster_params['customer-url']
-                    )
                 
                 # Validate parameters
                 try:

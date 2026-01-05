@@ -7,6 +7,7 @@ and text normalization helpers used across extraction, parsing, and rendering.
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 from dataclasses import dataclass, field
@@ -108,6 +109,23 @@ def sanitize_for_xml_in_obj(obj: Any) -> Any:
             return {k: _sanitize(v) for k, v in x.items()}
         return x
     return _sanitize(obj)
+
+
+def url_to_cache_filename(url: str) -> str:
+    """
+    Convert a URL to a safe, deterministic filename for caching.
+
+    Returns:
+        "example.com-abc123.research.json"
+    """
+    domain = re.sub(r"^https?://", "", url.lower())
+    domain = re.sub(r"^www\.", "", domain)
+    domain = domain.split("/")[0].split("?")[0].split("#")[0]
+    domain = domain.split(":")[0]
+
+    url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
+    safe_domain = re.sub(r"[^a-z0-9.-]", "_", domain)
+    return f"{safe_domain}-{url_hash}.research.json"
 
 
 # ---------------------- Prompt Loading ----------------------
