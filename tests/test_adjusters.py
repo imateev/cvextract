@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 from cvextract.adjusters import (
     CVAdjuster,
     OpenAICompanyResearchAdjuster,

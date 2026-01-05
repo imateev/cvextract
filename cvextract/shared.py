@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import re
 
-from dataclasses import dataclass
-from typing import Any, List
+from dataclasses import dataclass, field
+from typing import Any, List, TYPE_CHECKING
 from pathlib import Path
 from typing import Optional
+
+if TYPE_CHECKING:
+    from .cli_config import UserConfig
 
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)
@@ -20,6 +23,19 @@ class VerificationResult:
     ok: bool
     errors: List[str]
     warnings: List[str]
+
+
+@dataclass(frozen=True)
+class UnitOfWork:
+    """
+    Container for extraction inputs and outputs.
+    """
+    config: "UserConfig"
+    input: Path
+    output: Path
+    extract_ok: Optional[bool] = None
+    extract_errs: List[str] = field(default_factory=list)
+    extract_warns: List[str] = field(default_factory=list)
 
 # ------------------------- XML parsing helpers -------------------------
 

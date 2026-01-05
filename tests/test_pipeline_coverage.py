@@ -8,8 +8,8 @@ from cvextract.pipeline_helpers import (
     get_status_icons,
     render_and_verify,
     infer_source_root,
-    UnitOfWork,
 )
+from cvextract.shared import UnitOfWork
 from cvextract.cli_config import UserConfig, ExtractStage
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult

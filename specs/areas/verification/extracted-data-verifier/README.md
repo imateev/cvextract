@@ -40,7 +40,8 @@ Used automatically in `cvextract.pipeline` after extraction:
 
 ```python
 from pathlib import Path
-from cvextract.pipeline_helpers import extract_single, UnitOfWork
+from cvextract.pipeline_helpers import extract_single
+from cvextract.shared import UnitOfWork
 from cvextract.cli_config import UserConfig, ExtractStage
 
 # Verification happens internally

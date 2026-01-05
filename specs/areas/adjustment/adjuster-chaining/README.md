@@ -41,7 +41,7 @@ import json
 from pathlib import Path
 from cvextract.adjusters import get_adjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 input_json = Path("cv.json")
 config = UserConfig(target_dir=Path("out"), extract=ExtractStage(source=input_json))

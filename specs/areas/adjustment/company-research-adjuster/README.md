@@ -27,7 +27,7 @@ This adjuster implements a complete company research and CV adjustment pipeline:
 from pathlib import Path
 from cvextract.adjusters import OpenAICompanyResearchAdjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 adjuster = OpenAICompanyResearchAdjuster(model="gpt-4o-mini")
 work = UnitOfWork(
@@ -79,7 +79,7 @@ python -m cvextract.cli \
 ```python
 from cvextract.adjusters import get_adjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 from pathlib import Path
 
 adjuster = get_adjuster("openai-company-research", model="gpt-4o-mini")

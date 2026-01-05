@@ -30,7 +30,7 @@ Location: `cvextract/contracts/research_schema.json`
 from pathlib import Path
 from cvextract.adjusters import OpenAICompanyResearchAdjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 adjuster = OpenAICompanyResearchAdjuster()
 

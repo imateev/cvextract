@@ -9,11 +9,11 @@ from .pipeline_helpers import (
     infer_source_root,
     safe_relpath,
     extract_single,
-    UnitOfWork,
     render_and_verify,
     get_status_icons,
     categorize_result,
 )
+from .shared import UnitOfWork
 
 # Re-export for backward compatibility
 __all__ = [

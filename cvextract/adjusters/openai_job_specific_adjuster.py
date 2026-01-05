@@ -44,7 +44,7 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from .base import CVAdjuster
-from ..pipeline_helpers import UnitOfWork
+from ..shared import UnitOfWork
 from ..shared import format_prompt
 from ..verifiers import get_verifier
 

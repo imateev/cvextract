@@ -23,8 +23,8 @@ from .pipeline_helpers import (
     extract_single,
     render_and_verify,
     get_status_icons,
-    UnitOfWork,
 )
+from .shared import UnitOfWork
 
 
 def execute_pipeline(config: UserConfig) -> int:

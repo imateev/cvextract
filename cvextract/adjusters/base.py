@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
-from ..pipeline_helpers import UnitOfWork
+from ..shared import UnitOfWork
 
 
 class CVAdjuster(ABC):

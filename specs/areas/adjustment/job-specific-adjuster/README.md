@@ -26,7 +26,7 @@ The `OpenAIJobSpecificAdjuster` class:
 from pathlib import Path
 from cvextract.adjusters import get_adjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 # Using job URL
 adjuster = get_adjuster("openai-job-specific", model="gpt-4o-mini")

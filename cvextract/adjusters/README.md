@@ -25,7 +25,7 @@ Adjusts CV data based on target company research using OpenAI.
 from pathlib import Path
 from cvextract.adjusters import get_adjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 adjuster = get_adjuster("openai-company-research", model="gpt-4o-mini")
 work = UnitOfWork(
@@ -53,7 +53,7 @@ Adjusts CV data based on a specific job description using OpenAI.
 from pathlib import Path
 from cvextract.adjusters import get_adjuster
 from cvextract.cli_config import UserConfig, ExtractStage
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 adjuster = get_adjuster("openai-job-specific", model="gpt-4o-mini")
 work = UnitOfWork(
@@ -80,7 +80,7 @@ To create a custom adjuster:
 
 ```python
 from cvextract.adjusters import CVAdjuster, register_adjuster
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 from typing import Any, Dict
 
 class MyCustomAdjuster(CVAdjuster):

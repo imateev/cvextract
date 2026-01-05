@@ -12,31 +12,17 @@ Provides utilities for:
 from __future__ import annotations
 
 import traceback
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import List, Optional
 import os
 
-from .cli_config import UserConfig
 from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor, get_extractor
+from .shared import UnitOfWork
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import get_verifier
-
-
-@dataclass(frozen=True)
-class UnitOfWork:
-    """
-    Container for extraction inputs and outputs.
-    """
-    config: UserConfig
-    input: Path
-    output: Path
-    extract_ok: Optional[bool] = None
-    extract_errs: List[str] = field(default_factory=list)
-    extract_warns: List[str] = field(default_factory=list)
-
 
 def infer_source_root(inputs: List[Path]) -> Path:
     """

@@ -3,6 +3,7 @@
 from pathlib import Path
 import cvextract.pipeline_helpers as p
 from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
@@ -24,7 +25,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    work = p.UnitOfWork(
+    work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
         input=docx,
         output=output,
@@ -51,7 +52,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    work = p.UnitOfWork(
+    work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
         input=docx,
         output=output,
@@ -73,7 +74,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    work = p.UnitOfWork(
+    work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
         input=docx,
         output=output,

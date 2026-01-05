@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage
 from cvextract.cli_execute import execute_pipeline
-from cvextract.pipeline_helpers import UnitOfWork
+from cvextract.shared import UnitOfWork
 
 
 @pytest.fixture
