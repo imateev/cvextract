@@ -140,7 +140,7 @@ def execute_pipeline(config: UserConfig) -> int:
         
         out_json.parent.mkdir(parents=True, exist_ok=True)
         
-        extract_ok, extract_errs, extract_warns = extract_single(
+        extract_ok, extract_errs, extract_warns, run_input = extract_single(
             run_input, out_json, config.debug, extractor=extractor
         )
         
@@ -150,6 +150,9 @@ def execute_pipeline(config: UserConfig) -> int:
             LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
                      fmt_issues(extract_errs, extract_warns))
             return 1
+        
+        # Use the extracted JSON path from RunInput
+        out_json = run_input.extracted_json_path or out_json
     else:
         # No extraction, use input JSON directly
         out_json = input_file

@@ -23,10 +23,11 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+    ok, errs, warns, run_input = p.extract_single(docx, out_json, debug=False)
     assert ok is True
     assert errs == []
     assert len(warns) == 0
+    assert run_input.extracted_json_path == out_json
 
 
 def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
@@ -45,11 +46,12 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+    ok, errs, warns, run_input = p.extract_single(docx, out_json, debug=False)
     assert ok is True
     assert errs == []
     assert len(warns) > 0
     assert any("missing sidebar" in w for w in warns)
+    assert run_input.extracted_json_path == out_json
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
@@ -62,11 +64,13 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
+    ok, errs, warns, run_input = p.extract_single(docx, out_json, debug=False)
     assert ok is False
     assert len(errs) == 1
     assert "exception: RuntimeError" in errs[0]
     assert warns == []
+    assert run_input.file_path == docx
+    assert run_input.extracted_json_path is None  # Not set on error
 
 
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):

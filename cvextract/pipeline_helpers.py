@@ -52,9 +52,9 @@ def extract_single(
     out_json: Path, 
     debug: bool,
     extractor: Optional[CVExtractor] = None
-) -> tuple[bool, List[str], List[str]]:
+) -> tuple[bool, List[str], List[str], RunInput]:
     """
-    Extract and verify a single file. Returns (ok, errors, warnings).
+    Extract and verify a single file. Returns (ok, errors, warnings, updated_run_input).
     
     Args:
         source: Path or RunInput to source file to extract
@@ -63,21 +63,30 @@ def extract_single(
         extractor: Optional CVExtractor instance to use
     
     Returns:
-        Tuple of (success, errors, warnings)
+        Tuple of (success, errors, warnings, updated_run_input)
     """
     # Handle both Path and RunInput
-    source_file = source.file_path if isinstance(source, RunInput) else source
+    if isinstance(source, RunInput):
+        run_input = source
+        source_file = source.file_path
+    else:
+        # Create RunInput from Path for backward compatibility
+        run_input = RunInput.from_path(source)
+        source_file = source
     
     try:
         data = process_single_docx(source, out=out_json, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
-        return result.ok, result.errors, result.warnings
+        # Update run_input with extracted JSON path
+        updated_run_input = run_input.with_extracted_json(out_json)
+        return result.ok, result.errors, result.warnings, updated_run_input
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())
             dump_body_sample(source_file, n=30)
-        return False, [f"exception: {type(e).__name__}"], []
+        # Return run_input unchanged on error
+        return False, [f"exception: {type(e).__name__}"], [], run_input
 
 
 def render_and_verify(
