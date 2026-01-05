@@ -22,25 +22,28 @@ Key characteristics:
 
 ```bash
 # Extract only
-python -m cvextract.cli --extract source=cv.docx --target output/
+python -m cvextract.cli --extract source=cv.docx --target output/ --verbosity debug
 
 # Extract + Apply
 python -m cvextract.cli \
   --extract source=cv.docx \
   --apply template=template.docx \
-  --target output/
+  --target output/ \
+  --verbosity debug
 
 # Extract + Adjust + Apply
 python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
   --apply template=template.docx \
-  --target output/
+  --target output/ \
+  --verbosity debug
 
 # Apply only (from existing JSON)
 python -m cvextract.cli \
   --apply template=template.docx data=cv.json \
-  --target output/
+  --target output/ \
+  --verbosity debug
 ```
 
 ## Configuration
@@ -63,7 +66,10 @@ python -m cvextract.cli \
 
 - **`--target <dir>`**: Output directory (required)
 - **`--list {extractors,adjusters,renderers}`**: List available components
-- **`--debug`**: Verbose logging
+-- **`--verbosity {minimal,verbose,debug}`**: Output verbosity level (default: minimal)
+  - `minimal`: One line per file with status icons, no third-party library output
+  - `verbose`: Grouped per-file output blocks with warnings and major steps
+  - `debug`: Full per-file output including application logs and stack traces
 - **`--log-file <path>`**: Log file path
 
 ## Interfaces

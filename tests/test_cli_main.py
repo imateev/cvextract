@@ -17,7 +17,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
+        mock_config.verbosity = "minimal"
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -42,7 +42,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = "/tmp/test.log"
-        mock_config.debug = False
+        mock_config.verbosity = "minimal"
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -66,11 +66,11 @@ class TestMainFunction:
     @patch('cvextract.cli.prepare_execution_environment')
     @patch('cvextract.cli.gather_user_requirements')
     def test_main_exception_without_debug(self, mock_gather, mock_prepare, mock_execute):
-        """main() should return 1 on exception and not log traceback without debug."""
+        """main() should return 1 on exception and not log traceback unless verbosity is debug."""
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
+        mock_config.verbosity = "minimal"
         mock_gather.return_value = mock_config
         
         # Make prepare raise an exception
@@ -87,11 +87,11 @@ class TestMainFunction:
     @patch('cvextract.cli.prepare_execution_environment')
     @patch('cvextract.cli.gather_user_requirements')
     def test_main_exception_with_debug(self, mock_gather, mock_prepare, mock_execute, mock_log):
-        """main() should log traceback when debug is True."""
+        """main() should log traceback when verbosity is debug."""
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = True
+        mock_config.verbosity = "debug"
         mock_gather.return_value = mock_config
         
         # Make prepare raise an exception
@@ -134,7 +134,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
+        mock_config.verbosity = "minimal"
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -157,7 +157,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
+        mock_config.verbosity = "minimal"
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -180,7 +180,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = False
+        mock_config.verbosity = "minimal"
         mock_gather.return_value = mock_config
         
         mock_prepared_config = MagicMock()
@@ -204,7 +204,7 @@ class TestMainFunction:
         # Setup mocks
         mock_config = MagicMock()
         mock_config.log_file = None
-        mock_config.debug = True
+        mock_config.verbosity = "debug"
         mock_gather.return_value = mock_config
         
         # Make prepare raise a complex exception

@@ -148,7 +148,6 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
                 adjust=config.adjust,
                 apply=config.apply,
                 parallel=None,  # No nested parallel processing
-                debug=config.debug,
                 verbosity=config.verbosity,
                 log_file=config.log_file,
                 suppress_summary=True,  # Suppress summary in parallel mode

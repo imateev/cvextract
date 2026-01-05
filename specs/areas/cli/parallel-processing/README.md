@@ -54,6 +54,7 @@ python -m cvextract.cli \
   --extract name=openai-extractor \
   --target output/ \
   --verbosity verbose \
+  --verbosity debug \
   --debug-external
 ```
 

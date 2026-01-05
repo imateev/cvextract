@@ -220,15 +220,15 @@ python -m cvextract.cli \
 - Each worker processes files independently using the same stage configuration
 - Displays progress indicator showing completion status (e.g., `[5/20 | 25%]`)
 
+
 ### Global Options
 
 - `--target <dir>` - Output directory (required unless using `--list`)
 - `--list {adjusters,renderers,extractors}` - List available components and exit
-- `--debug` - Verbose logging with stack traces
 - `--verbosity {minimal,verbose,debug}` - Output verbosity level (default: minimal)
   - `minimal`: One line per file with status icons, no third-party library output
   - `verbose`: Grouped per-file output blocks with warnings and major steps
-  - `debug`: Full per-file output including application logs
+  - `debug`: Full per-file output including application logs and stack traces
 - `--debug-external` - Capture logs from external providers (e.g., OpenAI SDK, HTTP clients)
   - By default, external provider logs are suppressed in parallel mode to ensure deterministic output
   - When enabled, external logs are routed through the buffered output controller
@@ -588,7 +588,7 @@ python -m cvextract.cli \
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --target /output \
-  --debug \
+  --verbosity debug \
   --log-file /path/to/cvextract.log
 
 # Logs stack traces and detailed diagnostics to console and file
@@ -601,7 +601,7 @@ python -m cvextract.cli \
   --extract \
   --apply template=/path/to/template.docx \
   --target /output \
-  --debug \
+  --verbosity debug \
   --log-file /output/batch_processing.log
 ```
 

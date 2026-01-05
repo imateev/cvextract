@@ -67,7 +67,6 @@ class UserConfig:
     parallel: Optional[ParallelStage] = None
     
     # Execution settings
-    debug: bool = False
     verbosity: str = "minimal"  # Output verbosity level: minimal, verbose, debug
     debug_external: bool = False  # Capture external provider logs (OpenAI, httpx, etc.)
     log_file: Optional[str] = None
@@ -75,22 +74,27 @@ class UserConfig:
     input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)
     suppress_file_logging: bool = False  # Suppress individual file logging (used in parallel mode)
     last_warnings: List[str] = field(default_factory=list)  # Warnings from the most recent run
-    
+
+    @property
+    def debug(self) -> bool:
+        """True if verbosity is 'debug'."""
+        return self.verbosity == "debug"
+
     @property
     def has_extract(self) -> bool:
         """Whether extract stage is configured."""
         return self.extract is not None
-    
+
     @property
     def has_adjust(self) -> bool:
         """Whether adjust stage is configured."""
         return self.adjust is not None
-    
+
     @property
     def has_apply(self) -> bool:
         """Whether apply stage is configured."""
         return self.apply is not None
-    
+
     @property
     def should_compare(self) -> bool:
         """Whether to run comparison verification."""

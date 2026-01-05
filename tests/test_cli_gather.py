@@ -297,13 +297,12 @@ class TestGatherUserRequirements:
         assert config.parallel is not None
     
     def test_debug_flag(self):
-        """--debug flag is stored."""
+        """--verbosity debug enables debug mode."""
         config = cli_gather.gather_user_requirements([
             "--extract", "source=cv.docx",
             "--target", "/output",
-            "--debug"
+            "--verbosity", "debug"
         ])
-        
         assert config.debug is True
     
     def test_log_file_parameter(self):
@@ -323,9 +322,8 @@ class TestGatherUserRequirements:
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
             "--apply", "template=template.docx",
             "--target", "/output",
-            "--debug"
+            "--verbosity", "debug"
         ])
-        
         assert config.extract is not None
         assert config.adjust is not None
         assert config.apply is not None
