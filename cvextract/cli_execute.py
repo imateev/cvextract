@@ -153,9 +153,10 @@ def execute_pipeline(config: UserConfig) -> int:
                 config=config,
                 initial_input=out_json,
                 input=out_json,
-                output=out_json,
+                output=config.adjust.output or (
+                    config.workspace.adjusted_json_dir / rel_path / f"{input_file.stem}.json"
+                ),
             )
-            adjust_count = len(config.adjust.adjusters)
 
             # Apply each adjuster in sequence
             for idx, adjuster_config in enumerate(config.adjust.adjusters):
@@ -196,15 +197,6 @@ def execute_pipeline(config: UserConfig) -> int:
                     LOG.error("Adjuster '%s' parameter validation failed: %s", adjuster_config.name, e)
                     raise
 
-                if idx == adjust_count - 1:
-                    next_output = config.adjust.output or config.workspace.adjusted_json_dir / f"{input_file.stem}.json"
-                else:
-                    next_output = (
-                        config.workspace.adjusted_json_dir
-                        / rel_path
-                        / f".adjust_tmp_{idx}_{input_file.stem}.json"
-                    )
-                adjust_work = replace(adjust_work, output=next_output)
                 adjust_work = adjuster.adjust(adjust_work, **adjuster_params)
                 adjust_work = replace(adjust_work, input=adjust_work.output)
             
