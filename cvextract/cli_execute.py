@@ -162,8 +162,8 @@ def execute_pipeline(config: UserConfig) -> int:
                 # Add delay between adjusters to avoid rate limiting
                 # (10 seconds gives API time to recover between requests)
                 if idx > 0:
-                    LOG.debug("Waiting 10 seconds before applying next adjuster...")
-                    time.sleep(10.0)
+                    LOG.debug("Waiting 3 seconds before applying next adjuster...")
+                    time.sleep(3.0)
                 
                 LOG.info("Applying adjuster %d/%d: %s", 
                         idx + 1, len(config.adjust.adjusters), adjuster_config.name)
