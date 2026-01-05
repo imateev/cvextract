@@ -2173,7 +2173,6 @@ class TestResearchCompanyProfileFailures:
                     with patch('cvextract.adjusters.openai_company_research_adjuster._validate_research_data', return_value=True):
                         result = _research_company_profile(
                             "https://example.com",
-                            "test-key",
                             "gpt-4o-mini",
                             None,
                             request_timeout_s=12.5,
