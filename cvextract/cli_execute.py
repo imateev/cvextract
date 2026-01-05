@@ -248,6 +248,10 @@ def execute_pipeline(config: UserConfig) -> int:
             roundtrip_dir=verify_dir,
         )
         
+        # Update RunInput with rendered DOCX path
+        if apply_ok:
+            run_input = run_input.with_rendered_docx(output_docx)
+        
         extract_errs = render_errs
     
     combined_warns = (extract_warns or []) + (apply_warns or [])
