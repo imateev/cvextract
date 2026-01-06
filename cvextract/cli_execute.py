@@ -143,7 +143,7 @@ def execute_pipeline(config: UserConfig) -> int:
         try:
             adjust_work = UnitOfWork(
                 config=config,
-                initial_input=work.output,
+                initial_input=work.initial_input,
                 input=work.output,
                 output=config.adjust.output or (
                     config.workspace.adjusted_json_dir / rel_path / f"{input_file.stem}.json"
@@ -203,7 +203,7 @@ def execute_pipeline(config: UserConfig) -> int:
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
-        extract_ok = bool(work.extract_ok) if work else True
+        extract_ok = work.extract_ok if work and work.extract_ok is not None else True
         x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
         LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
                  fmt_issues(extract_errs, combined_warns))
@@ -227,7 +227,8 @@ def execute_pipeline(config: UserConfig) -> int:
             )
     
     # Return exit code
-    if (work and not work.extract_ok) or apply_ok is False:
+    extract_ok = work.extract_ok if work and work.extract_ok is not None else True
+    if (work and not extract_ok) or apply_ok is False:
         return 1
     
     return 0
