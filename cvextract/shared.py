@@ -148,6 +148,18 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
         f"{fmt_issues(work, issue_step)}"
     )
 
+
+def emit_summary(work: "UnitOfWork") -> str:
+    config = work.config
+    if config.extract and config.render:
+        return (
+            "📊 Extract+Render complete. JSON: %s | DOCX: %s"
+            % (config.workspace.json_dir, config.workspace.documents_dir)
+        )
+    if config.extract:
+        return "📊 Extract complete. JSON in: %s" % config.workspace.json_dir
+    return "📊 Render complete. Output in: %s" % config.workspace.documents_dir
+
 # ------------------------- XML parsing helpers -------------------------
 
 _WS_RE = re.compile(r"\s+")

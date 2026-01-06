@@ -17,7 +17,7 @@ from .logging_utils import LOG
 from .cli_execute_adjust import execute as execute_adjust
 from .cli_execute_extract import execute as execute_extract
 from .cli_execute_render import execute as execute_render
-from .shared import StepName, UnitOfWork, emit_work_status
+from .shared import StepName, UnitOfWork, emit_summary, emit_work_status
 
 
 def execute_pipeline(config: UserConfig) -> int:
@@ -122,21 +122,7 @@ def execute_pipeline(config: UserConfig) -> int:
     
     # Log summary (unless suppressed for parallel mode)
     if not config.suppress_summary:
-        if config.extract and config.render:
-            LOG.info(
-                "📊 Extract+Render complete. JSON: %s | DOCX: %s",
-                config.workspace.json_dir, config.workspace.documents_dir
-            )
-        elif config.extract:
-            LOG.info(
-                "📊 Extract complete. JSON in: %s",
-                config.workspace.json_dir
-            )
-        else:
-            LOG.info(
-                "📊 Render complete. Output in: %s",
-                config.workspace.documents_dir
-            )
+        LOG.info("%s", emit_summary(work))
     
     # Return exit code
     if work and not work.has_no_errors():
