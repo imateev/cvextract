@@ -31,13 +31,14 @@ def _resolve_input_source(config: UserConfig) -> Path | None:
 def execute_pipeline(config: UserConfig) -> int:
     """
     Phase 3: Execute the pipeline based on user configuration.
-    
-    All path decisions are made here explicitly. Subsystems receive
-    explicit input/output paths.
-    
-    Processes a single input file (not multiple files).
-    Preserves source directory structure in output paths by default.
-    
+
+    Orchestrates per-step execution while input validation and output
+    directory setup happen in the prepare phase. Each step module
+    computes its own input/output paths.
+
+    Processes a single input file (not multiple files) and preserves
+    source directory structure in outputs by default.
+
     Returns exit code (0 = success, 1 = failure).
     """
     # Check if parallel mode is enabled
