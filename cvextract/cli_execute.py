@@ -38,13 +38,10 @@ def execute_pipeline(config: UserConfig) -> int:
     # Determine input source
     if config.extract:
         source = config.extract.source
-        is_extraction = True
     elif config.render and config.render.data:
         source = config.render.data
-        is_extraction = False
     elif config.adjust and config.adjust.data:
         source = config.adjust.data
-        is_extraction = False
     else:
         LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
         return 1
