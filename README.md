@@ -2,8 +2,6 @@
 
 [![CI](https://github.com/imateev/cvextract/actions/workflows/ci.yml/badge.svg)](https://github.com/imateev/cvextract/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/imateev/cvextract/graph/badge.svg?token=PRBIB4KCWE)](https://codecov.io/gh/imateev/cvextract)
 
-[![codecov](https://codecov.io/gh/imateev/cvextract/graphs/tree.svg?token=PRBIB4KCWE)](https://codecov.io/gh/imateev/cvextract)
-
 ## cvextract
 
 **cvextract** turns CVs into structured, validated data that can be automatically transformed for different job applications, roles, and customer requirements.
