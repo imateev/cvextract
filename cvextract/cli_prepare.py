@@ -84,4 +84,12 @@ def prepare_execution_environment(config: UserConfig) -> UserConfig:
         LOG.error("Target is not a directory: %s", config.target_dir)
         raise ValueError(f"Target is not a directory: {config.target_dir}")
 
+    # Create output directories for configured stages
+    if config.extract or config.adjust:
+        config.workspace.json_dir.mkdir(parents=True, exist_ok=True)
+    if config.adjust:
+        config.workspace.adjusted_json_dir.mkdir(parents=True, exist_ok=True)
+    if config.render:
+        config.workspace.documents_dir.mkdir(parents=True, exist_ok=True)
+
     return config

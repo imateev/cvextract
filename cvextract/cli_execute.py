@@ -18,6 +18,16 @@ from .cli_execute_render import execute as execute_render
 from .shared import StepName, UnitOfWork, emit_summary, emit_work_status
 
 
+def _resolve_input_source(config: UserConfig) -> Path | None:
+    if config.extract:
+        return config.extract.source
+    if config.render and config.render.data:
+        return config.render.data
+    if config.adjust and config.adjust.data:
+        return config.adjust.data
+    return None
+
+
 def execute_pipeline(config: UserConfig) -> int:
     """
     Phase 3: Execute the pipeline based on user configuration.
@@ -36,13 +46,8 @@ def execute_pipeline(config: UserConfig) -> int:
         return execute_parallel_pipeline(config)
     
     # Determine input source
-    if config.extract:
-        source = config.extract.source
-    elif config.render and config.render.data:
-        source = config.render.data
-    elif config.adjust and config.adjust.data:
-        source = config.adjust.data
-    else:
+    source = _resolve_input_source(config)
+    if source is None:
         LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
         return 1
     
@@ -53,16 +58,6 @@ def execute_pipeline(config: UserConfig) -> int:
         output=None,
     )
            
-    # Create output directories
-    if config.extract or config.adjust:
-        config.workspace.json_dir.mkdir(parents=True, exist_ok=True)
-    
-    if config.adjust:
-        config.workspace.adjusted_json_dir.mkdir(parents=True, exist_ok=True)
-    
-    if config.render:
-        config.workspace.documents_dir.mkdir(parents=True, exist_ok=True)
-
     # Step 1: Extract (if configured)
     if config.extract:
         work = execute_extract(work)
