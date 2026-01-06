@@ -13,6 +13,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     """Test successful extraction and verification."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
+    docx.write_text("docx")
     
     def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
@@ -40,6 +41,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     """Test extraction with validation warnings."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
+    docx.write_text("docx")
     
     def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
@@ -68,6 +70,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     """Test extraction with exception."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
+    docx.write_text("docx")
     
     def fake_process(_path, out, extractor=None):
         raise RuntimeError("boom")

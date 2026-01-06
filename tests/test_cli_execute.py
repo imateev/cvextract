@@ -45,6 +45,14 @@ def mock_json(tmp_path: Path):
 
 
 def _extract_result(work: UnitOfWork, ok: bool, errs: list[str], warns: list[str]) -> UnitOfWork:
+    if work.output:
+        work.output.parent.mkdir(parents=True, exist_ok=True)
+        work.output.write_text(json.dumps({
+            "identity": {},
+            "sidebar": {},
+            "overview": "",
+            "experiences": [],
+        }))
     statuses = dict(work.step_statuses)
     statuses[StepName.Extract] = StepStatus(step=StepName.Extract, warnings=warns, errors=errs)
     return replace(work, step_statuses=statuses)

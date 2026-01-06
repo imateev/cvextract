@@ -60,12 +60,14 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
     statuses = dict(work.step_statuses)
     statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
     work = replace(work, step_statuses=statuses)
+    if not work.ensure_path_exists(StepName.Extract, work.input, "input file", must_be_file=True):
+        return work
     try:
         extractor: Optional[CVExtractor] = None
         if work.config.extract and work.config.extract.name:
             extractor = get_extractor(work.config.extract.name)
             if not extractor:
-                work.AddError(StepName.Extract, f"unknown extractor: {work.config.extract.name}")
+                work.add_error(StepName.Extract, f"unknown extractor: {work.config.extract.name}")
                 extract_status = work.step_statuses.get(StepName.Extract)
                 if extract_status:
                     extract_status.ConfiguredExecutorAvailable = False
@@ -75,15 +77,15 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
         for err in result.errors:
-            work.AddError(StepName.Extract, err)
+            work.add_error(StepName.Extract, err)
         for warn in result.warnings:
-            work.AddWarning(StepName.Extract, warn)
+            work.add_warning(StepName.Extract, warn)
         return work
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
             dump_body_sample(work.input, n=30)
-        work.AddError(StepName.Extract, f"exception: {type(e).__name__}")
+        work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
         return work
 
 

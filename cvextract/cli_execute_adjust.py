@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .adjusters import get_adjuster
 from .logging_utils import LOG
-from .shared import UnitOfWork
+from .shared import StepName, UnitOfWork
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
@@ -20,6 +20,13 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         return work
 
     base_work = work
+    if not work.ensure_path_exists(
+        StepName.Adjust,
+        work.output,
+        "adjust input JSON",
+        must_be_file=True,
+    ):
+        return base_work
     try:
         base_input = work.initial_input or work.input
         if config.input_dir:

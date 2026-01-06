@@ -19,7 +19,7 @@ from typing import Optional
 if TYPE_CHECKING:
     from .cli_config import UserConfig
 
-from .logging_utils import fmt_issues
+from .logging_utils import LOG, fmt_issues
 
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class VerificationResult:
     warnings: List[str]
 
 
-@dataclass(frozen=True)
+@dataclass
 class UnitOfWork:
     """
     Container for extraction inputs and outputs.
@@ -45,7 +45,7 @@ class UnitOfWork:
 
     def __post_init__(self) -> None:
         if self.initial_input is None:
-            object.__setattr__(self, "initial_input", self.input)
+            self.initial_input = self.input
 
     def _get_step_status(self, step: "StepName") -> "StepStatus":
         status = self.step_statuses.get(step)
@@ -54,13 +54,31 @@ class UnitOfWork:
             self.step_statuses[step] = status
         return status
 
-    def AddWarning(self, step: "StepName", message: str) -> None:
+    def add_warning(self, step: "StepName", message: str) -> None:
         status = self._get_step_status(step)
         status.warnings.append(message)
 
-    def AddError(self, step: "StepName", message: str) -> None:
+    def add_error(self, step: "StepName", message: str) -> None:
         status = self._get_step_status(step)
         status.errors.append(message)
+
+    def ensure_path_exists(
+        self,
+        step: "StepName",
+        path: Optional[Path],
+        label: str,
+        must_be_file: bool = False,
+    ) -> bool:
+        if path is None:
+            self.add_error(step, f"{label} is not set")
+            return False
+        if not path.exists():
+            self.add_error(step, f"{label} not found: {path}")
+            return False
+        if must_be_file and not path.is_file():
+            self.add_error(step, f"{label} is not a file: {path}")
+            return False
+        return True
 
     def has_no_errors(self, step: Optional["StepName"] = None) -> bool:
         if step is None:
@@ -72,7 +90,9 @@ class UnitOfWork:
         if step is None:
             return all((not status.errors and not status.warnings) for status in self.step_statuses.values())
         status = self.step_statuses.get(step)
-        return not status.errors and not status.warnings if status else True
+        if status is None:
+            return True
+        return not status.errors and not status.warnings
 
 
 class StepName(str, Enum):
@@ -94,7 +114,7 @@ class StepStatus:
         return not self.warnings and not self.errors
 
 
-def get_status_icons(work: "UnitOfWork") -> dict["StepName", str]:
+def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
     """Generate status icons for pipeline steps based on UnitOfWork statuses."""
     def icon_for(step_name: StepName) -> str:
         status = work.step_statuses.get(step_name)
@@ -128,7 +148,7 @@ def get_status_icons(work: "UnitOfWork") -> dict["StepName", str]:
     return {step_name: icon_for(step_name) for step_name in StepName}
 
 def select_issue_step(work: "UnitOfWork") -> "StepName":
-    for candidate in (StepName.Verify, StepName.Render, StepName.Extract):
+    for candidate in (StepName.Verify, StepName.Render, StepName.Adjust, StepName.Extract):
         status = work.step_statuses.get(candidate)
         if status and (status.errors or status.warnings):
             return candidate
@@ -276,7 +296,8 @@ def load_prompt(prompt_name: str) -> Optional[str]:
     if extractor_prompt_path.exists():
         try:
             return extractor_prompt_path.read_text(encoding="utf-8")
-        except Exception:
+        except Exception as e:
+            LOG.error("Failed to read prompt %s: %s", extractor_prompt_path, e)
             return None
     
     # Try adjuster prompts folder
@@ -284,14 +305,16 @@ def load_prompt(prompt_name: str) -> Optional[str]:
     if adjuster_prompt_path.exists():
         try:
             return adjuster_prompt_path.read_text(encoding="utf-8")
-        except Exception:
+        except Exception as e:
+            LOG.error("Failed to read prompt %s: %s", adjuster_prompt_path, e)
             return None
     
     # Fall back to ml_adjustment prompts folder
     ml_prompt_path = _ML_PROMPTS_DIR / f"{prompt_name}.md"
     try:
         return ml_prompt_path.read_text(encoding="utf-8")
-    except Exception:
+    except Exception as e:
+        LOG.error("Failed to read prompt %s: %s", ml_prompt_path, e)
         return None
 
 
@@ -319,5 +342,6 @@ def format_prompt(prompt_name: str, **kwargs) -> Optional[str]:
     
     try:
         return template.format(**kwargs)
-    except Exception:
+    except Exception as e:
+        LOG.error("Failed to format prompt %s: %s", prompt_name, e)
         return None
