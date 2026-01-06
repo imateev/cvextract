@@ -12,6 +12,7 @@ from cvextract.cli_parallel import (
     process_single_file_wrapper,
     _perform_upfront_research
 )
+from cvextract.shared import StepName, StepStatus, UnitOfWork
 
 
 @pytest.fixture
@@ -102,10 +103,11 @@ class TestScanDirectoryForDocx:
 class TestProcessSingleFileWrapper:
     """Tests for process_single_file_wrapper function."""
     
-    @patch('cvextract.cli_parallel.execute_pipeline')
+    @patch('cvextract.cli_parallel._execute_pipeline_single')
     def test_process_single_file_success(self, mock_execute, tmp_path: Path, mock_docx: Path):
         """Test processing single file successfully."""
-        mock_execute.return_value = 0
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=mock_docx, output=mock_docx)
+        mock_execute.return_value = (0, work)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -125,15 +127,15 @@ class TestProcessSingleFileWrapper:
         assert not has_warnings
         mock_execute.assert_called_once()
     
-    @patch('cvextract.cli_parallel.execute_pipeline')
+    @patch('cvextract.cli_parallel._execute_pipeline_single')
     def test_process_single_file_with_warnings(self, mock_execute, tmp_path: Path, mock_docx: Path):
         """Test processing file with warnings (exit code 0, but has_warnings set)."""
-        # Simulate execute_pipeline returning 0 (success) with warnings stored in config
-        def mock_execute_fn(config):
-            config.last_warnings = ["warning message"]
-            return 0
-        
-        mock_execute.side_effect = mock_execute_fn
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=mock_docx, output=mock_docx)
+        work.step_statuses[StepName.Render] = StepStatus(
+            step=StepName.Render,
+            warnings=["warning message"],
+        )
+        mock_execute.return_value = (0, work)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -151,10 +153,11 @@ class TestProcessSingleFileWrapper:
         assert exit_code == 0
         assert has_warnings
     
-    @patch('cvextract.cli_parallel.execute_pipeline')
+    @patch('cvextract.cli_parallel._execute_pipeline_single')
     def test_process_single_file_failure(self, mock_execute, tmp_path: Path, mock_docx: Path):
         """Test processing file that fails."""
-        mock_execute.return_value = 1
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=mock_docx, output=mock_docx)
+        mock_execute.return_value = (1, work)
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
@@ -173,7 +176,7 @@ class TestProcessSingleFileWrapper:
         assert exit_code == 1
         assert not has_warnings
     
-    @patch('cvextract.cli_parallel.execute_pipeline')
+    @patch('cvextract.cli_parallel._execute_pipeline_single')
     def test_process_single_file_exception(self, mock_execute, tmp_path: Path, mock_docx: Path):
         """Test processing file that raises exception."""
         mock_execute.side_effect = Exception("Test error")

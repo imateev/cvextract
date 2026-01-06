@@ -127,18 +127,19 @@ def get_status_icons(work: "UnitOfWork") -> dict["StepName", str]:
 
     return {step_name: icon_for(step_name) for step_name in StepName}
 
+def select_issue_step(work: "UnitOfWork") -> "StepName":
+    for candidate in (StepName.Verify, StepName.Render, StepName.Extract):
+        status = work.step_statuses.get(candidate)
+        if status and (status.errors or status.warnings):
+            return candidate
+    return StepName.Extract
+
 
 def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> str:
     icons = get_status_icons(work)
     issue_step = step
     if issue_step is None:
-        for candidate in (StepName.Verify, StepName.Render, StepName.Extract):
-            status = work.step_statuses.get(candidate)
-            if status and (status.errors or status.warnings):
-                issue_step = candidate
-                break
-        if issue_step is None:
-            issue_step = StepName.Extract
+        issue_step = select_issue_step(work)
     input_path = work.initial_input or work.input
     return (
         f"{icons[StepName.Extract]}"

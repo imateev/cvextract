@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from .cli_config import UserConfig, ExtractStage
-from .cli_execute import execute_pipeline
+from .cli_execute import _execute_pipeline_single
 from .logging_utils import LOG, fmt_issues
 from .output_controller import get_output_controller
 from .adjusters.openai_company_research_adjuster import (
@@ -21,7 +21,7 @@ from .adjusters.openai_company_research_adjuster import (
     _load_cached_research,
     _research_company_profile,
 )
-from .shared import StepName, StepStatus, UnitOfWork, url_to_cache_filename
+from .shared import select_issue_step, url_to_cache_filename
 import os
 
 
@@ -165,21 +165,15 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             )
             
             # Execute the pipeline for this file
-            exit_code = execute_pipeline(file_config)
+            exit_code, work = _execute_pipeline_single(file_config)
             warning_message = ""
-            if file_config.last_warnings:
-                warn_work = UnitOfWork(
-                    config=file_config,
-                    input=file_path,
-                    output=file_path,
+            has_warnings = False
+            if work:
+                has_warnings = any(
+                    status.warnings for status in work.step_statuses.values()
                 )
-                warn_work.step_statuses[StepName.Verify] = StepStatus(
-                    step=StepName.Verify,
-                    warnings=file_config.last_warnings,
-                )
-                warning_message = fmt_issues(warn_work, StepName.Verify)
-            
-            has_warnings = bool(file_config.last_warnings)
+                if has_warnings:
+                    warning_message = fmt_issues(work, select_issue_step(work))
 
             if exit_code == 0:
                 return (True, warning_message, exit_code, has_warnings)

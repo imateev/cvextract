@@ -110,9 +110,14 @@ class TestPrepareExecutionEnvironment:
     """Tests for prepare_execution_environment function."""
 
     def test_prepare_execution_environment_without_apply(self, tmp_path):
-        """Test prepare_execution_environment without apply stage."""
+        """Test prepare_execution_environment without render stage."""
         target = tmp_path / "output"
-        config = UserConfig(target_dir=target)
+        source = tmp_path / "input.docx"
+        source.touch()
+        config = UserConfig(
+            target_dir=target,
+            extract=ExtractStage(source=source, output=None),
+        )
         
         result = prepare_execution_environment(config)
         
@@ -120,14 +125,16 @@ class TestPrepareExecutionEnvironment:
         assert target.is_dir()
 
     def test_prepare_execution_environment_with_valid_apply(self, tmp_path):
-        """Test prepare_execution_environment with valid apply stage."""
+        """Test prepare_execution_environment with valid render stage."""
         target = tmp_path / "output"
         template = tmp_path / "template.docx"
         template.touch()
-        
+        data = tmp_path / "data.json"
+        data.touch()
+
         config = UserConfig(
             target_dir=target,
-            render=RenderStage(template=template)
+            render=RenderStage(template=template, data=data)
         )
         
         result = prepare_execution_environment(config)
@@ -165,7 +172,12 @@ class TestPrepareExecutionEnvironment:
     def test_prepare_execution_environment_creates_nested_target(self, tmp_path):
         """Test prepare_execution_environment creates nested target directories."""
         target = tmp_path / "level1" / "level2" / "output"
-        config = UserConfig(target_dir=target)
+        source = tmp_path / "input.docx"
+        source.touch()
+        config = UserConfig(
+            target_dir=target,
+            extract=ExtractStage(source=source, output=None),
+        )
         
         result = prepare_execution_environment(config)
         
@@ -188,7 +200,12 @@ class TestPrepareExecutionEnvironment:
     def test_prepare_execution_environment_target_fails_is_dir_check(self, tmp_path, monkeypatch):
         """Simulate target_dir reporting False for is_dir to hit the validation branch."""
         target = tmp_path / "output"
-        config = UserConfig(target_dir=target)
+        source = tmp_path / "input.docx"
+        source.touch()
+        config = UserConfig(
+            target_dir=target,
+            extract=ExtractStage(source=source, output=None),
+        )
 
         original_is_dir = Path.is_dir
 
@@ -201,4 +218,3 @@ class TestPrepareExecutionEnvironment:
 
         with pytest.raises(ValueError, match="Target is not a directory"):
             prepare_execution_environment(config)
-
