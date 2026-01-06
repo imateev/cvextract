@@ -219,7 +219,7 @@ def test_get_status_icons_extract_success_with_warnings():
         warnings=["warning"],
     )
     icons = get_status_icons(work)
-    assert icons[StepName.Extract] == "⚠️ "
+    assert icons[StepName.Extract] == "❎"
     assert icons[StepName.Render] == "➖"
     assert icons[StepName.RoundtripComparer] == "➖"
 

@@ -403,7 +403,7 @@ class TestGetStatusIcons:
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
         work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
-        assert "⚠️" in icons[StepName.Extract]  # Warning icon for extract
+        assert "❎" in icons[StepName.Extract]  # Warning icon for extract
 
     def test_extract_ok_no_warnings(self, tmp_path):
         """Test extract ok without warnings."""

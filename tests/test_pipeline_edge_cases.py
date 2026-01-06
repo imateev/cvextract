@@ -156,7 +156,7 @@ class TestPipelineEdgeCases:
             warnings=["warn"],
         )
         icons = get_status_icons(work)
-        assert icons[StepName.Extract] == "⚠️ "
+        assert icons[StepName.Extract] == "❎"
         assert icons[StepName.Render] == "➖"
         assert icons[StepName.RoundtripComparer] == "➖"
 
