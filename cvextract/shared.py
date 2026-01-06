@@ -129,7 +129,7 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
         if status.errors:
             return "❌"
         if status.warnings:
-            return "⚠️ "
+            return "❎"
 
         if step_name == StepName.Extract:
             return "🟢"
@@ -153,7 +153,7 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
     input_path = work.initial_input or work.input
     return (
         f"{icons[StepName.Extract]}"
-        f"{icons[StepName.Render]}"
+        f"·{icons[StepName.Render]}·"
         f"{icons[StepName.RoundtripComparer]} "
         f"{input_path.name} | "
         f"{fmt_issues(work, issue_step)}"
