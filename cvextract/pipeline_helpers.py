@@ -151,10 +151,7 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     except Exception:
         rel_path = Path(".")
 
-    output_docx = work.config.render.output or (
-        work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
-    )
-    output_docx.parent.mkdir(parents=True, exist_ok=True)
+    output_docx = prepare_output_path(work, input_path, rel_path)
 
     try:
         # Load CV data from JSON
@@ -208,6 +205,13 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     for warn in compare_warnings:
         render_work.add_warning(StepName.Verify, warn)
     return render_work
+
+def prepare_output_path(work, input_path, rel_path):
+    output_docx = work.config.render.output or (
+        work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
+    )
+    output_docx.parent.mkdir(parents=True, exist_ok=True)
+    return output_docx
 
 
 def categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
