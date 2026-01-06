@@ -47,6 +47,24 @@ def safe_relpath(p: Path, root: Path) -> str:
         return p.name
 
 
+def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
+    if work.config.input_dir:
+        return work.config.input_dir.resolve()
+
+    source = None
+    if work.config.extract:
+        source = work.config.extract.source
+    elif work.config.render and work.config.render.data:
+        source = work.config.render.data
+    elif work.config.adjust and work.config.adjust.data:
+        source = work.config.adjust.data
+
+    if source is not None:
+        return source.parent.resolve() if source.is_file() else source.resolve()
+
+    return input_path.parent.resolve()
+
+
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
     Extract and verify a single file. Returns a UnitOfWork copy with results.
@@ -123,30 +141,12 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Render, "render: missing render configuration")
         return work
 
-    json_path = work.output
-    if json_path is None:
+    if work.output is None:
         work.add_error(StepName.Render, "render: input JSON path is not set")
         return work
-    input_path = work.initial_input or work.input
-    debug = work.config.debug
-    skip_compare = not work.config.should_compare
-    if work.config.extract and work.config.extract.name == "openai-extractor":
-        skip_compare = True
 
-    if work.config.input_dir:
-        source_base = work.config.input_dir.resolve()
-    else:
-        source = None
-        if work.config.extract:
-            source = work.config.extract.source
-        elif work.config.render and work.config.render.data:
-            source = work.config.render.data
-        elif work.config.adjust and work.config.adjust.data:
-            source = work.config.adjust.data
-        if source is not None:
-            source_base = source.parent.resolve() if source.is_file() else source.resolve()
-        else:
-            source_base = input_path.parent.resolve()
+    input_path = work.initial_input or work.input
+    source_base = _resolve_source_base_for_render(work, input_path)
 
     try:
         rel_path = input_path.parent.resolve().relative_to(source_base)
@@ -161,10 +161,10 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
 
     try:
         # Load CV data from JSON
-        with json_path.open("r", encoding="utf-8") as f:
+        with work.output.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
     except Exception as e:
-        if debug:
+        if work.config.debug:
             LOG.error(traceback.format_exc())
         work.add_error(StepName.Render, f"render: {type(e).__name__}")
         return work
@@ -186,6 +186,10 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         return render_work
 
     # Skip compare when explicitly requested by caller
+    skip_compare = not work.config.should_compare
+    if work.config.extract and work.config.extract.name == "openai-extractor":
+        skip_compare = True
+
     if skip_compare:
         return render_work
 
