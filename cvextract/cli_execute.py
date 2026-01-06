@@ -22,7 +22,7 @@ from .pipeline_helpers import (
     render_and_verify,
     get_status_icons,
 )
-from .shared import UnitOfWork
+from .shared import StepName, UnitOfWork
 
 
 def execute_pipeline(config: UserConfig) -> int:
@@ -121,17 +121,21 @@ def execute_pipeline(config: UserConfig) -> int:
         work = replace(work, output=output_path)
         work = extract_single(work)
         work = replace(work, input=work.output)
+        extract_status = work.step_statuses.get(StepName.Extract)
+        extract_errs = extract_status.errors if extract_status else []
+        extract_warns = extract_status.warnings if extract_status else []
+        extract_ok = not extract_errs
 
-        if (not work.extract_ok) and work.extract_errs and work.extract_errs[0].startswith("unknown extractor:"):
+        if (not extract_ok) and extract_errs and extract_errs[0].startswith("unknown extractor:"):
             LOG.error("Unknown extractor: %s", config.extract.name)
             LOG.error("Use --list extractors to see available extractors")
             return 1
         
         # If extraction failed and we need to apply, exit early
-        if (not work.extract_ok) and config.apply:
-            x_icon, a_icon, c_icon = get_status_icons(bool(work.extract_ok), bool(work.extract_warns), None, None)
+        if (not extract_ok) and config.apply:
+            x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
             LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
-                     fmt_issues(work.extract_errs, work.extract_warns))
+                     fmt_issues(extract_errs, extract_warns))
             return 1
     else:
         # No extraction, use input JSON directly
@@ -196,14 +200,15 @@ def execute_pipeline(config: UserConfig) -> int:
         
         extract_errs = render_errs
     
-    extract_warns = work.extract_warns if work else []
-    extract_errs = extract_errs if apply_ok is not None else (work.extract_errs if work else [])
+    extract_status = work.step_statuses.get(StepName.Extract) if work else None
+    extract_warns = extract_status.warnings if extract_status else []
+    extract_errs = extract_errs if apply_ok is not None else (extract_status.errors if extract_status else [])
     combined_warns = (extract_warns or []) + (apply_warns or [])
     config.last_warnings = combined_warns
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
-        extract_ok = work.extract_ok if work and work.extract_ok is not None else True
+        extract_ok = not (extract_status.errors if extract_status else [])
         x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
         LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
                  fmt_issues(extract_errs, combined_warns))
@@ -227,7 +232,7 @@ def execute_pipeline(config: UserConfig) -> int:
             )
     
     # Return exit code
-    extract_ok = work.extract_ok if work and work.extract_ok is not None else True
+    extract_ok = not (extract_status.errors if extract_status else [])
     if (work and not extract_ok) or apply_ok is False:
         return 1
     

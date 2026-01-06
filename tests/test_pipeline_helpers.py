@@ -3,7 +3,7 @@
 from pathlib import Path
 import cvextract.pipeline_helpers as p
 from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
@@ -31,9 +31,9 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    assert result.extract_ok is True
-    assert result.extract_errs == []
-    assert len(result.extract_warns) == 0
+    extract_status = result.step_statuses[StepName.Extract]
+    assert extract_status.errors == []
+    assert len(extract_status.warnings) == 0
 
 
 def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
@@ -58,10 +58,10 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    assert result.extract_ok is True
-    assert result.extract_errs == []
-    assert len(result.extract_warns) > 0
-    assert any("missing sidebar" in w for w in result.extract_warns)
+    extract_status = result.step_statuses[StepName.Extract]
+    assert extract_status.errors == []
+    assert len(extract_status.warnings) > 0
+    assert any("missing sidebar" in w for w in extract_status.warnings)
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
@@ -80,10 +80,10 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    assert result.extract_ok is False
-    assert len(result.extract_errs) == 1
-    assert "exception: RuntimeError" in result.extract_errs[0]
-    assert result.extract_warns == []
+    extract_status = result.step_statuses[StepName.Extract]
+    assert len(extract_status.errors) == 1
+    assert "exception: RuntimeError" in extract_status.errors[0]
+    assert extract_status.warnings == []
 
 
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):

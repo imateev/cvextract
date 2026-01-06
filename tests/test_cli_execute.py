@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage
 from cvextract.cli_execute import execute_pipeline
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, StepStatus, UnitOfWork
 
 
 @pytest.fixture
@@ -45,7 +45,9 @@ def mock_json(tmp_path: Path):
 
 
 def _extract_result(work: UnitOfWork, ok: bool, errs: list[str], warns: list[str]) -> UnitOfWork:
-    return replace(work, extract_ok=ok, extract_errs=errs, extract_warns=warns)
+    statuses = dict(work.step_statuses)
+    statuses[StepName.Extract] = StepStatus(step=StepName.Extract, warnings=warns, errors=errs)
+    return replace(work, step_statuses=statuses)
 
 
 def _adjust_result(work: UnitOfWork, payload: dict) -> UnitOfWork:

@@ -20,7 +20,7 @@ import os
 from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor, get_extractor
-from .shared import UnitOfWork
+from .shared import StepName, StepStatus, UnitOfWork
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import get_verifier
 
@@ -55,39 +55,33 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         work: UnitOfWork describing the extraction inputs
     
     Returns:
-        UnitOfWork copy with extract_ok, extract_errs, extract_warns populated
+        UnitOfWork copy with extract StepStatus populated
     """
+    statuses = dict(work.step_statuses)
+    statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work = replace(work, step_statuses=statuses)
     try:
         extractor: Optional[CVExtractor] = None
         if work.config.extract and work.config.extract.name:
             extractor = get_extractor(work.config.extract.name)
             if not extractor:
-                return replace(
-                    work,
-                    extract_ok=False,
-                    extract_errs=[f"unknown extractor: {work.config.extract.name}"],
-                    extract_warns=[],
-                )
+                work.AddError(StepName.Extract, f"unknown extractor: {work.config.extract.name}")
+                return work
 
         data = process_single_docx(work.input, out=work.output, extractor=extractor)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
-        return replace(
-            work,
-            extract_ok=result.ok,
-            extract_errs=list(result.errors),
-            extract_warns=list(result.warnings),
-        )
+        for err in result.errors:
+            work.AddError(StepName.Extract, err)
+        for warn in result.warnings:
+            work.AddWarning(StepName.Extract, warn)
+        return work
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
             dump_body_sample(work.input, n=30)
-        return replace(
-            work,
-            extract_ok=False,
-            extract_errs=[f"exception: {type(e).__name__}"],
-            extract_warns=[],
-        )
+        work.AddError(StepName.Extract, f"exception: {type(e).__name__}")
+        return work
 
 
 def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Optional[bool]]:

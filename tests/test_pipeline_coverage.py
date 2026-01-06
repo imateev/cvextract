@@ -9,7 +9,7 @@ from cvextract.pipeline_helpers import (
     render_and_verify,
     infer_source_root,
 )
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage, AdjustStage
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
@@ -47,10 +47,10 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            
-            assert result.extract_ok is True
-            assert result.extract_errs == []
-            assert result.extract_warns == []
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert extract_status.errors == []
+            assert extract_status.warnings == []
 
     def testextract_single_invalid_data(self, tmp_path):
         """Test verification failure with invalid data."""
@@ -70,11 +70,11 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            
+
             # The actual verifier will catch these errors
-            assert result.extract_ok is False
+            extract_status = result.step_statuses[StepName.Extract]
             # Check that there are errors for missing fields
-            assert len(result.extract_errs) > 0
+            assert len(extract_status.errors) > 0
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -91,9 +91,9 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            
-            assert result.extract_ok is False
-            assert any("exception" in e.lower() or "ValueError" in e for e in result.extract_errs)
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert any("exception" in e.lower() or "ValueError" in e for e in extract_status.errors)
 
     def testextract_single_exception_with_debug(self, tmp_path):
         """Test exception logging with debug mode enabled."""
@@ -112,8 +112,9 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            
-            assert result.extract_ok is False
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert extract_status.errors
 
     def testextract_single_with_warnings(self, tmp_path):
         """Test that warnings are preserved."""
@@ -147,9 +148,9 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            
-            assert result.extract_ok is True
-            assert "Warning message" in result.extract_warns
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert "Warning message" in extract_status.warnings
 
 
 class TestRenderAndVerify:

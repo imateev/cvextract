@@ -39,9 +39,6 @@ class UnitOfWork:
     input: Path
     output: Path
     initial_input: Optional[Path] = None
-    extract_ok: Optional[bool] = None
-    extract_errs: List[str] = field(default_factory=list)
-    extract_warns: List[str] = field(default_factory=list)
     step_statuses: Dict["StepName", "StepStatus"] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -62,6 +59,18 @@ class UnitOfWork:
     def AddError(self, step: "StepName", message: str) -> None:
         status = self._get_step_status(step)
         status.errors.append(message)
+
+    def has_no_errors(self, step: Optional["StepName"] = None) -> bool:
+        if step is None:
+            return all(not status.errors for status in self.step_statuses.values())
+        status = self.step_statuses.get(step)
+        return not status.errors if status else True
+
+    def has_no_warnings_or_errors(self, step: Optional["StepName"] = None) -> bool:
+        if step is None:
+            return all((not status.errors and not status.warnings) for status in self.step_statuses.values())
+        status = self.step_statuses.get(step)
+        return not status.errors and not status.warnings if status else True
 
 
 class StepName(str, Enum):
