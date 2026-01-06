@@ -56,7 +56,7 @@ Used in roundtrip verification:
 
 ```python
 # In pipeline
-result = render_and_verify(...)
+result = render_and_verify(work)
 # Internally uses RoundtripVerifier for roundtrip check
 ```
 

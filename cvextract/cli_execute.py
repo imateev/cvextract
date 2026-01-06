@@ -7,7 +7,6 @@ Subsystems receive explicit input/output paths.
 
 from __future__ import annotations
 
-import json
 import time
 import traceback
 from dataclasses import replace
@@ -113,12 +112,7 @@ def execute_pipeline(config: UserConfig) -> int:
         input=input_file,
         output=input_file,
     )
-    skip_roundtrip = False  # Flag to skip roundtrip verification for certain extractors
     if config.extract:
-        # Skip roundtrip verification for openai-extractor
-        if config.extract.name == "openai-extractor":
-            skip_roundtrip = True
-        
         # Determine output path
         output_path = config.extract.output or (
             config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
@@ -198,23 +192,7 @@ def execute_pipeline(config: UserConfig) -> int:
     
     # Step 3: Apply/Render (if configured and not dry-run)
     if config.apply and not (config.adjust and config.adjust.dry_run):
-        # Determine output path
-        if config.apply.output:
-            output_docx = config.apply.output
-        else:
-            output_docx = config.workspace.documents_dir / rel_path / f"{input_file.stem}_NEW.docx"
-        
-        output_docx.parent.mkdir(parents=True, exist_ok=True)
-        verify_dir = config.workspace.verification_dir / rel_path
-        
-        apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(
-            json_path=work.output,
-            template_path=config.apply.template,
-            output_docx=output_docx,
-            debug=config.debug,
-            skip_compare=not config.should_compare or skip_roundtrip,
-            roundtrip_dir=verify_dir,
-        )
+        apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(work)
         
         extract_errs = render_errs
     

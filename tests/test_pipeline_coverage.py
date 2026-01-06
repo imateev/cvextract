@@ -10,7 +10,7 @@ from cvextract.pipeline_helpers import (
     infer_source_root,
 )
 from cvextract.shared import UnitOfWork
-from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage, AdjustStage
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
@@ -182,16 +182,24 @@ class TestRenderAndVerify:
             mock_process.return_value = json.loads(json_path.read_text())
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            config = UserConfig(
+                target_dir=out_dir,
+                apply=ApplyStage(template=template_path, data=json_path, output=rendered_docx),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is True
             assert errors == []
             assert compare_ok is True
 
     def testrender_and_verify_skip_compare(self, tmp_path):
-        """Test skip_compare parameter."""
+        """Test compare skipped when adjust stage is present."""
         json_path = tmp_path / "test.json"
         template_path = tmp_path / "template.docx"
         out_dir = tmp_path / "out"
@@ -207,20 +215,27 @@ class TestRenderAndVerify:
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
             mock_render.return_value = out_dir / "test_NEW.docx"
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False, skip_compare=True
+            config = UserConfig(
+                target_dir=out_dir,
+                apply=ApplyStage(template=template_path, data=json_path),
+                adjust=AdjustStage(adjusters=[], data=json_path),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is True
             assert compare_ok is None  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
-        """Test roundtrip_dir parameter."""
+        """Test roundtrip verification directory is created."""
         json_path = tmp_path / "test.json"
         template_path = tmp_path / "template.docx"
         out_dir = tmp_path / "out"
-        roundtrip_dir = tmp_path / "roundtrip"
-        
         test_data = {
             "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
             "sidebar": {},
@@ -243,14 +258,22 @@ class TestRenderAndVerify:
             mock_process.return_value = test_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False,
-                roundtrip_dir=roundtrip_dir
+            config = UserConfig(
+                target_dir=out_dir,
+                apply=ApplyStage(template=template_path, data=json_path, output=rendered_docx),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is True
             # Verify roundtrip_dir was created
-            assert roundtrip_dir.exists()
+            expected_dir = out_dir / "verification_structured_data"
+            assert expected_dir.exists()
 
     def testrender_and_verify_compare_failure(self, tmp_path):
         """Test when comparison finds differences."""
@@ -283,9 +306,17 @@ class TestRenderAndVerify:
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            config = UserConfig(
+                target_dir=out_dir,
+                apply=ApplyStage(template=template_path, data=json_path, output=rendered_docx),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is False
             assert "Mismatch detected" in errors
@@ -303,9 +334,17 @@ class TestRenderAndVerify:
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
             mock_render.side_effect = RuntimeError("Render failed")
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            config = UserConfig(
+                target_dir=out_dir,
+                apply=ApplyStage(template=template_path, data=json_path),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is False
             assert any("RuntimeError" in e for e in errors)

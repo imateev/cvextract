@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
-from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage
 from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
@@ -113,7 +113,12 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    config = UserConfig(
+        target_dir=out_dir,
+        apply=ApplyStage(template=template, data=json_file),
+    )
+    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    ok, errs, warns, compare_ok = p.render_and_verify(work)
     assert ok is True
     assert errs == []
     assert warns == []
@@ -132,7 +137,12 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    config = UserConfig(
+        target_dir=out_dir,
+        apply=ApplyStage(template=template, data=json_file),
+    )
+    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    ok, errs, warns, compare_ok = p.render_and_verify(work)
     assert ok is False
     assert len(errs) == 1
     assert "render: ValueError" in errs[0]
@@ -165,7 +175,12 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    config = UserConfig(
+        target_dir=out_dir,
+        apply=ApplyStage(template=template, data=json_file),
+    )
+    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    ok, errs, warns, compare_ok = p.render_and_verify(work)
     assert ok is False
     assert "value mismatch" in errs[0]
     assert warns == []

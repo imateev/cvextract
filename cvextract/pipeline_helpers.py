@@ -90,25 +90,12 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         )
 
 
-def render_and_verify(
-    json_path: Path, 
-    template_path: Path, 
-    output_docx: Path, 
-    debug: bool, 
-    *, 
-    skip_compare: bool = False, 
-    roundtrip_dir: Optional[Path] = None
-) -> tuple[bool, List[str], List[str], Optional[bool]]:
+def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Optional[bool]]:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
     
     Args:
-        json_path: Path to input JSON file
-        template_path: Path to DOCX template
-        output_docx: Explicit path where rendered DOCX should be saved
-        debug: Enable debug logging
-        skip_compare: Skip comparison verification
-        roundtrip_dir: Optional directory for roundtrip JSON files
+        work: UnitOfWork with config, output JSON path, and initial input path
     
     Returns:
         Tuple of (ok, errors, warnings, compare_ok).
@@ -116,6 +103,43 @@ def render_and_verify(
     """
     import json
     
+    if not work.config.apply:
+        return False, ["render: missing apply configuration"], [], None
+
+    json_path = work.output
+    template_path = work.config.apply.template
+    input_path = work.initial_input or work.input
+    debug = work.config.debug
+    skip_compare = not work.config.should_compare
+    if work.config.extract and work.config.extract.name == "openai-extractor":
+        skip_compare = True
+
+    if work.config.input_dir:
+        source_base = work.config.input_dir.resolve()
+    else:
+        source = None
+        if work.config.extract:
+            source = work.config.extract.source
+        elif work.config.apply and work.config.apply.data:
+            source = work.config.apply.data
+        elif work.config.adjust and work.config.adjust.data:
+            source = work.config.adjust.data
+        if source is not None:
+            source_base = source.parent.resolve() if source.is_file() else source.resolve()
+        else:
+            source_base = input_path.parent.resolve()
+
+    try:
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+    except Exception:
+        rel_path = Path(".")
+
+    output_docx = work.config.apply.output or (
+        work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
+    )
+    output_docx.parent.mkdir(parents=True, exist_ok=True)
+    roundtrip_dir = work.config.workspace.verification_dir / rel_path
+
     try:
         # Load CV data from JSON
         with json_path.open("r", encoding="utf-8") as f:
@@ -129,23 +153,14 @@ def render_and_verify(
             return True, [], [], None
 
         # Round-trip extraction from rendered DOCX
-        if roundtrip_dir:
-            roundtrip_dir.mkdir(parents=True, exist_ok=True)
-            roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
-        else:
-            roundtrip_json = output_docx.with_suffix(".json")
+        roundtrip_dir.mkdir(parents=True, exist_ok=True)
+        roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
         roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
 
         original_data = cv_data
 
         verifier = get_verifier("roundtrip-verifier")
         cmp = verifier.verify(original_data, target_data=roundtrip_data)
-        if not debug and roundtrip_dir is None:
-            try:
-                roundtrip_json.unlink(missing_ok=True)
-            except Exception:
-                pass
-
         if cmp.ok:
             return True, [], cmp.warnings, True
         return False, cmp.errors, cmp.warnings, False

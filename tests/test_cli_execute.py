@@ -341,9 +341,8 @@ class TestExecutePipelineApplyOnly:
 
         exit_code = execute_pipeline(config)
         assert exit_code == 0
-        # Verify render was called with custom output
-        call_args = mock_render.call_args
-        assert call_args[1]['output_docx'] == custom_output
+        render_work = mock_render.call_args[0][0]
+        assert render_work.config.apply.output == custom_output
 
 
 class TestExecutePipelineAdjust:
@@ -840,9 +839,15 @@ class TestFolderStructurePreservation:
         exit_code = execute_pipeline(config)
         assert exit_code == 0
 
-        # Verify render was called with output in correct subdirectory
-        call_args = mock_render.call_args
-        output_docx = call_args[1]['output_docx']
+        render_work = mock_render.call_args[0][0]
+        input_path = render_work.initial_input
+        source_base = render_work.config.input_dir.resolve()
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+        output_docx = (
+            render_work.config.workspace.documents_dir
+            / rel_path
+            / f"{input_path.stem}_NEW.docx"
+        )
 
         # Output should be in DACH/Software Engineering subdirectory
         assert "DACH" in str(output_docx)
