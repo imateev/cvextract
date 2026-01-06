@@ -74,6 +74,55 @@ def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional["U
     with controller.file_context(file_path):
         return execute_single(file_config)
 
+
+def _process_future_result(
+    future,
+    file_path: Path,
+    progress_str: str,
+    controller,
+    config: UserConfig,
+) -> Tuple[str, Optional[str]]:
+    try:
+        exit_code, work = future.result()
+        success = exit_code == 0
+        has_warnings = bool(
+            work and any(status.warnings for status in work.step_statuses.values())
+        )
+        message = ""
+        if work and has_warnings:
+            message = fmt_issues(work, select_issue_step(work))
+            if message == "-":
+                message = ""
+        if not success and not message:
+            message = "pipeline execution failed"
+
+        if success and has_warnings:
+            status_icon = "⚠️ "
+            status = "partial"
+        elif success and exit_code == 0:
+            status_icon = "✅"
+            status = "full"
+        else:
+            status_icon = "❌"
+            status = "failed"
+
+        if message:
+            summary_line = f"{status_icon} {progress_str} {file_path.name} | {message}"
+            LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
+        else:
+            summary_line = f"{status_icon} {progress_str} {file_path.name}"
+            LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
+
+        controller.flush_file(file_path, summary_line)
+        return status, str(file_path) if status == "failed" else None
+    except Exception as e:
+        error_summary = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
+        LOG.error(error_summary)
+        controller.flush_file(file_path, error_summary)
+        if config.debug:
+            LOG.error(traceback.format_exc())
+        return "failed", str(file_path)
+
 def execute_parallel_pipeline(config: UserConfig) -> int:
     """
     Execute pipeline in parallel mode, processing entire directory of files.
@@ -141,55 +190,21 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             progress_pct = int((completed_count / total_files) * 100)
             progress_str = f"[{completed_count}/{total_files} | {progress_pct}%]"
             
-            try:
-                exit_code, work = future.result()
-                success = exit_code == 0
-                has_warnings = bool(
-                    work and any(status.warnings for status in work.step_statuses.values())
-                )
-                message = ""
-                if work and has_warnings:
-                    message = fmt_issues(work, select_issue_step(work))
-                    if message == "-":
-                        message = ""
-                if not success and not message:
-                    message = "pipeline execution failed"
-                
-                # Determine status icons (same as in cli_execute_single.py)
-                if success and has_warnings:
-                    status_icon = "⚠️ "
-                    partial_success_count += 1
-                elif success and exit_code == 0:
-                    status_icon = "✅"
-                    full_success_count += 1
-                else:
-                    status_icon = "❌"
-                    failed_count += 1
-                    failed_files.append(str(file_path))
-                
-                # Build summary line for atomic flush
-                if message:
-                    summary_line = f"{status_icon} {progress_str} {file_path.name} | {message}"
-                    # Log with original format for tests and file logging
-                    LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
-                else:
-                    summary_line = f"{status_icon} {progress_str} {file_path.name}"
-                    # Log with original format for tests and file logging
-                    LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
-                
-                # Flush output atomically for this file (console only)
-                controller.flush_file(file_path, summary_line)
-                    
-            except Exception as e:
-                error_summary = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
-                # Log the error message
-                LOG.error(error_summary)
-                # Flush output atomically for this file
-                controller.flush_file(file_path, error_summary)
-                if config.debug:
-                    LOG.error(traceback.format_exc())
+            status, failed_file = _process_future_result(
+                future,
+                file_path,
+                progress_str,
+                controller,
+                config,
+            )
+            if status == "partial":
+                partial_success_count += 1
+            elif status == "full":
+                full_success_count += 1
+            else:
                 failed_count += 1
-                failed_files.append(str(file_path))
+                if failed_file:
+                    failed_files.append(failed_file)
     
     # Log summary
     total_files = len(files)
