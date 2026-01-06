@@ -127,7 +127,7 @@ def get_status_icons(work: "UnitOfWork") -> dict["StepName", str]:
     return {step_name: icon_for(step_name) for step_name in StepName}
 
 
-def emot_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> str:
+def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> str:
     icons = get_status_icons(work)
     issue_step = step
     if issue_step is None:

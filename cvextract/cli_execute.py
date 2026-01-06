@@ -21,7 +21,7 @@ from .pipeline_helpers import (
     extract_single,
     render_and_verify,
 )
-from .shared import StepName, StepStatus, UnitOfWork, emot_work_status
+from .shared import StepName, StepStatus, UnitOfWork, emit_work_status
 
 
 def execute_pipeline(config: UserConfig) -> int:
@@ -133,7 +133,7 @@ def execute_pipeline(config: UserConfig) -> int:
         
         # If extraction failed and we need to apply, exit early
         if (not work.has_no_errors(StepName.Extract)) and config.apply:
-            LOG.info("%s", emot_work_status(work, StepName.Extract))
+            LOG.info("%s", emit_work_status(work, StepName.Extract))
             return 1
     else:
         # No extraction, use input JSON directly
@@ -217,7 +217,7 @@ def execute_pipeline(config: UserConfig) -> int:
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
-        LOG.info("%s", emot_work_status(work))
+        LOG.info("%s", emit_work_status(work))
     
     # Log summary (unless suppressed for parallel mode)
     if not config.suppress_summary:
