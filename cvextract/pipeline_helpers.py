@@ -65,6 +65,41 @@ def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
     return input_path.parent.resolve()
 
 
+def _render_docx(work: UnitOfWork) -> UnitOfWork:
+    if not work.config.render:
+        work.add_error(StepName.Render, "render: missing render configuration")
+        return work
+
+    if work.output is None:
+        work.add_error(StepName.Render, "render: input JSON path is not set")
+        return work
+
+    input_path = work.initial_input or work.input
+    source_base = _resolve_source_base_for_render(work, input_path)
+
+    try:
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+    except Exception:
+        rel_path = Path(".")
+
+    output_docx = prepare_output_path(work, input_path, rel_path)
+    render_work = replace(work, output=output_docx)
+
+    try:
+        render_work = render_cv_data(render_work)
+    except Exception as e:
+        message = f"render: {type(e).__name__}"
+        LOG.warning("%s", message)
+        render_work.add_warning(StepName.Render, message)
+        return render_work
+
+    render_status = render_work.ensure_step_status(StepName.Render)
+    if render_status and not render_status.ok:
+        return render_work
+
+    return render_work
+
+
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
     Extract and verify a single file. Returns a UnitOfWork copy with results.
@@ -135,35 +170,10 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     """
     import json
     
-    if not work.config.render:
-        work.add_error(StepName.Render, "render: missing render configuration")
-        return work
+    original_cv_path = work.output
 
-    if work.output is None:
-        work.add_error(StepName.Render, "render: input JSON path is not set")
-        return work
-
-    input_path = work.initial_input or work.input
-    source_base = _resolve_source_base_for_render(work, input_path)
-
-    try:
-        rel_path = input_path.parent.resolve().relative_to(source_base)
-    except Exception:
-        rel_path = Path(".")
-
-    output_docx = prepare_output_path(work, input_path, rel_path)
-    render_work = replace(work, output=output_docx)
-
-    # Render using the new renderer interface (UnitOfWork-based)
-    try:
-        render_work = render_cv_data(render_work)
-    except Exception as e:
-        message = f"render: {type(e).__name__}"
-        LOG.warning("%s", message)
-        render_work.add_warning(StepName.Render, message)
-        return render_work
-
-    render_status = render_work.ensure_step_status(StepName.Render)
+    render_work = _render_docx(work)
+    render_status = render_work.step_statuses.get(StepName.Render)
     if render_status and not render_status.ok:
         return render_work
 
@@ -175,12 +185,32 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     if skip_compare:
         return render_work
 
+    try:
+        # Load CV data from JSON
+        with original_cv_path.open("r", encoding="utf-8") as f:
+            original_cv_data = json.load(f)
+    except Exception as e:
+        if work.config.debug:
+            LOG.error(traceback.format_exc())
+        work.add_error(StepName.Render, f"render: {type(e).__name__}")
+        return work
+    
+    output_docx = render_work.output
+    if output_docx is None:
+        return render_work
+
+    input_path = work.initial_input or work.input
+    source_base = _resolve_source_base_for_render(work, input_path)
+    try:
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+    except Exception:
+        rel_path = Path(".")
     roundtrip_dir = work.config.workspace.verification_dir / rel_path
     try:
         _, compare_errors, compare_warnings, _ = _roundtrip_compare(
             output_docx,
             roundtrip_dir,
-            cv_data,
+            original_cv_data,
         )
     except Exception as e:
         message = f"compare: {type(e).__name__}"
