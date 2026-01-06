@@ -5,6 +5,8 @@ from pathlib import Path
 import cvextract.cli as cli
 import cvextract.pipeline as pipeline
 import cvextract.pipeline_helpers as helpers
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
 
 
 class TestCliEdgeCases:
@@ -49,7 +51,7 @@ class TestCliEdgeCases:
         
         rc = cli.main([
             "--extract", f"source={src}",
-            "--apply", f"template={tmp_path / 'nonexistent.docx'}",
+            "--render", f"template={tmp_path / 'nonexistent.docx'}",
             "--target", str(tmp_path / "out")
         ])
         
@@ -103,39 +105,70 @@ class TestPipelineEdgeCases:
         )
         assert (full, part, fail) == (0, 1, 0)
 
-    def test_get_status_icons_all_success(self):
+    def test_get_status_icons_all_success(self, tmp_path):
         """Test status icons for complete success."""
-        x, a, c = helpers.get_status_icons(
-            extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
         )
-        assert x == "🟢"
-        assert a == "✅"
-        assert c == "✅"
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        icons = get_status_icons(work)
+        assert icons[StepName.Extract] == "🟢"
+        assert icons[StepName.Render] == "✅"
+        assert icons[StepName.Verify] == "✅"
 
-    def test_get_status_icons_all_failures(self):
+    def test_get_status_icons_all_failures(self, tmp_path):
         """Test status icons for complete failure."""
-        x, a, c = helpers.get_status_icons(
-            extract_ok=False, has_warns=False, apply_ok=False, compare_ok=False
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
         )
-        assert x == "❌"
-        assert a == "❌"
-        assert c == "⚠️ "
+        work.step_statuses[StepName.Extract] = StepStatus(
+            step=StepName.Extract,
+            errors=["extract error"],
+        )
+        work.step_statuses[StepName.Render] = StepStatus(
+            step=StepName.Render,
+            errors=["render error"],
+        )
+        work.step_statuses[StepName.Verify] = StepStatus(
+            step=StepName.Verify,
+            errors=["verify error"],
+        )
+        icons = get_status_icons(work)
+        assert icons[StepName.Extract] == "❌"
+        assert icons[StepName.Render] == "❌"
+        assert icons[StepName.Verify] == "⚠️ "
 
-    def test_get_status_icons_extract_warn(self):
+    def test_get_status_icons_extract_warn(self, tmp_path):
         """Test status icons when extract has warning."""
-        x, a, c = helpers.get_status_icons(
-            extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
         )
-        assert x == "⚠️ "
-        assert a == "➖"
-        assert c == "➖"
+        work.step_statuses[StepName.Extract] = StepStatus(
+            step=StepName.Extract,
+            warnings=["warn"],
+        )
+        icons = get_status_icons(work)
+        assert icons[StepName.Extract] == "⚠️ "
+        assert icons[StepName.Render] == "➖"
+        assert icons[StepName.Verify] == "➖"
 
-    def test_get_status_icons_none_values(self):
+    def test_get_status_icons_none_values(self, tmp_path):
         """Test status icons with None values for apply/compare."""
-        x, a, c = helpers.get_status_icons(
-            extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
         )
-        assert x == "🟢"
-        assert a == "➖"
-        assert c == "➖"
-
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        icons = get_status_icons(work)
+        assert icons[StepName.Extract] == "🟢"
+        assert icons[StepName.Render] == "➖"
+        assert icons[StepName.Verify] == "➖"

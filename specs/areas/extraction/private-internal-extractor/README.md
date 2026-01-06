@@ -126,7 +126,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json`:
 
 - Registered in `cvextract/extractors/__init__.py` as `"private-internal-extractor"`
 - Used by `cvextract.pipeline_highlevel.extract_cv_structure()` as default
-- Used by `cvextract.cli_execute.execute_pipeline()` for extraction stage
+- Used by `cvextract.cli_execute_pipeline.execute_pipeline()` for extraction stage
 
 ## Test Coverage
 

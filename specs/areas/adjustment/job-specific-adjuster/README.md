@@ -23,18 +23,26 @@ The `OpenAIJobSpecificAdjuster` class:
 ### Programmatic API
 
 ```python
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 
 # Using job URL
 adjuster = get_adjuster("openai-job-specific", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     job_url="https://careers.example.com/job/123"
 )
 
 # Using job description directly
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     job_description="Senior Software Engineer position..."
 )
 ```
@@ -48,7 +56,7 @@ export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-job-specific job-url=https://careers.example.com/job/123 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
 # Using job description
@@ -98,7 +106,7 @@ python -m cvextract.cli \
 ### Integration Points
 
 - Registered as `"openai-job-specific"` in `cvextract/adjusters/__init__.py`
-- Used by `cvextract.cli_execute` when `--adjust name=openai-job-specific`
+- Used by `cvextract.cli_execute_adjust.execute()` when `--adjust name=openai-job-specific`
 - Can be chained with other adjusters
 
 ## Test Coverage

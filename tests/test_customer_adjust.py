@@ -2,11 +2,12 @@
 
 import json
 import logging
-import os
 from unittest.mock import Mock
+from cvextract.shared import url_to_cache_filename
 from cvextract.adjusters.openai_company_research_adjuster import (
-    _url_to_cache_filename,
     _fetch_customer_page,
+    _cache_research_data,
+    _load_cached_research,
     _research_company_profile,
     _load_research_schema,
 )
@@ -73,70 +74,70 @@ class TestFetchCustomerPage:
 
 
 class TestUrlToCacheFilename:
-    """Tests for _url_to_cache_filename helper."""
+    """Tests for url_to_cache_filename helper."""
 
     def test_url_to_cache_filename_basic(self):
         """Test basic URL conversion."""
-        result = _url_to_cache_filename("https://example.com")
+        result = url_to_cache_filename("https://example.com")
         assert result.startswith("example.com-")
         assert result.endswith(".research.json")
         assert len(result) > len("example.com-.research.json")
 
     def test_url_to_cache_filename_removes_protocol(self):
         """Test that protocol is removed."""
-        result1 = _url_to_cache_filename("https://example.com")
-        result2 = _url_to_cache_filename("http://example.com")
+        result1 = url_to_cache_filename("https://example.com")
+        result2 = url_to_cache_filename("http://example.com")
         # Same domain should produce same base name (though hash might differ due to full URL)
         assert "example.com" in result1
         assert "example.com" in result2
 
     def test_url_to_cache_filename_removes_www(self):
         """Test that www prefix is removed."""
-        result = _url_to_cache_filename("https://www.example.com")
+        result = url_to_cache_filename("https://www.example.com")
         assert result.startswith("example.com-")
 
     def test_url_to_cache_filename_removes_path(self):
         """Test that path is removed from domain."""
-        result = _url_to_cache_filename("https://example.com/path/to/page")
+        result = url_to_cache_filename("https://example.com/path/to/page")
         assert result.startswith("example.com-")
 
     def test_url_to_cache_filename_removes_query(self):
         """Test that query string is removed from domain."""
-        result = _url_to_cache_filename("https://example.com?query=value")
+        result = url_to_cache_filename("https://example.com?query=value")
         assert result.startswith("example.com-")
 
     def test_url_to_cache_filename_removes_port(self):
         """Test that port is removed from domain."""
-        result = _url_to_cache_filename("https://example.com:8080")
+        result = url_to_cache_filename("https://example.com:8080")
         assert result.startswith("example.com-")
 
     def test_url_to_cache_filename_deterministic(self):
         """Test that same URL always produces same filename."""
         url = "https://example.com/page"
-        result1 = _url_to_cache_filename(url)
-        result2 = _url_to_cache_filename(url)
+        result1 = url_to_cache_filename(url)
+        result2 = url_to_cache_filename(url)
         assert result1 == result2
 
     def test_url_to_cache_filename_different_urls(self):
         """Test that different URLs produce different filenames."""
         url1 = "https://example.com"
         url2 = "https://different.com"
-        result1 = _url_to_cache_filename(url1)
-        result2 = _url_to_cache_filename(url2)
+        result1 = url_to_cache_filename(url1)
+        result2 = url_to_cache_filename(url2)
         assert result1 != result2
 
     def test_url_to_cache_filename_same_domain_different_paths(self):
         """Test that different paths on same domain produce different filenames."""
         url1 = "https://example.com/page1"
         url2 = "https://example.com/page2"
-        result1 = _url_to_cache_filename(url1)
-        result2 = _url_to_cache_filename(url2)
+        result1 = url_to_cache_filename(url1)
+        result2 = url_to_cache_filename(url2)
         # Same domain but different full URLs should have different hashes
         assert result1 != result2
 
     def test_url_to_cache_filename_safe_characters(self):
         """Test that filename contains only safe characters."""
-        result = _url_to_cache_filename("https://example.com")
+        result = url_to_cache_filename("https://example.com")
         # Check that filename is filesystem-safe (no special chars except - and .)
         import re
         assert re.match(r'^[a-z0-9._-]+\.research\.json$', result)
@@ -202,11 +203,6 @@ class TestResearchCompanyProfile:
         """Test that cached research data is used when available."""
         caplog.set_level(logging.INFO)
         
-        # Mock verifier to validate research data
-        mock_verifier = Mock()
-        mock_verifier.verify.return_value = Mock(ok=True)
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.get_verifier", Mock(return_value=mock_verifier))
-        
         cache_file = tmp_path / "test.research.json"
         research_data = {
             "name": "Test Company",
@@ -214,32 +210,20 @@ class TestResearchCompanyProfile:
             "description": "A test company"
         }
         cache_file.write_text(json.dumps(research_data))
-        
-        result = _research_company_profile(
-            "https://example.com",
-            "test-key",
-            "gpt-4o-mini",
-            cache_file
-        )
+
+        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._validate_research_data", Mock(return_value=True))
+        result = _load_cached_research(cache_file)
         
         assert result == research_data
         assert "Using cached company research" in caplog.text
 
-    def test_research_company_profile_invalid_cache(self, tmp_path, caplog, monkeypatch):
-        """Test that invalid cache is ignored and research proceeds."""
+    def test_research_company_profile_invalid_cache(self, tmp_path, caplog):
+        """Test that invalid cache returns None."""
+        caplog.set_level(logging.INFO)
         cache_file = tmp_path / "test.research.json"
         cache_file.write_text("invalid json")
         
-        # Mock the research to fail after cache fails (schema unavailable)
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value=None))
-        
-        result = _research_company_profile(
-            "https://example.com",
-            "test-key",
-            "gpt-4o-mini",
-            cache_file
-        )
-        
+        result = _load_cached_research(cache_file)
         assert result is None
         assert "Failed to load cached research" in caplog.text
 
@@ -307,22 +291,16 @@ class TestResearchCompanyProfile:
             "https://example.com",
             "test-key",
             "gpt-4o-mini",
-            cache_file
         )
         
         assert result == research_data
         assert "Successfully researched company profile" in caplog.text
-        assert cache_file.exists()
-        
-        # Verify cached content
-        with open(cache_file) as f:
-            cached = json.load(f)
-        assert cached == research_data
+        _cache_research_data(cache_file, research_data)
+        assert json.loads(cache_file.read_text()) == research_data
 
     def test_research_company_profile_with_acquisition_and_rebrand_data(self, tmp_path, caplog, monkeypatch):
         """Test successful company research with acquisition history and rebranding info."""
         caplog.set_level(logging.INFO)
-        cache_file = tmp_path / "test.research.json"
         
         research_data = {
             "name": "NewCo Inc",
@@ -357,7 +335,6 @@ class TestResearchCompanyProfile:
             "https://example.com",
             "test-key",
             "gpt-4o-mini",
-            cache_file
         )
         
         assert result == research_data
@@ -371,7 +348,6 @@ class TestResearchCompanyProfile:
     def test_research_company_profile_with_products_data(self, tmp_path, caplog, monkeypatch):
         """Test successful company research with owned and used products."""
         caplog.set_level(logging.INFO)
-        cache_file = tmp_path / "test.research.json"
         
         research_data = {
             "name": "ProductCo",
@@ -416,7 +392,6 @@ class TestResearchCompanyProfile:
             "https://example.com",
             "test-key",
             "gpt-4o-mini",
-            cache_file
         )
         
         assert result == research_data
@@ -933,62 +908,29 @@ class TestOpenAIRetryMethods:
 
 
 class TestResearchCompanyProfileEdgeCases:
-    """Additional edge case tests for _research_company_profile."""
+    """Additional edge case tests for company research helpers."""
 
     def test_research_company_profile_empty_cache_data(self, monkeypatch, tmp_path):
-        """Test with empty cache file."""
-        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+        """Test empty cache file returns None."""
+        from cvextract.adjusters.openai_company_research_adjuster import _load_cached_research
         
         cache_file = tmp_path / "cache.json"
         cache_file.write_text("{}")
         
-        mock_openai = Mock()
-        mock_client = Mock()
-        mock_completion = Mock()
-        mock_message = Mock()
-        good_data = {"name": "TestCo", "domains": ["test.com"]}
-        mock_message.content = json.dumps(good_data)
-        mock_completion.choices = [Mock(message=mock_message)]
-        mock_client.chat.completions.create.return_value = mock_completion
-        mock_openai.return_value = mock_client
-        
-        mock_get_verifier = Mock(return_value=Mock())
-        mock_get_verifier.return_value.verify.return_value = Mock(ok=True)
-        
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value={"type": "object"}))
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._validate_research_data", Mock(side_effect=[False, True]))
-        
-        result = _research_company_profile("https://example.com", "test-key", "gpt-4o-mini", cache_path=cache_file)
-        
-        # Cache had invalid data, should fetch and return new data
-        assert result == good_data
+        result = _load_cached_research(cache_file)
+        assert result is None
 
     def test_research_company_profile_cache_corruption_invalid_json(self, monkeypatch, tmp_path):
-        """Test handling corrupted cache with invalid JSON."""
-        from cvextract.adjusters.openai_company_research_adjuster import _research_company_profile
+        """Test corrupted cache JSON returns None."""
+        from cvextract.adjusters.openai_company_research_adjuster import _load_cached_research
         
         cache_file = tmp_path / "cache.json"
         cache_file.write_text("{invalid json")
         
-        mock_openai = Mock()
-        mock_client = Mock()
-        mock_completion = Mock()
-        mock_message = Mock()
-        good_data = {"name": "TestCo", "domains": ["test.com"]}
-        mock_message.content = json.dumps(good_data)
-        mock_completion.choices = [Mock(message=mock_message)]
-        mock_client.chat.completions.create.return_value = mock_completion
-        mock_openai.return_value = mock_client
-        
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai)
-        monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._load_research_schema", Mock(return_value={"type": "object"}))
         monkeypatch.setattr("cvextract.adjusters.openai_company_research_adjuster._validate_research_data", Mock(return_value=True))
-        
-        result = _research_company_profile("https://example.com", "test-key", "gpt-4o-mini", cache_path=cache_file)
-        
-        # Cache was corrupted, should fetch and return new data
-        assert result == good_data
+        result = _load_cached_research(cache_file)
+        assert result is None
 
     def test_research_company_profile_retry_call_uses_config(self, monkeypatch):
         """Test that retry config is passed to retryer.call."""

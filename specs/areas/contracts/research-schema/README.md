@@ -27,16 +27,22 @@ Location: `cvextract/contracts/research_schema.json`
 ### Programmatic Usage
 
 ```python
-from cvextract.adjusters import OpenAICompanyResearchAdjuster
 from pathlib import Path
+from cvextract.adjusters import OpenAICompanyResearchAdjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 
 adjuster = OpenAICompanyResearchAdjuster()
 
 # Research is cached conforming to research_schema.json
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted = adjuster.adjust(
-    cv_data,
-    customer_url="https://example.com",
-    cache_path=Path("cache/example.research.json")
+    work,
+    customer_url="https://example.com"
 )
 ```
 

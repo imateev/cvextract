@@ -28,29 +28,37 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://target-company.com \
   --adjust name=openai-job-specific job-url=https://target-company.com/careers/job/456 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
-# Data flow: Extract → Company Adjust → Job Adjust → Apply
+# Data flow: Extract → Company Adjust → Job Adjust → Render
 ```
 
 ### Programmatic API
 
 ```python
+import json
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 
-# Manual chaining
-cv_data = extract_cv(source)
+input_json = Path("cv.json")
+config = UserConfig(target_dir=Path("out"), extract=ExtractStage(source=input_json))
 
 # First adjuster
 company_adjuster = get_adjuster("openai-company-research")
-cv_data = company_adjuster.adjust(cv_data, customer_url="https://example.com")
+work = UnitOfWork(config=config, input=input_json, output=input_json)
+cv_data = company_adjuster.adjust(work, customer_url="https://example.com")
 
-# Second adjuster receives output of first
+# Persist adjusted data so the next adjuster can load it
+intermediate = Path("cv_adjusted.json")
+intermediate.write_text(json.dumps(cv_data, indent=2))
+
+# Second adjuster reads the updated JSON
 job_adjuster = get_adjuster("openai-job-specific")
-cv_data = job_adjuster.adjust(cv_data, job_url="https://example.com/job/123")
-
-# Final data is doubly-optimized
+work = UnitOfWork(config=config, input=intermediate, output=intermediate)
+cv_data = job_adjuster.adjust(work, job_url="https://example.com/job/123")
 ```
 
 ## Configuration
@@ -110,12 +118,12 @@ When multiple adjusters are chained:
 ### Internal Dependencies
 
 - `cvextract.cli_gather.AdjustmentSpec` - Stores adjustment configurations
-- `cvextract.cli_execute.execute_pipeline()` - Chains adjusters
+- `cvextract.cli_execute_adjust.execute()` - Chains adjusters
 
 ### Integration Points
 
 - Implemented in `cvextract.cli_gather._parse_adjustment_specs()`
-- Executed in `cvextract.cli_execute.execute_pipeline()`
+- Executed in `cvextract.cli_execute_adjust.execute()`
 
 ## Test Coverage
 
@@ -130,7 +138,7 @@ Chaining was implemented as part of the named adjusters refactoring to enable fl
 
 **Key Files**:
 - `cvextract/cli_gather.py` - Multiple adjustment specs parsing
-- `cvextract/cli_execute.py` - Sequential adjuster execution
+- `cvextract/cli_execute_adjust.py` - Sequential adjuster execution
 
 ## Open Questions
 
@@ -149,7 +157,7 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://company.com \
   --adjust name=openai-job-specific job-url=https://company.com/job/123 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 ```
 
@@ -181,7 +189,7 @@ register_adjuster(MyCustomAdjuster2)
 ## File Paths
 
 - CLI Parsing: `cvextract/cli_gather.py` (function: `_parse_adjustment_specs`)
-- Execution: `cvextract/cli_execute.py` (in `execute_pipeline`)
+- Execution: `cvextract/cli_execute_adjust.py` (in `execute`)
 - Tests: `tests/test_cli.py`, `tests/test_pipeline.py`
 - Documentation: Main README.md (section: "Chaining Multiple Adjusters")
 

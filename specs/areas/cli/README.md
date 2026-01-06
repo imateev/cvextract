@@ -6,7 +6,7 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 
 ## Features
 
-- [Stage-Based Interface](stage-based-interface/README.md) - Explicit flags for extract/adjust/apply operations
+- [Stage-Based Interface](stage-based-interface/README.md) - Explicit flags for extract/adjust/render operations
 - [Batch Processing](batch-processing/README.md) - Process multiple files recursively from directories
 - [Parallel Processing](parallel-processing/README.md) - Multi-worker parallel file processing
 - [Directory Structure Preservation](directory-structure-preservation/README.md) - Maintains source directory hierarchy
@@ -16,7 +16,7 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 
 ### Design Principles
 
-1. **Stage-Based**: Explicit `--extract`, `--adjust`, `--apply` flags for each operation
+1. **Stage-Based**: Explicit `--extract`, `--adjust`, `--render` flags for each operation
 2. **Chainable**: Stages automatically pass data to next stage
 3. **Explicit Paths**: All input/output paths determined upfront, passed explicitly to subsystems
 4. **Modern Syntax**: `key=value` format for all parameters
@@ -28,8 +28,10 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 - **Config**: `cvextract/cli_config.py` - Configuration data structures
 - **Gather**: `cvextract/cli_gather.py` - Parse and validate CLI arguments
 - **Prepare**: `cvextract/cli_prepare.py` - Input file collection
-- **Execute**: `cvextract/cli_execute.py` - Pipeline orchestration
-- **Parallel**: `cvextract/cli_parallel.py` - Multi-worker batch processing
+- **Execute Pipeline**: `cvextract/cli_execute_pipeline.py` - Single vs parallel orchestration
+- **Execute Single**: `cvextract/cli_execute_single.py` - Single-file pipeline
+- **Execute Steps**: `cvextract/cli_execute_extract.py`, `cvextract/cli_execute_adjust.py`, `cvextract/cli_execute_render.py` - Stage execution
+- **Parallel**: `cvextract/cli_execute_parallel.py` - Multi-worker batch processing
 
 ### Data Flow
 
@@ -57,7 +59,7 @@ UserConfig
 
 - **Extractors**: Via `--extract name=<extractor>`
 - **Adjusters**: Via `--adjust name=<adjuster> <params>`
-- **Renderers**: Via `--apply template=<path>`
+- **Renderers**: Via `--render template=<path>`
 - **Pipeline**: Orchestrates all operations via `cvextract.pipeline`
 
 ## Dependencies
@@ -71,6 +73,8 @@ UserConfig
 - Config: `cvextract/cli_config.py`
 - Gather: `cvextract/cli_gather.py`
 - Prepare: `cvextract/cli_prepare.py`
-- Execute: `cvextract/cli_execute.py`
-- Parallel: `cvextract/cli_parallel.py`
+- Execute Pipeline: `cvextract/cli_execute_pipeline.py`
+- Execute Single: `cvextract/cli_execute_single.py`
+- Execute Steps: `cvextract/cli_execute_extract.py`, `cvextract/cli_execute_adjust.py`, `cvextract/cli_execute_render.py`
+- Parallel: `cvextract/cli_execute_parallel.py`
 - Logging: `cvextract/logging_utils.py`

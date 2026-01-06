@@ -35,7 +35,7 @@ The adjustment area provides ML-based CV optimization and transformation capabil
 Original CV JSON
     │
     v
-[Adjuster.adjust(cv_data, **params)]
+[Adjuster.adjust(work, **params)]
     │
     ├──> Company Research (cached)
     │

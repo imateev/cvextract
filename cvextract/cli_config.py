@@ -38,8 +38,8 @@ class AdjustStage:
 
 
 @dataclass
-class ApplyStage:
-    """Configuration for the apply/render stage."""
+class RenderStage:
+    """Configuration for the render stage."""
     template: Path  # Template DOCX file
     data: Optional[Path] = None  # Input JSON (optional if chained after extract/adjust)
     output: Optional[Path] = None  # Output DOCX (optional, defaults to target_dir/documents/)
@@ -63,7 +63,7 @@ class UserConfig:
     # Stage configurations (None if stage not requested)
     extract: Optional[ExtractStage] = None
     adjust: Optional[AdjustStage] = None
-    apply: Optional[ApplyStage] = None
+    render: Optional[RenderStage] = None
     parallel: Optional[ParallelStage] = None
     
     # Execution settings
@@ -74,6 +74,11 @@ class UserConfig:
     input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)
     suppress_file_logging: bool = False  # Suppress individual file logging (used in parallel mode)
     last_warnings: List[str] = field(default_factory=list)  # Warnings from the most recent run
+
+    @property
+    def workspace(self) -> "Workspace":
+        """Directory layout derived from target_dir."""
+        return Workspace(self.target_dir)
 
     @property
     def debug(self) -> bool:
@@ -91,12 +96,38 @@ class UserConfig:
         return self.adjust is not None
 
     @property
-    def has_apply(self) -> bool:
-        """Whether apply stage is configured."""
-        return self.apply is not None
+    def has_render(self) -> bool:
+        """Whether render stage is configured."""
+        return self.render is not None
 
     @property
     def should_compare(self) -> bool:
         """Whether to run comparison verification."""
-        # Only compare if applying but not adjusting
-        return self.has_apply and not self.has_adjust
+        # Only compare if rendering but not adjusting
+        return self.has_render and not self.has_adjust
+
+
+@dataclass(frozen=True)
+class Workspace:
+    """Output directory layout for a run."""
+    target_dir: Path
+
+    @property
+    def json_dir(self) -> Path:
+        return self.target_dir / "structured_data"
+
+    @property
+    def adjusted_json_dir(self) -> Path:
+        return self.target_dir / "adjusted_structured_data"
+
+    @property
+    def documents_dir(self) -> Path:
+        return self.target_dir / "documents"
+
+    @property
+    def research_dir(self) -> Path:
+        return self.target_dir / "research_data"
+
+    @property
+    def verification_dir(self) -> Path:
+        return self.target_dir / "verification_structured_data"

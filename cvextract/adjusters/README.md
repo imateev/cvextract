@@ -18,18 +18,25 @@ Adjusts CV data based on target company research using OpenAI.
 
 **Parameters:**
 - `customer_url` (required): URL of the target company's website
-- `cache_path` (optional): Path to cache research results
 
 **Example:**
 ```python
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 
 adjuster = get_adjuster("openai-company-research", model="gpt-4o-mini")
-adjusted_cv = adjuster.adjust(
-    cv_data,
-    customer_url="https://example.com",
-    cache_path=Path("research_cache.json")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
 )
+adjusted_work = adjuster.adjust(
+    work,
+    customer_url="https://example.com"
+)
+adjusted_json = adjusted_work.output
 ```
 
 ### `openai-job-specific`
@@ -42,13 +49,22 @@ Adjusts CV data based on a specific job description using OpenAI.
 
 **Example:**
 ```python
+from pathlib import Path
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 
 adjuster = get_adjuster("openai-job-specific", model="gpt-4o-mini")
-adjusted_cv = adjuster.adjust(
-    cv_data,
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
+adjusted_work = adjuster.adjust(
+    work,
     job_url="https://careers.example.com/job/123"
 )
+adjusted_json = adjusted_work.output
 ```
 
 ## Creating Custom Adjusters
@@ -64,8 +80,7 @@ To create a custom adjuster:
 
 ```python
 from cvextract.adjusters import CVAdjuster, register_adjuster
-from typing import Any, Dict
-
+from cvextract.shared import UnitOfWork
 class MyCustomAdjuster(CVAdjuster):
     def name(self) -> str:
         return "my-custom-adjuster"
@@ -77,10 +92,11 @@ class MyCustomAdjuster(CVAdjuster):
         if 'required_param' not in kwargs:
             raise ValueError("required_param is missing")
     
-    def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
         self.validate_params(**kwargs)
+        data = self._load_input_json(work)
         # Your adjustment logic here
-        return cv_data
+        return self._write_output_json(work, data)
 
 # Register it
 register_adjuster(MyCustomAdjuster)
@@ -95,7 +111,7 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
   --adjust name=openai-job-specific job-url=https://careers.example.com/job/123 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 ```
 

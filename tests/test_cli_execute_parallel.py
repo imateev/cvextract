@@ -1,17 +1,16 @@
-"""Tests for cli_parallel module - parallel directory processing."""
+"""Tests for cli_execute_parallel module - parallel directory processing."""
 
 import zipfile
 import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ParallelStage
-from cvextract.cli_parallel import (
-    scan_directory_for_docx,
+from cvextract.cli_config import UserConfig, ExtractStage, ParallelStage
+from cvextract.cli_execute_parallel import (
     execute_parallel_pipeline,
-    process_single_file_wrapper,
-    _perform_upfront_research
+    scan_directory_for_files,
 )
+from cvextract.shared import StepName, StepStatus, UnitOfWork
 
 
 @pytest.fixture
@@ -60,154 +59,32 @@ def test_directory(tmp_path: Path):
     return input_dir
 
 
-class TestScanDirectoryForDocx:
-    """Tests for scan_directory_for_docx function."""
-    
-    def test_scan_directory_success(self, test_directory: Path):
-        """Test scanning directory returns all DOCX files."""
-        files = scan_directory_for_docx(test_directory)
-        
-        # Should find 5 files (3 in root, 2 in subdir, ignore temp)
-        assert len(files) == 5
-        
-        # Verify all are Path objects
-        assert all(isinstance(f, Path) for f in files)
-        
-        # Verify all end with .docx
-        assert all(f.suffix == ".docx" for f in files)
-        
-        # Verify temp file is not included
-        assert all(not f.name.startswith("~$") for f in files)
-    
-    def test_scan_directory_not_found(self, tmp_path: Path):
-        """Test scanning non-existent directory raises FileNotFoundError."""
-        non_existent = tmp_path / "does_not_exist"
-        with pytest.raises(FileNotFoundError):
-            scan_directory_for_docx(non_existent)
-    
-    def test_scan_directory_is_file(self, mock_docx: Path):
-        """Test scanning a file instead of directory raises ValueError."""
-        with pytest.raises(ValueError, match="not a directory"):
-            scan_directory_for_docx(mock_docx)
-    
-    def test_scan_empty_directory(self, tmp_path: Path):
-        """Test scanning empty directory returns empty list."""
-        empty_dir = tmp_path / "empty"
-        empty_dir.mkdir()
-        
-        files = scan_directory_for_docx(empty_dir)
-        assert files == []
-
-
-class TestProcessSingleFileWrapper:
-    """Tests for process_single_file_wrapper function."""
-    
-    @patch('cvextract.cli_parallel.execute_pipeline')
-    def test_process_single_file_success(self, mock_execute, tmp_path: Path, mock_docx: Path):
-        """Test processing single file successfully."""
-        mock_execute.return_value = 0
-        
-        config = UserConfig(
-            extract=ExtractStage(source=Path('.'), output=None),
-            adjust=None,
-            apply=None,
-            parallel=ParallelStage(source=tmp_path, n=1),
-            target_dir=tmp_path / "out",
-            verbosity="minimal",
-            log_file=None
+def _make_work(tmp_path: Path, warnings: list[str] | None = None) -> UnitOfWork:
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path),
+        input=Path("input"),
+        output=Path("output"),
+    )
+    if warnings:
+        work.step_statuses[StepName.Render] = StepStatus(
+            step=StepName.Render,
+            warnings=warnings,
         )
-        
-        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
-        
-        assert success
-        assert message == ""
-        assert exit_code == 0
-        assert not has_warnings
-        mock_execute.assert_called_once()
-    
-    @patch('cvextract.cli_parallel.execute_pipeline')
-    def test_process_single_file_with_warnings(self, mock_execute, tmp_path: Path, mock_docx: Path):
-        """Test processing file with warnings (exit code 0, but has_warnings set)."""
-        # Simulate execute_pipeline returning 0 (success) with warnings stored in config
-        def mock_execute_fn(config):
-            config.last_warnings = ["warning message"]
-            return 0
-        
-        mock_execute.side_effect = mock_execute_fn
-        
-        config = UserConfig(
-            extract=ExtractStage(source=Path('.'), output=None),
-            adjust=None,
-            apply=None,
-            parallel=ParallelStage(source=tmp_path, n=1),
-            target_dir=tmp_path / "out",
-            verbosity="minimal",
-            log_file=None
-        )
-        
-        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
-        
-        assert success
-        assert exit_code == 0
-        assert has_warnings
-    
-    @patch('cvextract.cli_parallel.execute_pipeline')
-    def test_process_single_file_failure(self, mock_execute, tmp_path: Path, mock_docx: Path):
-        """Test processing file that fails."""
-        mock_execute.return_value = 1
-        
-        config = UserConfig(
-            extract=ExtractStage(source=Path('.'), output=None),
-            adjust=None,
-            apply=None,
-            parallel=ParallelStage(source=tmp_path, n=1),
-            target_dir=tmp_path / "out",
-            verbosity="minimal",
-            log_file=None
-        )
-        
-        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
-        
-        assert not success
-        assert "failed" in message.lower()
-        assert exit_code == 1
-        assert not has_warnings
-    
-    @patch('cvextract.cli_parallel.execute_pipeline')
-    def test_process_single_file_exception(self, mock_execute, tmp_path: Path, mock_docx: Path):
-        """Test processing file that raises exception."""
-        mock_execute.side_effect = Exception("Test error")
-        
-        config = UserConfig(
-            extract=ExtractStage(source=Path('.'), output=None),
-            adjust=None,
-            apply=None,
-            parallel=ParallelStage(source=tmp_path, n=1),
-            target_dir=tmp_path / "out",
-            verbosity="minimal",
-            log_file=None
-        )
-        
-        success, message, exit_code, has_warnings = process_single_file_wrapper(mock_docx, config)
-        
-        assert not success
-        assert "Test error" in message
-        assert exit_code == 1
-        assert not has_warnings
+    return work
 
 
 class TestExecuteParallelPipeline:
     """Tests for execute_parallel_pipeline function."""
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_all_success(self, mock_process, tmp_path: Path, test_directory: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_pipeline_all_success(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with all files succeeding."""
-        mock_process.return_value = (True, "", 0, False)
+        mock_execute.return_value = (0, _make_work(tmp_path))
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -218,24 +95,24 @@ class TestExecuteParallelPipeline:
         
         assert exit_code == 0
         # Should have been called for each file (5 times)
-        assert mock_process.call_count == 5
+        assert mock_execute.call_count == 5
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_some_failures(self, mock_process, tmp_path: Path, test_directory: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_pipeline_some_failures(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with some files failing - should return 0 (success)."""
         # Alternate between success and failure
-        mock_process.side_effect = [
-            (True, "", 0, False),
-            (False, "Error", 1, False),
-            (True, "", 0, False),
-            (False, "Error", 1, False),
-            (True, "", 0, False),
+        mock_execute.side_effect = [
+            (0, _make_work(tmp_path)),
+            (1, None),
+            (0, _make_work(tmp_path)),
+            (1, None),
+            (0, _make_work(tmp_path)),
         ]
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -246,14 +123,14 @@ class TestExecuteParallelPipeline:
         
         # Should return 0 even if some files failed (user requirement)
         assert exit_code == 0
-        assert mock_process.call_count == 5
+        assert mock_execute.call_count == 5
     
     def test_parallel_pipeline_no_config(self, tmp_path: Path):
         """Test that calling without parallel config raises error."""
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=None,  # No parallel config
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -268,7 +145,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=tmp_path / "does_not_exist", n=1),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -286,7 +163,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=empty_dir, n=1),
             target_dir=tmp_path / "out",
             log_file=None
@@ -301,7 +178,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=not_dir, n=1),
             target_dir=tmp_path / "out",
             log_file=None
@@ -310,8 +187,8 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
 
-    @patch('cvextract.cli_parallel.LOG.error')
-    @patch('cvextract.cli_parallel.scan_directory_for_files')
+    @patch('cvextract.cli_execute_parallel.LOG.error')
+    @patch('cvextract.cli_execute_parallel.scan_directory_for_files')
     def test_parallel_pipeline_scan_directory_failure_debug_logs(self, mock_scan, mock_log_error, tmp_path: Path):
         """Scan failures should log details and return error when debug enabled."""
         mock_scan.side_effect = RuntimeError("scan failed")
@@ -321,7 +198,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -331,51 +208,19 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
         mock_scan.assert_called_once_with(input_dir, "*.docx")
-        verbosity="debug",
         # Two error logs are expected: error message and traceback
         assert mock_log_error.call_count == 2
         assert "Failed to scan directory" in mock_log_error.call_args_list[0][0][0]
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    @patch('cvextract.cli_parallel._perform_upfront_research')
-    def test_parallel_pipeline_with_adjust(self, mock_research, mock_process, tmp_path: Path, test_directory: Path):
-        """Test parallel pipeline with adjust stage performs upfront research."""
-        mock_research.return_value = tmp_path / "research.json"
-        mock_process.return_value = (True, "", 0, False)
-        
-        config = UserConfig(
-            extract=ExtractStage(source=Path('.'), output=None),
-            adjust=AdjustStage(
-                adjusters=[AdjusterConfig(
-                    name="openai-company-research",
-                    params={"customer-url": "https://example.com"},
-                    openai_model=None
-                )],
-                data=None,
-                output=None,
-                dry_run=False
-            ),
-            apply=None,
-            parallel=ParallelStage(source=test_directory, n=2),
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-        
-        exit_code = execute_parallel_pipeline(config)
-        
-        assert exit_code == 0
-        verbosity="minimal",
-        mock_research.assert_called_once_with(config)
-    
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_with_warnings_returns_zero(self, mock_process, tmp_path: Path, test_directory: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_pipeline_with_warnings_returns_zero(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with warnings returns exit code 0."""
-        mock_process.return_value = (True, "warnings", 0, True)
+        mock_execute.return_value = (0, _make_work(tmp_path, warnings=["warnings"]))
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -385,22 +230,22 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0  # Warnings no longer affect exit code
 
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_partial_success(self, mock_process, tmp_path: Path, test_directory: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_pipeline_partial_success(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline tracks partial successes (files with warnings)."""
         # Mix of full success, partial success (warnings), and failures
-        mock_process.side_effect = [
-            (True, "", 0, False),  # Full success
-            (True, "warnings", 0, True),  # Partial success
-            (False, "Error", 1, False),  # Failure
-            (True, "", 0, False),  # Full success
-            (True, "warnings", 0, True),  # Partial success
+        mock_execute.side_effect = [
+            (0, _make_work(tmp_path)),  # Full success
+            (0, _make_work(tmp_path, warnings=["warnings"])),  # Partial success
+            (1, None),  # Failure
+            (0, _make_work(tmp_path)),  # Full success
+            (0, _make_work(tmp_path, warnings=["warnings"])),  # Partial success
         ]
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -408,18 +253,18 @@ class TestExecuteParallelPipeline:
         )
         
         exit_code = execute_parallel_pipeline(config)
-        assert mock_process.call_count == 5
+        assert mock_execute.call_count == 5
 
-    @patch('cvextract.cli_parallel.LOG.error')
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_future_exception_logged_and_counted(self, mock_process, mock_log_error,
+    @patch('cvextract.cli_execute_parallel.LOG.error')
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_pipeline_future_exception_logged_and_counted(self, mock_execute, mock_log_error,
                                                                    tmp_path: Path, test_directory: Path):
         """Exceptions raised by workers should be logged and counted as failures."""
-        mock_process.side_effect = RuntimeError("boom")
+        mock_execute.side_effect = RuntimeError("boom")
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -428,22 +273,22 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0
-        doc_count = len(scan_directory_for_docx(test_directory))
+        doc_count = len(scan_directory_for_files(test_directory, "*.docx"))
         # Each exception logs the user-facing message and the traceback
         # Two error logs per exception: error message and traceback
         assert mock_log_error.call_count == doc_count * 2
         assert any("Unexpected error" in call.args[0] for call in mock_log_error.call_args_list)
 
-    @patch('cvextract.cli_parallel.LOG.info')
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_pipeline_logs_failed_files_in_debug_mode(self, mock_process, mock_log_info,
+    @patch('cvextract.cli_execute_parallel.LOG.info')
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_pipeline_logs_failed_files_in_debug_mode(self, mock_execute, mock_log_info,
                                                                tmp_path: Path, test_directory: Path):
         """Debug mode should list failed files after processing."""
-        mock_process.return_value = (False, "Error", 1, False)
+        mock_execute.return_value = (1, None)
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -460,111 +305,12 @@ class TestExecuteParallelPipeline:
         assert any(line.startswith("  - ") for line in log_lines)
 
 
-class TestPerformUpfrontResearch:
-    """Tests for _perform_upfront_research function."""
-    
-    @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'})
-    @patch('cvextract.cli_parallel._research_company_profile')
-    def test_upfront_research_success(self, mock_research, tmp_path: Path):
-        """Test successful upfront research."""
-        mock_research.return_value = {"name": "Example Corp", "domains": ["software"]}
-        
-        config = UserConfig(
-            extract=None,
-            adjust=AdjustStage(
-                adjusters=[AdjusterConfig(
-                    name="openai-company-research",
-                    params={"customer-url": "https://example.com"},
-                    openai_model=None
-                )],
-                data=None,
-                output=None,
-                dry_run=False
-            ),
-            apply=None,
-            parallel=None,
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-        
-        cache_path = _perform_upfront_research(config)
-        
-        assert cache_path is not None
-        assert cache_path.parent.name == "research_data"
-        mock_research.assert_called_once()
-    
-    def test_upfront_research_no_adjust(self, tmp_path: Path):
-        """Test upfront research with no adjust stage returns None."""
-        config = UserConfig(
-            extract=ExtractStage(source=Path('.'), output=None),
-            adjust=None,  # No adjust stage
-            apply=None,
-            parallel=None,
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-        
-        cache_path = _perform_upfront_research(config)
-        assert cache_path is None
-    
-    @patch.dict('os.environ', {}, clear=True)
-    def test_upfront_research_no_api_key(self, tmp_path: Path):
-        """Test upfront research without API key returns None."""
-        config = UserConfig(
-            extract=None,
-            adjust=AdjustStage(
-                adjusters=[AdjusterConfig(
-                    name="openai-company-research",
-                    params={"customer-url": "https://example.com"},
-                    openai_model=None
-                )],
-                data=None,
-                output=None,
-                dry_run=False
-            ),
-            apply=None,
-            parallel=None,
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-        
-        cache_path = _perform_upfront_research(config)
-        assert cache_path is None
-    
-    @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'})
-    @patch('cvextract.cli_parallel._research_company_profile')
-    def test_upfront_research_failure(self, mock_research, tmp_path: Path):
-        """Test upfront research that fails returns None."""
-        mock_research.return_value = None  # Research failed
-        
-        config = UserConfig(
-            extract=None,
-            adjust=AdjustStage(
-                adjusters=[AdjusterConfig(
-                    name="openai-company-research",
-                    params={"customer-url": "https://example.com"},
-                    openai_model=None
-                )],
-                data=None,
-                output=None,
-                dry_run=False
-            ),
-            apply=None,
-            parallel=None,
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-        
-        cache_path = _perform_upfront_research(config)
-        assert cache_path is None
-
-
 class TestScanDirectoryForFiles:
     """Tests for scan_directory_for_files function - new generic version."""
     
     def test_scan_directory_for_docx_files(self, test_directory: Path):
         """Test scanning directory for .docx files using generic function."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         files = scan_directory_for_files(test_directory, "*.docx")
         
@@ -574,7 +320,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_for_txt_files(self, tmp_path: Path):
         """Test scanning directory for .txt files."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -591,7 +337,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_for_pdf_files(self, tmp_path: Path):
         """Test scanning directory for .pdf files."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -608,7 +354,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_mixed_file_types(self, tmp_path: Path):
         """Test that pattern matching is precise."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -632,10 +378,10 @@ class TestScanDirectoryForFiles:
 class TestFileTypeParameter:
     """Tests for the file-type parameter in parallel processing."""
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_with_custom_file_type(self, mock_process, tmp_path: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_with_custom_file_type(self, mock_execute, tmp_path: Path):
         """Test parallel processing with custom file type."""
-        mock_process.return_value = (True, "", 0, False)
+        mock_execute.return_value = (0, _make_work(tmp_path))
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -648,7 +394,7 @@ class TestFileTypeParameter:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None, name="openai-extractor"),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
             log_file=None
@@ -658,17 +404,17 @@ class TestFileTypeParameter:
         
         assert exit_code == 0
         # Should have processed all 3 txt files
-        assert mock_process.call_count == 3
+        assert mock_execute.call_count == 3
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    def test_parallel_default_file_type(self, mock_process, test_directory: Path, tmp_path: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    def test_parallel_default_file_type(self, mock_execute, test_directory: Path, tmp_path: Path):
         """Test parallel processing uses default *.docx file type."""
-        mock_process.return_value = (True, "", 0, False)
+        mock_execute.return_value = (0, _make_work(tmp_path))
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),  # No file_type specified
             target_dir=tmp_path / "out",
             log_file=None
@@ -678,7 +424,7 @@ class TestFileTypeParameter:
         
         assert exit_code == 0
         # Should have processed 5 docx files (default)
-        assert mock_process.call_count == 5
+        assert mock_execute.call_count == 5
     
     def test_parallel_no_matching_files(self, tmp_path: Path):
         """Test parallel processing when no files match the pattern."""
@@ -693,7 +439,7 @@ class TestFileTypeParameter:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
             log_file=None
@@ -713,27 +459,26 @@ class TestProgressIndicator:
         """
         Helper to extract progress indicators from mock log calls.
         
-        Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/5 | 20%]', 'filename.docx')
-        The progress indicator is in args[2].
+        Progress logs include a progress string like "[1/5 | 20%]".
         """
-        return [
-            call.args[2] for call in mock_log_info.call_args_list
-            if len(call.args) >= 4 
-            and isinstance(call.args[2], str) 
-            and '[' in call.args[2] 
-            and '/' in call.args[2]
-        ]
+        indicators = []
+        for call in mock_log_info.call_args_list:
+            for arg in call.args:
+                if isinstance(arg, str) and "[" in arg and "/" in arg:
+                    indicators.append(arg)
+                    break
+        return indicators
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    @patch('cvextract.cli_parallel.LOG.info')
-    def test_progress_indicator_shown(self, mock_log_info, mock_process, test_directory: Path, tmp_path: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.LOG.info')
+    def test_progress_indicator_shown(self, mock_log_info, mock_execute, test_directory: Path, tmp_path: Path):
         """Test that progress indicator is included in log output."""
-        mock_process.return_value = (True, "", 0, False)
+        mock_execute.return_value = (0, _make_work(tmp_path))
         
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             log_file=None
@@ -749,11 +494,11 @@ class TestProgressIndicator:
         # Should have 5 progress log entries (one per file)
         assert len(progress_indicators) == 5
     
-    @patch('cvextract.cli_parallel.process_single_file_wrapper')
-    @patch('cvextract.cli_parallel.LOG.info')
-    def test_progress_percentage_calculated(self, mock_log_info, mock_process, tmp_path: Path):
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.LOG.info')
+    def test_progress_percentage_calculated(self, mock_log_info, mock_execute, tmp_path: Path):
         """Test that progress percentage is calculated correctly."""
-        mock_process.return_value = (True, "", 0, False)
+        mock_execute.return_value = (0, _make_work(tmp_path))
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -765,7 +510,7 @@ class TestProgressIndicator:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
             log_file=None

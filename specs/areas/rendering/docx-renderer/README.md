@@ -41,15 +41,15 @@ output_path = renderer.render(
 ### CLI Usage
 
 ```bash
-# Extract and apply (chained)
+# Extract and render (chained)
 python -m cvextract.cli \
   --extract source=cv.docx \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
 # Apply only (from existing JSON)
 python -m cvextract.cli \
-  --apply template=template.docx data=cv.json \
+  --render template=template.docx data=cv.json \
   --target output/
 ```
 
@@ -121,7 +121,7 @@ Templates must be valid DOCX files with Jinja2 syntax:
 ### Integration Points
 
 - Used by `cvextract.pipeline_highlevel.render_cv_data()`
-- Used by `cvextract.cli_execute.execute_pipeline()` for apply stage
+- Used by `cvextract.cli_execute_render.execute()` for render stage
 - Templates in `examples/templates/CV_Template_Jinja2.docx`
 
 ## Test Coverage

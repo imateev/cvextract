@@ -5,10 +5,11 @@ from unittest.mock import patch, MagicMock
 from cvextract.pipeline_helpers import (
     extract_single,
     categorize_result,
-    get_status_icons,
     render_and_verify,
     infer_source_root,
 )
+from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
+from cvextract.cli_config import UserConfig, ExtractStage, RenderStage, AdjustStage
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
@@ -39,11 +40,16 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
-            
-            assert ok is True
-            assert errors == []
-            assert warnings == []
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input=docx_path,
+                output=out_json,
+            )
+            result = extract_single(work)
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert extract_status.errors == []
+            assert extract_status.warnings == []
 
     def testextract_single_invalid_data(self, tmp_path):
         """Test verification failure with invalid data."""
@@ -57,12 +63,17 @@ class TestExtractSingle:
             
             mock_extract.return_value = mock_data
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
-            
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input=docx_path,
+                output=out_json,
+            )
+            result = extract_single(work)
+
             # The actual verifier will catch these errors
-            assert ok is False
+            extract_status = result.step_statuses[StepName.Extract]
             # Check that there are errors for missing fields
-            assert len(errors) > 0
+            assert len(extract_status.errors) > 0
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -73,10 +84,15 @@ class TestExtractSingle:
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
-            
-            assert ok is False
-            assert any("exception" in e.lower() or "ValueError" in e for e in errors)
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input=docx_path,
+                output=out_json,
+            )
+            result = extract_single(work)
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert any("exception" in e.lower() or "ValueError" in e for e in extract_status.errors)
 
     def testextract_single_exception_with_debug(self, tmp_path):
         """Test exception logging with debug mode enabled."""
@@ -89,9 +105,15 @@ class TestExtractSingle:
             
             mock_extract.side_effect = ValueError("Bad file")
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=True)
-            
-            assert ok is False
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path), verbosity="debug"),
+                input=docx_path,
+                output=out_json,
+            )
+            result = extract_single(work)
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert extract_status.errors
 
     def testextract_single_with_warnings(self, tmp_path):
         """Test that warnings are preserved."""
@@ -119,10 +141,15 @@ class TestExtractSingle:
             mock_extract.return_value = mock_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warnings = extract_single(docx_path, out_json, debug=False)
-            
-            assert ok is True
-            assert "Warning message" in warnings
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx_path)),
+                input=docx_path,
+                output=out_json,
+            )
+            result = extract_single(work)
+            extract_status = result.step_statuses[StepName.Extract]
+
+            assert "Warning message" in extract_status.warnings
 
 
 class TestRenderAndVerify:
@@ -155,16 +182,24 @@ class TestRenderAndVerify:
             mock_process.return_value = json.loads(json_path.read_text())
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            config = UserConfig(
+                target_dir=out_dir,
+                render=RenderStage(template=template_path, data=json_path, output=rendered_docx),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is True
             assert errors == []
             assert compare_ok is True
 
     def testrender_and_verify_skip_compare(self, tmp_path):
-        """Test skip_compare parameter."""
+        """Test compare skipped when adjust stage is present."""
         json_path = tmp_path / "test.json"
         template_path = tmp_path / "template.docx"
         out_dir = tmp_path / "out"
@@ -180,20 +215,27 @@ class TestRenderAndVerify:
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
             mock_render.return_value = out_dir / "test_NEW.docx"
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False, skip_compare=True
+            config = UserConfig(
+                target_dir=out_dir,
+                render=RenderStage(template=template_path, data=json_path),
+                adjust=AdjustStage(adjusters=[], data=json_path),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is True
             assert compare_ok is None  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
-        """Test roundtrip_dir parameter."""
+        """Test roundtrip verification directory is created."""
         json_path = tmp_path / "test.json"
         template_path = tmp_path / "template.docx"
         out_dir = tmp_path / "out"
-        roundtrip_dir = tmp_path / "roundtrip"
-        
         test_data = {
             "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
             "sidebar": {},
@@ -216,14 +258,22 @@ class TestRenderAndVerify:
             mock_process.return_value = test_data
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False,
-                roundtrip_dir=roundtrip_dir
+            config = UserConfig(
+                target_dir=out_dir,
+                render=RenderStage(template=template_path, data=json_path, output=rendered_docx),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is True
             # Verify roundtrip_dir was created
-            assert roundtrip_dir.exists()
+            expected_dir = out_dir / "verification_structured_data"
+            assert expected_dir.exists()
 
     def testrender_and_verify_compare_failure(self, tmp_path):
         """Test when comparison finds differences."""
@@ -256,9 +306,17 @@ class TestRenderAndVerify:
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
             mock_get_verifier.return_value = mock_verifier
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            config = UserConfig(
+                target_dir=out_dir,
+                render=RenderStage(template=template_path, data=json_path, output=rendered_docx),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is False
             assert "Mismatch detected" in errors
@@ -276,9 +334,17 @@ class TestRenderAndVerify:
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
             mock_render.side_effect = RuntimeError("Render failed")
             
-            ok, errors, warns, compare_ok = render_and_verify(
-                json_path, template_path, out_dir, debug=False
+            config = UserConfig(
+                target_dir=out_dir,
+                render=RenderStage(template=template_path, data=json_path),
             )
+            work = UnitOfWork(
+                config=config,
+                input=json_path,
+                output=json_path,
+                initial_input=json_path,
+            )
+            ok, errors, warns, compare_ok = render_and_verify(work)
             
             assert ok is False
             assert any("RuntimeError" in e for e in errors)
@@ -317,40 +383,108 @@ class TestCategorizeResult:
 class TestGetStatusIcons:
     """Tests for get_status_icons function."""
 
-    def test_extract_ok_with_warnings(self):
+    def test_extract_ok_with_warnings(self, tmp_path):
         """Test extract ok but with warnings."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=True, has_warns=True, apply_ok=True, compare_ok=True)
-        assert "⚠️" in x_icon  # Warning icon for extract
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(
+            step=StepName.Extract,
+            warnings=["warning"],
+        )
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        icons = get_status_icons(work)
+        assert "⚠️" in icons[StepName.Extract]  # Warning icon for extract
 
-    def test_extract_ok_no_warnings(self):
+    def test_extract_ok_no_warnings(self, tmp_path):
         """Test extract ok without warnings."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
-        assert "🟢" in x_icon  # Green icon
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        icons = get_status_icons(work)
+        assert "🟢" in icons[StepName.Extract]  # Green icon
 
-    def test_extract_failed(self):
+    def test_extract_failed(self, tmp_path):
         """Test extract failed."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=False, has_warns=False, apply_ok=False, compare_ok=False)
-        assert "❌" in x_icon  # Fail icon
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(
+            step=StepName.Extract,
+            errors=["error"],
+        )
+        work.step_statuses[StepName.Render] = StepStatus(
+            step=StepName.Render,
+            errors=["render error"],
+        )
+        work.step_statuses[StepName.Verify] = StepStatus(
+            step=StepName.Verify,
+            errors=["compare error"],
+        )
+        icons = get_status_icons(work)
+        assert "❌" in icons[StepName.Extract]  # Fail icon
 
-    def test_apply_none(self):
+    def test_apply_none(self, tmp_path):
         """Test apply not executed."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
-        assert "➖" in a_icon  # Neutral icon for apply
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        icons = get_status_icons(work)
+        assert "➖" in icons[StepName.Render]  # Neutral icon for apply
 
-    def test_compare_ok(self):
+    def test_compare_ok(self, tmp_path):
         """Test compare successful."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
-        assert "✅" in c_icon or "✓" in c_icon
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        icons = get_status_icons(work)
+        assert "✅" in icons[StepName.Verify] or "✓" in icons[StepName.Verify]
 
-    def test_compare_failed(self):
+    def test_compare_failed(self, tmp_path):
         """Test compare found differences."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=False)
-        assert "⚠️" in c_icon  # Warning for compare mismatch
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_statuses[StepName.Verify] = StepStatus(
+            step=StepName.Verify,
+            errors=["compare mismatch"],
+        )
+        icons = get_status_icons(work)
+        assert "⚠️" in icons[StepName.Verify]  # Warning for compare mismatch
 
-    def test_compare_none(self):
+    def test_compare_none(self, tmp_path):
         """Test compare not executed."""
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=None)
-        assert "➖" in c_icon
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        icons = get_status_icons(work)
+        assert "➖" in icons[StepName.Verify]
 
 
 class TestInferSourceRoot:

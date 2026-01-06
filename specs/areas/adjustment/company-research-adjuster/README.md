@@ -24,14 +24,20 @@ This adjuster implements a complete company research and CV adjustment pipeline:
 ### Programmatic API
 
 ```python
-from cvextract.adjusters import OpenAICompanyResearchAdjuster
 from pathlib import Path
+from cvextract.adjusters import OpenAICompanyResearchAdjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
 
 adjuster = OpenAICompanyResearchAdjuster(model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
-    customer_url="https://example.com",
-    cache_path=Path("cache/example.research.json")
+    work,
+    customer_url="https://example.com"
 )
 ```
 
@@ -46,7 +52,7 @@ python -m cvextract.cli \
   --adjust name=openai-company-research customer-url=https://example.com \
   --target output/
 
-# Research cached at: output/research_data/<cv-name>/example_com-<hash>.research.json
+# Research cached at: output/research_data/example_com-<hash>.research.json
 ```
 
 ```bash
@@ -63,7 +69,7 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
   --adjust name=openai-job-specific job-url=https://example.com/careers/123 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 ```
 
@@ -71,10 +77,18 @@ python -m cvextract.cli \
 
 ```python
 from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import UnitOfWork
+from pathlib import Path
 
 adjuster = get_adjuster("openai-company-research", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+    input=Path("cv.json"),
+    output=Path("cv.json"),
+)
 adjusted_cv = adjuster.adjust(
-    cv_data,
+    work,
     customer_url="https://example.com"
 )
 ```
@@ -94,7 +108,7 @@ adjusted_cv = adjuster.adjust(
 ### Cache Configuration
 
 Cache paths are automatically determined:
-- **Pattern**: `{target}/research_data/{cv_name}/{sanitized_url}-{hash}.research.json`
+- **Pattern**: `{target}/research_data/{sanitized_url}-{hash}.research.json`
 - **Sanitization**: URLs are converted to safe filenames (e.g., `https://www.example.com/about` → `example.com-abc12345.research.json`)
 
 ## Interfaces
@@ -103,7 +117,6 @@ Cache paths are automatically determined:
 
 - `cv_data`: CV dictionary conforming to CV schema
 - `customer_url`: Company website URL (required)
-- `cache_path`: Optional custom cache path (auto-generated if not provided)
 
 ### Output
 
@@ -154,22 +167,22 @@ Defined in `cvextract/contracts/research_schema.json`:
 
 - Registered in `cvextract/adjusters/__init__.py` as `"openai-company-research"`
 - Used by `cvextract.pipeline` for adjustment stage
-- Cache managed by `cvextract.cli_execute.execute_pipeline()`
+- Cache managed by `cvextract/adjusters/openai_company_research_adjuster.py`
 
 ## Test Coverage
 
 Tested in:
 - `tests/test_adjusters.py` - Adjuster integration tests
-- `tests/test_pipeline.py` - End-to-end pipeline tests with caching
-- `tests/test_cli.py` - CLI parameter handling and cache path generation
+- `tests/test_cli_execute.py` - Adjustment flow without cache injection
+- `tests/test_cli_execute_parallel.py` - Upfront research and cache reuse
 
 ## Implementation Details
 
 ### Cache Filename Generation
 
 ```python
-def _url_to_cache_filename(url: str) -> str:
-    """Convert URL to safe filename."""
+def url_to_cache_filename(url: str) -> str:
+    """Convert URL to safe filename (from cvextract.shared)."""
     # Extract domain: https://www.example.com/path → example.com
     # Add hash for uniqueness: example.com-abc12345.research.json
 ```

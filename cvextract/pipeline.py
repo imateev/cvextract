@@ -10,15 +10,16 @@ from .pipeline_helpers import (
     safe_relpath,
     extract_single,
     render_and_verify,
-    get_status_icons,
     categorize_result,
 )
+from .shared import UnitOfWork, get_status_icons
 
 # Re-export for backward compatibility
 __all__ = [
     "infer_source_root",
     "safe_relpath",
     "extract_single",
+    "UnitOfWork",
     "render_and_verify",
     "get_status_icons",
     "categorize_result",

@@ -29,7 +29,7 @@ from typing import List, Optional
 
 from cvextract.cli_gather import gather_user_requirements
 from cvextract.cli_prepare import prepare_execution_environment
-from cvextract.cli_execute import execute_pipeline
+from cvextract.cli_execute_pipeline import execute_pipeline
 from cvextract.logging_utils import LOG, setup_logging
 from cvextract.output_controller import initialize_output_controller, VerbosityLevel
 
@@ -78,5 +78,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

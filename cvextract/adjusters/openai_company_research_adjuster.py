@@ -15,12 +15,10 @@ Improvements included:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
 import random
-import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -45,7 +43,7 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from .base import CVAdjuster
-from ..shared import format_prompt
+from ..shared import UnitOfWork, format_prompt, url_to_cache_filename
 from ..verifiers import get_verifier
 
 LOG = logging.getLogger("cvextract")
@@ -104,21 +102,27 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     tmp_path.replace(path)
 
 
-def _url_to_cache_filename(url: str) -> str:
-    """
-    Convert a URL to a safe, deterministic filename for caching.
+def _load_cached_research(cache_path: Path) -> Optional[Dict[str, Any]]:
+    if not cache_path.exists():
+        return None
+    try:
+        with cache_path.open("r", encoding="utf-8") as f:
+            cached_data = json.load(f)
+        if _validate_research_data(cached_data):
+            LOG.info("Using cached company research from %s", cache_path)
+            return cached_data
+        LOG.warning("Cached company research failed validation, will re-research")
+    except Exception as e:
+        LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
+    return None
 
-    Returns:
-        "example.com-abc123.research.json"
-    """
-    domain = re.sub(r"^https?://", "", url.lower())
-    domain = re.sub(r"^www\.", "", domain)
-    domain = domain.split("/")[0].split("?")[0].split("#")[0]
-    domain = domain.split(":")[0]
 
-    url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
-    safe_domain = re.sub(r"[^a-z0-9.-]", "_", domain)
-    return f"{safe_domain}-{url_hash}.research.json"
+def _cache_research_data(cache_path: Path, research_data: Dict[str, Any]) -> None:
+    try:
+        _atomic_write_json(cache_path, research_data)
+        LOG.info("Cached company research to %s", cache_path)
+    except Exception as e:
+        LOG.warning("Failed to cache research (%s)", type(e).__name__)
 
 
 def _load_research_schema() -> Optional[Dict[str, Any]]:
@@ -329,7 +333,6 @@ def _research_company_profile(
     customer_url: str,
     api_key: str,
     model: str,
-    cache_path: Optional[Path] = None,
     *,
     retry: Optional[_RetryConfig] = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -341,17 +344,6 @@ def _research_company_profile(
     Returns:
         Dict containing company profile data, or None if research fails
     """
-    # Check cache first
-    if cache_path and cache_path.exists():
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                cached_data = json.load(f)
-            if _validate_research_data(cached_data):
-                LOG.info("Using cached company research from %s", cache_path)
-                return cached_data
-        except Exception as e:
-            LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
-
     if not OpenAI:
         LOG.warning("Company research skipped: OpenAI unavailable")
         return None
@@ -416,14 +408,6 @@ def _research_company_profile(
         LOG.warning("Company research: response failed schema validation")
         return None
 
-    # Cache the result (atomic)
-    if cache_path:
-        try:
-            _atomic_write_json(cache_path, research_data)
-            LOG.info("Cached company research to %s", cache_path)
-        except Exception as e:
-            LOG.warning("Failed to cache research (%s)", type(e).__name__)
-
     LOG.info("Successfully researched company profile")
     return research_data
 
@@ -468,31 +452,37 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         if not has_customer_url or not (kwargs.get("customer_url") or kwargs.get("customer-url")):
             raise ValueError(f"Adjuster '{self.name()}' requires 'customer-url' parameter")
 
-    def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
+        cv_data = self._load_input_json(work)
         self.validate_params(**kwargs)
 
         if not self._api_key or OpenAI is None:
             LOG.warning("Company research adjust skipped: OpenAI unavailable or API key missing.")
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
-        cache_path = kwargs.get("cache_path")
+        cache_dir = work.config.workspace.research_dir
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / url_to_cache_filename(customer_url)
+        research_data = _load_cached_research(cache_path)
 
         # Step 1: Research company profile (with retries)
-        LOG.info("Researching company at %s", customer_url)
-        research_data = _research_company_profile(
-            customer_url,
-            self._api_key,
-            self._model,
-            cache_path,
-            retry=self._retry,
-            sleep=self._sleep,
-            request_timeout_s=self._request_timeout_s,
-        )
+        if not research_data:
+            LOG.info("Researching company at %s", customer_url)
+            research_data = _research_company_profile(
+                customer_url,
+                self._api_key,
+                self._model,
+                retry=self._retry,
+                sleep=self._sleep,
+                request_timeout_s=self._request_timeout_s,
+            )
+            if research_data:
+                _cache_research_data(cache_path, research_data)
 
         if not research_data:
             LOG.warning("Company research adjust: failed to research company; using original CV.")
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         # Step 2: Build research context text
         domains_text = ", ".join(research_data.get("domains", [])) if isinstance(research_data.get("domains"), list) else ""
@@ -539,7 +529,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         if not system_prompt:
             LOG.warning("Company research adjust: failed to load prompt template; using original CV.")
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         # Step 4: Create user payload with research data and cv_data
         user_payload = {
@@ -567,7 +557,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             )
         except Exception as e:
             LOG.warning("Company research adjust: API call failed (%s); using original CV.", type(e).__name__)
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         content = None
         try:
@@ -577,35 +567,35 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         if not content:
             LOG.warning("Company research adjust: empty response; using original CV.")
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         adjusted = _extract_json_object(content)
         if adjusted is None:
             LOG.warning("Company research adjust: failed to parse JSON response; using original CV.")
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         # Step 6: Validate adjusted CV against schema
         if not isinstance(adjusted, dict):
             LOG.warning("Company research adjust: result is not a dict; using original CV.")
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         try:
             cv_verifier = get_verifier("cv-schema-verifier")
             if not cv_verifier:
                 LOG.warning("Company research adjust: CV schema verifier not available; using original CV.")
-                return cv_data
+                return self._write_output_json(work, cv_data)
 
             validation_result = cv_verifier.verify(adjusted)
             if validation_result.ok:
                 LOG.info("The CV was adjusted to better fit the target company.")
-                return adjusted
+                return self._write_output_json(work, adjusted)
 
             LOG.warning(
                 "Company research adjust: adjusted CV failed schema validation (%d errors); using original CV.",
                 len(getattr(validation_result, "errors", []) or []),
             )
-            return cv_data
+            return self._write_output_json(work, cv_data)
 
         except Exception as e:
             LOG.warning("Company research adjust: schema validation error (%s); using original CV.", type(e).__name__)
-            return cv_data
+            return self._write_output_json(work, cv_data)

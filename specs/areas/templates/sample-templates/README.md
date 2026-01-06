@@ -29,17 +29,17 @@ Features:
 ### Usage
 
 ```bash
-# Extract and apply sample template
+# Extract and render sample template
 python -m cvextract.cli \
   --extract source=cv.docx \
-  --apply template=examples/templates/CV_Template_Jinja2.docx \
+  --render template=examples/templates/CV_Template_Jinja2.docx \
   --target output/
 
 # With adjustment
 python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
-  --apply template=examples/templates/CV_Template_Jinja2.docx \
+  --render template=examples/templates/CV_Template_Jinja2.docx \
   --target output/
 ```
 
@@ -175,7 +175,7 @@ Sample templates were created to:
    ```bash
    python -m cvextract.cli \
      --extract source=test_cv.docx \
-     --apply template=my_template.docx \
+     --render template=my_template.docx \
      --target test_output/
    ```
 

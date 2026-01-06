@@ -105,7 +105,7 @@ class CVAdjuster(ABC):
 ### Integration Points
 
 - Used by `cvextract.cli_gather` for validation
-- Used by `cvextract.cli_execute` for instantiation
+- Used by `cvextract.cli_execute_adjust.execute()` for instantiation
 - Used by `cvextract.cli` for `--list adjusters`
 
 ## Test Coverage

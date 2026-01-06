@@ -6,8 +6,12 @@ Defines the contract for pluggable CV adjustment implementations.
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
+from dataclasses import replace
 from typing import Any, Dict
+
+from ..shared import UnitOfWork
 
 
 class CVAdjuster(ABC):
@@ -39,21 +43,31 @@ class CVAdjuster(ABC):
         ...
     
     @abstractmethod
-    def adjust(self, cv_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
         """
         Adjust CV data based on the adjuster's specific logic.
         
         Args:
-            cv_data: The CV data dictionary to adjust
+            work: UnitOfWork with input/output paths and config. Adjusters should load JSON from work.input
             **kwargs: Adjuster-specific parameters (e.g., customer_url, job_url, etc.)
         
         Returns:
-            Adjusted CV data dictionary. On error, should return original data.
+            UnitOfWork with output updated to the transformed JSON file.
         
         Raises:
             ValueError: If required parameters are missing or invalid
         """
         ...
+
+    def _load_input_json(self, work: UnitOfWork) -> Dict[str, Any]:
+        with work.input.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _write_output_json(self, work: UnitOfWork, data: Dict[str, Any]) -> UnitOfWork:
+        work.output.parent.mkdir(parents=True, exist_ok=True)
+        with work.output.open("w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return replace(work, output=work.output)
     
     def validate_params(self, **kwargs) -> None:
         """

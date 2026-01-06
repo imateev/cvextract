@@ -37,10 +37,15 @@ def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
 
     logging.basicConfig(level=level, handlers=handlers)
 
-def fmt_issues(errors: List[str], warnings: List[str]) -> str:
+def fmt_issues(work: "UnitOfWork", step: "StepName") -> str:
     """
     Compact error/warning string for the one-line-per-file log.
     """
+    status = work.step_statuses.get(step)
+    if status is None:
+        return "-"
+    errors = status.errors
+    warnings = status.warnings
     parts: List[str] = []
     if errors:
         parts.append("errors: " + ", ".join(errors))

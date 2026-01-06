@@ -7,12 +7,19 @@ and text normalization helpers used across extraction, parsing, and rendering.
 
 from __future__ import annotations
 
+import hashlib
 import re
 
-from dataclasses import dataclass
-from typing import Any, List
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, TYPE_CHECKING
 from pathlib import Path
 from typing import Optional
+
+if TYPE_CHECKING:
+    from .cli_config import UserConfig
+
+from .logging_utils import LOG, fmt_issues
 
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)
@@ -20,6 +27,159 @@ class VerificationResult:
     ok: bool
     errors: List[str]
     warnings: List[str]
+
+
+@dataclass
+class UnitOfWork:
+    """
+    Container for extraction inputs and outputs.
+
+    initial_input preserves the original input path before adjustments.
+    input/output represent the current step's paths.
+    """
+    config: "UserConfig"
+    input: Path
+    output: Path
+    initial_input: Optional[Path] = None
+    step_statuses: Dict["StepName", "StepStatus"] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.initial_input is None:
+            self.initial_input = self.input
+
+    def _get_step_status(self, step: "StepName") -> "StepStatus":
+        status = self.step_statuses.get(step)
+        if status is None:
+            status = StepStatus(step=step)
+            self.step_statuses[step] = status
+        return status
+
+    def add_warning(self, step: "StepName", message: str) -> None:
+        status = self._get_step_status(step)
+        status.warnings.append(message)
+
+    def add_error(self, step: "StepName", message: str) -> None:
+        status = self._get_step_status(step)
+        status.errors.append(message)
+
+    def ensure_path_exists(
+        self,
+        step: "StepName",
+        path: Optional[Path],
+        label: str,
+        must_be_file: bool = False,
+    ) -> bool:
+        if path is None:
+            self.add_error(step, f"{label} is not set")
+            return False
+        if not path.exists():
+            self.add_error(step, f"{label} not found: {path}")
+            return False
+        if must_be_file and not path.is_file():
+            self.add_error(step, f"{label} is not a file: {path}")
+            return False
+        return True
+
+    def has_no_errors(self, step: Optional["StepName"] = None) -> bool:
+        if step is None:
+            return all(not status.errors for status in self.step_statuses.values())
+        status = self.step_statuses.get(step)
+        return not status.errors if status else True
+
+    def has_no_warnings_or_errors(self, step: Optional["StepName"] = None) -> bool:
+        if step is None:
+            return all((not status.errors and not status.warnings) for status in self.step_statuses.values())
+        status = self.step_statuses.get(step)
+        if status is None:
+            return True
+        return not status.errors and not status.warnings
+
+
+class StepName(str, Enum):
+    Extract = "Extract"
+    Adjust = "Adjust"
+    Verify = "Verify"
+    Render = "Render"
+
+
+@dataclass
+class StepStatus:
+    step: StepName
+    warnings: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    ConfiguredExecutorAvailable: bool = True
+
+    @property
+    def ok(self) -> bool:
+        return not self.warnings and not self.errors
+
+
+def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
+    """Generate status icons for pipeline steps based on UnitOfWork statuses."""
+    def icon_for(step_name: StepName) -> str:
+        status = work.step_statuses.get(step_name)
+
+        if status is None:
+            return "➖"
+
+        if step_name == StepName.Verify:
+            if status.errors or status.warnings:
+                return "⚠️ "
+            return "✅"
+
+        if step_name == StepName.Render:
+            if status.errors:
+                return "❌"
+            if status.warnings:
+                return "⚠️ "
+            verify_status = work.step_statuses.get(StepName.Verify)
+            if verify_status and verify_status.errors:
+                return "❌"
+            return "✅"
+
+        if status.errors:
+            return "❌"
+        if status.warnings:
+            return "⚠️ "
+        if step_name == StepName.Extract:
+            return "🟢"
+        return "✅"
+
+    return {step_name: icon_for(step_name) for step_name in StepName}
+
+def select_issue_step(work: "UnitOfWork") -> "StepName":
+    for candidate in (StepName.Verify, StepName.Render, StepName.Adjust, StepName.Extract):
+        status = work.step_statuses.get(candidate)
+        if status and (status.errors or status.warnings):
+            return candidate
+    return StepName.Extract
+
+
+def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> str:
+    icons = get_status_icons(work)
+    issue_step = step
+    if issue_step is None:
+        issue_step = select_issue_step(work)
+    input_path = work.initial_input or work.input
+    return (
+        f"{icons[StepName.Extract]}"
+        f"{icons[StepName.Render]}"
+        f"{icons[StepName.Verify]} "
+        f"{input_path.name} | "
+        f"{fmt_issues(work, issue_step)}"
+    )
+
+
+def emit_summary(work: "UnitOfWork") -> str:
+    config = work.config
+    if config.extract and config.render:
+        return (
+            "📊 Extract+Render complete. JSON: %s | DOCX: %s"
+            % (config.workspace.json_dir, config.workspace.documents_dir)
+        )
+    if config.extract:
+        return "📊 Extract complete. JSON in: %s" % config.workspace.json_dir
+    return "📊 Render complete. Output in: %s" % config.workspace.documents_dir
 
 # ------------------------- XML parsing helpers -------------------------
 
@@ -86,6 +246,23 @@ def sanitize_for_xml_in_obj(obj: Any) -> Any:
     return _sanitize(obj)
 
 
+def url_to_cache_filename(url: str) -> str:
+    """
+    Convert a URL to a safe, deterministic filename for caching.
+
+    Returns:
+        "example.com-abc123.research.json"
+    """
+    domain = re.sub(r"^https?://", "", url.lower())
+    domain = re.sub(r"^www\.", "", domain)
+    domain = domain.split("/")[0].split("?")[0].split("#")[0]
+    domain = domain.split(":")[0]
+
+    url_hash = hashlib.md5(url.lower().encode()).hexdigest()[:8]
+    safe_domain = re.sub(r"[^a-z0-9.-]", "_", domain)
+    return f"{safe_domain}-{url_hash}.research.json"
+
+
 # ---------------------- Prompt Loading ----------------------
 
 # Paths to prompts directories
@@ -119,7 +296,8 @@ def load_prompt(prompt_name: str) -> Optional[str]:
     if extractor_prompt_path.exists():
         try:
             return extractor_prompt_path.read_text(encoding="utf-8")
-        except Exception:
+        except Exception as e:
+            LOG.error("Failed to read prompt %s: %s", extractor_prompt_path, e)
             return None
     
     # Try adjuster prompts folder
@@ -127,14 +305,16 @@ def load_prompt(prompt_name: str) -> Optional[str]:
     if adjuster_prompt_path.exists():
         try:
             return adjuster_prompt_path.read_text(encoding="utf-8")
-        except Exception:
+        except Exception as e:
+            LOG.error("Failed to read prompt %s: %s", adjuster_prompt_path, e)
             return None
     
     # Fall back to ml_adjustment prompts folder
     ml_prompt_path = _ML_PROMPTS_DIR / f"{prompt_name}.md"
     try:
         return ml_prompt_path.read_text(encoding="utf-8")
-    except Exception:
+    except Exception as e:
+        LOG.error("Failed to read prompt %s: %s", ml_prompt_path, e)
         return None
 
 
@@ -162,5 +342,6 @@ def format_prompt(prompt_name: str, **kwargs) -> Optional[str]:
     
     try:
         return template.format(**kwargs)
-    except Exception:
+    except Exception as e:
+        LOG.error("Failed to format prompt %s: %s", prompt_name, e)
         return None

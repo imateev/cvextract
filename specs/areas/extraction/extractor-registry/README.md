@@ -112,7 +112,7 @@ None (pure Python)
 ### Integration Points
 
 - Used by `cvextract.cli_gather` to validate and select extractors
-- Used by `cvextract.cli_execute` to instantiate extractors
+- Used by `cvextract.pipeline_helpers.extract_single` to instantiate extractors
 - Used by `cvextract.cli` for `--list extractors` command
 
 ## Test Coverage

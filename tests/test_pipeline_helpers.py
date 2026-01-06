@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
+from cvextract.cli_config import UserConfig, ExtractStage, RenderStage
+from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
@@ -10,7 +12,8 @@ from cvextract.shared import VerificationResult
 def test_extract_single_success(monkeypatch, tmp_path: Path):
     """Test successful extraction and verification."""
     docx = tmp_path / "test.docx"
-    out_json = tmp_path / "test.json"
+    output = tmp_path / "test.json"
+    docx.write_text("docx")
     
     def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
@@ -23,16 +26,22 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
-    assert ok is True
-    assert errs == []
-    assert len(warns) == 0
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        input=docx,
+        output=output,
+    )
+    result = p.extract_single(work)
+    extract_status = result.step_statuses[StepName.Extract]
+    assert extract_status.errors == []
+    assert len(extract_status.warnings) == 0
 
 
 def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     """Test extraction with validation warnings."""
     docx = tmp_path / "test.docx"
-    out_json = tmp_path / "test.json"
+    output = tmp_path / "test.json"
+    docx.write_text("docx")
     
     def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
@@ -45,28 +54,39 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
-    assert ok is True
-    assert errs == []
-    assert len(warns) > 0
-    assert any("missing sidebar" in w for w in warns)
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        input=docx,
+        output=output,
+    )
+    result = p.extract_single(work)
+    extract_status = result.step_statuses[StepName.Extract]
+    assert extract_status.errors == []
+    assert len(extract_status.warnings) > 0
+    assert any("missing sidebar" in w for w in extract_status.warnings)
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
     """Test extraction with exception."""
     docx = tmp_path / "test.docx"
-    out_json = tmp_path / "test.json"
+    output = tmp_path / "test.json"
+    docx.write_text("docx")
     
     def fake_process(_path, out, extractor=None):
         raise RuntimeError("boom")
     
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     
-    ok, errs, warns = p.extract_single(docx, out_json, debug=False)
-    assert ok is False
-    assert len(errs) == 1
-    assert "exception: RuntimeError" in errs[0]
-    assert warns == []
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        input=docx,
+        output=output,
+    )
+    result = p.extract_single(work)
+    extract_status = result.step_statuses[StepName.Extract]
+    assert len(extract_status.errors) == 1
+    assert "exception: RuntimeError" in extract_status.errors[0]
+    assert extract_status.warnings == []
 
 
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):
@@ -96,7 +116,12 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    config = UserConfig(
+        target_dir=out_dir,
+        render=RenderStage(template=template, data=json_file),
+    )
+    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    ok, errs, warns, compare_ok = p.render_and_verify(work)
     assert ok is True
     assert errs == []
     assert warns == []
@@ -115,7 +140,12 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    config = UserConfig(
+        target_dir=out_dir,
+        render=RenderStage(template=template, data=json_file),
+    )
+    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    ok, errs, warns, compare_ok = p.render_and_verify(work)
     assert ok is False
     assert len(errs) == 1
     assert "render: ValueError" in errs[0]
@@ -148,7 +178,12 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(p, "process_single_docx", fake_process)
     monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
 
-    ok, errs, warns, compare_ok = p.render_and_verify(json_file, template, out_dir, debug=False)
+    config = UserConfig(
+        target_dir=out_dir,
+        render=RenderStage(template=template, data=json_file),
+    )
+    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    ok, errs, warns, compare_ok = p.render_and_verify(work)
     assert ok is False
     assert "value mismatch" in errs[0]
     assert warns == []
@@ -157,42 +192,88 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
 
 def test_get_status_icons_extract_success_no_warnings():
     """Test icons for successful extraction without warnings."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
-    assert x_icon == "🟢"
-    assert a_icon == "➖"
-    assert c_icon == "➖"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "🟢"
+    assert icons[StepName.Render] == "➖"
+    assert icons[StepName.Verify] == "➖"
 
 
 def test_get_status_icons_extract_success_with_warnings():
     """Test icons for successful extraction with warnings."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None)
-    assert x_icon == "⚠️ "
-    assert a_icon == "➖"
-    assert c_icon == "➖"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(
+        step=StepName.Extract,
+        warnings=["warning"],
+    )
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "⚠️ "
+    assert icons[StepName.Render] == "➖"
+    assert icons[StepName.Verify] == "➖"
 
 
 def test_get_status_icons_extract_failed():
     """Test icons for failed extraction."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=False, has_warns=False, apply_ok=None, compare_ok=None)
-    assert x_icon == "❌"
-    assert a_icon == "➖"
-    assert c_icon == "➖"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(
+        step=StepName.Extract,
+        errors=["error"],
+    )
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "❌"
+    assert icons[StepName.Render] == "➖"
+    assert icons[StepName.Verify] == "➖"
 
 
 def test_get_status_icons_apply_success():
     """Test icons for successful apply."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
-    assert x_icon == "🟢"
-    assert a_icon == "✅"
-    assert c_icon == "✅"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+    work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "🟢"
+    assert icons[StepName.Render] == "✅"
+    assert icons[StepName.Verify] == "✅"
 
 
 def test_get_status_icons_apply_failed():
     """Test icons for failed apply."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=False, compare_ok=False)
-    assert x_icon == "🟢"
-    assert a_icon == "❌"
-    assert c_icon == "⚠️ "
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_statuses[StepName.Render] = StepStatus(
+        step=StepName.Render,
+        errors=["render failed"],
+    )
+    work.step_statuses[StepName.Verify] = StepStatus(
+        step=StepName.Verify,
+        errors=["compare failed"],
+    )
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "🟢"
+    assert icons[StepName.Render] == "❌"
+    assert icons[StepName.Verify] == "⚠️ "
 
 
 def test_categorize_result_extract_failed():

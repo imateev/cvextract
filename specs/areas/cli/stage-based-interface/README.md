@@ -2,7 +2,7 @@
 
 ## Overview
 
-The stage-based interface provides explicit CLI flags (`--extract`, `--adjust`, `--apply`) for each pipeline operation, making workflows clear and composable.
+The stage-based interface provides explicit CLI flags (`--extract`, `--adjust`, `--render`) for each pipeline operation, making workflows clear and composable.
 
 ## Status
 
@@ -27,7 +27,7 @@ python -m cvextract.cli --extract source=cv.docx --target output/ --verbosity de
 # Extract + Apply
 python -m cvextract.cli \
   --extract source=cv.docx \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/ \
   --verbosity debug
 
@@ -35,13 +35,13 @@ python -m cvextract.cli \
 python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/ \
   --verbosity debug
 
 # Apply only (from existing JSON)
 python -m cvextract.cli \
-  --apply template=template.docx data=cv.json \
+  --render template=template.docx data=cv.json \
   --target output/ \
   --verbosity debug
 ```
@@ -58,7 +58,7 @@ python -m cvextract.cli \
   - Required params: `name=<adjuster>`, adjuster-specific params
   - Optional params: `data=<path>` (when not chained), `output=<path>`, `openai-model=<model>`, `dry-run`
 
-- **`--apply`**: Apply CV data to template
+- **`--render`**: Apply CV data to template
   - Required params: `template=<path>`
   - Optional params: `data=<path>` (when not chained), `output=<path>`
 
@@ -78,8 +78,8 @@ python -m cvextract.cli \
 
 When stages are chained:
 - Extract → Adjust: Extracted JSON auto-passed to adjust
-- Adjust → Apply: Adjusted JSON auto-passed to apply  
-- Extract → Apply: Extracted JSON auto-passed to apply (skipping adjust)
+- Adjust → Render: Adjusted JSON auto-passed to render  
+- Extract → Render: Extracted JSON auto-passed to render (skipping adjust)
 
 The `data=` parameter is only needed when running stages standalone.
 
@@ -88,14 +88,15 @@ The `data=` parameter is only needed when running stages standalone.
 ### Internal Dependencies
 
 - `cvextract.cli_gather` - Argument parsing
-- `cvextract.cli_execute` - Stage execution
+- `cvextract.cli_execute_pipeline` - Stage orchestration
+- `cvextract.cli_execute_single` - Single-file stage execution
 - `cvextract.cli_config.UserConfig` - Configuration storage
 
 ### Integration Points
 
 - Implemented in `cvextract/cli.py` - Argument parser setup
 - Validated in `cvextract/cli_gather.py` - Stage validation
-- Executed in `cvextract/cli_execute.py` - Stage orchestration
+- Executed in `cvextract/cli_execute_pipeline.py` - Stage orchestration
 
 ## Implementation History
 
@@ -104,11 +105,11 @@ The stage-based interface was designed to make the pipeline explicit and composa
 **Key Files**:
 - `cvextract/cli.py` - Argument definitions
 - `cvextract/cli_gather.py` - Stage parsing
-- `cvextract/cli_execute.py` - Stage execution
+- `cvextract/cli_execute_single.py` - Single-file stage execution
 
 ## File Paths
 
-- Implementation: `cvextract/cli.py`, `cvextract/cli_gather.py`, `cvextract/cli_execute.py`
+- Implementation: `cvextract/cli.py`, `cvextract/cli_gather.py`, `cvextract/cli_execute_pipeline.py`, `cvextract/cli_execute_single.py`
 - Tests: `tests/test_cli.py`
 - Documentation: Main README.md "CLI Interface" section
 

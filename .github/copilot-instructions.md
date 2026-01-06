@@ -157,7 +157,7 @@ python -m pytest tests/test_extractors.py::TestDocxCVExtractor::test_extract_ret
 python -m cvextract.cli --extract source=/path/to/cv.docx --target /output
 
 # Extract and apply template
-python -m cvextract.cli --extract source=/path/to/cv.docx --apply template=/path/to/template.docx --target /output
+python -m cvextract.cli --extract source=/path/to/cv.docx --render template=/path/to/template.docx --target /output
 
 # Batch processing with parallel workers
 python -m cvextract.cli --parallel source=/path/to/cvs n=10 --extract --target /output

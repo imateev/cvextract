@@ -215,31 +215,31 @@ class TestGatherUserRequirements:
         assert config.adjust.dry_run is True
     
     def test_apply_requires_template(self):
-        """--apply requires 'template' parameter."""
-        with pytest.raises(ValueError, match="--apply requires 'template'"):
+        """--render requires 'template' parameter."""
+        with pytest.raises(ValueError, match="--render requires 'template'"):
             cli_gather.gather_user_requirements([
-                "--apply",
+                "--render",
                 "--target", "/output"
             ])
     
     def test_apply_with_template(self):
-        """--apply with template creates ApplyStage."""
+        """--render with template creates RenderStage."""
         config = cli_gather.gather_user_requirements([
-            "--apply", "template=template.docx",
+            "--render", "template=template.docx",
             "--target", "/output"
         ])
         
-        assert config.apply is not None
-        assert config.apply.template == Path("template.docx")
+        assert config.render is not None
+        assert config.render.template == Path("template.docx")
     
     def test_apply_with_data(self):
-        """--apply data parameter is stored."""
+        """--render data parameter is stored."""
         config = cli_gather.gather_user_requirements([
-            "--apply", "template=template.docx", "data=extracted.json",
+            "--render", "template=template.docx", "data=extracted.json",
             "--target", "/output"
         ])
         
-        assert config.apply.data == Path("extracted.json")
+        assert config.render.data == Path("extracted.json")
     
     def test_parallel_requires_source(self):
         """--parallel requires 'source' parameter."""
@@ -320,13 +320,13 @@ class TestGatherUserRequirements:
         config = cli_gather.gather_user_requirements([
             "--extract", "source=cv.docx",
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
-            "--apply", "template=template.docx",
+            "--render", "template=template.docx",
             "--target", "/output",
             "--verbosity", "debug"
         ])
         assert config.extract is not None
         assert config.adjust is not None
-        assert config.apply is not None
+        assert config.render is not None
         assert config.target_dir == Path("/output")
         assert config.debug is True
     
