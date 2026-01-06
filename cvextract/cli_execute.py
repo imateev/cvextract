@@ -107,7 +107,8 @@ def execute_pipeline(config: UserConfig) -> int:
         work = execute_adjust(work)
     
     # Step 3: Apply/Render (if configured and not dry-run)
-    work = execute_render(work)
+    if config.apply:
+        work = execute_render(work)
 
     all_warnings: List[str] = []
     if work:
