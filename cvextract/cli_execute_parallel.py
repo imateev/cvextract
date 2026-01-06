@@ -82,37 +82,44 @@ def _process_future_result(
     controller,
     config: UserConfig,
 ) -> Tuple[str, Optional[str]]:
+    log_fn = None
+    log_args: tuple[str, ...] = ()
+    summary_line = ""
     try:
         exit_code, work = future.result()
-        if work:
-            if not work.has_no_errors():
-                status = "failed"
-            elif not work.has_no_warnings_or_errors():
-                status = "partial"
-            else:
-                status = "full"
-
-            summary_message = emit_work_status(work)
-            if summary_message.endswith(" | -"):
-                summary_message = summary_message[:-4]
-        else:
-            status = "full" if exit_code == 0 else "failed"
-            status_icon = "✅" if exit_code == 0 else "❌"
-            summary_message = f"{status_icon} {file_path.name}"
-            if status == "failed":
-                summary_message = f"{summary_message} | pipeline execution failed"
-
+        if not work:
+            raise ValueError("Expected UnitOfWork from execute_single")
+        
+        status = _derive_work_status(work)
+        summary_message = emit_work_status(work)
+        if summary_message.endswith(" | -"):
+            summary_message = summary_message[:-4]
         summary_line = f"{progress_str} {summary_message}"
-        LOG.info("%s %s", progress_str, summary_message)
-        controller.flush_file(file_path, summary_line)
+
+        log_fn = LOG.info
+        log_args = (progress_str, summary_message)
         return status, str(file_path) if status == "failed" else None
     except Exception as e:
-        error_summary = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
-        LOG.error(error_summary)
-        controller.flush_file(file_path, error_summary)
+        summary_line = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
+
+        log_fn = LOG.error
+        log_args = (summary_line,)
         if config.debug:
             LOG.error(traceback.format_exc())
+            
         return "failed", str(file_path)
+    finally:
+        if log_fn:
+            log_fn(*log_args)
+            controller.flush_file(file_path, summary_line)
+
+
+def _derive_work_status(work: UnitOfWork) -> str:
+    if not work.has_no_errors():
+        return "failed"
+    if not work.has_no_warnings_or_errors():
+        return "partial"
+    return "full"
 
 def execute_parallel_pipeline(config: UserConfig) -> int:
     """
