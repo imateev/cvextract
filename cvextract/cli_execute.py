@@ -97,13 +97,6 @@ def execute_pipeline(config: UserConfig) -> int:
     if config.apply:
         config.workspace.documents_dir.mkdir(parents=True, exist_ok=True)
 
-    # Initialize result tracking
-    work: Optional[UnitOfWork] = None
-    extract_errs: List[str] = []
-    apply_ok: Optional[bool] = None
-    compare_ok: Optional[bool] = None
-    apply_warns: List[str] = []
-    
     # Step 1: Extract (if configured)
     work = UnitOfWork(
         config=config,
@@ -202,14 +195,12 @@ def execute_pipeline(config: UserConfig) -> int:
                     work.AddError(StepName.Verify, err)
             for warn in apply_warns:
                 work.AddWarning(StepName.Verify, warn)
-        
-        extract_errs = render_errs
-    
-    extract_status = work.step_statuses.get(StepName.Extract) if work else None
-    extract_warns = extract_status.warnings if extract_status else []
-    extract_errs = extract_errs if apply_ok is not None else (extract_status.errors if extract_status else [])
-    combined_warns = (extract_warns or []) + (apply_warns or [])
-    config.last_warnings = combined_warns
+
+    all_warnings: List[str] = []
+    if work:
+        for status in work.step_statuses.values():
+            all_warnings.extend(status.warnings)
+    config.last_warnings = all_warnings
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
@@ -234,8 +225,7 @@ def execute_pipeline(config: UserConfig) -> int:
             )
     
     # Return exit code
-    extract_ok = not (extract_status.errors if extract_status else [])
-    if (work and not extract_ok) or apply_ok is False:
+    if work and not work.has_no_errors():
         return 1
     
     return 0
