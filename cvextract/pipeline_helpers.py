@@ -148,7 +148,7 @@ def _roundtrip_compare(
 def _verify_roundtrip(
     work: UnitOfWork,
     render_work: UnitOfWork,
-    original_cv_path: Optional[Path],
+    original_cv_path: Path,
 ) -> UnitOfWork:
     import json
 
@@ -202,8 +202,6 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     Returns:
         UnitOfWork with Render/Verify statuses populated.
     """
-    original_cv_path = work.output
-
     render_work = _render_docx(work)
     render_status = render_work.step_statuses.get(StepName.Render)
     if render_status and not render_status.ok:
@@ -215,6 +213,11 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         skip_compare = True
 
     if skip_compare:
+        return render_work
+
+    original_cv_path = work.output
+    if original_cv_path is None:
+        render_work.add_error(StepName.RoundtripComparer, "render: input JSON path is not set")
         return render_work
 
     return _verify_roundtrip(work, render_work, original_cv_path)
