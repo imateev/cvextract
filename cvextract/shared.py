@@ -11,7 +11,8 @@ import hashlib
 import re
 
 from dataclasses import dataclass, field
-from typing import Any, List, TYPE_CHECKING
+from enum import Enum
+from typing import Any, Dict, List, TYPE_CHECKING
 from pathlib import Path
 from typing import Optional
 
@@ -41,10 +42,44 @@ class UnitOfWork:
     extract_ok: Optional[bool] = None
     extract_errs: List[str] = field(default_factory=list)
     extract_warns: List[str] = field(default_factory=list)
+    step_statuses: Dict["StepName", "StepStatus"] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.initial_input is None:
             object.__setattr__(self, "initial_input", self.input)
+
+    def _get_step_status(self, step: "StepName") -> "StepStatus":
+        status = self.step_statuses.get(step)
+        if status is None:
+            status = StepStatus(step=step)
+            self.step_statuses[step] = status
+        return status
+
+    def AddWarning(self, step: "StepName", message: str) -> None:
+        status = self._get_step_status(step)
+        status.warnings.append(message)
+
+    def AddError(self, step: "StepName", message: str) -> None:
+        status = self._get_step_status(step)
+        status.errors.append(message)
+
+
+class StepName(str, Enum):
+    Extract = "Extract"
+    Adjust = "Adjust"
+    Verify = "Verify"
+    Render = "Render"
+
+
+@dataclass
+class StepStatus:
+    step: StepName
+    warnings: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return not self.warnings and not self.errors
 
 # ------------------------- XML parsing helpers -------------------------
 
