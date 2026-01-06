@@ -131,9 +131,9 @@ def execute_pipeline(config: UserConfig) -> int:
             LOG.error("Use --list extractors to see available extractors")
             return 1
         
+        LOG.info("%s", emit_work_status(work, StepName.Extract))
         # If extraction failed and we need to apply, exit early
         if (not work.has_no_errors(StepName.Extract)) and config.apply:
-            LOG.info("%s", emit_work_status(work, StepName.Extract))
             return 1
     else:
         # No extraction, use input JSON directly
