@@ -19,7 +19,6 @@ from .logging_utils import LOG, fmt_issues
 from .output_controller import get_output_controller
 from .shared import UnitOfWork, select_issue_step
 
-
 def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> List[Path]:
     """
     Recursively scan directory for files matching the given pattern.
@@ -69,13 +68,11 @@ def _build_file_config(config: UserConfig, file_path: Path) -> UserConfig:
         input_dir=config.parallel.source if config.parallel else None,
     )
 
-
 def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional["UnitOfWork"]]:
     controller = get_output_controller()
     file_config = _build_file_config(config, file_path)
     with controller.file_context(file_path):
         return execute_single(file_config)
-
 
 def execute_parallel_pipeline(config: UserConfig) -> int:
     """
