@@ -135,8 +135,6 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     """
     import json
     
-    work.step_statuses.setdefault(StepName.Render, StepStatus(step=StepName.Render))
-
     if not work.config.render:
         work.add_error(StepName.Render, "render: missing render configuration")
         return work
@@ -180,8 +178,7 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         render_work.add_warning(StepName.Render, message)
         return render_work
 
-    render_work.step_statuses.setdefault(StepName.Render, StepStatus(step=StepName.Render))
-    render_status = render_work.step_statuses.get(StepName.Render)
+    render_status = render_work.ensure_step_status(StepName.Render)
     if render_status and not render_status.ok:
         return render_work
 
@@ -205,7 +202,7 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         render_work.add_error(StepName.Verify, message)
         return render_work
 
-    render_work.step_statuses.setdefault(StepName.Verify, StepStatus(step=StepName.Verify))
+    render_work.ensure_step_status(StepName.Verify)
     for err in compare_errors:
         render_work.add_error(StepName.Verify, err)
     for warn in compare_warnings:

@@ -54,6 +54,9 @@ class UnitOfWork:
             self.step_statuses[step] = status
         return status
 
+    def ensure_step_status(self, step: "StepName") -> "StepStatus":
+        return self._get_step_status(step)
+
     def add_warning(self, step: "StepName", message: str) -> None:
         status = self._get_step_status(step)
         status.warnings.append(message)
