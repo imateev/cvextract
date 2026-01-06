@@ -164,28 +164,6 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         return False, [f"render: {type(e).__name__}"], [], None
 
 
-def get_status_icons(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool], compare_ok: Optional[bool]) -> tuple[str, str, str]:
-    """Generate status icons for extract, apply, and roundtrip compare steps."""
-    if extract_ok and has_warns:
-        x_icon = "⚠️ "
-    elif extract_ok:
-        x_icon = "🟢"
-    else:
-        x_icon = "❌"
-    
-    if apply_ok is None:
-        a_icon = "➖"
-    else:
-        a_icon = "✅" if apply_ok else "❌"
-
-    if compare_ok is None:
-        c_icon = "➖"
-    else:
-        c_icon = "✅" if compare_ok else "⚠️ "
-
-    return x_icon, a_icon, c_icon
-
-
 def categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
     """Categorize result into (fully_ok, partial_ok, failed) counts."""
     if not extract_ok:

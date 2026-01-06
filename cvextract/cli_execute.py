@@ -20,9 +20,8 @@ from .adjusters import get_adjuster
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
-    get_status_icons,
 )
-from .shared import StepName, UnitOfWork
+from .shared import StepName, StepStatus, UnitOfWork, get_status_icons
 
 
 def execute_pipeline(config: UserConfig) -> int:
@@ -134,17 +133,12 @@ def execute_pipeline(config: UserConfig) -> int:
         
         # If extraction failed and we need to apply, exit early
         if (not work.has_no_errors(StepName.Extract)) and config.apply:
-            x_icon, a_icon, c_icon = get_status_icons(
-                work.has_no_errors(StepName.Extract),
-                bool(
-                    work.step_statuses[StepName.Extract].warnings
-                    if work.step_statuses.get(StepName.Extract)
-                    else []
-                ),
-                None,
-                None,
-            )
-            LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
+            icons = get_status_icons(work)
+            LOG.info("%s%s%s %s | %s", 
+                     icons[StepName.Extract],
+                     icons[StepName.Render],
+                     icons[StepName.Verify],
+                     input_file.name,
                      fmt_issues(
                          work.step_statuses[StepName.Extract].errors
                          if work.step_statuses.get(StepName.Extract)
@@ -214,6 +208,17 @@ def execute_pipeline(config: UserConfig) -> int:
     # Step 3: Apply/Render (if configured and not dry-run)
     if config.apply and not (config.adjust and config.adjust.dry_run):
         apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(work)
+        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        if apply_ok is False and compare_ok is None:
+            for err in render_errs:
+                work.AddError(StepName.Render, err)
+        if compare_ok is not None:
+            work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+            if compare_ok is False:
+                for err in render_errs:
+                    work.AddError(StepName.Verify, err)
+            for warn in apply_warns:
+                work.AddWarning(StepName.Verify, warn)
         
         extract_errs = render_errs
     
@@ -226,8 +231,12 @@ def execute_pipeline(config: UserConfig) -> int:
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
         extract_ok = not (extract_status.errors if extract_status else [])
-        x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(combined_warns), apply_ok, compare_ok)
-        LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
+        icons = get_status_icons(work)
+        LOG.info("%s%s%s %s | %s",
+                 icons[StepName.Extract],
+                 icons[StepName.Render],
+                 icons[StepName.Verify],
+                 input_file.name,
                  fmt_issues(extract_errs, combined_warns))
     
     # Log summary (unless suppressed for parallel mode)

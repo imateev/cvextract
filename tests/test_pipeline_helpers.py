@@ -3,7 +3,7 @@
 from pathlib import Path
 import cvextract.pipeline_helpers as p
 from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
 from cvextract.shared import VerificationResult
@@ -189,42 +189,88 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
 
 def test_get_status_icons_extract_success_no_warnings():
     """Test icons for successful extraction without warnings."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=None, compare_ok=None)
-    assert x_icon == "🟢"
-    assert a_icon == "➖"
-    assert c_icon == "➖"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "🟢"
+    assert icons[StepName.Render] == "➖"
+    assert icons[StepName.Verify] == "➖"
 
 
 def test_get_status_icons_extract_success_with_warnings():
     """Test icons for successful extraction with warnings."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=True, apply_ok=None, compare_ok=None)
-    assert x_icon == "⚠️ "
-    assert a_icon == "➖"
-    assert c_icon == "➖"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(
+        step=StepName.Extract,
+        warnings=["warning"],
+    )
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "⚠️ "
+    assert icons[StepName.Render] == "➖"
+    assert icons[StepName.Verify] == "➖"
 
 
 def test_get_status_icons_extract_failed():
     """Test icons for failed extraction."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=False, has_warns=False, apply_ok=None, compare_ok=None)
-    assert x_icon == "❌"
-    assert a_icon == "➖"
-    assert c_icon == "➖"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(
+        step=StepName.Extract,
+        errors=["error"],
+    )
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "❌"
+    assert icons[StepName.Render] == "➖"
+    assert icons[StepName.Verify] == "➖"
 
 
 def test_get_status_icons_apply_success():
     """Test icons for successful apply."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=True, compare_ok=True)
-    assert x_icon == "🟢"
-    assert a_icon == "✅"
-    assert c_icon == "✅"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+    work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "🟢"
+    assert icons[StepName.Render] == "✅"
+    assert icons[StepName.Verify] == "✅"
 
 
 def test_get_status_icons_apply_failed():
     """Test icons for failed apply."""
-    x_icon, a_icon, c_icon = p.get_status_icons(extract_ok=True, has_warns=False, apply_ok=False, compare_ok=False)
-    assert x_icon == "🟢"
-    assert a_icon == "❌"
-    assert c_icon == "⚠️ "
+    work = UnitOfWork(
+        config=UserConfig(target_dir=Path(".")),
+        input=Path("input.json"),
+        output=Path("output.json"),
+    )
+    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_statuses[StepName.Render] = StepStatus(
+        step=StepName.Render,
+        errors=["render failed"],
+    )
+    work.step_statuses[StepName.Verify] = StepStatus(
+        step=StepName.Verify,
+        errors=["compare failed"],
+    )
+    icons = get_status_icons(work)
+    assert icons[StepName.Extract] == "🟢"
+    assert icons[StepName.Render] == "❌"
+    assert icons[StepName.Verify] == "⚠️ "
 
 
 def test_categorize_result_extract_failed():

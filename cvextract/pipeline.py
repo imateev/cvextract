@@ -10,10 +10,9 @@ from .pipeline_helpers import (
     safe_relpath,
     extract_single,
     render_and_verify,
-    get_status_icons,
     categorize_result,
 )
-from .shared import UnitOfWork
+from .shared import UnitOfWork, get_status_icons
 
 # Re-export for backward compatibility
 __all__ = [

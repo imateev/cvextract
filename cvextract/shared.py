@@ -90,6 +90,43 @@ class StepStatus:
     def ok(self) -> bool:
         return not self.warnings and not self.errors
 
+
+def get_status_icons(work: "UnitOfWork", step: Optional["StepName"] = None) -> dict["StepName", str] | str:
+    """Generate status icons for pipeline steps based on UnitOfWork statuses."""
+    def icon_for(step_name: StepName) -> str:
+        status = work.step_statuses.get(step_name)
+
+        if status is None:
+            return "➖"
+
+        if step_name == StepName.Verify:
+            if status.errors or status.warnings:
+                return "⚠️ "
+            return "✅"
+
+        if step_name == StepName.Render:
+            if status.errors:
+                return "❌"
+            if status.warnings:
+                return "⚠️ "
+            verify_status = work.step_statuses.get(StepName.Verify)
+            if verify_status and verify_status.errors:
+                return "❌"
+            return "✅"
+
+        if status.errors:
+            return "❌"
+        if status.warnings:
+            return "⚠️ "
+        if step_name == StepName.Extract:
+            return "🟢"
+        return "✅"
+
+    if step is not None:
+        return icon_for(step)
+
+    return {step_name: icon_for(step_name) for step_name in StepName}
+
 # ------------------------- XML parsing helpers -------------------------
 
 _WS_RE = re.compile(r"\s+")
