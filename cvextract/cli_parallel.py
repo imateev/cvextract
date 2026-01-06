@@ -9,20 +9,15 @@ from __future__ import annotations
 
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
-from .cli_config import UserConfig, ExtractStage
-from .cli_execute import _execute_pipeline_single
+from .cli_config import UserConfig
+from .cli_execute_single import execute_single
 from .logging_utils import LOG, fmt_issues
 from .output_controller import get_output_controller
-from .adjusters.openai_company_research_adjuster import (
-    _cache_research_data,
-    _load_cached_research,
-    _research_company_profile,
-)
-from .shared import select_issue_step, url_to_cache_filename
-import os
+from .shared import UnitOfWork, select_issue_step
 
 
 def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> List[Path]:
@@ -51,123 +46,35 @@ def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> L
     
     return sorted(files)
 
-def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
-    """
-    Perform company research once upfront before parallel processing.
-    
-    Args:
-        config: User configuration
-    
-    Returns:
-        Path to the research cache file, or None if research failed or not needed
-    """
-    if not config.adjust or not config.adjust.adjusters:
-        return None
-    
-    # Only perform research for openai-company-research adjuster
-    company_research_adjuster = None
-    for adjuster_config in config.adjust.adjusters:
-        if adjuster_config.name == "openai-company-research":
-            company_research_adjuster = adjuster_config
-            break
-    
-    if not company_research_adjuster or 'customer-url' not in company_research_adjuster.params:
-        return None
-    
-    customer_url = company_research_adjuster.params['customer-url']
-    
-    # Get API key and model
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        LOG.warning("OPENAI_API_KEY not set, skipping upfront research")
-        return None
-    
-    model = company_research_adjuster.openai_model or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
-    
-    # Create research cache directory
-    research_dir = config.workspace.research_dir
-    research_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Determine cache file path
-    cache_filename = url_to_cache_filename(customer_url)
-    cache_path = research_dir / cache_filename
+def _build_file_config(config: UserConfig, file_path: Path) -> UserConfig:
+    extract = config.extract
+    adjust = config.adjust
+    render = config.render
 
-    cached = _load_cached_research(cache_path)
-    if cached:
-        return cache_path
-    
-    # Perform research (will use cache if it exists)
-    LOG.info("Performing upfront company research for: %s", customer_url)
-    research_data = _research_company_profile(
-        customer_url,
-        api_key,
-        model,
+    if config.extract:
+        extract = replace(config.extract, source=file_path)
+    elif config.render:
+        render = replace(config.render, data=file_path)
+    elif config.adjust:
+        adjust = replace(config.adjust, data=file_path)
+
+    return replace(
+        config,
+        extract=extract,
+        adjust=adjust,
+        render=render,
+        parallel=None,
+        suppress_summary=True,
+        suppress_file_logging=True,
+        input_dir=config.parallel.source if config.parallel else None,
     )
-    
-    if research_data:
-        _cache_research_data(cache_path, research_data)
-        LOG.info("Company research completed and cached at: %s", cache_path)
-        return cache_path
-    else:
-        LOG.warning("Company research failed, proceeding without adjustment")
-        return None
 
 
-def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bool, str, int, bool]:
-    """
-    Wrapper to process a single file through the existing pipeline.
-    
-    Args:
-        file_path: Path to the file to process
-        config: User configuration with parallel settings
-    
-    Returns:
-        Tuple of (success: bool, message: str, exit_code: int, has_warnings: bool)
-    """
-    # Get output controller and establish file context
+def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional["UnitOfWork"]]:
     controller = get_output_controller()
-    
-    try:
-        with controller.file_context(file_path):
-            # Create a new config for this specific file
-            file_config = UserConfig(
-                target_dir=config.target_dir,
-                extract=ExtractStage(
-                    source=file_path,
-                    output=config.extract.output if config.extract else None,
-                    name=config.extract.name if config.extract else "private-internal-extractor"
-                ) if config.extract else None,
-                adjust=config.adjust,
-                render=config.render,
-                parallel=None,  # No nested parallel processing
-                verbosity=config.verbosity,
-                log_file=config.log_file,
-                suppress_summary=True,  # Suppress summary in parallel mode
-                suppress_file_logging=True,  # Suppress per-file status logging (we log in parallel wrapper with progress)
-                input_dir=config.parallel.source  # Pass the root input directory for relative path calculation
-            )
-            
-            # Execute the pipeline for this file
-            exit_code, work = _execute_pipeline_single(file_config)
-            warning_message = ""
-            has_warnings = False
-            if work:
-                has_warnings = any(
-                    status.warnings for status in work.step_statuses.values()
-                )
-                if has_warnings:
-                    warning_message = fmt_issues(work, select_issue_step(work))
-
-            if exit_code == 0:
-                return (True, warning_message, exit_code, has_warnings)
-            else:
-                return (False, "pipeline execution failed", exit_code, False)
-            
-    except Exception as e:
-        error_msg = str(e)
-        if config.debug:
-            error_msg = traceback.format_exc()
-        return (False, error_msg, 1, False)
+    file_config = _build_file_config(config, file_path)
+    with controller.file_context(file_path):
+        return execute_single(file_config)
 
 
 def execute_parallel_pipeline(config: UserConfig) -> int:
@@ -207,11 +114,6 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                   config.parallel.file_type, input_dir)
         return 1
     
-    # Perform upfront research if adjust is configured
-    if config.adjust and config.adjust.adjusters:
-        # Research is performed and cached for reuse by individual file processing
-        _perform_upfront_research(config)
-    
     # Log start of parallel processing
     n_workers = config.parallel.n
     total_files = len(files)
@@ -229,7 +131,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         # Submit all tasks
         future_to_file = {
-            executor.submit(process_single_file_wrapper, file_path, config): file_path
+            executor.submit(_execute_file, file_path, config): file_path
             for file_path in files
         }
         
@@ -243,9 +145,20 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             progress_str = f"[{completed_count}/{total_files} | {progress_pct}%]"
             
             try:
-                success, message, exit_code, has_warnings = future.result()
+                exit_code, work = future.result()
+                success = exit_code == 0
+                has_warnings = bool(
+                    work and any(status.warnings for status in work.step_statuses.values())
+                )
+                message = ""
+                if work and has_warnings:
+                    message = fmt_issues(work, select_issue_step(work))
+                    if message == "-":
+                        message = ""
+                if not success and not message:
+                    message = "pipeline execution failed"
                 
-                # Determine status icons (same as in cli_execute.py)
+                # Determine status icons (same as in cli_execute_single.py)
                 if success and has_warnings:
                     status_icon = "⚠️ "
                     partial_success_count += 1

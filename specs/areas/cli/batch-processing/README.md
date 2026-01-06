@@ -26,7 +26,7 @@ python -m cvextract.cli \
   --extract source=/path/to/cv_folder \
   --target output/
 
-# Extract + Apply for entire folder
+# Extract + Render for entire folder
 python -m cvextract.cli \
   --extract source=/path/to/cv_folder \
   --render template=template.docx \
@@ -44,7 +44,7 @@ python -m cvextract.cli \
 
 - **Extract**: Processes all `.docx` files (or `.txt` if using openai-extractor)
 - **Adjust**: Processes all `.json` files when `data=<dir>` specified
-- **Apply**: Processes all `.json` files when `data=<dir>` specified
+- **Render**: Processes all `.json` files when `data=<dir>` specified
 
 ### Output Structure
 
@@ -83,12 +83,12 @@ def _collect_inputs(source, is_extraction, template_path):
 ### Structure Preservation
 
 ```python
-# In cli_execute.py
+# In cli_execute_extract.py
 source_base = config.input_dir.resolve()
 rel_path = input_file.parent.resolve().relative_to(source_base)
 
 # Output paths include relative structure
-json_output = json_dir / rel_path / f"{input_file.stem}.json"
+json_output = config.workspace.json_dir / rel_path / f"{input_file.stem}.json"
 ```
 
 ## Dependencies
@@ -96,7 +96,8 @@ json_output = json_dir / rel_path / f"{input_file.stem}.json"
 ### Internal Dependencies
 
 - `cvextract.cli_prepare._collect_inputs()` - File discovery
-- `cvextract.cli_execute` - Per-file processing with path preservation
+- `cvextract.cli_execute_single` - Per-file processing with path preservation
+- `cvextract.cli_execute_pipeline` - Single vs parallel orchestration
 
 ### Integration Points
 
@@ -115,11 +116,11 @@ Batch processing was added to support real-world use cases where entire teams/de
 
 **Key Files**:
 - `cvextract/cli_prepare.py` - File discovery
-- `cvextract/cli_execute.py` - Structure preservation
+- `cvextract/cli_execute_single.py` - Per-file execution
 
 ## File Paths
 
-- Implementation: `cvextract/cli_prepare.py`, `cvextract/cli_execute.py`
+- Implementation: `cvextract/cli_prepare.py`, `cvextract/cli_execute_single.py`, `cvextract/cli_execute_pipeline.py`
 - Tests: `tests/test_cli.py`
 - Documentation: Main README.md "Batch Processing" examples
 

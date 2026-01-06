@@ -121,7 +121,7 @@ Templates must be valid DOCX files with Jinja2 syntax:
 ### Integration Points
 
 - Used by `cvextract.pipeline_highlevel.render_cv_data()`
-- Used by `cvextract.cli_execute.execute_pipeline()` for render stage
+- Used by `cvextract.cli_execute_render.execute()` for render stage
 - Templates in `examples/templates/CV_Template_Jinja2.docx`
 
 ## Test Coverage

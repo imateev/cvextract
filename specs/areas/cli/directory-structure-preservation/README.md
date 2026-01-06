@@ -44,17 +44,21 @@ python -m cvextract.cli \
 ### Path Calculation
 
 ```python
-# In cli_execute.py
+# In cli_execute_extract.py
 if config.input_dir:
     source_base = config.input_dir.resolve()
 else:
-    source_base = source.parent.resolve() if source.is_file() else source.resolve()
+    source_base = (
+        config.extract.source.parent.resolve()
+        if config.extract.source.is_file()
+        else config.extract.source.resolve()
+    )
 
-rel_path = input_file.parent.resolve().relative_to(source_base)
+rel_path = input_path.parent.resolve().relative_to(source_base)
 
 # Output paths include relative structure
-json_output = json_dir / rel_path / f"{input_file.stem}.json"
-doc_output = documents_dir / rel_path / f"{input_file.stem}_NEW.docx"
+json_output = config.workspace.json_dir / rel_path / f"{input_path.stem}.json"
+doc_output = config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
 ```
 
 ### All Output Types
@@ -87,7 +91,8 @@ config.input_dir = source_dir
 ### Internal Dependencies
 
 - `cvextract.cli_config.UserConfig.input_dir` - Source base path
-- `cvextract.cli_execute` - Path calculation logic
+- `cvextract.cli_execute_extract` - JSON output path calculation
+- `cvextract.pipeline_helpers.render_and_verify` - DOCX output path calculation
 
 ### Integration Points
 
@@ -105,7 +110,8 @@ Tested in:
 Structure preservation was added to support organizational hierarchies (teams, departments) in batch processing.
 
 **Key Files**:
-- `cvextract/cli_execute.py` - Path calculation
+- `cvextract/cli_execute_extract.py` - JSON output path calculation
+- `cvextract/pipeline_helpers.py` - DOCX output path calculation
 - `cvextract/cli_parallel.py` - Parallel mode structure handling
 
 ## Use Cases
@@ -145,7 +151,7 @@ python -m cvextract.cli \
 
 ## File Paths
 
-- Implementation: `cvextract/cli_execute.py` (path calculation logic)
+- Implementation: `cvextract/cli_execute_extract.py`, `cvextract/pipeline_helpers.py`
 - Tests: `tests/test_cli.py`
 - Documentation: Main README.md "Complex Directory Structure Preservation" section
 

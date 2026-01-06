@@ -106,7 +106,7 @@ python -m cvextract.cli \
 ### Integration Points
 
 - Registered as `"openai-job-specific"` in `cvextract/adjusters/__init__.py`
-- Used by `cvextract.cli_execute` when `--adjust name=openai-job-specific`
+- Used by `cvextract.cli_execute_adjust.execute()` when `--adjust name=openai-job-specific`
 - Can be chained with other adjusters
 
 ## Test Coverage

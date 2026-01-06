@@ -15,10 +15,9 @@ Features:
 2. **Worker Pools**: Configurable number of worker threads (`n=<count>`)
 3. **File Type Selection**: Configurable file pattern matching (`file-type=<pattern>`)
 4. **Progress Indicator**: Real-time progress display with completion percentage (e.g., `[5/20 | 25%]`)
-5. **Pre-Research**: Optional company research before parallel execution
-6. **Independent Workers**: Each worker processes files independently
-7. **Clean Logging**: One concise line per completed file in parallel mode
-8. **External Provider Log Control**: Optional capture of third-party library logs via `--debug-external`
+5. **Independent Workers**: Each worker processes files independently
+6. **Clean Logging**: One concise line per completed file in parallel mode
+7. **External Provider Log Control**: Optional capture of third-party library logs via `--debug-external`
 
 ## Entry Points
 
@@ -84,29 +83,15 @@ Each worker receives:
 - Shared output directories
 - Independent logging
 
-### Optimization: Pre-Research
-
-When using company research adjuster, the main process performs research once before spawning workers:
-
-```python
-# In cli_parallel.py
-if company_research_adjuster:
-    # Pre-research in main process
-    research = do_company_research(customer_url)
-    # All workers reuse cached research
-```
-
 ## Interfaces
 
 ### Worker Function
 
 ```python
-def _worker_process_file(args):
-    """Worker function executed in separate process."""
-    config, input_file = args
-    
-    # Each worker runs execute_pipeline independently
-    return execute_pipeline(config_for_file)
+def _execute_file(file_path, config):
+    """Worker function executed in separate thread."""
+    file_config = build_file_config(config, file_path)
+    return execute_single(file_config)
 ```
 
 ### Process Pool
@@ -118,7 +103,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 with ThreadPoolExecutor(max_workers=n_workers) as executor:
     # Submit all tasks
     future_to_file = {
-        executor.submit(process_single_file_wrapper, file_path, config): file_path
+        executor.submit(_execute_file, file_path, config): file_path
         for file_path in files
     }
     
@@ -135,8 +120,8 @@ with ThreadPoolExecutor(max_workers=n_workers) as executor:
 
 ### Internal Dependencies
 
-- `cvextract.cli_execute.execute_pipeline()` - Per-file processing
-- `cvextract.cli_prepare._collect_inputs()` - File discovery
+- `cvextract.cli_execute_single.execute_single()` - Per-file processing
+- `cvextract.cli_parallel.scan_directory_for_files()` - File discovery
 - `cvextract.adjusters` - Adjuster implementations for CV optimization
 
 ### External Dependencies
@@ -207,7 +192,7 @@ Parallel processing was added to handle large-scale CV migrations (hundreds of c
 
 **Key Files**:
 - `cvextract/cli_parallel.py` - Parallel execution implementation
-- `cvextract/cli_execute.py` - Single-file execution (reused by workers)
+- `cvextract/cli_execute_single.py` - Single-file execution (reused by workers)
 - `cvextract/output_controller.py` - Buffered output and external log control
 
 **Recent Updates**:
@@ -259,7 +244,7 @@ python -m cvextract.cli \
 ## File Paths
 
 - Implementation: `cvextract/cli_parallel.py`
-- Worker Execution: `cvextract/cli_execute.py` (reused)
+- Worker Execution: `cvextract/cli_execute_single.py` (reused)
 - Tests: `tests/test_cli_parallel.py`
 - Documentation: Main README.md "Batch Processing - Extract Multiple Files" section
 

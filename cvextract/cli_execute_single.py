@@ -1,13 +1,11 @@
 """
-CLI Phase 3: Execute pipeline.
-
-Orchestrates the execution of all operations with explicit path decisions.
-Subsystems receive explicit input/output paths.
+CLI Phase 3: Execute single-file pipeline.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 from .cli_config import UserConfig
 from .logging_utils import LOG
@@ -15,6 +13,7 @@ from .cli_execute_adjust import execute as execute_adjust
 from .cli_execute_extract import execute as execute_extract
 from .cli_execute_render import execute as execute_render
 from .shared import StepName, UnitOfWork, emit_summary, emit_work_status
+
 
 def _resolve_input_source(config: UserConfig) -> Path | None:
     if config.extract:
@@ -25,7 +24,8 @@ def _resolve_input_source(config: UserConfig) -> Path | None:
         return config.adjust.data
     return None
 
-def _execute_pipeline_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
+
+def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     source = _resolve_input_source(config)
     if source is None:
         LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
@@ -59,7 +59,7 @@ def _execute_pipeline_single(config: UserConfig) -> tuple[int, UnitOfWork | None
     if config.adjust and work.output:
         work = execute_adjust(work)
 
-    # Step 3: Apply/Render (if configured and not dry-run)
+    # Step 3: Render (if configured and not dry-run)
     if config.render:
         work = execute_render(work)
 
@@ -76,24 +76,3 @@ def _execute_pipeline_single(config: UserConfig) -> tuple[int, UnitOfWork | None
         return 1, work
 
     return 0, work
-
-def execute_pipeline(config: UserConfig) -> int:
-    """
-    Phase 3: Execute the pipeline based on user configuration.
-
-    Orchestrates per-step execution while input validation and output
-    directory setup happen in the prepare phase. Each step module
-    computes its own input/output paths.
-
-    Processes a single input file (not multiple files) and preserves
-    source directory structure in outputs by default.
-
-    Returns exit code (0 = success, 1 = failure).
-    """
-    # Check if parallel mode is enabled
-    if config.parallel:
-        from .cli_parallel import execute_parallel_pipeline
-        return execute_parallel_pipeline(config)
-
-    exit_code, _ = _execute_pipeline_single(config)
-    return exit_code

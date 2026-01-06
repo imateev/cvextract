@@ -1,4 +1,4 @@
-"""Tests for cli_execute module - pipeline execution phase."""
+"""Tests for cli_execute_pipeline module - pipeline execution phase."""
 
 import json
 import zipfile
@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, RenderStage
-from cvextract.cli_execute import execute_pipeline
+from cvextract.cli_execute_pipeline import execute_pipeline
 from cvextract.shared import StepName, StepStatus, UnitOfWork
 
 

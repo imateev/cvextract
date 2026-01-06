@@ -28,7 +28,9 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 - **Config**: `cvextract/cli_config.py` - Configuration data structures
 - **Gather**: `cvextract/cli_gather.py` - Parse and validate CLI arguments
 - **Prepare**: `cvextract/cli_prepare.py` - Input file collection
-- **Execute**: `cvextract/cli_execute.py` - Pipeline orchestration
+- **Execute Pipeline**: `cvextract/cli_execute_pipeline.py` - Single vs parallel orchestration
+- **Execute Single**: `cvextract/cli_execute_single.py` - Single-file pipeline
+- **Execute Steps**: `cvextract/cli_execute_extract.py`, `cvextract/cli_execute_adjust.py`, `cvextract/cli_execute_render.py` - Stage execution
 - **Parallel**: `cvextract/cli_parallel.py` - Multi-worker batch processing
 
 ### Data Flow
@@ -71,6 +73,8 @@ UserConfig
 - Config: `cvextract/cli_config.py`
 - Gather: `cvextract/cli_gather.py`
 - Prepare: `cvextract/cli_prepare.py`
-- Execute: `cvextract/cli_execute.py`
+- Execute Pipeline: `cvextract/cli_execute_pipeline.py`
+- Execute Single: `cvextract/cli_execute_single.py`
+- Execute Steps: `cvextract/cli_execute_extract.py`, `cvextract/cli_execute_adjust.py`, `cvextract/cli_execute_render.py`
 - Parallel: `cvextract/cli_parallel.py`
 - Logging: `cvextract/logging_utils.py`

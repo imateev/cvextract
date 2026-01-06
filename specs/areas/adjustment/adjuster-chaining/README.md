@@ -118,12 +118,12 @@ When multiple adjusters are chained:
 ### Internal Dependencies
 
 - `cvextract.cli_gather.AdjustmentSpec` - Stores adjustment configurations
-- `cvextract.cli_execute.execute_pipeline()` - Chains adjusters
+- `cvextract.cli_execute_adjust.execute()` - Chains adjusters
 
 ### Integration Points
 
 - Implemented in `cvextract.cli_gather._parse_adjustment_specs()`
-- Executed in `cvextract.cli_execute.execute_pipeline()`
+- Executed in `cvextract.cli_execute_adjust.execute()`
 
 ## Test Coverage
 
@@ -138,7 +138,7 @@ Chaining was implemented as part of the named adjusters refactoring to enable fl
 
 **Key Files**:
 - `cvextract/cli_gather.py` - Multiple adjustment specs parsing
-- `cvextract/cli_execute.py` - Sequential adjuster execution
+- `cvextract/cli_execute_adjust.py` - Sequential adjuster execution
 
 ## Open Questions
 
@@ -189,7 +189,7 @@ register_adjuster(MyCustomAdjuster2)
 ## File Paths
 
 - CLI Parsing: `cvextract/cli_gather.py` (function: `_parse_adjustment_specs`)
-- Execution: `cvextract/cli_execute.py` (in `execute_pipeline`)
+- Execution: `cvextract/cli_execute_adjust.py` (in `execute`)
 - Tests: `tests/test_cli.py`, `tests/test_pipeline.py`
 - Documentation: Main README.md (section: "Chaining Multiple Adjusters")
 

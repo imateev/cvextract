@@ -145,7 +145,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json` (same schema as pri
 ### Integration Points
 
 - Registered in `cvextract/extractors/__init__.py` as `"openai-extractor"`
-- Used by `cvextract.cli_execute.execute_pipeline()` when `name=openai-extractor` specified
+- Used by `cvextract.cli_execute_pipeline.execute_pipeline()` when `name=openai-extractor` specified
 - Can be used in parallel processing mode via `cvextract.cli_parallel`
 
 ## Test Coverage

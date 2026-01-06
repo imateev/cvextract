@@ -88,14 +88,15 @@ The `data=` parameter is only needed when running stages standalone.
 ### Internal Dependencies
 
 - `cvextract.cli_gather` - Argument parsing
-- `cvextract.cli_execute` - Stage execution
+- `cvextract.cli_execute_pipeline` - Stage orchestration
+- `cvextract.cli_execute_single` - Single-file stage execution
 - `cvextract.cli_config.UserConfig` - Configuration storage
 
 ### Integration Points
 
 - Implemented in `cvextract/cli.py` - Argument parser setup
 - Validated in `cvextract/cli_gather.py` - Stage validation
-- Executed in `cvextract/cli_execute.py` - Stage orchestration
+- Executed in `cvextract/cli_execute_pipeline.py` - Stage orchestration
 
 ## Implementation History
 
@@ -104,11 +105,11 @@ The stage-based interface was designed to make the pipeline explicit and composa
 **Key Files**:
 - `cvextract/cli.py` - Argument definitions
 - `cvextract/cli_gather.py` - Stage parsing
-- `cvextract/cli_execute.py` - Stage execution
+- `cvextract/cli_execute_single.py` - Single-file stage execution
 
 ## File Paths
 
-- Implementation: `cvextract/cli.py`, `cvextract/cli_gather.py`, `cvextract/cli_execute.py`
+- Implementation: `cvextract/cli.py`, `cvextract/cli_gather.py`, `cvextract/cli_execute_pipeline.py`, `cvextract/cli_execute_single.py`
 - Tests: `tests/test_cli.py`
 - Documentation: Main README.md "CLI Interface" section
 
