@@ -146,7 +146,6 @@ def _roundtrip_compare(
     return verifier.verify(original_data, target_data=roundtrip_data)
 
 def _verify_roundtrip(
-    work: UnitOfWork,
     render_work: UnitOfWork,
     original_cv_path: Path,
 ) -> UnitOfWork:
@@ -157,22 +156,22 @@ def _verify_roundtrip(
         with original_cv_path.open("r", encoding="utf-8") as f:
             original_cv_data = json.load(f)
     except Exception as e:
-        if work.config.debug:
+        if render_work.config.debug:
             LOG.error(traceback.format_exc())
-        work.add_error(StepName.RoundtripComparer, f"render: {type(e).__name__}")
-        return work
+        render_work.add_error(StepName.RoundtripComparer, f"roundtrip comparer: {type(e).__name__}")
+        return render_work
 
     output_docx = render_work.output
     if output_docx is None:
         return render_work
 
-    input_path = work.initial_input or work.input
-    source_base = _resolve_source_base_for_render(work, input_path)
+    input_path = render_work.initial_input or render_work.input
+    source_base = _resolve_source_base_for_render(render_work, input_path)
     try:
         rel_path = input_path.parent.resolve().relative_to(source_base)
     except Exception:
         rel_path = Path(".")
-    roundtrip_dir = work.config.workspace.verification_dir / rel_path
+    roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
     try:
         compare_result = _roundtrip_compare(
             output_docx,
@@ -220,7 +219,7 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         render_work.add_error(StepName.RoundtripComparer, "render: input JSON path is not set")
         return render_work
 
-    return _verify_roundtrip(work, render_work, original_cv_path)
+    return _verify_roundtrip(render_work, original_cv_path)
 
 def prepare_output_path(work, input_path, rel_path):
     output_docx = work.config.render.output or (
