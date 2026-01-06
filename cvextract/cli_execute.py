@@ -48,7 +48,6 @@ def _execute_pipeline_single(config: UserConfig) -> tuple[int, UnitOfWork | None
             LOG.error("Use --list extractors to see available extractors")
             return 1, work
 
-        LOG.info("%s", emit_work_status(work, StepName.Extract))
         # If extraction failed and we need to render, exit early
         if (not work.has_no_errors(StepName.Extract)) and config.render:
             return 1, work
