@@ -20,7 +20,7 @@ import os
 from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor, get_extractor
-from .shared import StepName, StepStatus, UnitOfWork
+from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import get_verifier
 
@@ -38,14 +38,12 @@ def infer_source_root(inputs: List[Path]) -> Path:
     parents = [p.parent.resolve() for p in inputs]
     return Path(os.path.commonpath([str(p) for p in parents])).resolve()
 
-
 def safe_relpath(p: Path, root: Path) -> str:
     """Best-effort relative path for nicer logging."""
     try:
         return p.resolve().relative_to(root.resolve()).as_posix()
     except Exception:
         return p.name
-
 
 def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
     if work.config.input_dir:
@@ -63,7 +61,6 @@ def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
         return source.parent.resolve() if source.is_file() else source.resolve()
 
     return input_path.parent.resolve()
-
 
 def _render_docx(work: UnitOfWork) -> UnitOfWork:
     if not work.config.render:
@@ -98,7 +95,6 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
         return render_work
 
     return render_work
-
 
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
@@ -141,22 +137,16 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
         return work
 
-
 def _roundtrip_compare(
     output_docx: Path,
     roundtrip_dir: Path,
     original_data: dict,
-) -> tuple[bool, List[str], List[str], bool]:
+) -> VerificationResult:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
     roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
-
     verifier = get_verifier("roundtrip-verifier")
-    cmp = verifier.verify(original_data, target_data=roundtrip_data)
-    if cmp.ok:
-        return True, [], cmp.warnings, True
-    return False, cmp.errors, cmp.warnings, False
-
+    return verifier.verify(original_data, target_data=roundtrip_data)
 
 def _verify_roundtrip(
     work: UnitOfWork,
@@ -187,7 +177,7 @@ def _verify_roundtrip(
         rel_path = Path(".")
     roundtrip_dir = work.config.workspace.verification_dir / rel_path
     try:
-        _, compare_errors, compare_warnings, _ = _roundtrip_compare(
+        compare_result = _roundtrip_compare(
             output_docx,
             roundtrip_dir,
             original_cv_data,
@@ -199,12 +189,11 @@ def _verify_roundtrip(
         return render_work
 
     render_work.ensure_step_status(StepName.Verify)
-    for err in compare_errors:
+    for err in compare_result.errors:
         render_work.add_error(StepName.Verify, err)
-    for warn in compare_warnings:
+    for warn in compare_result.warnings:
         render_work.add_warning(StepName.Verify, warn)
     return render_work
-
 
 def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     """
@@ -239,7 +228,6 @@ def prepare_output_path(work, input_path, rel_path):
     )
     output_docx.parent.mkdir(parents=True, exist_ok=True)
     return output_docx
-
 
 def categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
     """Categorize result into (fully_ok, partial_ok, failed) counts."""
