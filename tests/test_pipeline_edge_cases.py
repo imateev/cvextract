@@ -51,7 +51,7 @@ class TestCliEdgeCases:
         
         rc = cli.main([
             "--extract", f"source={src}",
-            "--apply", f"template={tmp_path / 'nonexistent.docx'}",
+            "--render", f"template={tmp_path / 'nonexistent.docx'}",
             "--target", str(tmp_path / "out")
         ])
         

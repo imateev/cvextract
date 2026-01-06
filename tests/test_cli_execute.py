@@ -7,7 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage
+from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, RenderStage
 from cvextract.cli_execute import execute_pipeline
 from cvextract.shared import StepName, StepStatus, UnitOfWork
 
@@ -88,7 +88,7 @@ class TestExecutePipelineNoInput:
         config = UserConfig(
             extract=None,
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -111,7 +111,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -129,7 +129,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None, name='nonexistent-extractor'),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -148,7 +148,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -166,7 +166,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -182,7 +182,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -198,7 +198,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -217,7 +217,7 @@ class TestExecutePipelineExtractOnly:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=custom_output),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -246,7 +246,7 @@ class TestExecutePipelineExtractApply:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -269,7 +269,7 @@ class TestExecutePipelineExtractApply:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -292,7 +292,7 @@ class TestExecutePipelineExtractApply:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -315,7 +315,7 @@ class TestExecutePipelineApplyOnly:
         config = UserConfig(
             extract=None,
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=mock_json, output=None),
+            render=RenderStage(template=mock_template, data=mock_json, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -336,7 +336,7 @@ class TestExecutePipelineApplyOnly:
         config = UserConfig(
             extract=None,
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=mock_json, output=custom_output),
+            render=RenderStage(template=mock_template, data=mock_json, output=custom_output),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -344,7 +344,7 @@ class TestExecutePipelineApplyOnly:
         exit_code = execute_pipeline(config)
         assert exit_code == 0
         render_work = mock_render.call_args[0][0]
-        assert render_work.config.apply.output == custom_output
+        assert render_work.config.render.output == custom_output
 
 
 class TestExecutePipelineAdjust:
@@ -389,7 +389,7 @@ class TestExecutePipelineAdjust:
                 data=None,
                 output=None
             ),
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -437,7 +437,7 @@ class TestExecutePipelineAdjust:
                 output=None
 
             ),
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -475,7 +475,7 @@ class TestExecutePipelineAdjust:
                 output=None
 
             ),
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -515,7 +515,7 @@ class TestExecutePipelineAdjust:
                 output=None
 
             ),
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -564,7 +564,7 @@ class TestExecutePipelineAdjust:
                 output=None
 
             ),
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -587,7 +587,7 @@ class TestExecutePipelineDirectoryRejection:
         config = UserConfig(
             extract=ExtractStage(source=docx_dir, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -610,7 +610,7 @@ class TestExecutePipelineDirectoryRejection:
         config = UserConfig(
             extract=None,
             adjust=None,
-            apply=ApplyStage(template=template, data=json_dir, output=None),
+            render=RenderStage(template=template, data=json_dir, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -630,7 +630,7 @@ class TestExecutePipelineDebugMode:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="debug",
             log_file=None
@@ -670,7 +670,7 @@ class TestExecutePipelineDebugMode:
                 output=None
 
             ),
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -690,7 +690,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
         config = UserConfig(
             extract=ExtractStage(source=txt_file, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "out",
             verbosity="minimal",
             log_file=None
@@ -713,7 +713,7 @@ class TestExecutePipelineSkipNonMatchingFiles:
         config = UserConfig(
             extract=None,
             adjust=None,
-            apply=ApplyStage(template=template, data=txt_file, output=None),
+            render=RenderStage(template=template, data=txt_file, output=None),
             target_dir=tmp_path / "out",
             log_file=None
         )
@@ -741,7 +741,7 @@ class TestFolderStructurePreservation:
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "output",
             verbosity="minimal",
             log_file=None,
@@ -798,7 +798,7 @@ class TestFolderStructurePreservation:
                 output=None
 
             ),
-            apply=None,
+            render=None,
             target_dir=tmp_path / "output",
             log_file=None,
             input_dir=parallel_input_tree.root
@@ -832,7 +832,7 @@ class TestFolderStructurePreservation:
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=None,
-            apply=ApplyStage(template=mock_template, data=None, output=None),
+            render=RenderStage(template=mock_template, data=None, output=None),
             target_dir=tmp_path / "output",
             log_file=None,
             input_dir=parallel_input_tree.root
@@ -872,7 +872,7 @@ class TestFolderStructurePreservation:
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "output",
             log_file=None,
             input_dir=None  # No input_dir specified, behavior depends on source
@@ -898,7 +898,7 @@ class TestFolderStructurePreservation:
             config = UserConfig(
                 extract=ExtractStage(source=mock_docx, output=None),
                 adjust=None,
-                apply=None,
+                render=None,
                 target_dir=tmp_path / "output",
                 log_file=None,
                 parallel=True  # Enable parallel mode
@@ -922,7 +922,7 @@ class TestFolderStructurePreservation:
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
             adjust=None,
-            apply=None,
+            render=None,
             target_dir=tmp_path / "output",
             log_file=None,
             input_dir=tmp_path / "other_dir"  # Different from the file's parent

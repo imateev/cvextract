@@ -41,19 +41,19 @@ def execute_pipeline(config: UserConfig) -> int:
     if config.extract:
         source = config.extract.source
         is_extraction = True
-    elif config.apply and config.apply.data:
-        source = config.apply.data
+    elif config.render and config.render.data:
+        source = config.render.data
         is_extraction = False
     elif config.adjust and config.adjust.data:
         source = config.adjust.data
         is_extraction = False
     else:
-        LOG.error("No input source specified. Use source= in --extract, or data= in --apply when not chained with --extract")
+        LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
         return 1
     
     # Collect inputs (now expects single file)
     try:
-        template_path = config.apply.template if config.apply else None
+        template_path = config.render.template if config.render else None
         inputs = _collect_inputs(source, is_extraction, template_path)
     except Exception as e:
         LOG.error(str(e))
@@ -75,7 +75,7 @@ def execute_pipeline(config: UserConfig) -> int:
     if config.adjust:
         config.workspace.adjusted_json_dir.mkdir(parents=True, exist_ok=True)
     
-    if config.apply:
+    if config.render:
         config.workspace.documents_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 1: Extract (if configured)
@@ -95,8 +95,8 @@ def execute_pipeline(config: UserConfig) -> int:
             return 1
         
         LOG.info("%s", emit_work_status(work, StepName.Extract))
-        # If extraction failed and we need to apply, exit early
-        if (not work.has_no_errors(StepName.Extract)) and config.apply:
+        # If extraction failed and we need to render, exit early
+        if (not work.has_no_errors(StepName.Extract)) and config.render:
             return 1
     else:
         # No extraction, use input JSON directly
@@ -107,7 +107,7 @@ def execute_pipeline(config: UserConfig) -> int:
         work = execute_adjust(work)
     
     # Step 3: Apply/Render (if configured and not dry-run)
-    if config.apply:
+    if config.render:
         work = execute_render(work)
 
     all_warnings: List[str] = []
@@ -122,9 +122,9 @@ def execute_pipeline(config: UserConfig) -> int:
     
     # Log summary (unless suppressed for parallel mode)
     if not config.suppress_summary:
-        if config.extract and config.apply:
+        if config.extract and config.render:
             LOG.info(
-                "📊 Extract+Apply complete. JSON: %s | DOCX: %s",
+                "📊 Extract+Render complete. JSON: %s | DOCX: %s",
                 config.workspace.json_dir, config.workspace.documents_dir
             )
         elif config.extract:
@@ -134,7 +134,7 @@ def execute_pipeline(config: UserConfig) -> int:
             )
         else:
             LOG.info(
-                "📊 Apply complete. Output in: %s",
+                "📊 Render complete. Output in: %s",
                 config.workspace.documents_dir
             )
     

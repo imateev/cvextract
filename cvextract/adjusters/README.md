@@ -111,7 +111,7 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
   --adjust name=openai-job-specific job-url=https://careers.example.com/job/123 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 ```
 

@@ -32,13 +32,13 @@ class TestStageBasedParsing:
     def test_parse_apply_stage_with_template(self):
         """Apply stage with template parameter should be parsed correctly."""
         config = cli.gather_user_requirements([
-            "--apply", "template=/path/to/template.docx", "data=/path/to/data.json",
+            "--render", "template=/path/to/template.docx", "data=/path/to/data.json",
             "--target", "/path/to/output"
         ])
-        assert config.apply is not None
-        assert config.apply.template == Path("/path/to/template.docx")
-        assert config.apply.data == Path("/path/to/data.json")
-        assert config.has_apply is True
+        assert config.render is not None
+        assert config.render.template == Path("/path/to/template.docx")
+        assert config.render.data == Path("/path/to/data.json")
+        assert config.has_render is True
     
     def test_parse_adjust_stage_with_customer_url(self):
         """Adjust stage with customer-url should be parsed correctly."""
@@ -57,25 +57,25 @@ class TestStageBasedParsing:
         """Chaining extract and apply stages should work."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--apply", "template=/path/to/template.docx",
+            "--render", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
         assert config.extract is not None
-        assert config.apply is not None
+        assert config.render is not None
         assert config.has_extract is True
-        assert config.has_apply is True
+        assert config.has_render is True
     
     def test_parse_all_three_stages(self):
         """Chaining extract, adjust, and apply stages should work."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
-            "--apply", "template=/path/to/template.docx",
+            "--render", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
         assert config.extract is not None
         assert config.adjust is not None
-        assert config.apply is not None
+        assert config.render is not None
     
     def test_parse_adjust_with_dry_run(self):
         """Adjust stage with dry-run flag should be parsed."""
@@ -107,7 +107,7 @@ class TestStageBasedParsing:
         """Apply stage without template parameter should raise error."""
         with pytest.raises(ValueError, match="requires 'template' parameter"):
             cli.gather_user_requirements([
-                "--apply", "data=/path/to/data.json",
+                "--render", "data=/path/to/data.json",
                 "--target", "/path/to/output"
             ])    
     def test_adjust_without_name_raises_error(self):
@@ -128,7 +128,7 @@ class TestStageBasedParsing:
         """When using apply without adjust, should_compare should be True."""
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
-            "--apply", "template=/path/to/template.docx",
+            "--render", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
         assert config.should_compare is True
@@ -138,7 +138,7 @@ class TestStageBasedParsing:
         config = cli.gather_user_requirements([
             "--extract", "source=/path/to/cvs",
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
-            "--apply", "template=/path/to/template.docx",
+            "--render", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
         assert config.should_compare is False
@@ -209,18 +209,18 @@ class TestOutputPathResolution:
     def test_apply_stage_absolute_output(self):
         """Apply stage with absolute output path."""
         config = cli.gather_user_requirements([
-            "--apply", "template=/template.docx", "data=/data.json", "output=/absolute/result.docx",
+            "--render", "template=/template.docx", "data=/data.json", "output=/absolute/result.docx",
             "--target", "/path/to/target"
         ])
-        assert config.apply.output == Path("/absolute/result.docx")
+        assert config.render.output == Path("/absolute/result.docx")
     
     def test_apply_stage_relative_output(self):
         """Apply stage with relative output path."""
         config = cli.gather_user_requirements([
-            "--apply", "template=/template.docx", "data=/data.json", "output=final/result.docx",
+            "--render", "template=/template.docx", "data=/data.json", "output=final/result.docx",
             "--target", "/path/to/target"
         ])
-        assert config.apply.output == Path("/path/to/target/final/result.docx")
+        assert config.render.output == Path("/path/to/target/final/result.docx")
     
     def test_adjust_stage_relative_output(self):
         """Adjust stage with relative output path."""
@@ -235,11 +235,11 @@ class TestOutputPathResolution:
         """Multiple stages with mix of absolute and relative paths."""
         config = cli.gather_user_requirements([
             "--extract", "source=/cv.docx", "output=extracted/data.json",
-            "--apply", "template=/template.docx", "output=/absolute/result.docx",
+            "--render", "template=/template.docx", "output=/absolute/result.docx",
             "--target", "/path/to/target"
         ])
         assert config.extract.output == Path("/path/to/target/extracted/data.json")
-        assert config.apply.output == Path("/absolute/result.docx")
+        assert config.render.output == Path("/absolute/result.docx")
     
     def test_windows_absolute_path_on_posix(self):
         """On POSIX systems, Windows-style paths are treated as relative."""
@@ -292,21 +292,21 @@ class TestPathsWithSpecialCharacters:
     def test_parse_template_path_with_spaces(self):
         """Apply stage should handle template paths with spaces."""
         config = cli.gather_user_requirements([
-            "--apply", "template=/templates/my template folder/cv template.docx", "data=/data.json",
+            "--render", "template=/templates/my template folder/cv template.docx", "data=/data.json",
             "--target", "/path/to/output"
         ])
-        assert config.apply.template == Path("/templates/my template folder/cv template.docx")
+        assert config.render.template == Path("/templates/my template folder/cv template.docx")
     
     def test_parse_multiple_paths_with_spaces(self):
         """Multiple stage parameters with spaces should all be parsed correctly."""
         config = cli.gather_user_requirements([
             "--extract", "source=/my docs/cv.docx", "output=/output folder/data.json",
-            "--apply", "template=/my templates/template.docx",
+            "--render", "template=/my templates/template.docx",
             "--target", "/target folder"
         ])
         assert config.extract.source == Path("/my docs/cv.docx")
         assert config.extract.output == Path("/output folder/data.json")
-        assert config.apply.template == Path("/my templates/template.docx")
+        assert config.render.template == Path("/my templates/template.docx")
         assert config.target_dir == Path("/target folder")
     
     def test_parse_path_with_special_characters(self):
@@ -497,7 +497,7 @@ class TestMainErrorHandling:
         target = tmp_path / "output"
         
         rc = cli.main([
-            "--apply", f"template={str(template)}", f"data={str(docx)}",
+            "--render", f"template={str(template)}", f"data={str(docx)}",
             "--target", str(target)
         ])
         assert rc == 1
@@ -608,13 +608,13 @@ class TestParallelParsing:
             "--parallel", "source=/path/to/directory", "n=5",
             "--extract",
             "--adjust", "name=openai-company-research", "customer-url=https://example.com",
-            "--apply", "template=/path/to/template.docx",
+            "--render", "template=/path/to/template.docx",
             "--target", "/path/to/output"
         ])
         assert config.parallel is not None
         assert config.extract is not None
         assert config.adjust is not None
-        assert config.apply is not None
+        assert config.render is not None
     
     def test_parallel_only_stage(self):
         """Parallel can be used as the only stage."""
@@ -625,4 +625,4 @@ class TestParallelParsing:
         assert config.parallel is not None
         assert config.extract is None
         assert config.adjust is None
-        assert config.apply is None
+        assert config.render is None

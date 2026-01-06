@@ -36,7 +36,7 @@ python -m cvextract.cli \
 
 # Apply parameters
 python -m cvextract.cli \
-  --apply template=/path/to/template.docx data=cv.json output=result.docx \
+  --render template=/path/to/template.docx data=cv.json output=result.docx \
   --target output/ \
   --verbosity debug
 
@@ -124,7 +124,7 @@ if 'name' not in adjust_params:
 ### Integration Points
 
 - All CLI stages use this syntax
-- Consistent across extract, adjust, apply, parallel
+- Consistent across extract, adjust, render, parallel
 
 ## Test Coverage
 
@@ -148,7 +148,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 # Single values
 --extract source=cv.docx
 --adjust name=openai-company-research
---apply template=template.docx
+--render template=template.docx
 
 # Multiple parameters
 --extract source=cv.docx name=openai-extractor output=data.json
@@ -175,7 +175,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 --extract source=/my\ documents/cv\ folder/engineer.docx
 
 # Template with spaces
---apply template="/templates/Modern CV Template.docx"
+--render template="/templates/Modern CV Template.docx"
 ```
 
 ### Complex Example
@@ -187,7 +187,7 @@ python -m cvextract.cli \
   --extract source="/data/cvs/2025/Q1" name=openai-extractor output=extracts/ \
   --adjust name=openai-company-research customer-url=https://target-company.com openai-model=gpt-4 \
   --adjust name=openai-job-specific job-url=https://target-company.com/careers/job/456 \
-  --apply template="/templates/Company Template.docx" output=results/ \
+  --render template="/templates/Company Template.docx" output=results/ \
   --target /output \
   --log-file /output/processing.log \
   --debug

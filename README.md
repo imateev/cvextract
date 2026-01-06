@@ -142,12 +142,12 @@ All CLI parameters use the modern `key=value` format:
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 ```
 
 **Key features:**
-- Each flag (`--extract`, `--adjust`, `--apply`) is followed by one or more `key=value` parameters
+- Each flag (`--extract`, `--adjust`, `--render`) is followed by one or more `key=value` parameters
 - Parameters are space-separated: `--extract source=file.docx output=data.json`
 - Values can contain spaces: `source=/path with spaces/file.docx`
 - Multiple `--adjust` flags can be used to chain adjusters sequentially
@@ -157,12 +157,12 @@ python -m cvextract.cli \
 
 **Single-file mode** (default) - Process one file at a time:
 ```bash
-python -m cvextract.cli --extract source=<file> [--adjust ...] [--apply ...] --target <dir> [options]
+python -m cvextract.cli --extract source=<file> [--adjust ...] [--render ...] --target <dir> [options]
 ```
 
 **Batch mode** - Process multiple files in parallel:
 ```bash
-python -m cvextract.cli --parallel source=<dir> n=<num_workers> [file-type=<pattern>] [--extract] [--adjust ...] [--apply ...] --target <dir> [options]
+python -m cvextract.cli --parallel source=<dir> n=<num_workers> [file-type=<pattern>] [--extract] [--adjust ...] [--render ...] --target <dir> [options]
 ```
 
 ### Stage Chaining
@@ -170,20 +170,20 @@ python -m cvextract.cli --parallel source=<dir> n=<num_workers> [file-type=<patt
 When stages are chained together, **the output of each stage automatically becomes the input to the next stage**:
 
 - **Extract → Adjust**: The extracted JSON is automatically passed to the adjust stage (no need to specify `data=`)
-- **Adjust → Apply**: The adjusted JSON is automatically passed to the apply stage
-- **Extract → Apply** (no adjust): The extracted JSON is automatically passed to the apply stage
+- **Adjust → Render**: The adjusted JSON is automatically passed to the render stage
+- **Extract → Render** (no adjust): The extracted JSON is automatically passed to the render stage
 
-The `data=` parameter in `--adjust` and `--apply` is only needed when you want to process **pre-existing JSON files without extraction**. When stages are chained, this parameter is ignored.
+The `data=` parameter in `--adjust` and `--render` is only needed when you want to process **pre-existing JSON files without extraction**. When stages are chained, this parameter is ignored.
 
 Example of automatic chaining:
 ```bash
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust customer-url=https://example.com \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
-# Flow: DOCX → Extract JSON → Adjust JSON → Apply to template
+# Flow: DOCX → Extract JSON → Adjust JSON → Render to template
 # No explicit data= parameters needed
 ```
 
@@ -211,22 +211,22 @@ python -m cvextract.cli \
   - Directory: processes all `.json` files recursively
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
 - `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
-- `dry-run` - Only adjust without rendering (optional flag, prevents apply stage execution)
+- `dry-run` - Only adjust without rendering (optional flag, prevents render stage execution)
 - **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
 
-**`--apply`**: Apply CV data to DOCX template
-- `template=<path>` - Template DOCX file (required for apply stage)
+**`--render`**: Render CV data to DOCX template
+- `template=<path>` - Template DOCX file (required for render stage)
 - `data=<path>` - Input JSON file or directory (only used when NOT chained after extract/adjust)
   - When chained after extract or adjust, this is ignored and the JSON from the previous stage is used automatically
-  - Single file: applies to one template
-  - Directory: applies all matching JSON files
+  - Single file: renders one template
+  - Directory: renders all matching JSON files
 - `output=<path>` - Output DOCX path (optional, defaults to `{target}/documents/`)
 
 **`--parallel`**: Batch processing mode (alternative to single-file stages)
 - `source=<dir>` - Input directory containing files (required)
 - `n=<num>` - Number of worker processes (required, e.g., `n=10`)
 - `file-type=<pattern>` - File pattern to match (optional, defaults to `*.docx`, e.g., `file-type=*.txt`)
-- When used, stages like `--extract`, `--adjust`, `--apply` still apply but work in parallel
+- When used, stages like `--extract`, `--adjust`, `--render` still run but work in parallel
 - Each worker processes files independently using the same stage configuration
 - Displays progress indicator showing completion status (e.g., `[5/20 | 25%]`)
 
@@ -332,10 +332,10 @@ python -m cvextract.cli \
 #### Extract + Apply (Render CV)
 
 ```bash
-# Extract using default extractor and apply to template
+# Extract using default extractor and render to template
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Outputs:
@@ -344,12 +344,12 @@ python -m cvextract.cli \
 ```
 
 ```bash
-# Extract DOCX using OpenAI and apply to template
+# Extract DOCX using OpenAI and render to template
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx name=openai-extractor \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Outputs:
@@ -358,10 +358,10 @@ python -m cvextract.cli \
 ```
 
 ```bash
-# Extract and apply with custom output paths
+# Extract and render with custom output paths
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx output=json/extracted.json \
-  --apply template=/path/to/template.docx output=final/result.docx \
+  --render template=/path/to/template.docx output=final/result.docx \
   --target /output
 
 # Outputs:
@@ -372,13 +372,13 @@ python -m cvextract.cli \
 #### Extract + Adjust + Apply (With Customer Research)
 
 ```bash
-# Full pipeline: extract, adjust for customer, then apply
+# Full pipeline: extract, adjust for customer, then render
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Outputs:
@@ -393,14 +393,14 @@ python -m cvextract.cli \
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 ```
 
 #### Adjust Only (Dry-Run - No Rendering)
 
 ```bash
-# Extract and adjust without applying (useful for preview/testing)
+# Extract and adjust without rendering (useful for preview/testing)
 export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
@@ -422,7 +422,7 @@ export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --adjust name=openai-company-research data=/path/to/extracted.json customer-url=https://example.com \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Outputs:
@@ -435,7 +435,7 @@ python -m cvextract.cli \
 ```bash
 # Apply pre-adjusted JSON to template (no extraction or adjustment)
 python -m cvextract.cli \
-  --apply template=/path/to/template.docx data=/path/to/data.json \
+  --render template=/path/to/template.docx data=/path/to/data.json \
   --target /output
 
 # Output: /output/documents/data_NEW.docx
@@ -450,7 +450,7 @@ export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Outputs:
@@ -469,14 +469,14 @@ export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-job-specific job-url=https://careers.example.com/job/123 \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Or use job description directly
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-job-specific job-description="Senior Software Engineer position..." \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 ```
 
@@ -490,7 +490,7 @@ python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-company-research customer-url=https://target-company.com \
   --adjust name=openai-job-specific job-url=https://target-company.com/careers/job/456 \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Flow: DOCX → Extract → Adjust (company) → Adjust (job) → Apply to template
@@ -506,7 +506,7 @@ python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 \
   --adjust name=openai-job-specific job-url=https://example.com/job/123 openai-model=gpt-3.5-turbo \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 ```
 
@@ -561,7 +561,7 @@ python -m cvextract.cli \
 python -m cvextract.cli \
   --parallel source=/path/to/cv_folder n=20 \
   --extract \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Processes all .docx files recursively
@@ -580,7 +580,7 @@ python -m cvextract.cli \
   --parallel source=/data/consultants n=15 \
   --extract \
   --adjust name=openai-company-research customer-url=https://target-company.com \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Processes all CVs in parallel
@@ -609,7 +609,7 @@ python -m cvextract.cli \
 python -m cvextract.cli \
   --parallel source=/data/cvs n=10 \
   --extract \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output \
   --verbosity debug \
   --log-file /output/batch_processing.log
@@ -653,7 +653,7 @@ python -m cvextract.cli \
   --parallel source=/source/cvs n=12 \
   --extract \
   --adjust name=openai-company-research customer-url=https://example.com output=/custom/adjusted/ \
-  --apply template=/path/to/template.docx \
+  --render template=/path/to/template.docx \
   --target /output
 
 # Outputs:

@@ -155,7 +155,7 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
                     name=config.extract.name if config.extract else "private-internal-extractor"
                 ) if config.extract else None,
                 adjust=config.adjust,
-                apply=config.apply,
+                render=config.render,
                 parallel=None,  # No nested parallel processing
                 verbosity=config.verbosity,
                 log_file=config.log_file,

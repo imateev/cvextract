@@ -28,10 +28,10 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://target-company.com \
   --adjust name=openai-job-specific job-url=https://target-company.com/careers/job/456 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
-# Data flow: Extract → Company Adjust → Job Adjust → Apply
+# Data flow: Extract → Company Adjust → Job Adjust → Render
 ```
 
 ### Programmatic API
@@ -157,7 +157,7 @@ python -m cvextract.cli \
   --extract source=cv.docx \
   --adjust name=openai-company-research customer-url=https://company.com \
   --adjust name=openai-job-specific job-url=https://company.com/job/123 \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 ```
 

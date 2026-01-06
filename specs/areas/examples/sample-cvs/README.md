@@ -43,13 +43,13 @@ python -m cvextract.cli \
 # Full pipeline with sample
 python -m cvextract.cli \
   --extract source=examples/cvs/Sarah_Connor_CV.docx \
-  --apply template=examples/templates/CV_Template_Jinja2.docx \
+  --render template=examples/templates/CV_Template_Jinja2.docx \
   --target output/
 
 # Batch process all samples
 python -m cvextract.cli \
   --extract source=examples/cvs \
-  --apply template=examples/templates/CV_Template_Jinja2.docx \
+  --render template=examples/templates/CV_Template_Jinja2.docx \
   --target output/
 ```
 

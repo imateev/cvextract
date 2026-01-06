@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import cvextract.pipeline_helpers as p
-from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage
+from cvextract.cli_config import UserConfig, ExtractStage, RenderStage
 from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
@@ -115,7 +115,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
 
     config = UserConfig(
         target_dir=out_dir,
-        apply=ApplyStage(template=template, data=json_file),
+        render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
     ok, errs, warns, compare_ok = p.render_and_verify(work)
@@ -139,7 +139,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
 
     config = UserConfig(
         target_dir=out_dir,
-        apply=ApplyStage(template=template, data=json_file),
+        render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
     ok, errs, warns, compare_ok = p.render_and_verify(work)
@@ -177,7 +177,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
 
     config = UserConfig(
         target_dir=out_dir,
-        apply=ApplyStage(template=template, data=json_file),
+        render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
     ok, errs, warns, compare_ok = p.render_and_verify(work)

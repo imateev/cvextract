@@ -29,7 +29,7 @@ python -m cvextract.cli \
 # Extract + Apply for entire folder
 python -m cvextract.cli \
   --extract source=/path/to/cv_folder \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
 # Directory structure preserved:
@@ -101,7 +101,7 @@ json_output = json_dir / rel_path / f"{input_file.stem}.json"
 ### Integration Points
 
 - Used in both single-file and parallel modes
-- Integrated with all stages (extract, adjust, apply)
+- Integrated with all stages (extract, adjust, render)
 
 ## Test Coverage
 

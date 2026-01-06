@@ -4,7 +4,7 @@ import os
 import pytest
 from pathlib import Path
 from cvextract.cli_prepare import _collect_inputs, prepare_execution_environment
-from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage
+from cvextract.cli_config import UserConfig, ExtractStage, RenderStage
 from cvextract.logging_utils import LOG
 
 
@@ -127,7 +127,7 @@ class TestPrepareExecutionEnvironment:
         
         config = UserConfig(
             target_dir=target,
-            apply=ApplyStage(template=template)
+            render=RenderStage(template=template)
         )
         
         result = prepare_execution_environment(config)
@@ -142,7 +142,7 @@ class TestPrepareExecutionEnvironment:
         
         config = UserConfig(
             target_dir=target,
-            apply=ApplyStage(template=template)
+            render=RenderStage(template=template)
         )
         
         with pytest.raises(ValueError, match="Invalid template"):
@@ -156,7 +156,7 @@ class TestPrepareExecutionEnvironment:
         
         config = UserConfig(
             target_dir=target,
-            apply=ApplyStage(template=template)
+            render=RenderStage(template=template)
         )
         
         with pytest.raises(ValueError, match="Invalid template"):
@@ -179,7 +179,7 @@ class TestPrepareExecutionEnvironment:
         
         config = UserConfig(
             target_dir=target,
-            apply=ApplyStage(template=template)
+            render=RenderStage(template=template)
         )
         
         with pytest.raises(ValueError, match="Invalid template"):

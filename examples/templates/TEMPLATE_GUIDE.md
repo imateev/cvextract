@@ -14,7 +14,7 @@ examples/templates/CV_Template.docx
 ```bash
 python -m cvextract.cli \
   --extract source=path/to/cv.docx \
-  --apply template=examples/templates/CV_Template.docx \
+  --render template=examples/templates/CV_Template.docx \
   --target output_directory
 ```
 
@@ -23,7 +23,7 @@ python -m cvextract.cli \
 # Extract, apply template, and render
 python -m cvextract.cli \
   --extract source=examples/cvs/Sarah_Connor_CV.docx \
-  --apply template=examples/templates/CV_Template.docx \
+  --render template=examples/templates/CV_Template.docx \
   --target /tmp/rendered_cv
 
 # Output location:

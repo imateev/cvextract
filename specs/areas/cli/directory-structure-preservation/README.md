@@ -27,7 +27,7 @@ When processing files from nested directories, cvextract:
 
 python -m cvextract.cli \
   --extract source=/source/teams \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
 # Output structure:
@@ -117,7 +117,7 @@ Structure preservation was added to support organizational hierarchies (teams, d
 # Output: /output/documents/{team_name}/{person}_NEW.docx
 python -m cvextract.cli \
   --extract source=/cvs \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target /output
 ```
 
@@ -139,7 +139,7 @@ python -m cvextract.cli \
 # Output: /converted/2025/01/{cv}_NEW.docx
 python -m cvextract.cli \
   --extract source=/archive \
-  --apply template=new_template.docx \
+  --render template=new_template.docx \
   --target /converted
 ```
 

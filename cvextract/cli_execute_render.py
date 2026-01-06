@@ -10,7 +10,7 @@ from .shared import StepName, StepStatus, UnitOfWork
 
 def execute(work: UnitOfWork) -> UnitOfWork:
     config = work.config
-    if not config.apply or (config.adjust and config.adjust.dry_run):
+    if not config.render or (config.adjust and config.adjust.dry_run):
         return work
 
     apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(work)

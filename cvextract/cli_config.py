@@ -38,8 +38,8 @@ class AdjustStage:
 
 
 @dataclass
-class ApplyStage:
-    """Configuration for the apply/render stage."""
+class RenderStage:
+    """Configuration for the render stage."""
     template: Path  # Template DOCX file
     data: Optional[Path] = None  # Input JSON (optional if chained after extract/adjust)
     output: Optional[Path] = None  # Output DOCX (optional, defaults to target_dir/documents/)
@@ -63,7 +63,7 @@ class UserConfig:
     # Stage configurations (None if stage not requested)
     extract: Optional[ExtractStage] = None
     adjust: Optional[AdjustStage] = None
-    apply: Optional[ApplyStage] = None
+    render: Optional[RenderStage] = None
     parallel: Optional[ParallelStage] = None
     
     # Execution settings
@@ -96,15 +96,15 @@ class UserConfig:
         return self.adjust is not None
 
     @property
-    def has_apply(self) -> bool:
-        """Whether apply stage is configured."""
-        return self.apply is not None
+    def has_render(self) -> bool:
+        """Whether render stage is configured."""
+        return self.render is not None
 
     @property
     def should_compare(self) -> bool:
         """Whether to run comparison verification."""
-        # Only compare if applying but not adjusting
-        return self.has_apply and not self.has_adjust
+        # Only compare if rendering but not adjusting
+        return self.has_render and not self.has_adjust
 
 
 @dataclass(frozen=True)

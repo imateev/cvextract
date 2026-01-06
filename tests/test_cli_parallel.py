@@ -110,7 +110,7 @@ class TestProcessSingleFileWrapper:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -138,7 +138,7 @@ class TestProcessSingleFileWrapper:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -159,7 +159,7 @@ class TestProcessSingleFileWrapper:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -181,7 +181,7 @@ class TestProcessSingleFileWrapper:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=tmp_path, n=1),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -207,7 +207,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -235,7 +235,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -253,7 +253,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=None,  # No parallel config
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -268,7 +268,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=tmp_path / "does_not_exist", n=1),
             target_dir=tmp_path / "out",
             verbosity="minimal",
@@ -286,7 +286,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=empty_dir, n=1),
             target_dir=tmp_path / "out",
             log_file=None
@@ -301,7 +301,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=not_dir, n=1),
             target_dir=tmp_path / "out",
             log_file=None
@@ -321,7 +321,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -355,7 +355,7 @@ class TestExecuteParallelPipeline:
                 output=None,
                 dry_run=False
             ),
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             log_file=None
@@ -375,7 +375,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -400,7 +400,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -419,7 +419,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -443,7 +443,7 @@ class TestExecuteParallelPipeline:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             verbosity="debug",
@@ -481,7 +481,7 @@ class TestPerformUpfrontResearch:
                 output=None,
                 dry_run=False
             ),
-            apply=None,
+            render=None,
             parallel=None,
             target_dir=tmp_path / "out",
             log_file=None
@@ -498,7 +498,7 @@ class TestPerformUpfrontResearch:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,  # No adjust stage
-            apply=None,
+            render=None,
             parallel=None,
             target_dir=tmp_path / "out",
             log_file=None
@@ -522,7 +522,7 @@ class TestPerformUpfrontResearch:
                 output=None,
                 dry_run=False
             ),
-            apply=None,
+            render=None,
             parallel=None,
             target_dir=tmp_path / "out",
             log_file=None
@@ -549,7 +549,7 @@ class TestPerformUpfrontResearch:
                 output=None,
                 dry_run=False
             ),
-            apply=None,
+            render=None,
             parallel=None,
             target_dir=tmp_path / "out",
             log_file=None
@@ -648,7 +648,7 @@ class TestFileTypeParameter:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None, name="openai-extractor"),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
             log_file=None
@@ -668,7 +668,7 @@ class TestFileTypeParameter:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),  # No file_type specified
             target_dir=tmp_path / "out",
             log_file=None
@@ -693,7 +693,7 @@ class TestFileTypeParameter:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=2, file_type="*.txt"),
             target_dir=tmp_path / "out",
             log_file=None
@@ -733,7 +733,7 @@ class TestProgressIndicator:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=test_directory, n=2),
             target_dir=tmp_path / "out",
             log_file=None
@@ -765,7 +765,7 @@ class TestProgressIndicator:
         config = UserConfig(
             extract=ExtractStage(source=Path('.'), output=None),
             adjust=None,
-            apply=None,
+            render=None,
             parallel=ParallelStage(source=input_dir, n=1),
             target_dir=tmp_path / "out",
             log_file=None

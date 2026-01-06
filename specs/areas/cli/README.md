@@ -6,7 +6,7 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 
 ## Features
 
-- [Stage-Based Interface](stage-based-interface/README.md) - Explicit flags for extract/adjust/apply operations
+- [Stage-Based Interface](stage-based-interface/README.md) - Explicit flags for extract/adjust/render operations
 - [Batch Processing](batch-processing/README.md) - Process multiple files recursively from directories
 - [Parallel Processing](parallel-processing/README.md) - Multi-worker parallel file processing
 - [Directory Structure Preservation](directory-structure-preservation/README.md) - Maintains source directory hierarchy
@@ -16,7 +16,7 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 
 ### Design Principles
 
-1. **Stage-Based**: Explicit `--extract`, `--adjust`, `--apply` flags for each operation
+1. **Stage-Based**: Explicit `--extract`, `--adjust`, `--render` flags for each operation
 2. **Chainable**: Stages automatically pass data to next stage
 3. **Explicit Paths**: All input/output paths determined upfront, passed explicitly to subsystems
 4. **Modern Syntax**: `key=value` format for all parameters
@@ -57,7 +57,7 @@ UserConfig
 
 - **Extractors**: Via `--extract name=<extractor>`
 - **Adjusters**: Via `--adjust name=<adjuster> <params>`
-- **Renderers**: Via `--apply template=<path>`
+- **Renderers**: Via `--render template=<path>`
 - **Pipeline**: Orchestrates all operations via `cvextract.pipeline`
 
 ## Dependencies

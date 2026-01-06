@@ -30,8 +30,8 @@ def execute(work: UnitOfWork) -> UnitOfWork:
                 source = config.extract.source
             elif config.adjust and config.adjust.data:
                 source = config.adjust.data
-            elif config.apply and config.apply.data:
-                source = config.apply.data
+            elif config.render and config.render.data:
+                source = config.render.data
             if source is not None:
                 source_base = source.parent.resolve() if source.is_file() else source.resolve()
             else:

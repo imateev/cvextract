@@ -100,11 +100,11 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
     """
     import json
     
-    if not work.config.apply:
-        return False, ["render: missing apply configuration"], [], None
+    if not work.config.render:
+        return False, ["render: missing render configuration"], [], None
 
     json_path = work.output
-    template_path = work.config.apply.template
+    template_path = work.config.render.template
     input_path = work.initial_input or work.input
     debug = work.config.debug
     skip_compare = not work.config.should_compare
@@ -117,8 +117,8 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         source = None
         if work.config.extract:
             source = work.config.extract.source
-        elif work.config.apply and work.config.apply.data:
-            source = work.config.apply.data
+        elif work.config.render and work.config.render.data:
+            source = work.config.render.data
         elif work.config.adjust and work.config.adjust.data:
             source = work.config.adjust.data
         if source is not None:
@@ -131,7 +131,7 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
     except Exception:
         rel_path = Path(".")
 
-    output_docx = work.config.apply.output or (
+    output_docx = work.config.render.output or (
         work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
     )
     output_docx.parent.mkdir(parents=True, exist_ok=True)

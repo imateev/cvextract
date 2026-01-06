@@ -9,7 +9,7 @@ from cvextract.pipeline_helpers import (
     infer_source_root,
 )
 from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
-from cvextract.cli_config import UserConfig, ExtractStage, ApplyStage, AdjustStage
+from cvextract.cli_config import UserConfig, ExtractStage, RenderStage, AdjustStage
 from cvextract.verifiers import get_verifier
 from cvextract.shared import VerificationResult
 
@@ -184,7 +184,7 @@ class TestRenderAndVerify:
             
             config = UserConfig(
                 target_dir=out_dir,
-                apply=ApplyStage(template=template_path, data=json_path, output=rendered_docx),
+                render=RenderStage(template=template_path, data=json_path, output=rendered_docx),
             )
             work = UnitOfWork(
                 config=config,
@@ -217,7 +217,7 @@ class TestRenderAndVerify:
             
             config = UserConfig(
                 target_dir=out_dir,
-                apply=ApplyStage(template=template_path, data=json_path),
+                render=RenderStage(template=template_path, data=json_path),
                 adjust=AdjustStage(adjusters=[], data=json_path),
             )
             work = UnitOfWork(
@@ -260,7 +260,7 @@ class TestRenderAndVerify:
             
             config = UserConfig(
                 target_dir=out_dir,
-                apply=ApplyStage(template=template_path, data=json_path, output=rendered_docx),
+                render=RenderStage(template=template_path, data=json_path, output=rendered_docx),
             )
             work = UnitOfWork(
                 config=config,
@@ -308,7 +308,7 @@ class TestRenderAndVerify:
             
             config = UserConfig(
                 target_dir=out_dir,
-                apply=ApplyStage(template=template_path, data=json_path, output=rendered_docx),
+                render=RenderStage(template=template_path, data=json_path, output=rendered_docx),
             )
             work = UnitOfWork(
                 config=config,
@@ -336,7 +336,7 @@ class TestRenderAndVerify:
             
             config = UserConfig(
                 target_dir=out_dir,
-                apply=ApplyStage(template=template_path, data=json_path),
+                render=RenderStage(template=template_path, data=json_path),
             )
             work = UnitOfWork(
                 config=config,

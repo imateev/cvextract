@@ -43,7 +43,7 @@ Templates have access to full CV data structure:
 ### Integration Points
 
 - **Renderer**: `cvextract.renderers.DocxCVRenderer` processes templates
-- **CLI**: `--apply template=<path>` specifies template
+- **CLI**: `--render template=<path>` specifies template
 - **Data Source**: CV data conforming to `cvextract/contracts/cv_schema.json`
 
 ## Dependencies

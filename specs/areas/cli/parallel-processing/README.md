@@ -38,13 +38,13 @@ python -m cvextract.cli \
   --extract name=openai-extractor \
   --target output/
 
-# Parallel extract + adjust + apply (20 workers)
+# Parallel extract + adjust + render (20 workers)
 export OPENAI_API_KEY="sk-proj-..."
 python -m cvextract.cli \
   --parallel source=/data/consultants n=20 \
   --extract \
   --adjust name=openai-company-research customer-url=https://target-company.com \
-  --apply template=template.docx \
+  --render template=template.docx \
   --target output/
 
 # Parallel with external provider logging for debugging API interactions
@@ -79,7 +79,7 @@ python -m cvextract.cli \
 ### Worker Configuration
 
 Each worker receives:
-- Same stage configuration (extract, adjust, apply params)
+- Same stage configuration (extract, adjust, render params)
 - Individual input file path
 - Shared output directories
 - Independent logging
@@ -147,7 +147,7 @@ with ThreadPoolExecutor(max_workers=n_workers) as executor:
 
 - Triggered by `--parallel` flag
 - Uses same pipeline as single-file mode
-- Integrates with all stages (extract, adjust, apply)
+- Integrates with all stages (extract, adjust, render)
 
 ## Logging Behavior
 

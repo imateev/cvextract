@@ -31,7 +31,7 @@ The system provides:
 ```bash
 python -m cvextract.cli \
   --extract source=cv.docx \
-  --apply template=my_template.docx \
+  --render template=my_template.docx \
   --target output/
 ```
 
@@ -162,7 +162,7 @@ All fields from CV schema:
 ### Integration Points
 
 - Used by `DocxCVRenderer`
-- Accessed via `--apply template=<path>`
+- Accessed via `--render template=<path>`
 - Sample in `examples/templates/CV_Template_Jinja2.docx`
 
 ## Test Coverage

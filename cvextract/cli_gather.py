@@ -48,7 +48,7 @@ def _handle_list_command(list_type: str) -> None:
         print()
 
 
-from .cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ApplyStage, ParallelStage
+from .cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, RenderStage, ParallelStage
 
 
 def _resolve_output_path(output_str: str, target_dir: Path) -> Path:
@@ -113,7 +113,7 @@ def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
     No side effects - just parsing and conversion to UserConfig.
     """
     parser = argparse.ArgumentParser(
-        description="Extract CV data to JSON and optionally apply a DOCX template.\n\n"
+        description="Extract CV data to JSON and optionally render a DOCX template.\n\n"
                     "All parameters use key=value format (e.g., source=file.docx, name=adjuster-name).",
         epilog="""
 Examples:
@@ -122,29 +122,29 @@ Examples:
       --extract source=cv.docx \\
       --target output/
 
-  Extract and apply a template:
+  Extract and render a template:
     python -m cvextract.cli \\
       --extract source=cv.docx \\
-      --apply template=template.docx \\
+      --render template=template.docx \\
       --target output/
 
-  Extract, adjust for a company, and apply:
+  Extract, adjust for a company, and render:
     python -m cvextract.cli \\
       --extract source=cv.docx \\
       --adjust name=openai-company-research customer-url=https://example.com \\
-      --apply template=template.docx \\
+      --render template=template.docx \\
       --target output/
 
   Adjust for a specific job posting:
     python -m cvextract.cli \\
       --extract source=cv.docx \\
       --adjust name=openai-job-specific job-url=https://example.com/careers/123 \\
-      --apply template=template.docx \\
+      --render template=template.docx \\
       --target output/
 
-  Apply a template to existing JSON file:
+  Render a template to existing JSON file:
     python -m cvextract.cli \\
-      --apply template=template.docx data=extracted.json \\
+      --render template=template.docx data=extracted.json \\
       --target output/
 
   Process directory with parallel workers:
@@ -152,7 +152,7 @@ Examples:
       --parallel source=/var/foo/cvs n=10 \\
       --extract \\
       --adjust name=openai-company-research customer-url=https://example.com \\
-      --apply template=template.docx \\
+      --render template=template.docx \\
       --target output/
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -167,8 +167,8 @@ Examples:
                         help="Adjust stage: Adjust CV data using named adjusters (can be specified multiple times for chaining). "
                              "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] [output=<path>] [openai-model=<model>] [dry-run]. "
                              "Use --list adjusters to see available adjusters.")
-    parser.add_argument("--apply", nargs='*', metavar="PARAM",
-                        help="Apply stage: Apply CV data to DOCX template. "
+    parser.add_argument("--render", nargs='*', metavar="PARAM",
+                        help="Render stage: Render CV data to DOCX template. "
                              "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]")
     parser.add_argument("--parallel", nargs='*', metavar="PARAM",
                         help="Parallel stage: Process entire directory of CV files in parallel. "
@@ -200,15 +200,15 @@ Examples:
         raise ValueError("--target is required when not using --list")
     
     # Check that at least one stage is specified
-    using_stages = any([args.extract is not None, args.adjust is not None, args.apply is not None, args.parallel is not None])
+    using_stages = any([args.extract is not None, args.adjust is not None, args.render is not None, args.parallel is not None])
     
     if not using_stages:
-        raise ValueError("Must specify at least one stage flag (--extract, --adjust, --apply, or --parallel)")
+        raise ValueError("Must specify at least one stage flag (--extract, --adjust, --render, or --parallel)")
     
     # Parse stage-based interface
     extract_stage = None
     adjust_stage = None
-    apply_stage = None
+    render_stage = None
     parallel_stage = None
     
     if args.parallel is not None:
@@ -297,12 +297,12 @@ Examples:
             dry_run=dry_run,
         )
     
-    if args.apply is not None:
-        params = _parse_stage_params(args.apply if args.apply else [])
+    if args.render is not None:
+        params = _parse_stage_params(args.render if args.render else [])
         if 'template' not in params:
-            raise ValueError("--apply requires 'template' parameter")
+            raise ValueError("--render requires 'template' parameter")
         
-        apply_stage = ApplyStage(
+        render_stage = RenderStage(
             template=Path(params['template']),
             data=Path(params['data']) if 'data' in params else None,
             output=_resolve_output_path(params['output'], Path(args.target)) if 'output' in params else None,
@@ -311,7 +311,7 @@ Examples:
     return UserConfig(
         extract=extract_stage,
         adjust=adjust_stage,
-        apply=apply_stage,
+        render=render_stage,
         parallel=parallel_stage,
         target_dir=Path(args.target),
         verbosity=args.verbosity,
