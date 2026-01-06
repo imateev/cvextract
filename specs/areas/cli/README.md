@@ -31,7 +31,7 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 - **Execute Pipeline**: `cvextract/cli_execute_pipeline.py` - Single vs parallel orchestration
 - **Execute Single**: `cvextract/cli_execute_single.py` - Single-file pipeline
 - **Execute Steps**: `cvextract/cli_execute_extract.py`, `cvextract/cli_execute_adjust.py`, `cvextract/cli_execute_render.py` - Stage execution
-- **Parallel**: `cvextract/cli_parallel.py` - Multi-worker batch processing
+- **Parallel**: `cvextract/cli_execute_parallel.py` - Multi-worker batch processing
 
 ### Data Flow
 
@@ -76,5 +76,5 @@ UserConfig
 - Execute Pipeline: `cvextract/cli_execute_pipeline.py`
 - Execute Single: `cvextract/cli_execute_single.py`
 - Execute Steps: `cvextract/cli_execute_extract.py`, `cvextract/cli_execute_adjust.py`, `cvextract/cli_execute_render.py`
-- Parallel: `cvextract/cli_parallel.py`
+- Parallel: `cvextract/cli_execute_parallel.py`
 - Logging: `cvextract/logging_utils.py`

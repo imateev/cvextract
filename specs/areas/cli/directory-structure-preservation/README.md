@@ -112,7 +112,7 @@ Structure preservation was added to support organizational hierarchies (teams, d
 **Key Files**:
 - `cvextract/cli_execute_extract.py` - JSON output path calculation
 - `cvextract/pipeline_helpers.py` - DOCX output path calculation
-- `cvextract/cli_parallel.py` - Parallel mode structure handling
+- `cvextract/cli_execute_parallel.py` - Parallel mode structure handling
 
 ## Use Cases
 

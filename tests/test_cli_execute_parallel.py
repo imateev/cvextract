@@ -1,4 +1,4 @@
-"""Tests for cli_parallel module - parallel directory processing."""
+"""Tests for cli_execute_parallel module - parallel directory processing."""
 
 import zipfile
 import pytest
@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from cvextract.cli_config import UserConfig, ExtractStage, ParallelStage
-from cvextract.cli_parallel import (
+from cvextract.cli_execute_parallel import (
     execute_parallel_pipeline,
     scan_directory_for_files,
 )
@@ -76,7 +76,7 @@ def _make_work(tmp_path: Path, warnings: list[str] | None = None) -> UnitOfWork:
 class TestExecuteParallelPipeline:
     """Tests for execute_parallel_pipeline function."""
     
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_pipeline_all_success(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with all files succeeding."""
         mock_execute.return_value = (0, _make_work(tmp_path))
@@ -97,7 +97,7 @@ class TestExecuteParallelPipeline:
         # Should have been called for each file (5 times)
         assert mock_execute.call_count == 5
     
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_pipeline_some_failures(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with some files failing - should return 0 (success)."""
         # Alternate between success and failure
@@ -187,8 +187,8 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 1
 
-    @patch('cvextract.cli_parallel.LOG.error')
-    @patch('cvextract.cli_parallel.scan_directory_for_files')
+    @patch('cvextract.cli_execute_parallel.LOG.error')
+    @patch('cvextract.cli_execute_parallel.scan_directory_for_files')
     def test_parallel_pipeline_scan_directory_failure_debug_logs(self, mock_scan, mock_log_error, tmp_path: Path):
         """Scan failures should log details and return error when debug enabled."""
         mock_scan.side_effect = RuntimeError("scan failed")
@@ -212,7 +212,7 @@ class TestExecuteParallelPipeline:
         assert mock_log_error.call_count == 2
         assert "Failed to scan directory" in mock_log_error.call_args_list[0][0][0]
     
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_pipeline_with_warnings_returns_zero(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline with warnings returns exit code 0."""
         mock_execute.return_value = (0, _make_work(tmp_path, warnings=["warnings"]))
@@ -230,7 +230,7 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0  # Warnings no longer affect exit code
 
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_pipeline_partial_success(self, mock_execute, tmp_path: Path, test_directory: Path):
         """Test parallel pipeline tracks partial successes (files with warnings)."""
         # Mix of full success, partial success (warnings), and failures
@@ -255,8 +255,8 @@ class TestExecuteParallelPipeline:
         exit_code = execute_parallel_pipeline(config)
         assert mock_execute.call_count == 5
 
-    @patch('cvextract.cli_parallel.LOG.error')
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.LOG.error')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_pipeline_future_exception_logged_and_counted(self, mock_execute, mock_log_error,
                                                                    tmp_path: Path, test_directory: Path):
         """Exceptions raised by workers should be logged and counted as failures."""
@@ -279,8 +279,8 @@ class TestExecuteParallelPipeline:
         assert mock_log_error.call_count == doc_count * 2
         assert any("Unexpected error" in call.args[0] for call in mock_log_error.call_args_list)
 
-    @patch('cvextract.cli_parallel.LOG.info')
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.LOG.info')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_pipeline_logs_failed_files_in_debug_mode(self, mock_execute, mock_log_info,
                                                                tmp_path: Path, test_directory: Path):
         """Debug mode should list failed files after processing."""
@@ -310,7 +310,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_for_docx_files(self, test_directory: Path):
         """Test scanning directory for .docx files using generic function."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         files = scan_directory_for_files(test_directory, "*.docx")
         
@@ -320,7 +320,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_for_txt_files(self, tmp_path: Path):
         """Test scanning directory for .txt files."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -337,7 +337,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_for_pdf_files(self, tmp_path: Path):
         """Test scanning directory for .pdf files."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -354,7 +354,7 @@ class TestScanDirectoryForFiles:
     
     def test_scan_directory_mixed_file_types(self, tmp_path: Path):
         """Test that pattern matching is precise."""
-        from cvextract.cli_parallel import scan_directory_for_files
+        from cvextract.cli_execute_parallel import scan_directory_for_files
         
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -378,7 +378,7 @@ class TestScanDirectoryForFiles:
 class TestFileTypeParameter:
     """Tests for the file-type parameter in parallel processing."""
     
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_with_custom_file_type(self, mock_execute, tmp_path: Path):
         """Test parallel processing with custom file type."""
         mock_execute.return_value = (0, _make_work(tmp_path))
@@ -406,7 +406,7 @@ class TestFileTypeParameter:
         # Should have processed all 3 txt files
         assert mock_execute.call_count == 3
     
-    @patch('cvextract.cli_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.execute_single')
     def test_parallel_default_file_type(self, mock_execute, test_directory: Path, tmp_path: Path):
         """Test parallel processing uses default *.docx file type."""
         mock_execute.return_value = (0, _make_work(tmp_path))
@@ -470,8 +470,8 @@ class TestProgressIndicator:
             and '/' in call.args[2]
         ]
     
-    @patch('cvextract.cli_parallel.execute_single')
-    @patch('cvextract.cli_parallel.LOG.info')
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.LOG.info')
     def test_progress_indicator_shown(self, mock_log_info, mock_execute, test_directory: Path, tmp_path: Path):
         """Test that progress indicator is included in log output."""
         mock_execute.return_value = (0, _make_work(tmp_path))
@@ -495,8 +495,8 @@ class TestProgressIndicator:
         # Should have 5 progress log entries (one per file)
         assert len(progress_indicators) == 5
     
-    @patch('cvextract.cli_parallel.execute_single')
-    @patch('cvextract.cli_parallel.LOG.info')
+    @patch('cvextract.cli_execute_parallel.execute_single')
+    @patch('cvextract.cli_execute_parallel.LOG.info')
     def test_progress_percentage_calculated(self, mock_log_info, mock_execute, tmp_path: Path):
         """Test that progress percentage is calculated correctly."""
         mock_execute.return_value = (0, _make_work(tmp_path))

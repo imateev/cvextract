@@ -174,7 +174,7 @@ Defined in `cvextract/contracts/research_schema.json`:
 Tested in:
 - `tests/test_adjusters.py` - Adjuster integration tests
 - `tests/test_cli_execute.py` - Adjustment flow without cache injection
-- `tests/test_cli_parallel.py` - Upfront research and cache reuse
+- `tests/test_cli_execute_parallel.py` - Upfront research and cache reuse
 
 ## Implementation Details
 

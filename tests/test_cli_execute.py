@@ -713,7 +713,7 @@ class TestFolderStructurePreservation:
         mock_docx.write_text("docx")
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
-        with patch('cvextract.cli_parallel.execute_parallel_pipeline', return_value=0) as mock_parallel:
+        with patch('cvextract.cli_execute_parallel.execute_parallel_pipeline', return_value=0) as mock_parallel:
             config = UserConfig(
                 extract=ExtractStage(source=mock_docx, output=None),
                 adjust=None,

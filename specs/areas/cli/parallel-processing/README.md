@@ -121,7 +121,7 @@ with ThreadPoolExecutor(max_workers=n_workers) as executor:
 ### Internal Dependencies
 
 - `cvextract.cli_execute_single.execute_single()` - Per-file processing
-- `cvextract.cli_parallel.scan_directory_for_files()` - File discovery
+- `cvextract.cli_execute_parallel.scan_directory_for_files()` - File discovery
 - `cvextract.adjusters` - Adjuster implementations for CV optimization
 
 ### External Dependencies
@@ -182,7 +182,7 @@ cvextract.logger -> BufferingLogHandler -> per-file buffer -> atomic flush
 ## Test Coverage
 
 Tested in:
-- `tests/test_cli_parallel.py` - Parallel execution tests
+- `tests/test_cli_execute_parallel.py` - Parallel execution tests
 - `tests/test_pipeline.py` - Multi-file integration tests
 - `tests/test_debug_external.py` - External provider log capture tests
 
@@ -191,7 +191,7 @@ Tested in:
 Parallel processing was added to handle large-scale CV migrations (hundreds of consultants).
 
 **Key Files**:
-- `cvextract/cli_parallel.py` - Parallel execution implementation
+- `cvextract/cli_execute_parallel.py` - Parallel execution implementation
 - `cvextract/cli_execute_single.py` - Single-file execution (reused by workers)
 - `cvextract/output_controller.py` - Buffered output and external log control
 
@@ -243,9 +243,9 @@ python -m cvextract.cli \
 
 ## File Paths
 
-- Implementation: `cvextract/cli_parallel.py`
+- Implementation: `cvextract/cli_execute_parallel.py`
 - Worker Execution: `cvextract/cli_execute_single.py` (reused)
-- Tests: `tests/test_cli_parallel.py`
+- Tests: `tests/test_cli_execute_parallel.py`
 - Documentation: Main README.md "Batch Processing - Extract Multiple Files" section
 
 ## Related Documentation
