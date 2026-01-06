@@ -155,7 +155,6 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
     )
     output_docx.parent.mkdir(parents=True, exist_ok=True)
-    roundtrip_dir = work.config.workspace.verification_dir / rel_path
 
     try:
         # Load CV data from JSON
@@ -190,6 +189,7 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     if skip_compare:
         return render_work
 
+    roundtrip_dir = work.config.workspace.verification_dir / rel_path
     try:
         _, compare_errors, compare_warnings, _ = _roundtrip_compare(
             output_docx,
