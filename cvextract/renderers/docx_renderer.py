@@ -66,7 +66,6 @@ class DocxCVRenderer(CVRenderer):
         # Load and render template
         tpl = DocxTemplate(str(template_path))
         tpl.render(sanitized_data, autoescape=True)
-        work.ensure_step_status(StepName.Render)
 
         # Ensure output directory exists
         work.output.parent.mkdir(parents=True, exist_ok=True)

@@ -88,7 +88,9 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
         message = f"render: {type(e).__name__}"
         LOG.warning("%s", message)
         render_work.add_warning(StepName.Render, message)
+        return render_work
 
+    render_work.ensure_step_status(StepName.Render)
     return render_work
 
 def extract_single(work: UnitOfWork) -> UnitOfWork:
