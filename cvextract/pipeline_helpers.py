@@ -87,6 +87,22 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         return work
 
 
+def _roundtrip_compare(
+    output_docx: Path,
+    roundtrip_dir: Path,
+    original_data: dict,
+) -> tuple[bool, List[str], List[str], bool]:
+    roundtrip_dir.mkdir(parents=True, exist_ok=True)
+    roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
+    roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
+
+    verifier = get_verifier("roundtrip-verifier")
+    cmp = verifier.verify(original_data, target_data=roundtrip_data)
+    if cmp.ok:
+        return True, [], cmp.warnings, True
+    return False, cmp.errors, cmp.warnings, False
+
+
 def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Optional[bool]]:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
@@ -149,18 +165,11 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         if skip_compare:
             return True, [], [], None
 
-        # Round-trip extraction from rendered DOCX
-        roundtrip_dir.mkdir(parents=True, exist_ok=True)
-        roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
-        roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
-
-        original_data = cv_data
-
-        verifier = get_verifier("roundtrip-verifier")
-        cmp = verifier.verify(original_data, target_data=roundtrip_data)
-        if cmp.ok:
-            return True, [], cmp.warnings, True
-        return False, cmp.errors, cmp.warnings, False
+        return _roundtrip_compare(
+            output_docx,
+            roundtrip_dir,
+            cv_data,
+        )
     except Exception as e:
         if debug:
             LOG.error(traceback.format_exc())

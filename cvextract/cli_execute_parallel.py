@@ -119,7 +119,6 @@ class _WorkStatus(str, Enum):
     PARTIAL = "partial"
     FAILED = "failed"
 
-
 def _derive_work_status(work: UnitOfWork) -> "_WorkStatus":
     if not work.has_no_errors():
         return _WorkStatus.FAILED
