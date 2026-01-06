@@ -62,6 +62,13 @@ def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
 
     return input_path.parent.resolve()
 
+def _resolve_parent(input_path, source_base):
+    try:
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+    except Exception:
+        rel_path = Path(".")
+    return rel_path
+
 def _render_docx(work: UnitOfWork) -> UnitOfWork:
     if not work.config.render:
         work.add_error(StepName.Render, "render: missing render configuration")
@@ -73,12 +80,7 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
 
     input_path = work.initial_input or work.input
     source_base = _resolve_source_base_for_render(work, input_path)
-
-    try:
-        rel_path = input_path.parent.resolve().relative_to(source_base)
-    except Exception:
-        rel_path = Path(".")
-
+    rel_path = _resolve_parent(input_path, source_base)
     output_docx = prepare_output_path(work, input_path, rel_path)
     render_work = replace(work, output=output_docx)
 
@@ -167,10 +169,7 @@ def _verify_roundtrip(
 
     input_path = render_work.initial_input or render_work.input
     source_base = _resolve_source_base_for_render(render_work, input_path)
-    try:
-        rel_path = input_path.parent.resolve().relative_to(source_base)
-    except Exception:
-        rel_path = Path(".")
+    rel_path = _resolve_parent(input_path, source_base)
     roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
     try:
         compare_result = _roundtrip_compare(
@@ -221,10 +220,11 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
 
     return _verify_roundtrip(render_work, original_cv_path)
 
-def prepare_output_path(work, input_path, rel_path):
-    output_docx = work.config.render.output or (
-        work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
-    )
+def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:
+    if work.config.render and work.config.render.output:
+        output_docx = work.config.render.output
+    else:
+        output_docx = work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
     output_docx.parent.mkdir(parents=True, exist_ok=True)
     return output_docx
 
