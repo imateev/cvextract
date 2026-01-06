@@ -152,17 +152,6 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
         rel_path = Path(".")
 
     output_docx = prepare_output_path(work, input_path, rel_path)
-
-    try:
-        # Load CV data from JSON
-        with work.output.open("r", encoding="utf-8") as f:
-            cv_data = json.load(f)
-    except Exception as e:
-        if work.config.debug:
-            LOG.error(traceback.format_exc())
-        work.add_error(StepName.Render, f"render: {type(e).__name__}")
-        return work
-
     render_work = replace(work, output=output_docx)
 
     # Render using the new renderer interface (UnitOfWork-based)
