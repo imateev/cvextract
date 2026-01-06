@@ -218,3 +218,38 @@ class TestPrepareExecutionEnvironment:
 
         with pytest.raises(ValueError, match="Target is not a directory"):
             prepare_execution_environment(config)
+
+    def test_prepare_execution_environment_with_adjust_data(self, tmp_path):
+        """Test prepare_execution_environment with adjust stage that has data."""
+        from cvextract.cli_config import AdjustStage, AdjusterConfig
+        
+        target = tmp_path / "output"
+        data = tmp_path / "data.json"
+        data.touch()
+        
+        config = UserConfig(
+            target_dir=target,
+            adjust=AdjustStage(
+                data=data,
+                adjusters=[AdjusterConfig(name="test-adjuster", params={})]
+            )
+        )
+        
+        result = prepare_execution_environment(config)
+        
+        assert result == config
+        assert target.is_dir()
+        assert config.workspace.json_dir.is_dir()
+        assert config.workspace.adjusted_json_dir.is_dir()
+
+    def test_prepare_execution_environment_no_input_source(self, tmp_path):
+        """Test prepare_execution_environment raises error when no input source provided."""
+        target = tmp_path / "output"
+        
+        config = UserConfig(
+            target_dir=target,
+            # No extract, adjust, or render with data
+        )
+        
+        with pytest.raises(ValueError, match="No input source specified"):
+            prepare_execution_environment(config)
