@@ -51,23 +51,6 @@ def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> L
     
     return sorted(files)
 
-
-def scan_directory_for_docx(directory: Path) -> List[Path]:
-    """
-    Recursively scan directory for all .docx files.
-    
-    DEPRECATED: Use scan_directory_for_files() instead.
-    Kept for backward compatibility.
-    
-    Args:
-        directory: Directory to scan
-    
-    Returns:
-        List of Path objects for all .docx files found
-    """
-    return scan_directory_for_files(directory, "*.docx")
-
-
 def _perform_upfront_research(config: UserConfig) -> Optional[Path]:
     """
     Perform company research once upfront before parallel processing.

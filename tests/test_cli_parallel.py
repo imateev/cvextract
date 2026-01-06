@@ -7,10 +7,10 @@ from unittest.mock import patch
 
 from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, ParallelStage
 from cvextract.cli_parallel import (
-    scan_directory_for_docx,
     execute_parallel_pipeline,
     process_single_file_wrapper,
-    _perform_upfront_research
+    _perform_upfront_research,
+    scan_directory_for_files,
 )
 from cvextract.shared import StepName, StepStatus, UnitOfWork
 
@@ -59,45 +59,6 @@ def test_directory(tmp_path: Path):
         zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
     
     return input_dir
-
-
-class TestScanDirectoryForDocx:
-    """Tests for scan_directory_for_docx function."""
-    
-    def test_scan_directory_success(self, test_directory: Path):
-        """Test scanning directory returns all DOCX files."""
-        files = scan_directory_for_docx(test_directory)
-        
-        # Should find 5 files (3 in root, 2 in subdir, ignore temp)
-        assert len(files) == 5
-        
-        # Verify all are Path objects
-        assert all(isinstance(f, Path) for f in files)
-        
-        # Verify all end with .docx
-        assert all(f.suffix == ".docx" for f in files)
-        
-        # Verify temp file is not included
-        assert all(not f.name.startswith("~$") for f in files)
-    
-    def test_scan_directory_not_found(self, tmp_path: Path):
-        """Test scanning non-existent directory raises FileNotFoundError."""
-        non_existent = tmp_path / "does_not_exist"
-        with pytest.raises(FileNotFoundError):
-            scan_directory_for_docx(non_existent)
-    
-    def test_scan_directory_is_file(self, mock_docx: Path):
-        """Test scanning a file instead of directory raises ValueError."""
-        with pytest.raises(ValueError, match="not a directory"):
-            scan_directory_for_docx(mock_docx)
-    
-    def test_scan_empty_directory(self, tmp_path: Path):
-        """Test scanning empty directory returns empty list."""
-        empty_dir = tmp_path / "empty"
-        empty_dir.mkdir()
-        
-        files = scan_directory_for_docx(empty_dir)
-        assert files == []
 
 
 class TestProcessSingleFileWrapper:
@@ -431,7 +392,7 @@ class TestExecuteParallelPipeline:
         
         exit_code = execute_parallel_pipeline(config)
         assert exit_code == 0
-        doc_count = len(scan_directory_for_docx(test_directory))
+        doc_count = len(scan_directory_for_files(test_directory, "*.docx"))
         # Each exception logs the user-facing message and the traceback
         # Two error logs per exception: error message and traceback
         assert mock_log_error.call_count == doc_count * 2
