@@ -15,13 +15,13 @@ from typing import List, Optional
 
 from .cli_config import UserConfig
 from .cli_prepare import _collect_inputs
-from .logging_utils import LOG, fmt_issues
+from .logging_utils import LOG
 from .adjusters import get_adjuster
 from .pipeline_helpers import (
     extract_single,
     render_and_verify,
 )
-from .shared import StepName, StepStatus, UnitOfWork, get_status_icons
+from .shared import StepName, StepStatus, UnitOfWork, emot_work_status
 
 
 def execute_pipeline(config: UserConfig) -> int:
@@ -133,13 +133,7 @@ def execute_pipeline(config: UserConfig) -> int:
         
         # If extraction failed and we need to apply, exit early
         if (not work.has_no_errors(StepName.Extract)) and config.apply:
-            icons = get_status_icons(work)
-            LOG.info("%s%s%s %s | %s", 
-                     icons[StepName.Extract],
-                     icons[StepName.Render],
-                     icons[StepName.Verify],
-                     input_file.name,
-                     fmt_issues(work, StepName.Extract))
+            LOG.info("%s", emot_work_status(work, StepName.Extract))
             return 1
     else:
         # No extraction, use input JSON directly
@@ -223,20 +217,7 @@ def execute_pipeline(config: UserConfig) -> int:
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:
-        extract_ok = not (extract_status.errors if extract_status else [])
-        icons = get_status_icons(work)
-        issue_step = StepName.Extract
-        for candidate in (StepName.Verify, StepName.Render, StepName.Extract):
-            status = work.step_statuses.get(candidate)
-            if status and (status.errors or status.warnings):
-                issue_step = candidate
-                break
-        LOG.info("%s%s%s %s | %s",
-                 icons[StepName.Extract],
-                 icons[StepName.Render],
-                 icons[StepName.Verify],
-                 input_file.name,
-                 fmt_issues(work, issue_step))
+        LOG.info("%s", emot_work_status(work))
     
     # Log summary (unless suppressed for parallel mode)
     if not config.suppress_summary:

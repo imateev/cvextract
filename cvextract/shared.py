@@ -19,6 +19,8 @@ from typing import Optional
 if TYPE_CHECKING:
     from .cli_config import UserConfig
 
+from .logging_utils import fmt_issues
+
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)
 class VerificationResult:
@@ -123,6 +125,27 @@ def get_status_icons(work: "UnitOfWork") -> dict["StepName", str]:
         return "✅"
 
     return {step_name: icon_for(step_name) for step_name in StepName}
+
+
+def emot_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> str:
+    icons = get_status_icons(work)
+    issue_step = step
+    if issue_step is None:
+        for candidate in (StepName.Verify, StepName.Render, StepName.Extract):
+            status = work.step_statuses.get(candidate)
+            if status and (status.errors or status.warnings):
+                issue_step = candidate
+                break
+        if issue_step is None:
+            issue_step = StepName.Extract
+    input_path = work.initial_input or work.input
+    return (
+        f"{icons[StepName.Extract]}"
+        f"{icons[StepName.Render]}"
+        f"{icons[StepName.Verify]} "
+        f"{input_path.name} | "
+        f"{fmt_issues(work, issue_step)}"
+    )
 
 # ------------------------- XML parsing helpers -------------------------
 
