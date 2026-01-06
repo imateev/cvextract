@@ -5,7 +5,7 @@ Step 3: Render/Verify stage execution.
 from __future__ import annotations
 
 from .pipeline_helpers import render_and_verify
-from .shared import StepName, StepStatus, UnitOfWork
+from .shared import StepName, UnitOfWork
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
@@ -28,17 +28,4 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     ):
         return work
 
-    apply_ok, render_errs, apply_warns, compare_ok = render_and_verify(work)
-    work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-    if apply_ok is False and compare_ok is None:
-        for err in render_errs:
-            work.add_error(StepName.Render, err)
-    if compare_ok is not None:
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
-        if compare_ok is False:
-            for err in render_errs:
-                work.add_error(StepName.Verify, err)
-        for warn in apply_warns:
-            work.add_warning(StepName.Verify, warn)
-
-    return work
+    return render_and_verify(work)

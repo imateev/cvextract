@@ -105,7 +105,7 @@ def _roundtrip_compare(
     return False, cmp.errors, cmp.warnings, False
 
 
-def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Optional[bool]]:
+def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
     
@@ -113,15 +113,20 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         work: UnitOfWork with config, output JSON path, and initial input path
     
     Returns:
-        Tuple of (ok, errors, warnings, compare_ok).
-        compare_ok is None if comparison did not run (e.g., render error).
+        UnitOfWork with Render/Verify statuses populated.
     """
     import json
     
+    work.step_statuses.setdefault(StepName.Render, StepStatus(step=StepName.Render))
+
     if not work.config.render:
-        return False, ["render: missing render configuration"], [], None
+        work.add_error(StepName.Render, "render: missing render configuration")
+        return work
 
     json_path = work.output
+    if json_path is None:
+        work.add_error(StepName.Render, "render: input JSON path is not set")
+        return work
     input_path = work.initial_input or work.input
     debug = work.config.debug
     skip_compare = not work.config.should_compare
@@ -158,25 +163,50 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         # Load CV data from JSON
         with json_path.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
-        
-        render_work = replace(work, output=output_docx)
+    except Exception as e:
+        if debug:
+            LOG.error(traceback.format_exc())
+        work.add_error(StepName.Render, f"render: {type(e).__name__}")
+        return work
 
-        # Render using the new renderer interface (UnitOfWork-based)
+    render_work = replace(work, output=output_docx)
+
+    # Render using the new renderer interface (UnitOfWork-based)
+    try:
         render_work = render_cv_data(render_work)
+    except Exception as e:
+        message = f"render: {type(e).__name__}"
+        LOG.warning("%s", message)
+        render_work.add_warning(StepName.Render, message)
+        return render_work
 
-        # Skip compare when explicitly requested by caller
-        if skip_compare:
-            return True, [], [], None
+    render_work.step_statuses.setdefault(StepName.Render, StepStatus(step=StepName.Render))
+    render_status = render_work.step_statuses.get(StepName.Render)
+    if render_status and not render_status.ok:
+        return render_work
 
-        return _roundtrip_compare(
+    # Skip compare when explicitly requested by caller
+    if skip_compare:
+        return render_work
+
+    try:
+        _, compare_errors, compare_warnings, _ = _roundtrip_compare(
             output_docx,
             roundtrip_dir,
             cv_data,
         )
     except Exception as e:
-        if debug:
-            LOG.error(traceback.format_exc())
-        return False, [f"render: {type(e).__name__}"], [], None
+        message = f"compare: {type(e).__name__}"
+        LOG.warning("%s", message)
+        render_work.add_error(StepName.Verify, message)
+        return render_work
+
+    render_work.step_statuses.setdefault(StepName.Verify, StepStatus(step=StepName.Verify))
+    for err in compare_errors:
+        render_work.add_error(StepName.Verify, err)
+    for warn in compare_warnings:
+        render_work.add_warning(StepName.Verify, warn)
+    return render_work
 
 
 def categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:

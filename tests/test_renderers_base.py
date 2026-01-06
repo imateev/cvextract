@@ -338,9 +338,10 @@ class TestCVRendererAbstract:
         impl1 = Impl1()
         impl2 = Impl2()
 
-        work = _make_work(make_render_work, tmp_path)
-        result1 = impl1.render(work)
-        result2 = impl2.render(work)
+        work1 = _make_work(make_render_work, tmp_path)
+        work2 = _make_work(make_render_work, tmp_path)
+        result1 = impl1.render(work1)
+        result2 = impl2.render(work2)
 
         assert str(result1.output) == "format1.docx"
         assert str(result2.output) == "format2.docx"

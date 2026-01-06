@@ -205,7 +205,7 @@ class TestExecutePipelineExtractApply:
                                    tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + apply."""
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -247,7 +247,7 @@ class TestExecutePipelineExtractApply:
                                                  tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test extract + apply with warnings returns 0 (success)."""
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], ["extract warning"])
-        mock_render.return_value = (True, [], ["apply warning"], True)
+        mock_render.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -268,7 +268,7 @@ class TestExecutePipelineApplyOnly:
     def test_apply_from_json_success(self, mock_render,
                                      tmp_path: Path, mock_json: Path, mock_template: Path):
         """Test applying from existing JSON file."""
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
 
         config = UserConfig(
             extract=None,
@@ -286,7 +286,7 @@ class TestExecutePipelineApplyOnly:
     def test_apply_custom_output(self, mock_render,
                                  tmp_path: Path, mock_json: Path, mock_template: Path):
         """Test applying with custom output path."""
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
 
         custom_output = tmp_path / "custom_output.docx"
         config = UserConfig(
@@ -329,7 +329,7 @@ class TestExecutePipelineAdjust:
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
 
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -411,7 +411,7 @@ class TestExecutePipelineAdjust:
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
@@ -495,7 +495,7 @@ class TestExecutePipelineAdjust:
         mock_adjuster.adjust.side_effect = Exception("Adjustment failed")
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -658,7 +658,7 @@ class TestFolderStructurePreservation:
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
-        mock_render.return_value = (True, [], [], True)
+        mock_render.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),

@@ -192,11 +192,13 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
+            verify_status = result.step_statuses[StepName.Verify]
             
-            assert ok is True
-            assert errors == []
-            assert compare_ok is True
+            assert render_status.errors == []
+            assert render_status.warnings == []
+            assert verify_status.errors == []
 
     def testrender_and_verify_skip_compare(self, tmp_path):
         """Test compare skipped when adjust stage is present."""
@@ -226,10 +228,11 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
             
-            assert ok is True
-            assert compare_ok is None  # Not executed
+            assert render_status.errors == []
+            assert StepName.Verify not in result.step_statuses  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
         """Test roundtrip verification directory is created."""
@@ -268,9 +271,10 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
             
-            assert ok is True
+            assert render_status.errors == []
             # Verify roundtrip_dir was created
             expected_dir = out_dir / "verification_structured_data"
             assert expected_dir.exists()
@@ -316,11 +320,12 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
+            verify_status = result.step_statuses[StepName.Verify]
             
-            assert ok is False
-            assert "Mismatch detected" in errors
-            assert compare_ok is False
+            assert render_status.errors == []
+            assert "Mismatch detected" in verify_status.errors
 
     def testrender_and_verify_render_exception(self, tmp_path):
         """Test exception during rendering."""
@@ -344,11 +349,12 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
             
-            assert ok is False
-            assert any("RuntimeError" in e for e in errors)
-            assert compare_ok is None
+            assert render_status.errors == []
+            assert any("RuntimeError" in w for w in render_status.warnings)
+            assert StepName.Verify not in result.step_statuses
 
 
 class TestCategorizeResult:
