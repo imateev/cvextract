@@ -121,21 +121,38 @@ def execute_pipeline(config: UserConfig) -> int:
         work = replace(work, output=output_path)
         work = extract_single(work)
         work = replace(work, input=work.output)
-        extract_status = work.step_statuses.get(StepName.Extract)
-        extract_errs = extract_status.errors if extract_status else []
-        extract_warns = extract_status.warnings if extract_status else []
-        extract_ok = not extract_errs
 
-        if (not extract_ok) and extract_errs and extract_errs[0].startswith("unknown extractor:"):
+        if (
+            (not work.has_no_errors(StepName.Extract))
+            and work.step_statuses.get(StepName.Extract)
+            and work.step_statuses[StepName.Extract].errors
+            and work.step_statuses[StepName.Extract].errors[0].startswith("unknown extractor:")
+        ):
             LOG.error("Unknown extractor: %s", config.extract.name)
             LOG.error("Use --list extractors to see available extractors")
             return 1
         
         # If extraction failed and we need to apply, exit early
-        if (not extract_ok) and config.apply:
-            x_icon, a_icon, c_icon = get_status_icons(extract_ok, bool(extract_warns), None, None)
+        if (not work.has_no_errors(StepName.Extract)) and config.apply:
+            x_icon, a_icon, c_icon = get_status_icons(
+                work.has_no_errors(StepName.Extract),
+                bool(
+                    work.step_statuses[StepName.Extract].warnings
+                    if work.step_statuses.get(StepName.Extract)
+                    else []
+                ),
+                None,
+                None,
+            )
             LOG.info("%s%s%s %s | %s", x_icon, a_icon, c_icon, input_file.name, 
-                     fmt_issues(extract_errs, extract_warns))
+                     fmt_issues(
+                         work.step_statuses[StepName.Extract].errors
+                         if work.step_statuses.get(StepName.Extract)
+                         else [],
+                         work.step_statuses[StepName.Extract].warnings
+                         if work.step_statuses.get(StepName.Extract)
+                         else [],
+                     ))
             return 1
     else:
         # No extraction, use input JSON directly
