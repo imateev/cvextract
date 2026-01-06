@@ -113,14 +113,12 @@ def _process_future_result(
             log_fn(*log_args)
             controller.flush_file(file_path, summary_line)
 
-
 def _derive_work_status(work: UnitOfWork) -> str:
     if not work.has_no_errors():
         return "failed"
     if not work.has_no_warnings_or_errors():
         return "partial"
     return "full"
-
 
 def _emit_parallel_summary(
     total_files: int,
