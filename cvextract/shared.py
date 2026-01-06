@@ -87,6 +87,7 @@ class StepStatus:
     step: StepName
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    ConfiguredExecutorAvailable: bool = True
 
     @property
     def ok(self) -> bool:

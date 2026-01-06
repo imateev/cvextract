@@ -121,12 +121,8 @@ def execute_pipeline(config: UserConfig) -> int:
         work = extract_single(work)
         work = replace(work, input=work.output)
 
-        if (
-            (not work.has_no_errors(StepName.Extract))
-            and work.step_statuses.get(StepName.Extract)
-            and work.step_statuses[StepName.Extract].errors
-            and work.step_statuses[StepName.Extract].errors[0].startswith("unknown extractor:")
-        ):
+        extract_status = work.step_statuses.get(StepName.Extract)
+        if extract_status and not extract_status.ConfiguredExecutorAvailable:
             LOG.error("Unknown extractor: %s", config.extract.name)
             LOG.error("Use --list extractors to see available extractors")
             return 1

@@ -66,6 +66,9 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
             extractor = get_extractor(work.config.extract.name)
             if not extractor:
                 work.AddError(StepName.Extract, f"unknown extractor: {work.config.extract.name}")
+                extract_status = work.step_statuses.get(StepName.Extract)
+                if extract_status:
+                    extract_status.ConfiguredExecutorAvailable = False
                 return work
 
         data = process_single_docx(work.input, out=work.output, extractor=extractor)
