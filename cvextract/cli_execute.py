@@ -7,12 +7,10 @@ Subsystems receive explicit input/output paths.
 
 from __future__ import annotations
 
-import traceback
 from dataclasses import replace
 from typing import List
 
 from .cli_config import UserConfig
-from .cli_prepare import _collect_inputs
 from .logging_utils import LOG
 from .cli_execute_adjust import execute as execute_adjust
 from .cli_execute_extract import execute as execute_extract
@@ -51,22 +49,8 @@ def execute_pipeline(config: UserConfig) -> int:
         LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
         return 1
     
-    # Collect inputs (now expects single file)
-    try:
-        template_path = config.render.template if config.render else None
-        inputs = _collect_inputs(source, is_extraction, template_path)
-    except Exception as e:
-        LOG.error(str(e))
-        if config.debug:
-            LOG.error(traceback.format_exc())
-        return 1
-
-    if not inputs:
-        LOG.error("No matching input files found.")
-        return 1
-
     # Single file processing
-    input_file = inputs[0]
+    input_file = source
     
     # Create output directories
     if config.extract or config.adjust:

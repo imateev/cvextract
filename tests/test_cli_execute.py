@@ -5,7 +5,7 @@ import zipfile
 import pytest
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from cvextract.cli_config import UserConfig, ExtractStage, AdjustStage, AdjusterConfig, RenderStage
 from cvextract.cli_execute import execute_pipeline
@@ -101,11 +101,9 @@ class TestExecutePipelineNoInput:
 class TestExecutePipelineExtractOnly:
     """Tests for execute_pipeline with extract stage only."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_extract_success(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
+    def test_extract_success(self, mock_extract, tmp_path: Path, mock_docx: Path):
         """Test successful extraction."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         config = UserConfig(
@@ -121,10 +119,8 @@ class TestExecutePipelineExtractOnly:
         assert exit_code == 0
         mock_extract.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
-    def test_extract_with_unknown_extractor(self, mock_collect, tmp_path: Path, mock_docx: Path):
+    def test_extract_with_unknown_extractor(self, tmp_path: Path, mock_docx: Path):
         """Test extraction with unknown extractor name returns error."""
-        mock_collect.return_value = [mock_docx]
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None, name='nonexistent-extractor'),
@@ -138,11 +134,9 @@ class TestExecutePipelineExtractOnly:
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_extract_with_warnings_returns_zero(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
+    def test_extract_with_warnings_returns_zero(self, mock_extract, tmp_path: Path, mock_docx: Path):
         """Test extraction with warnings returns 0 (success)."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], ["warning"])
 
         config = UserConfig(
@@ -156,11 +150,9 @@ class TestExecutePipelineExtractOnly:
         exit_code = execute_pipeline(config)
         assert exit_code == 0
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_extract_failure(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
+    def test_extract_failure(self, mock_extract, tmp_path: Path, mock_docx: Path):
         """Test extraction failure returns 1."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, False, ["error"], [])
 
         config = UserConfig(
@@ -174,43 +166,9 @@ class TestExecutePipelineExtractOnly:
         exit_code = execute_pipeline(config)
         assert exit_code == 1
 
-    @patch('cvextract.cli_execute._collect_inputs')
-    def test_extract_collect_inputs_fails(self, mock_collect, tmp_path: Path, mock_docx: Path):
-        """Test that exception during input collection returns 1."""
-        mock_collect.side_effect = Exception("Failed to collect inputs")
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=None,
-            render=None,
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 1
-
-    @patch('cvextract.cli_execute._collect_inputs')
-    def test_extract_no_matching_files(self, mock_collect, tmp_path: Path, mock_docx: Path):
-        """Test that no matching files returns 1."""
-        mock_collect.return_value = []
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=None,
-            render=None,
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 1
-
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_extract_with_custom_output(self, mock_extract, mock_collect, tmp_path: Path, mock_docx: Path):
+    def test_extract_with_custom_output(self, mock_extract, tmp_path: Path, mock_docx: Path):
         """Test extraction with custom output path."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         custom_output = tmp_path / "custom.json"
@@ -233,13 +191,11 @@ class TestExecutePipelineExtractOnly:
 class TestExecutePipelineExtractApply:
     """Tests for execute_pipeline with extract + apply stages."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_extract_apply_success(self, mock_render, mock_extract, mock_collect,
+    def test_extract_apply_success(self, mock_render, mock_extract,
                                    tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + apply."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
         mock_render.return_value = (True, [], [], True)
 
@@ -257,13 +213,11 @@ class TestExecutePipelineExtractApply:
         mock_extract.assert_called_once()
         mock_render.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_extract_fails_apply_skipped(self, mock_render, mock_extract, mock_collect,
+    def test_extract_fails_apply_skipped(self, mock_render, mock_extract,
                                           tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that apply is skipped if extract fails."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, False, ["extract error"], [])
 
         config = UserConfig(
@@ -279,13 +233,11 @@ class TestExecutePipelineExtractApply:
         mock_extract.assert_called_once()
         mock_render.assert_not_called()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_extract_apply_both_warnings_returns_zero(self, mock_render, mock_extract, mock_collect,
+    def test_extract_apply_both_warnings_returns_zero(self, mock_render, mock_extract,
                                                  tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test extract + apply with warnings returns 0 (success)."""
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], ["extract warning"])
         mock_render.return_value = (True, [], ["apply warning"], True)
 
@@ -304,12 +256,10 @@ class TestExecutePipelineExtractApply:
 class TestExecutePipelineApplyOnly:
     """Tests for execute_pipeline with apply stage only (from existing JSON)."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_apply_from_json_success(self, mock_render, mock_collect,
+    def test_apply_from_json_success(self, mock_render,
                                      tmp_path: Path, mock_json: Path, mock_template: Path):
         """Test applying from existing JSON file."""
-        mock_collect.return_value = [mock_json]
         mock_render.return_value = (True, [], [], True)
 
         config = UserConfig(
@@ -324,12 +274,10 @@ class TestExecutePipelineApplyOnly:
         assert exit_code == 0
         mock_render.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_apply_custom_output(self, mock_render, mock_collect,
+    def test_apply_custom_output(self, mock_render,
                                  tmp_path: Path, mock_json: Path, mock_template: Path):
         """Test applying with custom output path."""
-        mock_collect.return_value = [mock_json]
         mock_render.return_value = (True, [], [], True)
 
         custom_output = tmp_path / "custom_output.docx"
@@ -350,14 +298,12 @@ class TestExecutePipelineApplyOnly:
 class TestExecutePipelineAdjust:
     """Tests for execute_pipeline with adjust stage."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_extract_adjust_apply_success(self, mock_render, mock_get_adjuster, mock_extract, mock_collect,
+    def test_extract_adjust_apply_success(self, mock_render, mock_get_adjuster, mock_extract,
                                           tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test successful extract + adjust + apply."""
-        mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
@@ -401,13 +347,11 @@ class TestExecutePipelineAdjust:
         mock_adjuster.adjust.assert_called_once()
         mock_render.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
-    def test_adjust_dry_run_skips_apply(self, mock_get_adjuster, mock_extract, mock_collect,
+    def test_adjust_dry_run_skips_apply(self, mock_get_adjuster, mock_extract,
                                         tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that dry-run mode skips apply stage."""
-        mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
@@ -447,13 +391,11 @@ class TestExecutePipelineAdjust:
         mock_extract.assert_called_once()
         mock_adjuster.adjust.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_adjust_from_json(self, mock_render, mock_get_adjuster, mock_collect,
+    def test_adjust_from_json(self, mock_render, mock_get_adjuster,
                              tmp_path: Path, mock_json: Path, mock_template: Path):
         """Test adjust from existing JSON without extraction."""
-        mock_collect.return_value = [mock_json]
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
@@ -485,14 +427,12 @@ class TestExecutePipelineAdjust:
         mock_adjuster.adjust.assert_called_once()
         mock_render.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
-    def test_adjust_research_cache_is_delegated(self, mock_get_adjuster, mock_collect,
+    def test_adjust_research_cache_is_delegated(self, mock_get_adjuster,
                                                 tmp_path: Path, parallel_input_tree):
         """Research cache decision is delegated to the adjuster, not CLI."""
         payload = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
         input_json = parallel_input_tree.json("folder/profile.json", payload)
-        mock_collect.return_value = [input_json]
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
@@ -528,14 +468,12 @@ class TestExecutePipelineAdjust:
         call_kwargs = mock_adjuster.adjust.call_args.kwargs
         assert 'cache_path' not in call_kwargs
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_adjust_exception_fallback(self, mock_render, mock_get_adjuster, mock_extract, mock_collect,
+    def test_adjust_exception_fallback(self, mock_render, mock_get_adjuster, mock_extract,
                                        tmp_path: Path, mock_docx: Path, mock_template: Path):
         """Test that adjustment exceptions are handled and apply proceeds with original JSON."""
-        mock_collect.return_value = [mock_docx]
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
@@ -574,78 +512,14 @@ class TestExecutePipelineAdjust:
         mock_render.assert_called_once()
 
 
-class TestExecutePipelineDirectoryRejection:
-    """Tests for execute_pipeline when directory is provided instead of single file."""
-
-    def test_directory_in_extract_mode_returns_error(self, tmp_path: Path):
-        """Test that providing a directory in extract mode returns error code 1."""
-        docx_dir = tmp_path / "cvs"
-        docx_dir.mkdir()
-        (docx_dir / "a.docx").write_text("x")
-        (docx_dir / "b.docx").write_text("y")
-
-        config = UserConfig(
-            extract=ExtractStage(source=docx_dir, output=None),
-            adjust=None,
-            render=None,
-            target_dir=tmp_path / "out",
-            verbosity="minimal",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 1
-
-    def test_directory_in_apply_mode_returns_error(self, tmp_path: Path):
-        """Test that providing a directory in apply mode returns error code 1."""
-        json_dir = tmp_path / "jsons"
-        json_dir.mkdir()
-        (json_dir / "a.json").write_text("{}")
-        (json_dir / "b.json").write_text("{}")
-
-        template = tmp_path / "template.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        config = UserConfig(
-            extract=None,
-            adjust=None,
-            render=RenderStage(template=template, data=json_dir, output=None),
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 1
-
-
 class TestExecutePipelineDebugMode:
     """Tests for execute_pipeline with debug mode."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
-    def test_collect_inputs_exception_debug_mode(self, mock_collect, tmp_path: Path, mock_docx: Path):
-        """Test that exceptions in debug mode are logged with traceback."""
-        mock_collect.side_effect = Exception("Collection error")
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=None,
-            render=None,
-            target_dir=tmp_path / "out",
-            verbosity="debug",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 1
-
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
-    def test_adjust_exception_debug_mode(self, mock_get_adjuster, mock_extract, mock_collect,
+    def test_adjust_exception_debug_mode(self, mock_get_adjuster, mock_extract,
                                          tmp_path: Path, mock_docx: Path):
         """Test that adjust exceptions in debug mode are logged."""
-        mock_collect.return_value = [mock_docx]
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(json.dumps({"identity": {}, "sidebar": {}, "overview": "", "experiences": []}))
@@ -679,63 +553,16 @@ class TestExecutePipelineDebugMode:
         assert exit_code == 0  # Dry run doesn't fail on adjust error
 
 
-class TestExecutePipelineSkipNonMatchingFiles:
-    """Tests that non-matching file extensions return appropriate errors."""
-
-    def test_non_docx_for_extract_returns_error(self, tmp_path: Path):
-        """Test that non-DOCX files return error during extraction."""
-        txt_file = tmp_path / "test.txt"
-        txt_file.write_text("not a docx")
-
-        config = UserConfig(
-            extract=ExtractStage(source=txt_file, output=None),
-            adjust=None,
-            render=None,
-            target_dir=tmp_path / "out",
-            verbosity="minimal",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        # Should return error code 1 for wrong file type (from _collect_inputs)
-        assert exit_code == 1
-
-    @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_non_json_for_apply_returns_error(self, mock_render, tmp_path: Path):
-        """Test that non-JSON files return error during apply-only mode."""
-        txt_file = tmp_path / "test.txt"
-        txt_file.write_text("not json")
-
-        template = tmp_path / "template.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
-            zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-
-        config = UserConfig(
-            extract=None,
-            adjust=None,
-            render=RenderStage(template=template, data=txt_file, output=None),
-            target_dir=tmp_path / "out",
-            log_file=None
-        )
-
-        exit_code = execute_pipeline(config)
-        # Should return error code 1 for wrong file type (from _collect_inputs)
-        assert exit_code == 1
-        mock_render.assert_not_called()
-
-
 class TestFolderStructurePreservation:
     """Tests for preserving folder structure in output directories."""
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_extract_preserves_folder_structure(self, mock_extract, mock_collect,
+    def test_extract_preserves_folder_structure(self, mock_extract,
                                                 tmp_path: Path, parallel_input_tree):
         """Test that extracted JSON files preserve folder structure."""
         # Create a nested input file structure rooted under the simulated parallel input tree
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
 
-        mock_collect.return_value = [input_file]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         config = UserConfig(
@@ -760,16 +587,14 @@ class TestFolderStructurePreservation:
         assert "Software Engineering" in str(output_json)
         assert output_json.parent.parent.parent == tmp_path / "output" / "structured_data"
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_adjust.get_adjuster')
-    def test_adjust_preserves_folder_structure(self, mock_get_adjuster, mock_extract, mock_collect,
+    def test_adjust_preserves_folder_structure(self, mock_get_adjuster, mock_extract,
                                                tmp_path: Path, parallel_input_tree):
         """Test that adjusted JSON files preserve folder structure."""
         # Create nested input rooted at parallel tree to capture rel_path logic
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
 
-        mock_collect.return_value = [input_file]
 
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
@@ -810,16 +635,14 @@ class TestFolderStructurePreservation:
         # Verify that adjusted JSON would be created with the same structure
         mock_adjuster.adjust.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
     @patch('cvextract.cli_execute_render.render_and_verify')
-    def test_apply_preserves_folder_structure(self, mock_render, mock_extract, mock_collect,
+    def test_apply_preserves_folder_structure(self, mock_render, mock_extract,
                                              tmp_path: Path, mock_template: Path, parallel_input_tree):
         """Test that output DOCX files preserve folder structure."""
         # Create nested input rooted at the simulated parallel tree
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
 
-        mock_collect.return_value = [input_file]
 
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
@@ -856,9 +679,8 @@ class TestFolderStructurePreservation:
         assert "Software Engineering" in str(output_docx)
         assert output_docx.parent.parent.parent == tmp_path / "output" / "documents"
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_flat_structure_without_input_dir(self, mock_extract, mock_collect, tmp_path: Path):
+    def test_flat_structure_without_input_dir(self, mock_extract, tmp_path: Path):
         """Test that without input_dir, structure defaults to flat (backward compatibility)."""
         # Create a nested input file
         input_dir = tmp_path / "input" / "DACH" / "Software Engineering"
@@ -866,7 +688,6 @@ class TestFolderStructurePreservation:
         input_file = input_dir / "profile.docx"
         input_file.write_text("docx")
 
-        mock_collect.return_value = [input_file]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         config = UserConfig(
@@ -885,13 +706,11 @@ class TestFolderStructurePreservation:
         # If source is a file, rel_path will be calculated from source.parent
         mock_extract.assert_called_once()
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_parallel_mode_delegates_to_parallel_pipeline(self, mock_extract, mock_collect, tmp_path: Path):
+    def test_parallel_mode_delegates_to_parallel_pipeline(self, mock_extract, tmp_path: Path):
         """execute_pipeline() with parallel=True delegates to execute_parallel_pipeline."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.write_text("docx")
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         with patch('cvextract.cli_parallel.execute_parallel_pipeline', return_value=0) as mock_parallel:
@@ -908,13 +727,11 @@ class TestFolderStructurePreservation:
             assert exit_code == 0
             mock_parallel.assert_called_once_with(config)
 
-    @patch('cvextract.cli_execute._collect_inputs')
     @patch('cvextract.cli_execute_extract.extract_single')
-    def test_relative_path_calculation_with_value_error_fallback(self, mock_extract, mock_collect, tmp_path: Path):
+    def test_relative_path_calculation_with_value_error_fallback(self, mock_extract, tmp_path: Path):
         """execute_pipeline() falls back to '.' when relative_to() raises ValueError."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.write_text("docx")
-        mock_collect.return_value = [mock_docx]
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
 
         # Create a config where input_dir is outside of the resolved input_file parent

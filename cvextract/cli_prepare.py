@@ -62,6 +62,22 @@ def prepare_execution_environment(config: UserConfig) -> UserConfig:
             LOG.error("Template not found or not a .docx: %s", config.render.template)
             raise ValueError(f"Invalid template: {config.render.template}")
 
+    if not config.parallel:
+        if config.extract:
+            source = config.extract.source
+            is_extraction = True
+        elif config.render and config.render.data:
+            source = config.render.data
+            is_extraction = False
+        elif config.adjust and config.adjust.data:
+            source = config.adjust.data
+            is_extraction = False
+        else:
+            raise ValueError(
+                "No input source specified. Use source= in --extract, or data= in --render when not chained with --extract"
+            )
+        _collect_inputs(source, is_extraction, None)
+
     # Validate target directory
     config.target_dir.mkdir(parents=True, exist_ok=True)
     if not config.target_dir.is_dir():
