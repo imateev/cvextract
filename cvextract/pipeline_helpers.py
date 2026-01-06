@@ -122,7 +122,6 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         return False, ["render: missing render configuration"], [], None
 
     json_path = work.output
-    template_path = work.config.render.template
     input_path = work.initial_input or work.input
     debug = work.config.debug
     skip_compare = not work.config.should_compare
@@ -160,8 +159,10 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         with json_path.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
         
-        # Render using the new renderer interface (with explicit output path)
-        render_cv_data(cv_data, template_path, output_docx)
+        render_work = replace(work, output=output_docx)
+
+        # Render using the new renderer interface (UnitOfWork-based)
+        render_work = render_cv_data(render_work)
 
         # Skip compare when explicitly requested by caller
         if skip_compare:

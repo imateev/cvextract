@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 
 from .extractors import DocxCVExtractor, CVExtractor
 from .renderers import get_renderer
+from .shared import UnitOfWork
     
 # ------------------------- High-level pipeline -------------------------
 
@@ -34,25 +35,23 @@ def extract_cv_structure(
         extractor = DocxCVExtractor()
     return extractor.extract(source_path)
 
-def render_cv_data(cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+def render_cv_data(work: UnitOfWork) -> UnitOfWork:
     """
     Render CV data to a DOCX file using the default renderer.
     
-    This function maintains backward compatibility while using the new
-    pluggable renderer architecture.
+    This function uses the default renderer from the pluggable
+    renderer architecture.
     
     Args:
-        cv_data: Dictionary containing CV data conforming to cv_schema.json
-        template_path: Path to the template file
-        output_path: Path where the rendered output should be saved
+        work: UnitOfWork containing render configuration and paths.
     
     Returns:
-        Path to the rendered output file
+        UnitOfWork with rendered output populated
     """
     renderer = get_renderer("private-internal-renderer")
     if not renderer:
         raise ValueError("Default renderer 'private-internal-renderer' not found")
-    return renderer.render(cv_data, template_path, output_path)
+    return renderer.render(work)
 
 def process_single_docx(
     source_path: Path, 

@@ -97,8 +97,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_render(_cv_data, _template, output_path):
-        return output_path
+    def fake_render(work):
+        return work
 
     def fake_process(_docx, out=None):
         if out:
@@ -135,7 +135,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
 
-    def fake_render(_cv_data, _template, _output_path):
+    def fake_render(_work):
         raise ValueError("render failed")
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
@@ -161,8 +161,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_render(_cv_data, _template, output_path):
-        return output_path
+    def fake_render(work):
+        return work
 
     def fake_process(_docx, out=None):
         return {"a": 2}

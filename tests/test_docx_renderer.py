@@ -9,6 +9,7 @@ import pytest
 from pathlib import Path
 from docx import Document
 from cvextract.renderers import DocxCVRenderer
+from cvextract.shared import UnitOfWork
 
 
 @pytest.fixture
@@ -100,7 +101,7 @@ class TestDocxCVRendererBasicFunctionality:
         renderer = DocxCVRenderer()
         assert renderer is not None
     
-    def test_render_creates_output_file(self, minimal_template, tmp_path):
+    def test_render_creates_output_file(self, minimal_template, tmp_path, make_render_work):
         """Rendering creates an output DOCX file."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "output.docx"
@@ -117,14 +118,15 @@ class TestDocxCVRendererBasicFunctionality:
             "experiences": []
         }
         
-        result = renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        result = renderer.render(work)
         
-        assert result == output_path
+        assert result.output == output_path
         assert output_path.exists()
         assert output_path.is_file()
         assert output_path.stat().st_size > 0
     
-    def test_render_returns_output_path(self, minimal_template, tmp_path):
+    def test_render_returns_output_path(self, minimal_template, tmp_path, make_render_work):
         """Render method returns the output path."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "test_output.docx"
@@ -136,15 +138,16 @@ class TestDocxCVRendererBasicFunctionality:
             "experiences": []
         }
         
-        result = renderer.render(cv_data, minimal_template, output_path)
-        assert isinstance(result, Path)
-        assert result == output_path
+        work = make_render_work(cv_data, minimal_template, output_path)
+        result = renderer.render(work)
+        assert isinstance(result, UnitOfWork)
+        assert result.output == output_path
 
 
 class TestDocxCVRendererValidation:
     """Test input validation."""
     
-    def test_raises_error_when_template_not_exists(self, tmp_path):
+    def test_raises_error_when_template_not_exists(self, tmp_path, make_render_work):
         """Raises FileNotFoundError when template doesn't exist."""
         renderer = DocxCVRenderer()
         non_existent = tmp_path / "does_not_exist.docx"
@@ -157,10 +160,11 @@ class TestDocxCVRendererValidation:
             "experiences": []
         }
         
+        work = make_render_work(cv_data, non_existent, output_path)
         with pytest.raises(FileNotFoundError, match="Template file not found"):
-            renderer.render(cv_data, non_existent, output_path)
+            renderer.render(work)
     
-    def test_raises_error_when_template_is_directory(self, tmp_path):
+    def test_raises_error_when_template_is_directory(self, tmp_path, make_render_work):
         """Raises ValueError when template path is a directory."""
         renderer = DocxCVRenderer()
         template_dir = tmp_path / "template_dir.docx"
@@ -174,10 +178,11 @@ class TestDocxCVRendererValidation:
             "experiences": []
         }
         
+        work = make_render_work(cv_data, template_dir, output_path)
         with pytest.raises(ValueError, match="not a file"):
-            renderer.render(cv_data, template_dir, output_path)
+            renderer.render(work)
     
-    def test_raises_error_when_template_not_docx(self, tmp_path):
+    def test_raises_error_when_template_not_docx(self, tmp_path, make_render_work):
         """Raises ValueError when template is not a .docx file."""
         renderer = DocxCVRenderer()
         txt_file = tmp_path / "template.txt"
@@ -191,14 +196,15 @@ class TestDocxCVRendererValidation:
             "experiences": []
         }
         
+        work = make_render_work(cv_data, txt_file, output_path)
         with pytest.raises(ValueError, match="must be a .docx file"):
-            renderer.render(cv_data, txt_file, output_path)
+            renderer.render(work)
 
 
 class TestDocxCVRendererDataRendering:
     """Test that CV data is correctly rendered into templates."""
     
-    def test_renders_identity_data(self, minimal_template, tmp_path):
+    def test_renders_identity_data(self, minimal_template, tmp_path, make_render_work):
         """Identity data is correctly rendered in output."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "output.docx"
@@ -215,7 +221,8 @@ class TestDocxCVRendererDataRendering:
             "experiences": []
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         # Read the output and verify content
         doc = Document(str(output_path))
@@ -224,12 +231,13 @@ class TestDocxCVRendererDataRendering:
         assert "Alice Johnson" in text
         assert "Chief Technology Officer" in text
     
-    def test_renders_complete_cv_data(self, full_template, sample_cv_data, tmp_path):
+    def test_renders_complete_cv_data(self, full_template, sample_cv_data, tmp_path, make_render_work):
         """Complete CV data is rendered correctly."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "full_cv.docx"
         
-        renderer.render(sample_cv_data, full_template, output_path)
+        work = make_render_work(sample_cv_data, full_template, output_path)
+        renderer.render(work)
         
         # Verify output file
         doc = Document(str(output_path))
@@ -245,7 +253,7 @@ class TestDocxCVRendererDataRendering:
         # Check sidebar data is present
         assert "Python" in text or "Languages:" in text
     
-    def test_renders_with_empty_optional_fields(self, minimal_template, tmp_path):
+    def test_renders_with_empty_optional_fields(self, minimal_template, tmp_path, make_render_work):
         """Renders successfully with empty optional fields."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "minimal_cv.docx"
@@ -262,7 +270,8 @@ class TestDocxCVRendererDataRendering:
             "experiences": []  # No experiences
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         # Should still create a valid file
         assert output_path.exists()
@@ -274,7 +283,7 @@ class TestDocxCVRendererDataRendering:
 class TestDocxCVRendererSpecialCharacters:
     """Test handling of special characters and sanitization."""
     
-    def test_handles_special_xml_characters(self, minimal_template, tmp_path):
+    def test_handles_special_xml_characters(self, minimal_template, tmp_path, make_render_work):
         """Special XML characters are properly handled."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "special_chars.docx"
@@ -292,8 +301,9 @@ class TestDocxCVRendererSpecialCharacters:
         }
         
         # Should not raise an error
-        renderer.render(cv_data, minimal_template, output_path)
-        
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
+    
         assert output_path.exists()
         doc = Document(str(output_path))
         text = '\n'.join([p.text for p in doc.paragraphs])
@@ -302,7 +312,7 @@ class TestDocxCVRendererSpecialCharacters:
         assert "O'Brien" in text or "OBrien" in text
         assert "Engineer" in text
     
-    def test_sanitizes_non_breaking_spaces(self, minimal_template, tmp_path):
+    def test_sanitizes_non_breaking_spaces(self, minimal_template, tmp_path, make_render_work):
         """Non-breaking spaces are sanitized."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "nbsp.docx"
@@ -320,7 +330,8 @@ class TestDocxCVRendererSpecialCharacters:
         }
         
         # Should render without error
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
         doc = Document(str(output_path))
@@ -330,7 +341,7 @@ class TestDocxCVRendererSpecialCharacters:
         assert "Engineer" in text
         assert "Test" in text and "User" in text
     
-    def test_sanitizes_soft_hyphens(self, minimal_template, tmp_path):
+    def test_sanitizes_soft_hyphens(self, minimal_template, tmp_path, make_render_work):
         """Soft hyphens are sanitized."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "soft_hyphen.docx"
@@ -347,7 +358,8 @@ class TestDocxCVRendererSpecialCharacters:
             "experiences": []
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
         doc = Document(str(output_path))
@@ -360,7 +372,7 @@ class TestDocxCVRendererSpecialCharacters:
 class TestDocxCVRendererOutputDirectory:
     """Test output directory handling."""
     
-    def test_creates_output_directory_if_not_exists(self, minimal_template, tmp_path):
+    def test_creates_output_directory_if_not_exists(self, minimal_template, tmp_path, make_render_work):
         """Creates output directory structure if it doesn't exist."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "nested" / "dirs" / "output.docx"
@@ -375,13 +387,14 @@ class TestDocxCVRendererOutputDirectory:
             "experiences": []
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         # Directory should now exist
         assert output_path.parent.exists()
         assert output_path.exists()
     
-    def test_works_with_existing_output_directory(self, minimal_template, tmp_path):
+    def test_works_with_existing_output_directory(self, minimal_template, tmp_path, make_render_work):
         """Works correctly when output directory already exists."""
         renderer = DocxCVRenderer()
         output_dir = tmp_path / "existing_dir"
@@ -395,7 +408,8 @@ class TestDocxCVRendererOutputDirectory:
             "experiences": []
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
 
@@ -403,7 +417,7 @@ class TestDocxCVRendererOutputDirectory:
 class TestDocxCVRendererComplexData:
     """Test rendering with complex, nested CV data."""
     
-    def test_renders_multiple_experiences(self, full_template, tmp_path):
+    def test_renders_multiple_experiences(self, full_template, tmp_path, make_render_work):
         """Multiple experience entries are rendered."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "multi_exp.docx"
@@ -446,7 +460,8 @@ class TestDocxCVRendererComplexData:
             ]
         }
         
-        renderer.render(cv_data, full_template, output_path)
+        work = make_render_work(cv_data, full_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
         doc = Document(str(output_path))
@@ -455,12 +470,13 @@ class TestDocxCVRendererComplexData:
         # Should contain data from the CV
         assert "Multi Exp" in text
     
-    def test_renders_with_all_sidebar_fields(self, full_template, sample_cv_data, tmp_path):
+    def test_renders_with_all_sidebar_fields(self, full_template, sample_cv_data, tmp_path, make_render_work):
         """All sidebar fields are rendered correctly."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "full_sidebar.docx"
         
-        renderer.render(sample_cv_data, full_template, output_path)
+        work = make_render_work(sample_cv_data, full_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
         doc = Document(str(output_path))
@@ -473,7 +489,7 @@ class TestDocxCVRendererComplexData:
 class TestDocxCVRendererEdgeCases:
     """Test edge cases and unusual inputs."""
     
-    def test_handles_unicode_characters(self, minimal_template, tmp_path):
+    def test_handles_unicode_characters(self, minimal_template, tmp_path, make_render_work):
         """Unicode characters in various languages are handled."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "unicode.docx"
@@ -490,14 +506,15 @@ class TestDocxCVRendererEdgeCases:
             "experiences": []
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
         doc = Document(str(output_path))
         # Just verify it doesn't crash and creates valid output
         assert len(doc.paragraphs) > 0
     
-    def test_handles_very_long_text(self, minimal_template, tmp_path):
+    def test_handles_very_long_text(self, minimal_template, tmp_path, make_render_work):
         """Very long text content is handled correctly."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "long_text.docx"
@@ -516,12 +533,13 @@ class TestDocxCVRendererEdgeCases:
             "experiences": []
         }
         
-        renderer.render(cv_data, minimal_template, output_path)
+        work = make_render_work(cv_data, minimal_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()
         assert output_path.stat().st_size > 1000  # Should be substantial
     
-    def test_renders_with_none_environment(self, full_template, tmp_path):
+    def test_renders_with_none_environment(self, full_template, tmp_path, make_render_work):
         """Handles experience entries with None environment field."""
         renderer = DocxCVRenderer()
         output_path = tmp_path / "none_env.docx"
@@ -540,6 +558,7 @@ class TestDocxCVRendererEdgeCases:
             ]
         }
         
-        renderer.render(cv_data, full_template, output_path)
+        work = make_render_work(cv_data, full_template, output_path)
+        renderer.render(work)
         
         assert output_path.exists()

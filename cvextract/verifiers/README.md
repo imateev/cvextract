@@ -224,18 +224,31 @@ if schema_result.ok:
 ### Roundtrip Verification
 
 ```python
+from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.extractors import DocxCVExtractor
 from cvextract.renderers import DocxCVRenderer
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 from pathlib import Path
+import json
 
 # Extract original data
 extractor = DocxCVExtractor()
 original_data = extractor.extract(Path("cv.docx"))
 
 # Render to new document
+json_path = Path("roundtrip.json")
+json_path.write_text(json.dumps(original_data, indent=2), encoding="utf-8")
+output_path = Path("output.docx")
+
+config = UserConfig(
+    target_dir=Path("."),
+    render=RenderStage(template=Path("template.docx"), data=json_path, output=output_path),
+)
+work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
+
 renderer = DocxCVRenderer()
-renderer.render(original_data, Path("template.docx"), Path("output.docx"))
+renderer.render(work)
 
 # Extract from rendered document
 roundtrip_data = extractor.extract(Path("output.docx"))

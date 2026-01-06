@@ -27,10 +27,10 @@ The rendering area provides a pluggable architecture for rendering structured CV
 ### Data Flow
 
 ```
-CV JSON Data + Template File
+UnitOfWork (input JSON + template + output path)
     │
     v
-[Renderer.render(cv_data, template_path, output_path)]
+[Renderer.render(work)]
     │
     v
 Rendered Document (.docx)

@@ -49,7 +49,7 @@ class TestDocxCVRenderer:
         assert isinstance(renderer, CVRenderer)
         assert isinstance(renderer, DocxCVRenderer)
 
-    def test_render_raises_file_not_found_for_missing_template(self, tmp_path):
+    def test_render_raises_file_not_found_for_missing_template(self, tmp_path, make_render_work):
         """render() raises FileNotFoundError for non-existent template."""
         renderer = DocxCVRenderer()
         cv_data = {
@@ -63,10 +63,11 @@ class TestDocxCVRenderer:
             "overview": "",
             "experiences": []
         }
+        work = make_render_work(cv_data, Path("/nonexistent/template.docx"), tmp_path / "out.docx")
         with pytest.raises(FileNotFoundError):
-            renderer.render(cv_data, Path("/nonexistent/template.docx"), tmp_path / "out.docx")
+            renderer.render(work)
 
-    def test_render_raises_value_error_for_non_docx_template(self, tmp_path):
+    def test_render_raises_value_error_for_non_docx_template(self, tmp_path, make_render_work):
         """render() raises ValueError for non-.docx template files."""
         renderer = DocxCVRenderer()
         txt_file = tmp_path / "template.txt"
@@ -82,8 +83,9 @@ class TestDocxCVRenderer:
             "overview": "",
             "experiences": []
         }
+        work = make_render_work(cv_data, txt_file, tmp_path / "out.docx")
         with pytest.raises(ValueError, match="must be a .docx file"):
-            renderer.render(cv_data, txt_file, tmp_path / "out.docx")
+            renderer.render(work)
 
     def test_docx_renderer_implements_cv_renderer(self):
         """DocxCVRenderer properly implements CVRenderer interface."""
@@ -95,23 +97,25 @@ class TestDocxCVRenderer:
 class TestRendererPluggability:
     """Tests for renderer pluggability and interchangeability."""
 
-    def test_custom_renderer_can_be_created(self, tmp_path):
+    def test_custom_renderer_can_be_created(self, tmp_path, make_render_work):
         """Custom renderers can be created by implementing CVRenderer."""
         
         class MockCVRenderer(CVRenderer):
             def __init__(self):
                 self.last_render = None
             
-            def render(self, cv_data, template_path, output_path):
+            def render(self, work):
+                with work.input.open("r", encoding="utf-8") as f:
+                    cv_data = json.load(f)
                 self.last_render = {
                     "cv_data": cv_data,
-                    "template": template_path,
-                    "output": output_path
+                    "template": work.config.render.template,
+                    "output": work.output,
                 }
                 # Create a mock output file
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text("Mock rendered content")
-                return output_path
+                work.output.parent.mkdir(parents=True, exist_ok=True)
+                work.output.write_text("Mock rendered content")
+                return work
 
         renderer = MockCVRenderer()
         cv_data = {
@@ -125,26 +129,28 @@ class TestRendererPluggability:
             "overview": "Mock overview",
             "experiences": []
         }
-        output = renderer.render(cv_data, tmp_path / "template.docx", tmp_path / "output.docx")
+        work = make_render_work(cv_data, tmp_path / "template.docx", tmp_path / "output.docx")
+        result = renderer.render(work)
         assert renderer.last_render["cv_data"] == cv_data
-        assert output.exists()
-        assert output.read_text() == "Mock rendered content"
+        assert result.output.exists()
+        assert result.output.read_text() == "Mock rendered content"
 
 
 class TestRendererWithExternalParameters:
     """Tests for passing template and data as external parameters."""
 
-    def test_renderer_accepts_external_cv_data(self, tmp_path):
+    def test_renderer_accepts_external_cv_data(self, tmp_path, make_render_work):
         """Renderer can accept CV data from external sources."""
         
         class MockCVRenderer(CVRenderer):
-            def render(self, cv_data, template_path, output_path):
-                # Verify data is passed correctly
+            def render(self, work):
+                with work.input.open("r", encoding="utf-8") as f:
+                    cv_data = json.load(f)
                 assert "identity" in cv_data
                 assert "sidebar" in cv_data
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(json.dumps(cv_data))
-                return output_path
+                work.output.parent.mkdir(parents=True, exist_ok=True)
+                work.output.write_text(json.dumps(cv_data))
+                return work
 
         # Simulate external data source
         external_data = {
@@ -166,23 +172,24 @@ class TestRendererWithExternalParameters:
         }
 
         renderer = MockCVRenderer()
-        output = renderer.render(external_data, tmp_path / "template.docx", tmp_path / "output.docx")
+        work = make_render_work(external_data, tmp_path / "template.docx", tmp_path / "output.docx")
+        result = renderer.render(work)
         
         # Verify output contains the external data
-        rendered_data = json.loads(output.read_text())
+        rendered_data = json.loads(result.output.read_text())
         assert rendered_data["identity"]["full_name"] == "Jane Doe"
         assert "Python" in rendered_data["sidebar"]["languages"]
 
-    def test_renderer_accepts_external_template_path(self, tmp_path):
+    def test_renderer_accepts_external_template_path(self, tmp_path, make_render_work):
         """Renderer can accept template path from external source."""
         
         class MockCVRenderer(CVRenderer):
-            def render(self, cv_data, template_path, output_path):
-                # Verify template path is passed correctly
+            def render(self, work):
+                template_path = work.config.render.template
                 assert template_path.name == "custom_template.docx"
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(f"Used template: {template_path}")
-                return output_path
+                work.output.parent.mkdir(parents=True, exist_ok=True)
+                work.output.write_text(f"Used template: {template_path}")
+                return work
 
         cv_data = {
             "identity": {"title": "", "full_name": "", "first_name": "", "last_name": ""},
@@ -195,15 +202,16 @@ class TestRendererWithExternalParameters:
         custom_template = tmp_path / "templates" / "custom_template.docx"
 
         renderer = MockCVRenderer()
-        output = renderer.render(cv_data, custom_template, tmp_path / "output.docx")
+        work = make_render_work(cv_data, custom_template, tmp_path / "output.docx")
+        result = renderer.render(work)
         
-        assert "custom_template.docx" in output.read_text()
+        assert "custom_template.docx" in result.output.read_text()
 
 
 class TestDocxCVRendererFullRendering:
     """Tests for complete rendering flow with DocxCVRenderer."""
 
-    def test_render_with_valid_template_creates_output(self, tmp_path, monkeypatch):
+    def test_render_with_valid_template_creates_output(self, tmp_path, monkeypatch, make_render_work):
         """Test successful rendering with a valid template."""
         from cvextract.renderers import docx_renderer
         
@@ -257,16 +265,17 @@ class TestDocxCVRendererFullRendering:
         }
         
         renderer = DocxCVRenderer()
-        result = renderer.render(cv_data, template_path, output_path)
+        work = make_render_work(cv_data, template_path, output_path)
+        result = renderer.render(work)
         
         # Verify output
-        assert result == output_path
-        assert output_path.parent.exists()
+        assert result.output == output_path
+        assert result.output.parent.exists()
         assert mock_tpl.rendered_data is not None
         assert mock_tpl.rendered_autoescape is True
         assert mock_tpl.saved_path == str(output_path)
 
-    def test_render_sanitizes_data(self, tmp_path, monkeypatch):
+    def test_render_sanitizes_data(self, tmp_path, monkeypatch, make_render_work):
         """Test that render sanitizes data before rendering."""
         from cvextract.renderers import docx_renderer
         
@@ -302,14 +311,15 @@ class TestDocxCVRendererFullRendering:
         }
         
         renderer = DocxCVRenderer()
-        renderer.render(cv_data, template_path, output_path)
+        work = make_render_work(cv_data, template_path, output_path)
+        renderer.render(work)
         
         # Verify sanitization was called (data should be different after sanitization)
         assert mock_tpl.rendered_data is not None
         # The sanitized data should have replaced non-breaking spaces and soft hyphens
         assert "\u00A0" not in str(mock_tpl.rendered_data)
 
-    def test_render_with_directory_template_raises_value_error(self, tmp_path):
+    def test_render_with_directory_template_raises_value_error(self, tmp_path, make_render_work):
         """Test that render raises ValueError when template is a directory."""
         renderer = DocxCVRenderer()
         
@@ -324,10 +334,11 @@ class TestDocxCVRendererFullRendering:
             "experiences": []
         }
         
+        work = make_render_work(cv_data, template_dir, tmp_path / "output.docx")
         with pytest.raises(ValueError, match="not a file"):
-            renderer.render(cv_data, template_dir, tmp_path / "output.docx")
+            renderer.render(work)
 
-    def test_render_creates_output_directory_if_needed(self, tmp_path, monkeypatch):
+    def test_render_creates_output_directory_if_needed(self, tmp_path, monkeypatch, make_render_work):
         """Test that render creates output directory if it doesn't exist."""
         from cvextract.renderers import docx_renderer
         
@@ -356,16 +367,17 @@ class TestDocxCVRendererFullRendering:
         }
         
         renderer = DocxCVRenderer()
-        result = renderer.render(cv_data, template_path, output_path)
+        work = make_render_work(cv_data, template_path, output_path)
+        result = renderer.render(work)
         
-        assert result == output_path
-        assert output_path.parent.exists()
+        assert result.output == output_path
+        assert result.output.parent.exists()
 
 
 class TestDocxCVRendererIntegration:
     """Integration tests with real DOCX files (minimal mocking)."""
     
-    def test_render_with_real_docx_template(self, real_docx_template, tmp_path):
+    def test_render_with_real_docx_template(self, real_docx_template, tmp_path, make_render_work):
         """Test rendering with an actual DOCX template file."""
         output_path = tmp_path / "output.docx"
         
@@ -395,16 +407,17 @@ class TestDocxCVRendererIntegration:
         }
         
         renderer = DocxCVRenderer()
-        result = renderer.render(cv_data, real_docx_template, output_path)
+        work = make_render_work(cv_data, real_docx_template, output_path)
+        result = renderer.render(work)
         
         # Verify output file was created
-        assert result == output_path
-        assert output_path.exists()
-        assert output_path.stat().st_size > 0
+        assert result.output == output_path
+        assert result.output.exists()
+        assert result.output.stat().st_size > 0
         
         # Verify it's a valid DOCX file by trying to open it
         from docx import Document
-        doc = Document(str(output_path))
+        doc = Document(str(result.output))
         text = '\n'.join([p.text for p in doc.paragraphs])
         
         # Verify the data was rendered into the template

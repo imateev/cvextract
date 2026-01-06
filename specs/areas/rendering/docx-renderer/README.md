@@ -21,7 +21,9 @@ The `DocxCVRenderer` class:
 ### Programmatic API
 
 ```python
+from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import DocxCVRenderer
+from cvextract.shared import UnitOfWork
 from pathlib import Path
 import json
 
@@ -31,11 +33,21 @@ with open("cv.json", "r") as f:
 
 # Render
 renderer = DocxCVRenderer()
-output_path = renderer.render(
-    cv_data,
-    template_path=Path("template.docx"),
-    output_path=Path("output/cv_NEW.docx")
+json_path = Path("cv.json")
+json_path.write_text(json.dumps(cv_data, indent=2), encoding="utf-8")
+output_path = Path("output/cv_NEW.docx")
+
+config = UserConfig(
+    target_dir=Path("output"),
+    render=RenderStage(
+        template=Path("template.docx"),
+        data=json_path,
+        output=output_path,
+    ),
 )
+work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
+result = renderer.render(work)
+output_path = result.output
 ```
 
 ### CLI Usage

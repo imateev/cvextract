@@ -178,7 +178,7 @@ class TestRenderAndVerify:
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
              patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
-            mock_render.return_value = rendered_docx
+            mock_render.side_effect = lambda work: work
             mock_process.return_value = json.loads(json_path.read_text())
             mock_get_verifier.return_value = mock_verifier
             
@@ -213,7 +213,7 @@ class TestRenderAndVerify:
         template_path.touch()
         
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
-            mock_render.return_value = out_dir / "test_NEW.docx"
+            mock_render.side_effect = lambda work: work
             
             config = UserConfig(
                 target_dir=out_dir,
@@ -254,7 +254,7 @@ class TestRenderAndVerify:
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
              patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
-            mock_render.return_value = rendered_docx
+            mock_render.side_effect = lambda work: work
             mock_process.return_value = test_data
             mock_get_verifier.return_value = mock_verifier
             
@@ -302,7 +302,7 @@ class TestRenderAndVerify:
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
              patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
-            mock_render.return_value = rendered_docx
+            mock_render.side_effect = lambda work: work
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
             mock_get_verifier.return_value = mock_verifier
             
