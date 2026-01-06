@@ -15,9 +15,9 @@ from typing import List, Optional, Tuple
 
 from .cli_config import UserConfig
 from .cli_execute_single import execute_single
-from .logging_utils import LOG, fmt_issues
+from .logging_utils import LOG
 from .output_controller import get_output_controller
-from .shared import UnitOfWork, get_status_icons, select_issue_step
+from .shared import UnitOfWork, emit_work_status
 
 def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> List[Path]:
     """
@@ -84,43 +84,26 @@ def _process_future_result(
 ) -> Tuple[str, Optional[str]]:
     try:
         exit_code, work = future.result()
-        success = exit_code == 0
-        has_warnings = bool(
-            work and any(status.warnings for status in work.step_statuses.values())
-        )
-        message = ""
-        if work and has_warnings:
-            message = fmt_issues(work, select_issue_step(work))
-            if message == "-":
-                message = ""
-        if not success and not message:
-            message = "pipeline execution failed"
-
         if work:
-            icons = get_status_icons(work)
-            if any(icon == "❌" for icon in icons.values()):
-                status_icon = "❌"
+            if not work.has_no_errors():
                 status = "failed"
-            elif any(icon == "⚠️ " for icon in icons.values()):
-                status_icon = "⚠️ "
+            elif not work.has_no_warnings_or_errors():
                 status = "partial"
             else:
-                status_icon = "✅"
                 status = "full"
-        elif success:
-            status_icon = "✅"
-            status = "full"
-        else:
-            status_icon = "❌"
-            status = "failed"
 
-        if message:
-            summary_line = f"{status_icon} {progress_str} {file_path.name} | {message}"
-            LOG.info("%s %s %s | %s", status_icon, progress_str, file_path.name, message)
+            summary_message = emit_work_status(work)
+            if summary_message.endswith(" | -"):
+                summary_message = summary_message[:-4]
         else:
-            summary_line = f"{status_icon} {progress_str} {file_path.name}"
-            LOG.info("%s %s %s", status_icon, progress_str, file_path.name)
+            status = "full" if exit_code == 0 else "failed"
+            status_icon = "✅" if exit_code == 0 else "❌"
+            summary_message = f"{status_icon} {file_path.name}"
+            if status == "failed":
+                summary_message = f"{summary_message} | pipeline execution failed"
 
+        summary_line = f"{progress_str} {summary_message}"
+        LOG.info("%s %s", progress_str, summary_message)
         controller.flush_file(file_path, summary_line)
         return status, str(file_path) if status == "failed" else None
     except Exception as e:

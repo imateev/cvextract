@@ -459,16 +459,15 @@ class TestProgressIndicator:
         """
         Helper to extract progress indicators from mock log calls.
         
-        Progress logs have format: "%s %s %s" with args like ('%s %s %s', '✅', '[1/5 | 20%]', 'filename.docx')
-        The progress indicator is in args[2].
+        Progress logs include a progress string like "[1/5 | 20%]".
         """
-        return [
-            call.args[2] for call in mock_log_info.call_args_list
-            if len(call.args) >= 4 
-            and isinstance(call.args[2], str) 
-            and '[' in call.args[2] 
-            and '/' in call.args[2]
-        ]
+        indicators = []
+        for call in mock_log_info.call_args_list:
+            for arg in call.args:
+                if isinstance(arg, str) and "[" in arg and "/" in arg:
+                    indicators.append(arg)
+                    break
+        return indicators
     
     @patch('cvextract.cli_execute_parallel.execute_single')
     @patch('cvextract.cli_execute_parallel.LOG.info')
