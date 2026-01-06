@@ -121,6 +121,40 @@ def _derive_work_status(work: UnitOfWork) -> str:
         return "partial"
     return "full"
 
+
+def _emit_parallel_summary(
+    total_files: int,
+    full_success_count: int,
+    partial_success_count: int,
+    failed_count: int,
+    failed_files: List[str],
+    config: UserConfig,
+    controller,
+) -> None:
+    success_count = full_success_count + partial_success_count
+    controller.direct_print("=" * 60)
+    LOG.info("=" * 60)
+
+    if partial_success_count > 0:
+        summary_msg = (
+            "Completed: %d/%d files succeeded (%d full, %d partial), %d failed"
+            % (success_count, total_files, full_success_count, partial_success_count, failed_count)
+        )
+    else:
+        summary_msg = (
+            "Completed: %d/%d files succeeded, %d failed"
+            % (success_count, total_files, failed_count)
+        )
+    controller.direct_print(summary_msg)
+    LOG.info(summary_msg)
+
+    if failed_files and config.debug:
+        controller.direct_print("Failed files:")
+        LOG.info("Failed files:")
+        for failed_file in failed_files:
+            controller.direct_print(f"  - {failed_file}")
+            LOG.info("  - %s", failed_file)
+
 def execute_parallel_pipeline(config: UserConfig) -> int:
     """
     Execute pipeline in parallel mode, processing entire directory of files.
@@ -204,28 +238,15 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                 if failed_file:
                     failed_files.append(failed_file)
     
-    # Log summary
-    total_files = len(files)
-    success_count = full_success_count + partial_success_count
-    controller.direct_print("=" * 60)
-    LOG.info("=" * 60)
-    
-    if partial_success_count > 0:
-        summary_msg = f"Completed: {success_count}/{total_files} files succeeded ({full_success_count} full, {partial_success_count} partial), {failed_count} failed"
-        controller.direct_print(summary_msg)
-        LOG.info(summary_msg)
-    else:
-        summary_msg = f"Completed: {success_count}/{total_files} files succeeded, {failed_count} failed"
-        controller.direct_print(summary_msg)
-        LOG.info(summary_msg)
-    
-    # Only show failed files list in debug mode or log file
-    if failed_files and config.debug:
-        controller.direct_print("Failed files:")
-        LOG.info("Failed files:")
-        for failed_file in failed_files:
-            controller.direct_print(f"  - {failed_file}")
-            LOG.info("  - %s", failed_file)
+    _emit_parallel_summary(
+        total_files=len(files),
+        full_success_count=full_success_count,
+        partial_success_count=partial_success_count,
+        failed_count=failed_count,
+        failed_files=failed_files,
+        config=config,
+        controller=controller,
+    )
     
     # Return exit code
     # Success even if some files failed (user request)
