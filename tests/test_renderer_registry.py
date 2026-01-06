@@ -1,8 +1,6 @@
 """Tests for renderer registry functionality."""
 
-import tempfile
 from pathlib import Path
-from unittest.mock import patch
 from cvextract.renderers import (
     CVRenderer,
     get_renderer,
@@ -58,10 +56,10 @@ class TestRendererRegistry:
             def __init__(self, custom_param=None):
                 self.custom_param = custom_param
             
-            def render(self, cv_data, template_path, output_path):
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text("rendered")
-                return output_path
+            def render(self, work):
+                work.output.parent.mkdir(parents=True, exist_ok=True)
+                work.output.write_text("rendered")
+                return work
         
         # Register it temporarily
         register_renderer('custom-test-renderer', CustomRenderer)
@@ -76,16 +74,16 @@ class TestRendererRegistry:
             # Clean up the custom renderer
             unregister_renderer('custom-test-renderer')
 
-    def test_register_custom_renderer(self):
+    def test_register_custom_renderer(self, tmp_path, make_render_work):
         """register_renderer() allows registering custom renderers."""
         
         class CustomRenderer(CVRenderer):
             """Custom test renderer for testing."""
             
-            def render(self, cv_data, template_path, output_path):
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text("custom rendered content")
-                return output_path
+            def render(self, work):
+                work.output.parent.mkdir(parents=True, exist_ok=True)
+                work.output.write_text("custom rendered content")
+                return work
         
         # Register custom renderer
         register_renderer('custom-test-renderer', CustomRenderer)
@@ -102,12 +100,12 @@ class TestRendererRegistry:
             assert isinstance(renderer, CustomRenderer)
             
             # Should work
-            with tempfile.TemporaryDirectory() as tmpdir:
-                output = Path(tmpdir) / "output.txt"
-                result = renderer.render({}, Path('/any/path'), output)
-                assert result == output
-                assert output.exists()
-                assert output.read_text() == "custom rendered content"
+            output = tmp_path / "output.txt"
+            work = make_render_work({}, Path("/any/path"), output)
+            result = renderer.render(work)
+            assert result.output == output
+            assert result.output.exists()
+            assert result.output.read_text() == "custom rendered content"
         finally:
             # Clean up the custom renderer
             unregister_renderer('custom-test-renderer')
@@ -126,8 +124,8 @@ class TestRendererRegistry:
         class TempRenderer(CVRenderer):
             """Temporary test renderer."""
             
-            def render(self, cv_data, template_path, output_path):
-                return output_path
+            def render(self, work):
+                return work
         
         # Register renderer
         register_renderer('temp-test-renderer', TempRenderer)
@@ -147,16 +145,16 @@ class TestRendererRegistry:
         class FirstRenderer(CVRenderer):
             """First test renderer."""
             
-            def render(self, cv_data, template_path, output_path):
-                output_path.write_text("first")
-                return output_path
+            def render(self, work):
+                work.output.write_text("first")
+                return work
         
         class SecondRenderer(CVRenderer):
             """Second test renderer."""
             
-            def render(self, cv_data, template_path, output_path):
-                output_path.write_text("second")
-                return output_path
+            def render(self, work):
+                work.output.write_text("second")
+                return work
         
         # Register first renderer
         register_renderer('overwrite-test', FirstRenderer)

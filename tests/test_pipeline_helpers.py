@@ -97,8 +97,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_render(_cv_data, _template, output_path):
-        return output_path
+    def fake_render(work):
+        return work
 
     def fake_process(_docx, out=None):
         if out:
@@ -121,21 +121,23 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
         render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
-    ok, errs, warns, compare_ok = p.render_and_verify(work)
-    assert ok is True
-    assert errs == []
-    assert warns == []
-    assert compare_ok is True
+    result = p.render_and_verify(work)
+    render_status = result.step_statuses[StepName.Render]
+    verify_status = result.step_statuses[StepName.RoundtripComparer]
+    assert render_status.errors == []
+    assert render_status.warnings == []
+    assert verify_status.errors == []
+    assert verify_status.warnings == []
 
 
 def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
-    """Test rendering exceptions surface as errors."""
+    """Test rendering exceptions surface as warnings."""
     json_file = tmp_path / "test.json"
     json_file.write_text('{"a": 1}', encoding="utf-8")
     template = tmp_path / "template.docx"
     out_dir = tmp_path / "out"
 
-    def fake_render(_cv_data, _template, _output_path):
+    def fake_render(_work):
         raise ValueError("render failed")
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
@@ -145,12 +147,12 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
         render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
-    ok, errs, warns, compare_ok = p.render_and_verify(work)
-    assert ok is False
-    assert len(errs) == 1
-    assert "render: ValueError" in errs[0]
-    assert warns == []
-    assert compare_ok is None
+    result = p.render_and_verify(work)
+    render_status = result.step_statuses[StepName.Render]
+    assert render_status.errors == []
+    assert len(render_status.warnings) == 1
+    assert "render: ValueError" in render_status.warnings[0]
+    assert StepName.RoundtripComparer not in result.step_statuses
 
 
 def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
@@ -161,8 +163,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_render(_cv_data, _template, output_path):
-        return output_path
+    def fake_render(work):
+        return work
 
     def fake_process(_docx, out=None):
         return {"a": 2}
@@ -183,11 +185,12 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
-    ok, errs, warns, compare_ok = p.render_and_verify(work)
-    assert ok is False
-    assert "value mismatch" in errs[0]
-    assert warns == []
-    assert compare_ok is False
+    result = p.render_and_verify(work)
+    render_status = result.step_statuses[StepName.Render]
+    verify_status = result.step_statuses[StepName.RoundtripComparer]
+    assert render_status.errors == []
+    assert "value mismatch" in verify_status.errors[0]
+    assert verify_status.warnings == []
 
 
 def test_get_status_icons_extract_success_no_warnings():
@@ -201,7 +204,7 @@ def test_get_status_icons_extract_success_no_warnings():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.Verify] == "➖"
+    assert icons[StepName.RoundtripComparer] == "➖"
 
 
 def test_get_status_icons_extract_success_with_warnings():
@@ -216,9 +219,9 @@ def test_get_status_icons_extract_success_with_warnings():
         warnings=["warning"],
     )
     icons = get_status_icons(work)
-    assert icons[StepName.Extract] == "⚠️ "
+    assert icons[StepName.Extract] == "❎"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.Verify] == "➖"
+    assert icons[StepName.RoundtripComparer] == "➖"
 
 
 def test_get_status_icons_extract_failed():
@@ -235,7 +238,7 @@ def test_get_status_icons_extract_failed():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "❌"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.Verify] == "➖"
+    assert icons[StepName.RoundtripComparer] == "➖"
 
 
 def test_get_status_icons_apply_success():
@@ -247,11 +250,11 @@ def test_get_status_icons_apply_success():
     )
     work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-    work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+    work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "✅"
-    assert icons[StepName.Verify] == "✅"
+    assert icons[StepName.RoundtripComparer] == "✅"
 
 
 def test_get_status_icons_apply_failed():
@@ -266,14 +269,14 @@ def test_get_status_icons_apply_failed():
         step=StepName.Render,
         errors=["render failed"],
     )
-    work.step_statuses[StepName.Verify] = StepStatus(
-        step=StepName.Verify,
+    work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        step=StepName.RoundtripComparer,
         errors=["compare failed"],
     )
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "❌"
-    assert icons[StepName.Verify] == "⚠️ "
+    assert icons[StepName.RoundtripComparer] == "❌"
 
 
 def test_categorize_result_extract_failed():

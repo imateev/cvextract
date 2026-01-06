@@ -39,13 +39,12 @@ renderers = list_renderers()
 
 ```python
 from cvextract.renderers import CVRenderer
-from pathlib import Path
-from typing import Dict, Any
+from cvextract.shared import UnitOfWork
 
 class CustomRenderer(CVRenderer):
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
         # Your rendering logic
-        return output_path
+        return work
 ```
 
 ### Using Renderers
@@ -54,7 +53,7 @@ class CustomRenderer(CVRenderer):
 from cvextract.renderers import get_renderer
 
 renderer = get_renderer("private-internal-renderer")
-output = renderer.render(cv_data, template_path, output_path)
+result = renderer.render(work)
 ```
 
 ## Configuration
@@ -64,17 +63,15 @@ output = renderer.render(cv_data, template_path, output_path)
 ```python
 class CVRenderer(ABC):
     @abstractmethod
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
         """
         Render CV data to output file using template.
         
         Args:
-            cv_data: CV data dict conforming to cv_schema.json
-            template_path: Path to template file
-            output_path: Path for rendered output file
+            work: UnitOfWork containing input/output paths and render config
             
         Returns:
-            Path to the rendered output file
+            UnitOfWork with rendered output populated
         """
         pass
 ```
@@ -83,14 +80,14 @@ class CVRenderer(ABC):
 
 ### Input Contract
 
-- **cv_data**: Dictionary conforming to `cvextract/contracts/cv_schema.json`
-- **template_path**: Path to format-specific template file
-- **output_path**: Path where rendered file should be written
+- **work.input**: JSON file conforming to `cvextract/contracts/cv_schema.json`
+- **work.config.render.template**: Path to format-specific template file
+- **work.output**: Path where rendered file should be written
 
 ### Output Contract
 
-- Returns: Path to successfully rendered file
-- Side Effect: Creates rendered file at output_path
+- Returns: UnitOfWork with rendered output populated
+- Side Effect: Creates rendered file at work.output
 
 ## Dependencies
 
@@ -132,47 +129,49 @@ The pluggable architecture was introduced during refactoring to separate concern
 
 ```python
 from cvextract.renderers import CVRenderer, register_renderer
-from pathlib import Path
-from typing import Dict, Any
+from cvextract.shared import UnitOfWork
 
 class PdfCVRenderer(CVRenderer):
     """PDF renderer using reportlab or weasyprint."""
     
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
         # PDF rendering logic using reportlab, weasyprint, etc.
         # ...
-        return output_path
+        return work
 
 # Register the renderer
 register_renderer("pdf-renderer", PdfCVRenderer)
 
 # Use via registry
 renderer = get_renderer("pdf-renderer")
-output = renderer.render(cv_data, Path("template.html"), Path("cv.pdf"))
+# work = UnitOfWork(...)
+result = renderer.render(work)
 ```
 
 ### Custom HTML Renderer
 
 ```python
 from cvextract.renderers import CVRenderer, register_renderer
-from pathlib import Path
-from typing import Dict, Any
+from cvextract.shared import UnitOfWork
 import jinja2
+import json
 
 class HtmlCVRenderer(CVRenderer):
     """HTML renderer using Jinja2 templates."""
     
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
         # Load Jinja2 HTML template
-        with open(template_path) as f:
+        with open(work.config.render.template) as f:
             template = jinja2.Template(f.read())
         
         # Render
+        with work.input.open("r", encoding="utf-8") as f:
+            cv_data = json.load(f)
         html = template.render(**cv_data)
         
         # Save
-        output_path.write_text(html)
-        return output_path
+        work.output.write_text(html)
+        return work
 
 # Register the renderer
 register_renderer("html-renderer", HtmlCVRenderer)
@@ -182,27 +181,30 @@ register_renderer("html-renderer", HtmlCVRenderer)
 
 ```python
 from cvextract.renderers import CVRenderer
-from pathlib import Path
-from typing import Dict, Any
+from cvextract.shared import UnitOfWork
+import json
 
 class MockCVRenderer(CVRenderer):
     def __init__(self):
         self.last_rendered = None
     
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
+        with work.input.open("r", encoding="utf-8") as f:
+            cv_data = json.load(f)
         self.last_rendered = {
             "cv_data": cv_data,
-            "template": template_path,
-            "output": output_path
+            "template": work.config.render.template,
+            "output": work.output
         }
         # Create mock output
-        output_path.write_text("Mock rendered content")
-        return output_path
+        work.output.write_text("Mock rendered content")
+        return work
 
 # Use in tests
 renderer = MockCVRenderer()
-output = renderer.render(test_data, template, output_path)
-assert renderer.last_rendered["cv_data"] == test_data
+# work = UnitOfWork(...)
+result = renderer.render(work)
+assert renderer.last_rendered["cv_data"] is not None
 ```
 
 ## File Paths

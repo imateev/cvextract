@@ -11,10 +11,8 @@ from typing import Dict, List, Type, Optional
 
 from .base import CVRenderer
 
-
 # Global renderer registry
 _RENDERER_REGISTRY: Dict[str, Type[CVRenderer]] = {}
-
 
 def register_renderer(name: str, renderer_class: Type[CVRenderer]) -> None:
     """
@@ -25,7 +23,6 @@ def register_renderer(name: str, renderer_class: Type[CVRenderer]) -> None:
         renderer_class: The renderer class to register
     """
     _RENDERER_REGISTRY[name] = renderer_class
-
 
 def get_renderer(name: str, **kwargs) -> Optional[CVRenderer]:
     """
@@ -42,7 +39,6 @@ def get_renderer(name: str, **kwargs) -> Optional[CVRenderer]:
     if renderer_class:
         return renderer_class(**kwargs)
     return None
-
 
 def list_renderers() -> List[Dict[str, str]]:
     """
@@ -63,7 +59,6 @@ def list_renderers() -> List[Dict[str, str]]:
         })
     return sorted(renderers, key=lambda x: x['name'])
 
-
 def unregister_renderer(name: str) -> None:
     """
     Unregister a renderer from the global registry.
@@ -72,7 +67,6 @@ def unregister_renderer(name: str) -> None:
         name: The renderer name to unregister
     """
     _RENDERER_REGISTRY.pop(name, None)
-
 
 __all__ = [
     "register_renderer",

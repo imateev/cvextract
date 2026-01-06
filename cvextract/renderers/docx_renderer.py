@@ -6,11 +6,10 @@ Renders structured CV data to Word .docx files using docxtpl templates.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict
+import json
 
 from .base import CVRenderer
-from ..shared import sanitize_for_xml_in_obj
+from ..shared import StepName, UnitOfWork, sanitize_for_xml_in_obj
 
 from docxtpl import DocxTemplate
 
@@ -23,25 +22,33 @@ class DocxCVRenderer(CVRenderer):
     - Uses docxtpl for template rendering
     - Sanitizes content for XML safety before rendering
     - Supports auto-escaping for security
-    - Returns the path to the rendered document
+    - Returns the UnitOfWork with rendered output populated
     """
 
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
         """
         Render CV data to a .docx file using a docxtpl template.
 
         Args:
-            cv_data: Dictionary with CV data conforming to cv_schema.json
-            template_path: Path to the .docx template file
-            output_path: Path where the rendered .docx should be saved
+            work: UnitOfWork containing render configuration and paths.
 
         Returns:
-            Path to the rendered .docx file
+            UnitOfWork with rendered output populated
 
         Raises:
             FileNotFoundError: If the template file does not exist
             Exception: For rendering or template errors
         """
+        if not work.config.render:
+            raise ValueError("Render configuration is missing")
+
+        if work.output is None:
+            raise ValueError("Render output path is not set")
+
+        if work.input is None:
+            raise ValueError("Render input path is not set")
+
+        template_path = work.config.render.template
         if not template_path.exists():
             raise FileNotFoundError(f"Template file not found: {template_path}")
 
@@ -50,6 +57,8 @@ class DocxCVRenderer(CVRenderer):
         
         if template_path.suffix.lower() != ".docx":
             raise ValueError(f"Template must be a .docx file: {template_path}")
+        with work.input.open("r", encoding="utf-8") as f:
+            cv_data = json.load(f)
 
         # Sanitize data for XML safety
         sanitized_data = sanitize_for_xml_in_obj(cv_data)
@@ -59,9 +68,9 @@ class DocxCVRenderer(CVRenderer):
         tpl.render(sanitized_data, autoescape=True)
 
         # Ensure output directory exists
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        work.output.parent.mkdir(parents=True, exist_ok=True)
 
         # Save rendered document
-        tpl.save(str(output_path))
+        tpl.save(str(work.output))
         
-        return output_path
+        return work

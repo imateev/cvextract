@@ -178,7 +178,7 @@ class TestRenderAndVerify:
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
              patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
-            mock_render.return_value = rendered_docx
+            mock_render.side_effect = lambda work: work
             mock_process.return_value = json.loads(json_path.read_text())
             mock_get_verifier.return_value = mock_verifier
             
@@ -192,11 +192,13 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
+            verify_status = result.step_statuses[StepName.RoundtripComparer]
             
-            assert ok is True
-            assert errors == []
-            assert compare_ok is True
+            assert render_status.errors == []
+            assert render_status.warnings == []
+            assert verify_status.errors == []
 
     def testrender_and_verify_skip_compare(self, tmp_path):
         """Test compare skipped when adjust stage is present."""
@@ -213,7 +215,7 @@ class TestRenderAndVerify:
         template_path.touch()
         
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
-            mock_render.return_value = out_dir / "test_NEW.docx"
+            mock_render.side_effect = lambda work: work
             
             config = UserConfig(
                 target_dir=out_dir,
@@ -226,10 +228,11 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
             
-            assert ok is True
-            assert compare_ok is None  # Not executed
+            assert render_status.errors == []
+            assert StepName.RoundtripComparer not in result.step_statuses  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
         """Test roundtrip verification directory is created."""
@@ -254,7 +257,7 @@ class TestRenderAndVerify:
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
              patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
-            mock_render.return_value = rendered_docx
+            mock_render.side_effect = lambda work: work
             mock_process.return_value = test_data
             mock_get_verifier.return_value = mock_verifier
             
@@ -268,9 +271,10 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
             
-            assert ok is True
+            assert render_status.errors == []
             # Verify roundtrip_dir was created
             expected_dir = out_dir / "verification_structured_data"
             assert expected_dir.exists()
@@ -302,7 +306,7 @@ class TestRenderAndVerify:
              patch("cvextract.pipeline_helpers.process_single_docx") as mock_process, \
              patch("cvextract.pipeline_helpers.get_verifier") as mock_get_verifier:
             
-            mock_render.return_value = rendered_docx
+            mock_render.side_effect = lambda work: work
             mock_process.return_value = {"identity": {"title": "Different"}, "sidebar": {}, "overview": "", "experiences": []}
             mock_get_verifier.return_value = mock_verifier
             
@@ -316,11 +320,12 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
+            verify_status = result.step_statuses[StepName.RoundtripComparer]
             
-            assert ok is False
-            assert "Mismatch detected" in errors
-            assert compare_ok is False
+            assert render_status.errors == []
+            assert "Mismatch detected" in verify_status.errors
 
     def testrender_and_verify_render_exception(self, tmp_path):
         """Test exception during rendering."""
@@ -344,11 +349,12 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            ok, errors, warns, compare_ok = render_and_verify(work)
+            result = render_and_verify(work)
+            render_status = result.step_statuses[StepName.Render]
             
-            assert ok is False
-            assert any("RuntimeError" in e for e in errors)
-            assert compare_ok is None
+            assert render_status.errors == []
+            assert any("RuntimeError" in w for w in render_status.warnings)
+            assert StepName.RoundtripComparer not in result.step_statuses
 
 
 class TestCategorizeResult:
@@ -395,9 +401,9 @@ class TestGetStatusIcons:
             warnings=["warning"],
         )
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
-        assert "⚠️" in icons[StepName.Extract]  # Warning icon for extract
+        assert "❎" in icons[StepName.Extract]  # Warning icon for extract
 
     def test_extract_ok_no_warnings(self, tmp_path):
         """Test extract ok without warnings."""
@@ -408,7 +414,7 @@ class TestGetStatusIcons:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
         assert "🟢" in icons[StepName.Extract]  # Green icon
 
@@ -427,8 +433,8 @@ class TestGetStatusIcons:
             step=StepName.Render,
             errors=["render error"],
         )
-        work.step_statuses[StepName.Verify] = StepStatus(
-            step=StepName.Verify,
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+            step=StepName.RoundtripComparer,
             errors=["compare error"],
         )
         icons = get_status_icons(work)
@@ -454,9 +460,9 @@ class TestGetStatusIcons:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
-        assert "✅" in icons[StepName.Verify] or "✓" in icons[StepName.Verify]
+        assert "✅" in icons[StepName.RoundtripComparer] or "✓" in icons[StepName.RoundtripComparer]
 
     def test_compare_failed(self, tmp_path):
         """Test compare found differences."""
@@ -467,12 +473,12 @@ class TestGetStatusIcons:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(
-            step=StepName.Verify,
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+            step=StepName.RoundtripComparer,
             errors=["compare mismatch"],
         )
         icons = get_status_icons(work)
-        assert "⚠️" in icons[StepName.Verify]  # Warning for compare mismatch
+        assert "❌" in icons[StepName.RoundtripComparer]  # Error for compare mismatch
 
     def test_compare_none(self, tmp_path):
         """Test compare not executed."""
@@ -484,7 +490,7 @@ class TestGetStatusIcons:
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
         icons = get_status_icons(work)
-        assert "➖" in icons[StepName.Verify]
+        assert "➖" in icons[StepName.RoundtripComparer]
 
 
 class TestInferSourceRoot:

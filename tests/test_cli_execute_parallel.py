@@ -524,5 +524,5 @@ class TestProgressIndicator:
         
         # Verify that we see expected progress indicators
         # With 4 files: [1/4 | 25%], [2/4 | 50%], [3/4 | 75%], [4/4 | 100%]
-        assert "[1/4 | 25%]" in progress_indicators
+        assert "[1/4 |  25%]" in progress_indicators
         assert "[4/4 | 100%]" in progress_indicators

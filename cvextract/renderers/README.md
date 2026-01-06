@@ -37,15 +37,16 @@ The `CVRenderer` abstract base class defines the contract that all renderers mus
 
 ```python
 from cvextract.renderers import CVRenderer
+from cvextract.shared import UnitOfWork
 from pathlib import Path
-from typing import Dict, Any
 
 class CustomRenderer(CVRenderer):
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
         # Your rendering logic here
-        # Process cv_data using template_path
-        # Save to output_path
-        return output_path
+        # Read CV data from work.input
+        # Use work.config.render.template for the template
+        # Save to work.output
+        return work
 ```
 
 ### DocxCVRenderer (private-internal-renderer)
@@ -53,17 +54,24 @@ class CustomRenderer(CVRenderer):
 The `DocxCVRenderer` is the default implementation (registered as `"private-internal-renderer"`) that renders CV data to Microsoft Word `.docx` files using docxtpl templates:
 
 ```python
+from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import get_renderer
+from cvextract.shared import UnitOfWork
 from pathlib import Path
 
+template_path = Path("template.docx")
+json_path = Path("cv_data.json")
+output_path = Path("output/output.docx")
+
+config = UserConfig(
+    target_dir=Path("output"),
+    render=RenderStage(template=template_path, data=json_path, output=output_path),
+)
+work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
+
 renderer = get_renderer("private-internal-renderer")
-cv_data = {
-    "identity": {...},
-    "sidebar": {...},
-    "overview": "...",
-    "experiences": [...]
-}
-output = renderer.render(cv_data, Path("template.docx"), Path("output.docx"))
+result = renderer.render(work)
+output = result.output
 ```
 
 ## CV Data Schema
@@ -84,16 +92,18 @@ To create a custom renderer:
 1. Import the base class:
    ```python
    from cvextract.renderers import CVRenderer, register_renderer
+   from cvextract.shared import UnitOfWork
+   from pathlib import Path
    ```
 
 2. Create your implementation:
    ```python
    class MyCustomRenderer(CVRenderer):
-       def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+       def render(self, work: UnitOfWork) -> UnitOfWork:
            # Load template
-           # Process cv_data with the template
-           # Write output to output_path
-           return output_path
+           # Process work.input JSON with the template
+           # Write output to work.output
+           return work
    ```
 
 3. Register and use your renderer:
@@ -103,7 +113,7 @@ To create a custom renderer:
    
    # Get an instance via the registry
    renderer = get_renderer("my-custom-renderer")
-   output = renderer.render(cv_data, Path("template.ext"), Path("output.ext"))
+   result = renderer.render(work)
    ```
 
 ## Examples
@@ -111,53 +121,69 @@ To create a custom renderer:
 ### Using the Default DOCX Renderer
 
 ```python
+from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import get_renderer
+from cvextract.shared import UnitOfWork
 from pathlib import Path
-import json
 
-# Load CV data
-with open("cv_data.json", "r") as f:
-    cv_data = json.load(f)
+json_path = Path("cv_data.json")
+template_path = Path("template.docx")
+output_path = Path("output/john_doe_NEW.docx")
 
-# Get the default renderer from the registry
-renderer = get_renderer("private-internal-renderer")
-
-# Render CV data to DOCX
-output_path = renderer.render(
-    cv_data,
-    template_path=Path("template.docx"),
-    output_path=Path("output/john_doe_NEW.docx")
+config = UserConfig(
+    target_dir=Path("output"),
+    render=RenderStage(template=template_path, data=json_path, output=output_path),
 )
+work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
 
-print(f"Rendered CV saved to: {output_path}")
+renderer = get_renderer("private-internal-renderer")
+result = renderer.render(work)
+
+print(f"Rendered CV saved to: {result.output}")
 ```
 
 ### Creating a Mock Renderer for Testing
 
 ```python
+from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import CVRenderer
+from cvextract.shared import UnitOfWork
 from pathlib import Path
-from typing import Dict, Any
+import json
 
 class MockCVRenderer(CVRenderer):
     def __init__(self):
         self.last_rendered = None
     
-    def render(self, cv_data: Dict[str, Any], template_path: Path, output_path: Path) -> Path:
+    def render(self, work: UnitOfWork) -> UnitOfWork:
+        with work.input.open("r", encoding="utf-8") as f:
+            cv_data = json.load(f)
         self.last_rendered = {
             "cv_data": cv_data,
-            "template": template_path,
-            "output": output_path
+            "template": work.config.render.template,
+            "output": work.output
         }
         # Simulate file creation
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text("Mock rendered content")
-        return output_path
+        work.output.parent.mkdir(parents=True, exist_ok=True)
+        work.output.write_text("Mock rendered content")
+        return work
 
 # Use in tests
 renderer = MockCVRenderer()
-output = renderer.render(test_data, Path("template.docx"), Path("test_output.docx"))
-assert renderer.last_rendered["cv_data"] == test_data
+work = UnitOfWork(
+    config=UserConfig(
+        target_dir=Path("output"),
+        render=RenderStage(
+            template=Path("template.docx"),
+            data=Path("test_data.json"),
+            output=Path("test_output.docx"),
+        ),
+    ),
+    input=Path("test_data.json"),
+    output=Path("test_output.docx"),
+    initial_input=Path("test_data.json"),
+)
+result = renderer.render(work)
 ```
 
 ### Passing Parameters from Outside
@@ -165,28 +191,34 @@ assert renderer.last_rendered["cv_data"] == test_data
 The renderer architecture allows you to pass both template and data as parameters:
 
 ```python
+from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import get_renderer
+from cvextract.shared import UnitOfWork
 from pathlib import Path
-import json
 
 def render_cv_with_custom_template(json_file: Path, template_file: Path, output_file: Path):
     """Render CV using externally provided template and data."""
-    # Load structured data from external source
-    with open(json_file, "r") as f:
-        cv_data = json.load(f)
-    
-    # Use the default renderer from the registry
+    config = UserConfig(
+        target_dir=output_file.parent,
+        render=RenderStage(template=template_file, data=json_file, output=output_file),
+    )
+    work = UnitOfWork(
+        config=config,
+        input=json_file,
+        output=output_file,
+        initial_input=json_file,
+    )
     renderer = get_renderer("private-internal-renderer")
-    return renderer.render(cv_data, template_file, output_file)
+    return renderer.render(work)
 
 # Usage
-output = render_cv_with_custom_template(
+result = render_cv_with_custom_template(
     json_file=Path("data/cv.json"),
     template_file=Path("templates/modern_template.docx"),
-    output_file=Path("output/rendered_cv.docx")
+    output_file=Path("output/rendered_cv.docx"),
 )
 ```
 
 ## Integration with Existing Pipeline
 
-The renderers integrate seamlessly with the existing pipeline through the `render_cv_data()` function in `pipeline_highlevel.py`, which uses the default renderer (`"private-internal-renderer"`) while maintaining backward compatibility.
+The renderers integrate with the existing pipeline through the `render_cv_data()` function in `pipeline_highlevel.py`, which uses the default renderer (`"private-internal-renderer"`).

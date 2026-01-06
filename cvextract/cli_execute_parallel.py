@@ -223,8 +223,9 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             completed_count += 1
             
             # Calculate progress percentage
+            total_width = len(str(total_files))
             progress_pct = int((completed_count / total_files) * 100)
-            progress_str = f"[{completed_count}/{total_files} | {progress_pct}%]"
+            progress_str = f"[{completed_count:>{total_width}}/{total_files} | {progress_pct:>3}%]"
             
             status, failed_file = _process_future_result(
                 future,

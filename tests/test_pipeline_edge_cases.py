@@ -114,11 +114,11 @@ class TestPipelineEdgeCases:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "🟢"
         assert icons[StepName.Render] == "✅"
-        assert icons[StepName.Verify] == "✅"
+        assert icons[StepName.RoundtripComparer] == "✅"
 
     def test_get_status_icons_all_failures(self, tmp_path):
         """Test status icons for complete failure."""
@@ -135,14 +135,14 @@ class TestPipelineEdgeCases:
             step=StepName.Render,
             errors=["render error"],
         )
-        work.step_statuses[StepName.Verify] = StepStatus(
-            step=StepName.Verify,
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+            step=StepName.RoundtripComparer,
             errors=["verify error"],
         )
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "❌"
         assert icons[StepName.Render] == "❌"
-        assert icons[StepName.Verify] == "⚠️ "
+        assert icons[StepName.RoundtripComparer] == "❌"
 
     def test_get_status_icons_extract_warn(self, tmp_path):
         """Test status icons when extract has warning."""
@@ -156,9 +156,9 @@ class TestPipelineEdgeCases:
             warnings=["warn"],
         )
         icons = get_status_icons(work)
-        assert icons[StepName.Extract] == "⚠️ "
+        assert icons[StepName.Extract] == "❎"
         assert icons[StepName.Render] == "➖"
-        assert icons[StepName.Verify] == "➖"
+        assert icons[StepName.RoundtripComparer] == "➖"
 
     def test_get_status_icons_none_values(self, tmp_path):
         """Test status icons with None values for apply/compare."""
@@ -171,4 +171,4 @@ class TestPipelineEdgeCases:
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "🟢"
         assert icons[StepName.Render] == "➖"
-        assert icons[StepName.Verify] == "➖"
+        assert icons[StepName.RoundtripComparer] == "➖"

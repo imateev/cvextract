@@ -20,7 +20,7 @@ import os
 from .logging_utils import LOG
 from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor, get_extractor
-from .shared import StepName, StepStatus, UnitOfWork
+from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
 from .pipeline_highlevel import process_single_docx, render_cv_data
 from .verifiers import get_verifier
 
@@ -38,7 +38,6 @@ def infer_source_root(inputs: List[Path]) -> Path:
     parents = [p.parent.resolve() for p in inputs]
     return Path(os.path.commonpath([str(p) for p in parents])).resolve()
 
-
 def safe_relpath(p: Path, root: Path) -> str:
     """Best-effort relative path for nicer logging."""
     try:
@@ -46,6 +45,53 @@ def safe_relpath(p: Path, root: Path) -> str:
     except Exception:
         return p.name
 
+def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
+    if work.config.input_dir:
+        return work.config.input_dir.resolve()
+
+    source = None
+    if work.config.extract:
+        source = work.config.extract.source
+    elif work.config.render and work.config.render.data:
+        source = work.config.render.data
+    elif work.config.adjust and work.config.adjust.data:
+        source = work.config.adjust.data
+
+    if source is not None:
+        return source.parent.resolve() if source.is_file() else source.resolve()
+
+    return input_path.parent.resolve()
+
+def _render_docx(work: UnitOfWork) -> UnitOfWork:
+    if not work.config.render:
+        work.add_error(StepName.Render, "render: missing render configuration")
+        return work
+
+    if work.output is None:
+        work.add_error(StepName.Render, "render: input JSON path is not set")
+        return work
+
+    input_path = work.initial_input or work.input
+    source_base = _resolve_source_base_for_render(work, input_path)
+
+    try:
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+    except Exception:
+        rel_path = Path(".")
+
+    output_docx = prepare_output_path(work, input_path, rel_path)
+    render_work = replace(work, output=output_docx)
+
+    try:
+        render_work = render_cv_data(render_work)
+    except Exception as e:
+        message = f"render: {type(e).__name__}"
+        LOG.warning("%s", message)
+        render_work.add_warning(StepName.Render, message)
+        return render_work
+
+    render_work.ensure_step_status(StepName.Render)
+    return render_work
 
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
@@ -88,24 +134,64 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
         return work
 
-
 def _roundtrip_compare(
     output_docx: Path,
     roundtrip_dir: Path,
     original_data: dict,
-) -> tuple[bool, List[str], List[str], bool]:
+) -> VerificationResult:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
     roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
-
     verifier = get_verifier("roundtrip-verifier")
-    cmp = verifier.verify(original_data, target_data=roundtrip_data)
-    if cmp.ok:
-        return True, [], cmp.warnings, True
-    return False, cmp.errors, cmp.warnings, False
+    return verifier.verify(original_data, target_data=roundtrip_data)
 
+def _verify_roundtrip(
+    render_work: UnitOfWork,
+    original_cv_path: Path,
+) -> UnitOfWork:
+    import json
 
-def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Optional[bool]]:
+    try:
+        # Load CV data from JSON
+        with original_cv_path.open("r", encoding="utf-8") as f:
+            original_cv_data = json.load(f)
+    except Exception as e:
+        if render_work.config.debug:
+            LOG.error(traceback.format_exc())
+        render_work.add_error(StepName.RoundtripComparer, f"roundtrip comparer: {type(e).__name__}")
+        return render_work
+
+    output_docx = render_work.output
+    if output_docx is None:
+        return render_work
+
+    input_path = render_work.initial_input or render_work.input
+    source_base = _resolve_source_base_for_render(render_work, input_path)
+    try:
+        rel_path = input_path.parent.resolve().relative_to(source_base)
+    except Exception:
+        rel_path = Path(".")
+    roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
+    try:
+        compare_result = _roundtrip_compare(
+            output_docx,
+            roundtrip_dir,
+            original_cv_data,
+        )
+    except Exception as e:
+        message = f"compare: {type(e).__name__}"
+        LOG.warning("%s", message)
+        render_work.add_error(StepName.RoundtripComparer, message)
+        return render_work
+
+    render_work.ensure_step_status(StepName.RoundtripComparer)
+    for err in compare_result.errors:
+        render_work.add_error(StepName.RoundtripComparer, err)
+    for warn in compare_result.warnings:
+        render_work.add_warning(StepName.RoundtripComparer, warn)
+    return render_work
+
+def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
     
@@ -113,70 +199,34 @@ def render_and_verify(work: UnitOfWork) -> tuple[bool, List[str], List[str], Opt
         work: UnitOfWork with config, output JSON path, and initial input path
     
     Returns:
-        Tuple of (ok, errors, warnings, compare_ok).
-        compare_ok is None if comparison did not run (e.g., render error).
+        UnitOfWork with Render/Verify statuses populated.
     """
-    import json
-    
-    if not work.config.render:
-        return False, ["render: missing render configuration"], [], None
+    render_work = _render_docx(work)
+    render_status = render_work.step_statuses.get(StepName.Render)
+    if render_status and not render_status.ok:
+        return render_work
 
-    json_path = work.output
-    template_path = work.config.render.template
-    input_path = work.initial_input or work.input
-    debug = work.config.debug
+    # Skip compare when explicitly requested by caller
     skip_compare = not work.config.should_compare
     if work.config.extract and work.config.extract.name == "openai-extractor":
         skip_compare = True
 
-    if work.config.input_dir:
-        source_base = work.config.input_dir.resolve()
-    else:
-        source = None
-        if work.config.extract:
-            source = work.config.extract.source
-        elif work.config.render and work.config.render.data:
-            source = work.config.render.data
-        elif work.config.adjust and work.config.adjust.data:
-            source = work.config.adjust.data
-        if source is not None:
-            source_base = source.parent.resolve() if source.is_file() else source.resolve()
-        else:
-            source_base = input_path.parent.resolve()
+    if skip_compare:
+        return render_work
 
-    try:
-        rel_path = input_path.parent.resolve().relative_to(source_base)
-    except Exception:
-        rel_path = Path(".")
+    original_cv_path = work.output
+    if original_cv_path is None:
+        render_work.add_error(StepName.RoundtripComparer, "render: input JSON path is not set")
+        return render_work
 
+    return _verify_roundtrip(render_work, original_cv_path)
+
+def prepare_output_path(work, input_path, rel_path):
     output_docx = work.config.render.output or (
         work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
     )
     output_docx.parent.mkdir(parents=True, exist_ok=True)
-    roundtrip_dir = work.config.workspace.verification_dir / rel_path
-
-    try:
-        # Load CV data from JSON
-        with json_path.open("r", encoding="utf-8") as f:
-            cv_data = json.load(f)
-        
-        # Render using the new renderer interface (with explicit output path)
-        render_cv_data(cv_data, template_path, output_docx)
-
-        # Skip compare when explicitly requested by caller
-        if skip_compare:
-            return True, [], [], None
-
-        return _roundtrip_compare(
-            output_docx,
-            roundtrip_dir,
-            cv_data,
-        )
-    except Exception as e:
-        if debug:
-            LOG.error(traceback.format_exc())
-        return False, [f"render: {type(e).__name__}"], [], None
-
+    return output_docx
 
 def categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
     """Categorize result into (fully_ok, partial_ok, failed) counts."""

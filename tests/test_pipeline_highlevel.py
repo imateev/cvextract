@@ -37,7 +37,7 @@ class TestExtractCvStructure:
 class TestRenderCvData:
     """Tests for render_cv_data function."""
 
-    def test_render_cv_data_uses_default_renderer(self, tmp_path):
+    def test_render_cv_data_uses_default_renderer(self, tmp_path, make_render_work):
         """Test render_cv_data uses the DocxCVRenderer."""
         mock_template = tmp_path / "template.docx"
         mock_template.touch()
@@ -50,36 +50,40 @@ class TestRenderCvData:
             "experiences": [{"heading": "Job", "description": "desc"}],
         }
         
+        work = make_render_work(cv_data, mock_template, output_path)
+
         with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             mock_renderer = Mock()
-            mock_renderer.render.return_value = output_path
+            mock_renderer.render.return_value = work
             mock_get_renderer.return_value = mock_renderer
             
-            result = render_cv_data(cv_data, mock_template, output_path)
+            result = render_cv_data(work)
             
-            assert result == output_path
+            assert result == work
             mock_get_renderer.assert_called_once_with("private-internal-renderer")
-            mock_renderer.render.assert_called_once_with(cv_data, mock_template, output_path)
+            mock_renderer.render.assert_called_once_with(work)
 
-    def test_render_cv_data_returns_output_path(self, tmp_path):
-        """Test render_cv_data returns the rendered output path."""
+    def test_render_cv_data_returns_unit_of_work(self, tmp_path, make_render_work):
+        """Test render_cv_data returns the rendered UnitOfWork."""
         mock_template = tmp_path / "template.docx"
         mock_template.touch()
         output_path = tmp_path / "output.docx"
         
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
-        
+
+        work = make_render_work(cv_data, mock_template, output_path)
+
         with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             mock_renderer = Mock()
-            expected_return = output_path
+            expected_return = work
             mock_renderer.render.return_value = expected_return
             mock_get_renderer.return_value = mock_renderer
             
-            result = render_cv_data(cv_data, mock_template, output_path)
+            result = render_cv_data(work)
             
             assert result == expected_return
 
-    def test_render_cv_data_raises_error_when_renderer_not_found(self, tmp_path):
+    def test_render_cv_data_raises_error_when_renderer_not_found(self, tmp_path, make_render_work):
         """Test render_cv_data raises ValueError when default renderer is not found."""
         import pytest
         
@@ -88,13 +92,15 @@ class TestRenderCvData:
         output_path = tmp_path / "output.docx"
         
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
-        
+
+        work = make_render_work(cv_data, mock_template, output_path)
+
         with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             # Simulate renderer not found
             mock_get_renderer.return_value = None
             
             with pytest.raises(ValueError, match="Default renderer 'private-internal-renderer' not found"):
-                render_cv_data(cv_data, mock_template, output_path)
+                render_cv_data(work)
             
             mock_get_renderer.assert_called_once_with("private-internal-renderer")
 
