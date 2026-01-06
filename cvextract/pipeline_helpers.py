@@ -158,32 +158,12 @@ def _roundtrip_compare(
     return False, cmp.errors, cmp.warnings, False
 
 
-def render_and_verify(work: UnitOfWork) -> UnitOfWork:
-    """
-    Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
-    
-    Args:
-        work: UnitOfWork with config, output JSON path, and initial input path
-    
-    Returns:
-        UnitOfWork with Render/Verify statuses populated.
-    """
+def _verify_roundtrip(
+    work: UnitOfWork,
+    render_work: UnitOfWork,
+    original_cv_path: Optional[Path],
+) -> UnitOfWork:
     import json
-    
-    original_cv_path = work.output
-
-    render_work = _render_docx(work)
-    render_status = render_work.step_statuses.get(StepName.Render)
-    if render_status and not render_status.ok:
-        return render_work
-
-    # Skip compare when explicitly requested by caller
-    skip_compare = not work.config.should_compare
-    if work.config.extract and work.config.extract.name == "openai-extractor":
-        skip_compare = True
-
-    if skip_compare:
-        return render_work
 
     try:
         # Load CV data from JSON
@@ -194,7 +174,7 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
             LOG.error(traceback.format_exc())
         work.add_error(StepName.Render, f"render: {type(e).__name__}")
         return work
-    
+
     output_docx = render_work.output
     if output_docx is None:
         return render_work
@@ -224,6 +204,34 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     for warn in compare_warnings:
         render_work.add_warning(StepName.Verify, warn)
     return render_work
+
+
+def render_and_verify(work: UnitOfWork) -> UnitOfWork:
+    """
+    Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
+    
+    Args:
+        work: UnitOfWork with config, output JSON path, and initial input path
+    
+    Returns:
+        UnitOfWork with Render/Verify statuses populated.
+    """
+    original_cv_path = work.output
+
+    render_work = _render_docx(work)
+    render_status = render_work.step_statuses.get(StepName.Render)
+    if render_status and not render_status.ok:
+        return render_work
+
+    # Skip compare when explicitly requested by caller
+    skip_compare = not work.config.should_compare
+    if work.config.extract and work.config.extract.name == "openai-extractor":
+        skip_compare = True
+
+    if skip_compare:
+        return render_work
+
+    return _verify_roundtrip(work, render_work, original_cv_path)
 
 def prepare_output_path(work, input_path, rel_path):
     output_docx = work.config.render.output or (
