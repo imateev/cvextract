@@ -8,7 +8,7 @@ the single-file processing architecture.
 from __future__ import annotations
 
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -17,7 +17,7 @@ from .cli_config import UserConfig
 from .cli_execute_single import execute_single
 from .logging_utils import LOG, fmt_issues
 from .output_controller import get_output_controller
-from .shared import UnitOfWork, select_issue_step
+from .shared import UnitOfWork, get_status_icons, select_issue_step
 
 def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> List[Path]:
     """
@@ -68,7 +68,7 @@ def _build_file_config(config: UserConfig, file_path: Path) -> UserConfig:
         input_dir=config.parallel.source if config.parallel else None,
     )
 
-def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional["UnitOfWork"]]:
+def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional[UnitOfWork]]:
     controller = get_output_controller()
     file_config = _build_file_config(config, file_path)
     with controller.file_context(file_path):
@@ -76,7 +76,7 @@ def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional["U
 
 
 def _process_future_result(
-    future,
+    future: Future[Tuple[int, Optional[UnitOfWork]]],
     file_path: Path,
     progress_str: str,
     controller,
@@ -96,10 +96,18 @@ def _process_future_result(
         if not success and not message:
             message = "pipeline execution failed"
 
-        if success and has_warnings:
-            status_icon = "⚠️ "
-            status = "partial"
-        elif success and exit_code == 0:
+        if work:
+            icons = get_status_icons(work)
+            if any(icon == "❌" for icon in icons.values()):
+                status_icon = "❌"
+                status = "failed"
+            elif any(icon == "⚠️ " for icon in icons.values()):
+                status_icon = "⚠️ "
+                status = "partial"
+            else:
+                status_icon = "✅"
+                status = "full"
+        elif success:
             status_icon = "✅"
             status = "full"
         else:
