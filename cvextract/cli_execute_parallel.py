@@ -10,6 +10,7 @@ from __future__ import annotations
 import traceback
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import replace
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -81,7 +82,7 @@ def _process_future_result(
     progress_str: str,
     controller,
     config: UserConfig,
-) -> Tuple[str, Optional[str]]:
+) -> Tuple["_WorkStatus", Optional[str]]:
     log_fn = None
     log_args: tuple[str, ...] = ()
     summary_line = ""
@@ -98,7 +99,7 @@ def _process_future_result(
 
         log_fn = LOG.info
         log_args = (progress_str, summary_message)
-        return status, str(file_path) if status == "failed" else None
+        return status, str(file_path) if status == _WorkStatus.FAILED else None
     except Exception as e:
         summary_line = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
 
@@ -107,18 +108,24 @@ def _process_future_result(
         if config.debug:
             LOG.error(traceback.format_exc())
             
-        return "failed", str(file_path)
+        return _WorkStatus.FAILED, str(file_path)
     finally:
         if log_fn:
             log_fn(*log_args)
             controller.flush_file(file_path, summary_line)
 
-def _derive_work_status(work: UnitOfWork) -> str:
+class _WorkStatus(str, Enum):
+    FULL = "full"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+def _derive_work_status(work: UnitOfWork) -> "_WorkStatus":
     if not work.has_no_errors():
-        return "failed"
+        return _WorkStatus.FAILED
     if not work.has_no_warnings_or_errors():
-        return "partial"
-    return "full"
+        return _WorkStatus.PARTIAL
+    return _WorkStatus.FULL
 
 def _emit_parallel_summary(
     total_files: int,
@@ -227,9 +234,9 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                 controller,
                 config,
             )
-            if status == "partial":
+            if status == _WorkStatus.PARTIAL:
                 partial_success_count += 1
-            elif status == "full":
+            elif status == _WorkStatus.FULL:
                 full_success_count += 1
             else:
                 failed_count += 1
