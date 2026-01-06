@@ -49,9 +49,13 @@ def execute_pipeline(config: UserConfig) -> int:
         LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
         return 1
     
-    # Single file processing
-    input_file = source
-    
+    work = UnitOfWork(
+        config=config,
+        initial_input=source,
+        input=source,
+        output=None,
+    )
+           
     # Create output directories
     if config.extract or config.adjust:
         config.workspace.json_dir.mkdir(parents=True, exist_ok=True)
@@ -63,12 +67,6 @@ def execute_pipeline(config: UserConfig) -> int:
         config.workspace.documents_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 1: Extract (if configured)
-    work = UnitOfWork(
-        config=config,
-        initial_input=input_file,
-        input=input_file,
-        output=input_file,
-    )
     if config.extract:
         work = execute_extract(work)
 
