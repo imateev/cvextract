@@ -16,7 +16,6 @@ from .cli_execute_extract import execute as execute_extract
 from .cli_execute_render import execute as execute_render
 from .shared import StepName, UnitOfWork, emit_summary, emit_work_status
 
-
 def _resolve_input_source(config: UserConfig) -> Path | None:
     if config.extract:
         return config.extract.source
@@ -78,7 +77,6 @@ def _execute_pipeline_single(config: UserConfig) -> tuple[int, UnitOfWork | None
         return 1, work
 
     return 0, work
-
 
 def execute_pipeline(config: UserConfig) -> int:
     """
