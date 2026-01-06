@@ -139,14 +139,7 @@ def execute_pipeline(config: UserConfig) -> int:
                      icons[StepName.Render],
                      icons[StepName.Verify],
                      input_file.name,
-                     fmt_issues(
-                         work.step_statuses[StepName.Extract].errors
-                         if work.step_statuses.get(StepName.Extract)
-                         else [],
-                         work.step_statuses[StepName.Extract].warnings
-                         if work.step_statuses.get(StepName.Extract)
-                         else [],
-                     ))
+                     fmt_issues(work, StepName.Extract))
             return 1
     else:
         # No extraction, use input JSON directly
@@ -232,12 +225,18 @@ def execute_pipeline(config: UserConfig) -> int:
     if not config.suppress_file_logging:
         extract_ok = not (extract_status.errors if extract_status else [])
         icons = get_status_icons(work)
+        issue_step = StepName.Extract
+        for candidate in (StepName.Verify, StepName.Render, StepName.Extract):
+            status = work.step_statuses.get(candidate)
+            if status and (status.errors or status.warnings):
+                issue_step = candidate
+                break
         LOG.info("%s%s%s %s | %s",
                  icons[StepName.Extract],
                  icons[StepName.Render],
                  icons[StepName.Verify],
                  input_file.name,
-                 fmt_issues(extract_errs, combined_warns))
+                 fmt_issues(work, issue_step))
     
     # Log summary (unless suppressed for parallel mode)
     if not config.suppress_summary:

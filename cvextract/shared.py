@@ -91,7 +91,7 @@ class StepStatus:
         return not self.warnings and not self.errors
 
 
-def get_status_icons(work: "UnitOfWork", step: Optional["StepName"] = None) -> dict["StepName", str] | str:
+def get_status_icons(work: "UnitOfWork") -> dict["StepName", str]:
     """Generate status icons for pipeline steps based on UnitOfWork statuses."""
     def icon_for(step_name: StepName) -> str:
         status = work.step_statuses.get(step_name)
@@ -121,9 +121,6 @@ def get_status_icons(work: "UnitOfWork", step: Optional["StepName"] = None) -> d
         if step_name == StepName.Extract:
             return "🟢"
         return "✅"
-
-    if step is not None:
-        return icon_for(step)
 
     return {step_name: icon_for(step_name) for step_name in StepName}
 

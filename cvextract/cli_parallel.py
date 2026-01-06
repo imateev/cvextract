@@ -21,7 +21,7 @@ from .adjusters.openai_company_research_adjuster import (
     _load_cached_research,
     _research_company_profile,
 )
-from .shared import url_to_cache_filename
+from .shared import StepName, StepStatus, UnitOfWork, url_to_cache_filename
 import os
 
 
@@ -168,7 +168,16 @@ def process_single_file_wrapper(file_path: Path, config: UserConfig) -> Tuple[bo
             exit_code = execute_pipeline(file_config)
             warning_message = ""
             if file_config.last_warnings:
-                warning_message = fmt_issues([], file_config.last_warnings)
+                warn_work = UnitOfWork(
+                    config=file_config,
+                    input=file_path,
+                    output=file_path,
+                )
+                warn_work.step_statuses[StepName.Verify] = StepStatus(
+                    step=StepName.Verify,
+                    warnings=file_config.last_warnings,
+                )
+                warning_message = fmt_issues(warn_work, StepName.Verify)
             
             has_warnings = bool(file_config.last_warnings)
 
