@@ -101,8 +101,9 @@ class UnitOfWork:
 class StepName(str, Enum):
     Extract = "Extract"
     Adjust = "Adjust"
-    Verify = "Verify"
     Render = "Render"
+    RoundtripComparer = "RoundtripComparer"
+    Verify = "Verify"
 
 
 @dataclass
@@ -125,25 +126,11 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
         if status is None:
             return "➖"
 
-        if step_name == StepName.Verify:
-            if status.errors or status.warnings:
-                return "⚠️ "
-            return "✅"
-
-        if step_name == StepName.Render:
-            if status.errors:
-                return "❌"
-            if status.warnings:
-                return "⚠️ "
-            verify_status = work.step_statuses.get(StepName.Verify)
-            if verify_status and verify_status.errors:
-                return "❌"
-            return "✅"
-
         if status.errors:
             return "❌"
         if status.warnings:
             return "⚠️ "
+
         if step_name == StepName.Extract:
             return "🟢"
         return "✅"
@@ -151,7 +138,7 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
     return {step_name: icon_for(step_name) for step_name in StepName}
 
 def select_issue_step(work: "UnitOfWork") -> "StepName":
-    for candidate in (StepName.Verify, StepName.Render, StepName.Adjust, StepName.Extract):
+    for candidate in (StepName.RoundtripComparer, StepName.Render, StepName.Adjust, StepName.Extract):
         status = work.step_statuses.get(candidate)
         if status and (status.errors or status.warnings):
             return candidate
@@ -167,7 +154,7 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
     return (
         f"{icons[StepName.Extract]}"
         f"{icons[StepName.Render]}"
-        f"{icons[StepName.Verify]} "
+        f"{icons[StepName.RoundtripComparer]} "
         f"{input_path.name} | "
         f"{fmt_issues(work, issue_step)}"
     )

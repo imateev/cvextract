@@ -194,7 +194,7 @@ class TestRenderAndVerify:
             )
             result = render_and_verify(work)
             render_status = result.step_statuses[StepName.Render]
-            verify_status = result.step_statuses[StepName.Verify]
+            verify_status = result.step_statuses[StepName.RoundtripComparer]
             
             assert render_status.errors == []
             assert render_status.warnings == []
@@ -232,7 +232,7 @@ class TestRenderAndVerify:
             render_status = result.step_statuses[StepName.Render]
             
             assert render_status.errors == []
-            assert StepName.Verify not in result.step_statuses  # Not executed
+            assert StepName.RoundtripComparer not in result.step_statuses  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
         """Test roundtrip verification directory is created."""
@@ -322,7 +322,7 @@ class TestRenderAndVerify:
             )
             result = render_and_verify(work)
             render_status = result.step_statuses[StepName.Render]
-            verify_status = result.step_statuses[StepName.Verify]
+            verify_status = result.step_statuses[StepName.RoundtripComparer]
             
             assert render_status.errors == []
             assert "Mismatch detected" in verify_status.errors
@@ -354,7 +354,7 @@ class TestRenderAndVerify:
             
             assert render_status.errors == []
             assert any("RuntimeError" in w for w in render_status.warnings)
-            assert StepName.Verify not in result.step_statuses
+            assert StepName.RoundtripComparer not in result.step_statuses
 
 
 class TestCategorizeResult:
@@ -401,7 +401,7 @@ class TestGetStatusIcons:
             warnings=["warning"],
         )
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
         assert "⚠️" in icons[StepName.Extract]  # Warning icon for extract
 
@@ -414,7 +414,7 @@ class TestGetStatusIcons:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
         assert "🟢" in icons[StepName.Extract]  # Green icon
 
@@ -433,8 +433,8 @@ class TestGetStatusIcons:
             step=StepName.Render,
             errors=["render error"],
         )
-        work.step_statuses[StepName.Verify] = StepStatus(
-            step=StepName.Verify,
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+            step=StepName.RoundtripComparer,
             errors=["compare error"],
         )
         icons = get_status_icons(work)
@@ -460,9 +460,9 @@ class TestGetStatusIcons:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
         icons = get_status_icons(work)
-        assert "✅" in icons[StepName.Verify] or "✓" in icons[StepName.Verify]
+        assert "✅" in icons[StepName.RoundtripComparer] or "✓" in icons[StepName.RoundtripComparer]
 
     def test_compare_failed(self, tmp_path):
         """Test compare found differences."""
@@ -473,12 +473,12 @@ class TestGetStatusIcons:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.Verify] = StepStatus(
-            step=StepName.Verify,
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+            step=StepName.RoundtripComparer,
             errors=["compare mismatch"],
         )
         icons = get_status_icons(work)
-        assert "⚠️" in icons[StepName.Verify]  # Warning for compare mismatch
+        assert "⚠️" in icons[StepName.RoundtripComparer]  # Warning for compare mismatch
 
     def test_compare_none(self, tmp_path):
         """Test compare not executed."""
@@ -490,7 +490,7 @@ class TestGetStatusIcons:
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
         icons = get_status_icons(work)
-        assert "➖" in icons[StepName.Verify]
+        assert "➖" in icons[StepName.RoundtripComparer]
 
 
 class TestInferSourceRoot:

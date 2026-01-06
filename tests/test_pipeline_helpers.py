@@ -123,7 +123,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
     result = p.render_and_verify(work)
     render_status = result.step_statuses[StepName.Render]
-    verify_status = result.step_statuses[StepName.Verify]
+    verify_status = result.step_statuses[StepName.RoundtripComparer]
     assert render_status.errors == []
     assert render_status.warnings == []
     assert verify_status.errors == []
@@ -152,7 +152,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     assert render_status.errors == []
     assert len(render_status.warnings) == 1
     assert "render: ValueError" in render_status.warnings[0]
-    assert StepName.Verify not in result.step_statuses
+    assert StepName.RoundtripComparer not in result.step_statuses
 
 
 def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
@@ -187,7 +187,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
     result = p.render_and_verify(work)
     render_status = result.step_statuses[StepName.Render]
-    verify_status = result.step_statuses[StepName.Verify]
+    verify_status = result.step_statuses[StepName.RoundtripComparer]
     assert render_status.errors == []
     assert "value mismatch" in verify_status.errors[0]
     assert verify_status.warnings == []
@@ -204,7 +204,7 @@ def test_get_status_icons_extract_success_no_warnings():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.Verify] == "➖"
+    assert icons[StepName.RoundtripComparer] == "➖"
 
 
 def test_get_status_icons_extract_success_with_warnings():
@@ -221,7 +221,7 @@ def test_get_status_icons_extract_success_with_warnings():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "⚠️ "
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.Verify] == "➖"
+    assert icons[StepName.RoundtripComparer] == "➖"
 
 
 def test_get_status_icons_extract_failed():
@@ -238,7 +238,7 @@ def test_get_status_icons_extract_failed():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "❌"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.Verify] == "➖"
+    assert icons[StepName.RoundtripComparer] == "➖"
 
 
 def test_get_status_icons_apply_success():
@@ -250,11 +250,11 @@ def test_get_status_icons_apply_success():
     )
     work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-    work.step_statuses[StepName.Verify] = StepStatus(step=StepName.Verify)
+    work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "✅"
-    assert icons[StepName.Verify] == "✅"
+    assert icons[StepName.RoundtripComparer] == "✅"
 
 
 def test_get_status_icons_apply_failed():
@@ -269,14 +269,14 @@ def test_get_status_icons_apply_failed():
         step=StepName.Render,
         errors=["render failed"],
     )
-    work.step_statuses[StepName.Verify] = StepStatus(
-        step=StepName.Verify,
+    work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        step=StepName.RoundtripComparer,
         errors=["compare failed"],
     )
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "❌"
-    assert icons[StepName.Verify] == "⚠️ "
+    assert icons[StepName.RoundtripComparer] == "⚠️ "
 
 
 def test_categorize_result_extract_failed():

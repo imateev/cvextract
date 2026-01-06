@@ -88,11 +88,6 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
         message = f"render: {type(e).__name__}"
         LOG.warning("%s", message)
         render_work.add_warning(StepName.Render, message)
-        return render_work
-
-    render_status = render_work.ensure_step_status(StepName.Render)
-    if render_status and not render_status.ok:
-        return render_work
 
     return render_work
 
@@ -162,7 +157,7 @@ def _verify_roundtrip(
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
-        work.add_error(StepName.Render, f"render: {type(e).__name__}")
+        work.add_error(StepName.RoundtripComparer, f"render: {type(e).__name__}")
         return work
 
     output_docx = render_work.output
@@ -185,14 +180,14 @@ def _verify_roundtrip(
     except Exception as e:
         message = f"compare: {type(e).__name__}"
         LOG.warning("%s", message)
-        render_work.add_error(StepName.Verify, message)
+        render_work.add_error(StepName.RoundtripComparer, message)
         return render_work
 
-    render_work.ensure_step_status(StepName.Verify)
+    render_work.ensure_step_status(StepName.RoundtripComparer)
     for err in compare_result.errors:
-        render_work.add_error(StepName.Verify, err)
+        render_work.add_error(StepName.RoundtripComparer, err)
     for warn in compare_result.warnings:
-        render_work.add_warning(StepName.Verify, warn)
+        render_work.add_warning(StepName.RoundtripComparer, warn)
     return render_work
 
 def render_and_verify(work: UnitOfWork) -> UnitOfWork:
