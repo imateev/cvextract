@@ -478,7 +478,7 @@ class TestGetStatusIcons:
             errors=["compare mismatch"],
         )
         icons = get_status_icons(work)
-        assert "⚠️" in icons[StepName.RoundtripComparer]  # Warning for compare mismatch
+        assert "❌" in icons[StepName.RoundtripComparer]  # Error for compare mismatch
 
     def test_compare_none(self, tmp_path):
         """Test compare not executed."""

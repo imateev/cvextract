@@ -142,7 +142,7 @@ class TestPipelineEdgeCases:
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "❌"
         assert icons[StepName.Render] == "❌"
-        assert icons[StepName.RoundtripComparer] == "⚠️ "
+        assert icons[StepName.RoundtripComparer] == "❌"
 
     def test_get_status_icons_extract_warn(self, tmp_path):
         """Test status icons when extract has warning."""

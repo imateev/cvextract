@@ -276,7 +276,7 @@ def test_get_status_icons_apply_failed():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "❌"
-    assert icons[StepName.RoundtripComparer] == "⚠️ "
+    assert icons[StepName.RoundtripComparer] == "❌"
 
 
 def test_categorize_result_extract_failed():
