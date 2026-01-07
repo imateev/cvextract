@@ -35,7 +35,7 @@ jobs:
           # Test the complete extract+render pipeline with example CV
           # Capture output and exit code
           set +e  # Don't exit immediately on error
-          output=$(python -m cvextract. cli \
+          output=$(python -m cvextract.cli \
             --extract source=examples/cvs/Sarah_Connor_CV.docx \
             --render template=examples/templates/CV_Template_Jinja2.docx \
             --target /tmp/integration_test_output 2>&1)
@@ -45,17 +45,17 @@ jobs:
           # Print the output for debugging
           echo "$output"
           
-          # Check exit code is 0
-          # if [ $exit_code -ne 0 ]; then
-          #  echo "❌ Integration test failed:  Exit code was $exit_code (expected 0)"
-          #  exit 1
-          # fi
+          Check exit code is 0
+          if [ $exit_code -ne 0 ]; then
+           echo "❌ Integration test failed:  Exit code was $exit_code (expected 0)"
+           exit 1
+          fi
           
-          # Check if output starts with "INFO: 🟢·✅·✅"
-          # if !  echo "$output" | grep -q "^INFO: 🟢·✅·✅"; then
-          #  echo "❌ Integration test failed: Output did not start with 'INFO: 🟢·✅·✅'"
-          #  exit 1
-          # fi
+          Check if output starts with "INFO: 🟢·✅·✅"
+          if !  echo "$output" | grep -q "^INFO: 🟢·✅·✅"; then
+           echo "❌ Integration test failed: Output did not start with 'INFO: 🟢·✅·✅'"
+           exit 1
+          fi
           
           # Verify output files were created
           test -f /tmp/integration_test_output/structured_data/Sarah_Connor_CV.json || exit 1
