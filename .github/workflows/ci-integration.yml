@@ -84,6 +84,20 @@ jobs:
            exit 1
           fi
 
+          # Check progress output includes status lines per file
+          if ! echo "$output" | grep -E "^\[[0-9]+/[0-9]+ \\| *[0-9]+%\\] 🟢·✅·✅ Luke_Reese_CV\\.docx$"; then
+           echo "❌ Parallel integration test failed: Missing progress line for Luke_Reese_CV.docx"
+           exit 1
+          fi
+          if ! echo "$output" | grep -E "^\[[0-9]+/[0-9]+ \\| *[0-9]+%\\] 🟢·✅·✅ Sarah_Connor_CV\\.docx$"; then
+           echo "❌ Parallel integration test failed: Missing progress line for Sarah_Connor_CV.docx"
+           exit 1
+          fi
+          if ! echo "$output" | grep -E "^\[[0-9]+/[0-9]+ \\| *[0-9]+%\\] 🟢·✅·✅ T800_Model_101_CV\\.docx$"; then
+           echo "❌ Parallel integration test failed: Missing progress line for T800_Model_101_CV.docx"
+           exit 1
+          fi
+
           # Verify output files were created for all example CVs
           test -f /tmp/integration_test_parallel_output/structured_data/Luke_Reese_CV.json || exit 1
           test -f /tmp/integration_test_parallel_output/structured_data/Sarah_Connor_CV.json || exit 1
