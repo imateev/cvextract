@@ -10,12 +10,6 @@ The project is actively evolving. Contributions that improve correctness, determ
 
 ---
 
-## Code of Conduct
-
-Please read and follow the Code of Conduct in this repository.
-
----
-
 ## Ways to contribute
 
 You don’t need to write code to help:
