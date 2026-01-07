@@ -136,7 +136,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
             work.output.write_text('{"a": 1}', encoding="utf-8")
         return work
 
-    def fake_compare(orig, target_data):
+    def fake_compare(data=None, target_data=None):
         return VerificationResult(ok=True, errors=[], warnings=[])
 
     # Mock the RoundtripVerifier instance method
@@ -209,7 +209,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         work.output.write_text('{"a": 2}', encoding="utf-8")
         return work
 
-    def fake_compare(orig, target_data):
+    def fake_compare(data=None, target_data=None):
         return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])
 
     # Mock the RoundtripVerifier instance method

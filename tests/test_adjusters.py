@@ -497,7 +497,7 @@ class TestOpenAICompanyResearchAdjuster:
         # Should return original CV due to validation exception
         assert result_data == cv_data
         # Verify validation was attempted
-        mock_verifier.verify.assert_called_once_with(adjusted_data)
+        mock_verifier.verify.assert_called_once_with(data=adjusted_data)
 
     @patch(
         "cvextract.adjusters.openai_company_research_adjuster._research_company_profile"
@@ -549,7 +549,7 @@ class TestOpenAICompanyResearchAdjuster:
         # Should return original CV due to validation failure
         assert result_data == cv_data
         # Verify validation was attempted
-        mock_verifier.verify.assert_called_once_with(adjusted_data)
+        mock_verifier.verify.assert_called_once_with(data=adjusted_data)
 
     @patch(
         "cvextract.adjusters.openai_company_research_adjuster._research_company_profile"
@@ -2310,7 +2310,7 @@ class TestOpenAICompanyResearchHelpers:
         ):
             result = _validate_research_data({"company": "Test Corp"})
             assert result is True
-            mock_verifier.verify.assert_called_once_with({"company": "Test Corp"})
+            mock_verifier.verify.assert_called_once_with(data={"company": "Test Corp"})
 
     def test_validate_research_data_returns_false_on_verifier_error(self):
         """_validate_research_data() returns False if verifier raises exception."""
