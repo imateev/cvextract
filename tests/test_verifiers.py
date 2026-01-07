@@ -48,7 +48,7 @@ class TestExtractedDataVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is True
         assert result.errors == []
 
@@ -60,7 +60,7 @@ class TestExtractedDataVerifier:
             "sidebar": {"languages": ["Python"]},
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert "identity" in result.errors
 
@@ -77,7 +77,7 @@ class TestExtractedDataVerifier:
             "sidebar": {"languages": ["Python"]},  # Missing other sections
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is True  # Warnings don't fail verification
         assert any("missing sidebar" in w for w in result.warnings)
 
@@ -89,7 +89,7 @@ class TestRoundtripVerifier:
         """Identical structures should pass comparison."""
         verifier = RoundtripVerifier()
         data = {"x": 1, "y": [1, 2], "z": {"k": "v"}}
-        result = verifier.verify(data, target_data=data)
+        result = verifier.verify(data=data, target_data=data)
         assert result.ok is True
         assert result.errors == []
 
@@ -98,7 +98,7 @@ class TestRoundtripVerifier:
         verifier = RoundtripVerifier()
         source = {"x": 1, "y": 2}
         target = {"x": 1}
-        result = verifier.verify(source, target_data=target)
+        result = verifier.verify(data=source, target_data=target)
         assert result.ok is False
         assert any("missing key" in e for e in result.errors)
 
@@ -107,7 +107,7 @@ class TestRoundtripVerifier:
         verifier = RoundtripVerifier()
         source = {"x": 1}
         target = {"x": 2}
-        result = verifier.verify(source, target_data=target)
+        result = verifier.verify(data=source, target_data=target)
         assert result.ok is False
         assert any("value mismatch" in e for e in result.errors)
 
@@ -124,14 +124,14 @@ class TestRoundtripVerifier:
                 {"environment": ["Java • Python • Docker"]},
             ]
         }
-        result = verifier.verify(source, target_data=target)
+        result = verifier.verify(data=source, target_data=target)
         assert result.ok is True
 
     def test_verifier_requires_target_data_parameter(self):
         """Verifier should raise error if target_data is missing."""
         verifier = RoundtripVerifier()
         with pytest.raises(ValueError, match="target_data"):
-            verifier.verify({"x": 1})
+            verifier.verify(data={"x": 1})
 
 
 class TestFileRoundtripVerifier:
@@ -152,8 +152,7 @@ class TestFileRoundtripVerifier:
             with target_file.open("w") as f:
                 json.dump(data, f)
 
-            result = verifier.verify(
-                {}, source_file=source_file, target_file=target_file
+            result = verifier.verify(source_file=source_file, target_file=target_file
             )
             assert result.ok is True
 
@@ -173,8 +172,7 @@ class TestFileRoundtripVerifier:
             with target_file.open("w") as f:
                 json.dump(target_data, f)
 
-            result = verifier.verify(
-                {}, source_file=source_file, target_file=target_file
+            result = verifier.verify(source_file=source_file, target_file=target_file
             )
             assert result.ok is False
             assert any("value mismatch" in e for e in result.errors)
@@ -183,7 +181,7 @@ class TestFileRoundtripVerifier:
         """Verifier should raise error if file parameters are missing."""
         verifier = FileRoundtripVerifier()
         with pytest.raises(ValueError, match="source_file.*target_file"):
-            verifier.verify({})
+            verifier.verify(data={})
 
 
 class TestCVSchemaVerifier:
@@ -212,7 +210,7 @@ class TestCVSchemaVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is True
         assert result.errors == []
 
@@ -220,7 +218,7 @@ class TestCVSchemaVerifier:
         """Missing required fields should fail validation."""
         verifier = CVSchemaVerifier()
         data = {"sidebar": {}}  # Missing required fields
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("missing required field" in e for e in result.errors)
 
@@ -240,7 +238,7 @@ class TestCVSchemaVerifier:
             "overview": "Overview",
             "experiences": "not an array",  # Should be array
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("must be an array" in e for e in result.errors)
 
@@ -258,7 +256,7 @@ class TestCVSchemaVerifier:
             "overview": "Overview",
             "experiences": [{"heading": "Title"}],  # Missing description
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("description" in e for e in result.errors)
 
@@ -271,7 +269,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
 
     def test_identity_field_empty_string_fails_validation(self):
@@ -288,7 +286,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("must be a non-empty string" in e for e in result.errors)
 
@@ -306,7 +304,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
 
     def test_sidebar_not_dict_fails_validation(self):
@@ -323,7 +321,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("sidebar must be an object" in e for e in result.errors)
 
@@ -341,7 +339,7 @@ class TestCVSchemaVerifier:
             "overview": 123,  # Should be string or None
             "experiences": [],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("overview must be a string" in e for e in result.errors)
 
@@ -359,7 +357,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": {"not": "array"},
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("must be an array" in e for e in result.errors)
 
@@ -377,7 +375,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": ["not a dict"],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("must be an object" in e for e in result.errors)
 
@@ -395,7 +393,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [{"description": "desc"}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("heading" in e for e in result.errors)
 
@@ -413,7 +411,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [{"heading": 123, "description": "desc"}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("heading must be a string" in e for e in result.errors)
 
@@ -431,7 +429,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [{"heading": "Title"}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("description" in e for e in result.errors)
 
@@ -449,7 +447,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [{"heading": "Title", "description": 123}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("description must be a string" in e for e in result.errors)
 
@@ -469,7 +467,7 @@ class TestCVSchemaVerifier:
                 {"heading": "Title", "description": "desc", "bullets": "not an array"}
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("bullets must be an array" in e for e in result.errors)
 
@@ -489,7 +487,7 @@ class TestCVSchemaVerifier:
                 {"heading": "Title", "description": "desc", "bullets": [123, "string"]}
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("bullets items must be strings" in e for e in result.errors)
 
@@ -513,7 +511,7 @@ class TestCVSchemaVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("environment must be an array or null" in e for e in result.errors)
 
@@ -537,7 +535,7 @@ class TestCVSchemaVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is False
         assert any("environment items must be strings" in e for e in result.errors)
 
@@ -557,7 +555,7 @@ class TestCVSchemaVerifier:
                 {"heading": "Title", "description": "desc", "environment": None}
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is True
 
     def test_empty_bullets_array_passes_validation(self):
@@ -574,7 +572,7 @@ class TestCVSchemaVerifier:
             "overview": "",
             "experiences": [{"heading": "Title", "description": "desc", "bullets": []}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is True
 
     def test_empty_environment_array_passes_validation(self):
@@ -593,7 +591,7 @@ class TestCVSchemaVerifier:
                 {"heading": "Title", "description": "desc", "environment": []}
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok is True
 
 
@@ -604,7 +602,10 @@ class TestVerifierInterface:
         """Custom verifiers can extend CVVerifier."""
 
         class CustomVerifier(CVVerifier):
-            def verify(self, data, **kwargs):
+            def verify(self, **kwargs):
+                data = kwargs.get("data")
+                if data is None:
+                    raise ValueError("CustomVerifier requires a 'data' parameter.")
                 # Simple custom verification
                 if "custom_field" in data:
                     return VerificationResult(ok=True, errors=[], warnings=[])
@@ -615,11 +616,11 @@ class TestVerifierInterface:
         verifier = CustomVerifier()
 
         # Test with field present
-        result = verifier.verify({"custom_field": "value"})
+        result = verifier.verify(data={"custom_field": "value"})
         assert result.ok is True
 
         # Test with field missing
-        result = verifier.verify({})
+        result = verifier.verify(data={})
         assert result.ok is False
         assert "missing custom_field" in result.errors
 
@@ -643,7 +644,7 @@ class TestParameterPassing:
             "experiences": [{"heading": "h", "description": "d"}],
         }
 
-        result = verifier.verify(external_data)
+        result = verifier.verify(data=external_data)
         assert isinstance(result, VerificationResult)
 
     def test_comparison_verifier_accepts_external_source_and_target(self):
@@ -654,5 +655,5 @@ class TestParameterPassing:
         source_data = {"x": 1, "y": 2}
         target_data = {"x": 1, "y": 2}
 
-        result = verifier.verify(source_data, target_data=target_data)
+        result = verifier.verify(data=source_data, target_data=target_data)
         assert result.ok is True

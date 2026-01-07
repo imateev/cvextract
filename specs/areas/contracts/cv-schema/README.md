@@ -25,10 +25,12 @@ Location: `cvextract/contracts/cv_schema.json`
 ### Programmatic Validation
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 
+cv_data: Dict[str, Any] = {...}
 verifier = get_verifier("cv-schema-verifier")
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 
 if not result.ok:
     print(f"Schema violations: {result.errors}")

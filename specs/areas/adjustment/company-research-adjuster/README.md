@@ -192,8 +192,11 @@ def url_to_cache_filename(url: str) -> str:
 Research data is validated using `CompanyProfileVerifier` before caching:
 
 ```python
+from typing import Any, Dict
+
+research_data: Dict[str, Any] = {...}
 verifier = get_verifier("company-profile-verifier")
-is_valid, _ = verifier.verify(research_data)
+is_valid, _ = verifier.verify(data=research_data)
 if is_valid:
     cache_research(research_data)
 ```
@@ -203,8 +206,11 @@ if is_valid:
 Adjusted CV is validated using `CVSchemaVerifier` before returning:
 
 ```python
+from typing import Any, Dict
+
+adjusted_cv: Dict[str, Any] = {...}
 verifier = get_verifier("cv-schema-verifier")
-is_valid, _ = verifier.verify(adjusted_cv)
+is_valid, _ = verifier.verify(data=adjusted_cv)
 if not is_valid:
     return original_cv  # Fallback
 ```

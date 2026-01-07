@@ -43,17 +43,19 @@ class CVSchemaVerifier(CVVerifier):
                 self._schema = json.load(f)
         return self._schema
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         """
         Verify CV data against the schema.
 
         Args:
-            data: Dictionary containing CV data to validate
-            **kwargs: Not used for this verifier
+            **kwargs: Must contain 'data' (Dict[str, Any]) with CV data to validate
 
         Returns:
             VerificationResult with validation results
         """
+        data = kwargs.get("data")
+        if data is None:
+            raise ValueError("CVSchemaVerifier requires 'data' parameter")
         schema = self._load_schema()
         errs: List[str] = []
         warns: List[str] = []

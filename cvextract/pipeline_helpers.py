@@ -188,7 +188,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         with extract_work.output.open("r", encoding="utf-8") as f:
             data = json.load(f)
         verifier = get_verifier("private-internal-verifier")
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         for err in result.errors:
             extract_work.add_error(StepName.Extract, err)
         for warn in result.warnings:
@@ -224,7 +224,7 @@ def _roundtrip_compare(
     with roundtrip_work.output.open("r", encoding="utf-8") as f:
         roundtrip_data = json.load(f)
     verifier = get_verifier("roundtrip-verifier")
-    return verifier.verify(original_data, target_data=roundtrip_data)
+    return verifier.verify(data=original_data, target_data=roundtrip_data)
 
 
 def _verify_roundtrip(

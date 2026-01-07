@@ -174,7 +174,7 @@ def _validate_research_data(data: Any) -> bool:
         if not verifier:
             LOG.warning("CompanyProfileVerifier not available")
             return False
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         return bool(result.ok)
     except Exception as e:
         LOG.warning("Failed to validate research data with verifier: %s", e)
@@ -627,7 +627,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 )
                 return self._write_output_json(work, cv_data)
 
-            validation_result = cv_verifier.verify(adjusted)
+            validation_result = cv_verifier.verify(data=adjusted)
             if validation_result.ok:
                 LOG.info("The CV was adjusted to better fit the target company.")
                 return self._write_output_json(work, adjusted)

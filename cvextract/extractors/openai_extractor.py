@@ -610,7 +610,7 @@ class OpenAICVExtractor(CVExtractor):
         if not verifier:
             raise RuntimeError("CV schema verifier not available")
 
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         if not result.ok:
             raise ValueError(f"Response does not match schema: {result.errors}")
 

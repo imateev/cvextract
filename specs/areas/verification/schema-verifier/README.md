@@ -21,16 +21,19 @@ The `CVSchemaVerifier` class:
 ### Programmatic API
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 from pathlib import Path
 
+cv_data: Dict[str, Any] = {...}
+
 # Use default schema
 verifier = get_verifier("cv-schema-verifier")
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 
 # Use custom schema
 verifier = get_verifier("cv-schema-verifier", schema_path=Path("custom_schema.json"))
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 ```
 
 ### Pipeline Integration
@@ -38,15 +41,18 @@ result = verifier.verify(cv_data)
 Can be used alongside other verifiers:
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
+
+cv_data: Dict[str, Any] = {...}
 
 # First check schema
 schema_verifier = get_verifier("cv-schema-verifier")
-schema_result = schema_verifier.verify(cv_data)
+schema_result = schema_verifier.verify(data=cv_data)
 
 # Then check completeness
 data_verifier = get_verifier("private-internal-verifier")
-data_result = data_verifier.verify(cv_data)
+data_result = data_verifier.verify(data=cv_data)
 ```
 
 ## Configuration

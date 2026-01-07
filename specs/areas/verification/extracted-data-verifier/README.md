@@ -22,10 +22,12 @@ The `ExtractedDataVerifier` class checks:
 ### Programmatic API
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 
+cv_data: Dict[str, Any] = {...}
 verifier = get_verifier("private-internal-verifier")
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 
 if result.ok:
     print("Data is valid!")

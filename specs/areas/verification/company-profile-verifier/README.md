@@ -22,16 +22,19 @@ The `CompanyProfileVerifier` class:
 ### Programmatic API
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 from pathlib import Path
 
+company_data: Dict[str, Any] = {...}
+
 # Use default schema
 verifier = get_verifier("company-profile-verifier")
-result = verifier.verify(company_data)
+result = verifier.verify(data=company_data)
 
 # Use custom schema
 verifier = get_verifier("company-profile-verifier", schema_path=Path("custom_research_schema.json"))
-result = verifier.verify(company_data)
+result = verifier.verify(data=company_data)
 ```
 
 ### Integration Points
@@ -177,7 +180,7 @@ company_data = {
     }
 }
 
-result = verifier.verify(company_data)
+result = verifier.verify(data=company_data)
 if result.ok:
     print("Company profile is valid")
 else:

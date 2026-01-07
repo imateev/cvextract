@@ -22,7 +22,7 @@ class TestCompanyProfileVerifier:
             "name": "Acme Corp",
             "domains": ["technology"],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok
         assert not result.errors
 
@@ -57,56 +57,56 @@ class TestCompanyProfileVerifier:
             "ownership_type": "public",
             "website": "https://acme.com",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok
         assert not result.errors
 
     def test_missing_required_name(self, verifier):
         """Test that missing name fails."""
         data = {"domains": ["technology"]}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("name" in err for err in result.errors)
 
     def test_missing_required_domains(self, verifier):
         """Test that missing domains fails."""
         data = {"name": "Acme Corp"}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("domains" in err for err in result.errors)
 
     def test_name_empty_string_fails(self, verifier):
         """Test that empty name fails."""
         data = {"name": "", "domains": ["technology"]}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("name must be a non-empty string" in err for err in result.errors)
 
     def test_name_not_string_fails(self, verifier):
         """Test that non-string name fails."""
         data = {"name": 123, "domains": ["technology"]}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("name must be a string" in err for err in result.errors)
 
     def test_domains_empty_array_fails(self, verifier):
         """Test that empty domains array fails."""
         data = {"name": "Acme", "domains": []}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("at least one item" in err for err in result.errors)
 
     def test_domains_not_array_fails(self, verifier):
         """Test that non-array domains fails."""
         data = {"name": "Acme", "domains": "technology"}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("domains must be an array" in err for err in result.errors)
 
     def test_domains_non_string_items_fail(self, verifier):
         """Test that non-string domain items fail."""
         data = {"name": "Acme", "domains": ["technology", 123]}
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("domains items must be strings" in err for err in result.errors)
 
@@ -117,7 +117,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "description": 123,
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("description must be a string" in err for err in result.errors)
 
@@ -128,7 +128,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "technology_signals": [{"category": "programming"}],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("missing required field: technology" in err for err in result.errors)
 
@@ -144,7 +144,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("interest_level must be" in err for err in result.errors)
 
@@ -160,7 +160,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("confidence must be" in err for err in result.errors)
 
@@ -171,7 +171,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "founded_year": 1500,
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("founded_year must be" in err for err in result.errors)
 
@@ -182,7 +182,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "headquarters": {"city": "San Francisco"},
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("country" in err for err in result.errors)
 
@@ -193,7 +193,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "company_size": "huge",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("company_size must be" in err for err in result.errors)
 
@@ -204,7 +204,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "employee_count": 0,
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("employee_count must be" in err for err in result.errors)
 
@@ -215,7 +215,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "ownership_type": "cooperative",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("ownership_type must be" in err for err in result.errors)
 
@@ -238,7 +238,7 @@ class TestCompanyProfileVerifier:
             "ownership_type": None,
             "website": None,
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok
         assert not result.errors
 
@@ -252,7 +252,7 @@ class TestCompanyProfileVerifier:
                 "city": "San Francisco",
             },
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok
         assert not result.errors
 
@@ -270,7 +270,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok
         assert not result.errors
 
@@ -281,7 +281,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "technology_signals": "not an array",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("array" in err for err in result.errors)
 
@@ -292,7 +292,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "technology_signals": ["not a dict"],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("must be an object" in err for err in result.errors)
 
@@ -307,7 +307,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("technology must be a string" in err for err in result.errors)
 
@@ -323,7 +323,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("category must be a string" in err for err in result.errors)
 
@@ -339,7 +339,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("signals must be an array" in err for err in result.errors)
 
@@ -355,7 +355,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("signals items must be strings" in err for err in result.errors)
 
@@ -371,7 +371,7 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("notes must be a string" in err for err in result.errors)
 
@@ -382,7 +382,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "industry_classification": "not an object",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any(
             "industry_classification must be an object" in err for err in result.errors
@@ -397,7 +397,7 @@ class TestCompanyProfileVerifier:
                 "naics": 123,
             },
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("naics must be a string" in err for err in result.errors)
 
@@ -410,7 +410,7 @@ class TestCompanyProfileVerifier:
                 "sic": 123,
             },
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("sic must be a string" in err for err in result.errors)
 
@@ -421,7 +421,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "headquarters": "not an object",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("headquarters must be an object" in err for err in result.errors)
 
@@ -435,7 +435,7 @@ class TestCompanyProfileVerifier:
                 "city": 123,
             },
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("city must be a string" in err for err in result.errors)
 
@@ -449,7 +449,7 @@ class TestCompanyProfileVerifier:
                 "state": 123,
             },
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("state must be a string" in err for err in result.errors)
 
@@ -462,7 +462,7 @@ class TestCompanyProfileVerifier:
                 "country": 123,
             },
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("country must be a string" in err for err in result.errors)
 
@@ -473,7 +473,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "website": 123,
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("website must be a string" in err for err in result.errors)
 
@@ -484,7 +484,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "employee_count": "100",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("employee_count must be" in err for err in result.errors)
 
@@ -495,7 +495,7 @@ class TestCompanyProfileVerifier:
             "domains": ["technology"],
             "founded_year": "2010",
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert not result.ok
         assert any("founded_year must be" in err for err in result.errors)
 
@@ -530,6 +530,6 @@ class TestCompanyProfileVerifier:
                 }
             ],
         }
-        result = verifier.verify(data)
+        result = verifier.verify(data=data)
         assert result.ok
         assert not result.errors

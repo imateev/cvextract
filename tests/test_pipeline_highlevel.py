@@ -309,7 +309,7 @@ class TestExtractedDataVerification:
             ],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
+        res = verifier.verify(data=data)
         assert isinstance(res, VerificationResult)
         assert res.ok is True
         assert res.errors == []
@@ -323,7 +323,7 @@ class TestExtractedDataVerification:
             "experiences": [{"heading": "h", "description": "d"}],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
+        res = verifier.verify(data=data)
         assert res.ok is False
         assert "identity" in res.errors
 
@@ -347,7 +347,7 @@ class TestExtractedDataVerification:
             "experiences": [{"heading": "h", "description": "d"}],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
+        res = verifier.verify(data=data)
         assert res.ok is False
         assert "sidebar" in res.errors
 
@@ -365,7 +365,7 @@ class TestExtractedDataVerification:
             "experiences": [{"heading": "h", "description": "d"}],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
+        res = verifier.verify(data=data)
         assert res.ok is True
         assert any("missing sidebar" in w for w in res.warnings)
 
@@ -385,7 +385,7 @@ class TestExtractedDataVerification:
             ],  # should be list or None
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
+        res = verifier.verify(data=data)
         assert res.ok is True
         assert any("invalid environment format" in w for w in res.warnings)
 
@@ -403,6 +403,6 @@ class TestExtractedDataVerification:
             "experiences": [],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
+        res = verifier.verify(data=data)
         assert res.ok is False
         assert "experiences_empty" in res.errors

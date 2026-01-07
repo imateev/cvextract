@@ -45,17 +45,19 @@ class CompanyProfileVerifier(CVVerifier):
                 self._schema = json.load(f)
         return self._schema
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         """
         Verify company profile data against the schema.
 
         Args:
-            data: Dictionary containing company profile data to validate
-            **kwargs: Not used for this verifier
+            **kwargs: Must contain 'data' (Dict[str, Any]) with company profile data to validate
 
         Returns:
             VerificationResult with validation results
         """
+        data = kwargs.get("data")
+        if data is None:
+            raise ValueError("CompanyProfileVerifier requires 'data' parameter")
         schema = self._load_schema()
         errs: List[str] = []
         warns: List[str] = []

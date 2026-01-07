@@ -24,7 +24,10 @@ from cvextract.shared import VerificationResult
 from typing import Dict, Any
 
 class CustomVerifier(CVVerifier):
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
+        data = kwargs.get("data")
+        if data is None:
+            raise ValueError("CustomVerifier requires a 'data' parameter.")
         # Your verification logic here
         errors = []
         warnings = []
@@ -39,16 +42,17 @@ class CustomVerifier(CVVerifier):
 Validates completeness and basic structure of extracted CV data:
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import ExtractedDataVerifier
 
 verifier = ExtractedDataVerifier()
-cv_data = {
+cv_data: Dict[str, Any] = {
     "identity": {"title": "...", "full_name": "...", ...},
     "sidebar": {...},
     "overview": "...",
     "experiences": [...]
 }
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 if result.ok:
     print("Data is valid!")
 else:
@@ -61,6 +65,7 @@ else:
 Validates CV data against the JSON schema defined in `cv_schema.json`:
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 from pathlib import Path
 
@@ -70,7 +75,8 @@ verifier = CVSchemaVerifier()
 # Or specify custom schema path
 verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
 
-result = verifier.verify(cv_data)
+cv_data: Dict[str, Any] = {...}
+result = verifier.verify(data=cv_data)
 ```
 
 #### RoundtripVerifier
@@ -78,13 +84,14 @@ result = verifier.verify(cv_data)
 Compares two CV data structures for equivalence:
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 
 verifier = get_verifier("roundtrip-verifier")
-original_data = {...}
-roundtrip_data = {...}
+original_data: Dict[str, Any] = {...}
+roundtrip_data: Dict[str, Any] = {...}
 
-result = verifier.verify(original_data, target_data=roundtrip_data)
+result = verifier.verify(data=original_data, target_data=roundtrip_data)
 if result.ok:
     print("Data structures match!")
 ```
@@ -98,11 +105,12 @@ from cvextract.verifiers import get_verifier
 from pathlib import Path
 
 verifier = get_verifier("file-roundtrip-verifier")
+source_file: Path = Path("original.json")
+target_file: Path = Path("roundtrip.json")
 result = verifier.verify(
-    {},  # Not used for file comparison
-    source_file=Path("original.json"),
-    target_file=Path("roundtrip.json")
-))
+    source_file=source_file,
+    target_file=target_file
+)
 ```
 
 ## CV Data Schema
@@ -129,7 +137,10 @@ To create a custom verifier:
 2. Create your implementation:
    ```python
    class EmailVerifier(CVVerifier):
-       def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+       def verify(self, **kwargs) -> VerificationResult:
+           data = kwargs.get("data")
+           if data is None:
+               raise ValueError("EmailVerifier requires a 'data' parameter.")
            errors = []
            # Check for email in identity
            identity = data.get("identity", {})
@@ -140,8 +151,11 @@ To create a custom verifier:
 
 3. Use your verifier:
    ```python
+   from typing import Any, Dict
+
    verifier = EmailVerifier()
-   result = verifier.verify(cv_data)
+   cv_data: Dict[str, Any] = {...}
+   result = verifier.verify(data=cv_data)
    ```
 
 ## Passing Data from External Sources
@@ -151,35 +165,37 @@ The verifier architecture supports passing both source and target data as parame
 ### Example: Verifying External Data
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import ExtractedDataVerifier
 import json
 from pathlib import Path
 
 # Load CV data from external source
 with open("external_cv.json", "r") as f:
-    cv_data = json.load(f)
+    cv_data: Dict[str, Any] = json.load(f)
 
 # Verify the externally sourced data
 verifier = ExtractedDataVerifier()
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 ```
 
 ### Example: Comparing External Data Sources
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 import json
 
 # Load data from different sources
 with open("source_cv.json", "r") as f:
-    source_data = json.load(f)
+    source_data: Dict[str, Any] = json.load(f)
 
 with open("target_cv.json", "r") as f:
-    target_data = json.load(f)
+    target_data: Dict[str, Any] = json.load(f)
 
 # Compare them
 verifier = get_verifier("roundtrip-verifier")
-result = verifier.verify(source_data, target_data=target_data)
+result = verifier.verify(data=source_data, target_data=target_data)
 ```
 
 ## Integration with Existing Pipeline
@@ -188,13 +204,16 @@ The verifiers are now used directly throughout the codebase:
 
 ```python
 # Use verifiers directly from cvextract.verifiers
+from typing import Any, Dict
 from cvextract.verifiers import ExtractedDataVerifier, get_verifier
 
+cv_data: Dict[str, Any] = {...}
+
 # Verify extracted CV data
-data_result = get_verifier("private-internal-verifier").verify(cv_data)
+data_result = get_verifier("private-internal-verifier").verify(data=cv_data)
 
 # Compare two CV data structures
-result = get_verifier("roundtrip-verifier").verify(original_data, target_data=roundtrip_data)
+result = get_verifier("roundtrip-verifier").verify(data=original_data, target_data=roundtrip_data)
 ```
 
 ## Examples
@@ -202,18 +221,19 @@ result = get_verifier("roundtrip-verifier").verify(original_data, target_data=ro
 ### Using Multiple Verifiers
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 
-cv_data = {...}
+cv_data: Dict[str, Any] = {...}
 
 # First verify against schema
 schema_verifier = CVSchemaVerifier()
-schema_result = schema_verifier.verify(cv_data)
+schema_result = schema_verifier.verify(data=cv_data)
 
 if schema_result.ok:
     # Then check for completeness
     data_verifier = ExtractedDataVerifier()
-    data_result = data_verifier.verify(cv_data)
+    data_result = data_verifier.verify(data=cv_data)
     
     if data_result.ok:
         print("Data is valid and complete!")
@@ -224,6 +244,7 @@ if schema_result.ok:
 ### Roundtrip Verification
 
 ```python
+from typing import Any, Dict
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.extractors import DocxCVExtractor
 from cvextract.renderers import DocxCVRenderer
@@ -241,7 +262,7 @@ extract_work = UnitOfWork(
     output=json_path,
 )
 extractor.extract(extract_work)
-original_data = json.loads(json_path.read_text(encoding="utf-8"))
+original_data: Dict[str, Any] = json.loads(json_path.read_text(encoding="utf-8"))
 
 # Render to new document
 output_path = Path("output.docx")
@@ -263,11 +284,11 @@ roundtrip_work = UnitOfWork(
     output=roundtrip_json,
 )
 extractor.extract(roundtrip_work)
-roundtrip_data = json.loads(roundtrip_json.read_text(encoding="utf-8"))
+roundtrip_data: Dict[str, Any] = json.loads(roundtrip_json.read_text(encoding="utf-8"))
 
 # Verify they match
 verifier = get_verifier("roundtrip-verifier")
-result = verifier.verify(original_data, target_data=roundtrip_data)
+result = verifier.verify(data=original_data, target_data=roundtrip_data)
 
 if result.ok:
     print("Roundtrip successful!")
@@ -278,16 +299,16 @@ else:
 ### Creating a Mock Verifier for Testing
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import CVVerifier
 from cvextract.shared import VerificationResult
-from typing import Dict, Any
 
 class AlwaysPassVerifier(CVVerifier):
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         return VerificationResult(ok=True, errors=[], warnings=[])
 
 class AlwaysFailVerifier(CVVerifier):
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         return VerificationResult(
             ok=False,
             errors=["test error"],
@@ -296,10 +317,10 @@ class AlwaysFailVerifier(CVVerifier):
 
 # Use in tests
 pass_verifier = AlwaysPassVerifier()
-assert pass_verifier.verify({}).ok is True
+assert pass_verifier.verify(data={}).ok is True
 
 fail_verifier = AlwaysFailVerifier()
-assert fail_verifier.verify({}).ok is False
+assert fail_verifier.verify(data={}).ok is False
 ```
 
 ## Module Organization

@@ -24,20 +24,22 @@ class RoundtripVerifier(CVVerifier):
     which may use different separators but contain the same content.
     """
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         """
         Compare two CV data structures.
 
         Args:
-            data: The original/source CV data dictionary
-            **kwargs: Must contain 'target_data' key with the comparison target
+            **kwargs: Must contain 'data' and 'target_data' (Dict[str, Any]) for comparison
 
         Returns:
             VerificationResult with ok=True if structures match, errors for differences
         """
+        data = kwargs.get("data")
         target_data = kwargs.get("target_data")
-        if target_data is None:
-            raise ValueError("RoundtripVerifier requires 'target_data' parameter")
+        if data is None or target_data is None:
+            raise ValueError(
+                "RoundtripVerifier requires 'data' and 'target_data' parameters"
+            )
 
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
@@ -114,13 +116,12 @@ class FileRoundtripVerifier(CVVerifier):
     def __init__(self):
         self._roundtrip_verifier = RoundtripVerifier()
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         """
         Compare two CV data JSON files.
 
         Args:
-            data: Not used (pass empty dict or any dict)
-            **kwargs: Must contain 'source_file' and 'target_file' Path objects
+            **kwargs: Must contain 'source_file' and 'target_file' (Path | str) values
 
         Returns:
             VerificationResult with comparison results
@@ -138,4 +139,6 @@ class FileRoundtripVerifier(CVVerifier):
         with Path(target_file).open("r", encoding="utf-8") as f:
             target_data = json.load(f)
 
-        return self._roundtrip_verifier.verify(source_data, target_data=target_data)
+        return self._roundtrip_verifier.verify(
+            data=source_data, target_data=target_data
+        )

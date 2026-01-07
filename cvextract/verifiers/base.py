@@ -7,7 +7,7 @@ Defines the contract for pluggable CV verification implementations.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 from ..shared import VerificationResult
 
@@ -21,13 +21,12 @@ class CVVerifier(ABC):
     """
 
     @abstractmethod
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         """
         Verify CV data and return a verification result.
 
         Args:
-            data: Dictionary containing CV data to verify
-            **kwargs: Additional verification-specific parameters
+            **kwargs: Verification-specific parameters (e.g., data: Dict[str, Any])
 
         Returns:
             VerificationResult with ok status, errors, and warnings

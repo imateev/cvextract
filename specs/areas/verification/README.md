@@ -37,7 +37,7 @@ The verification area provides data validation and quality checking capabilities
 CV JSON Data
     │
     v
-[Verifier.verify(data, **kwargs)]
+[Verifier.verify(data=data, **kwargs)]
     │
     v
 VerificationResult(ok, errors, warnings)

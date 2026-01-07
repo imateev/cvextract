@@ -466,7 +466,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             return self._write_output_json(work, cv_data)
 
         try:
-            validation_result = cv_verifier.verify(adjusted)
+            validation_result = cv_verifier.verify(data=adjusted)
         except Exception as e:
             LOG.warning(
                 "Job-specific adjust: schema validation error (%s); using original JSON.",

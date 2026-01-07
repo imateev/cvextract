@@ -25,10 +25,13 @@ Both check:
 ### RoundtripVerifier (In-Memory)
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
 
 verifier = get_verifier("roundtrip-verifier")
-result = verifier.verify(original_data, target_data=roundtrip_data)
+original_data: Dict[str, Any] = {...}
+roundtrip_data: Dict[str, Any] = {...}
+result = verifier.verify(data=original_data, target_data=roundtrip_data)
 
 if result.ok:
     print("Data structures match!")
@@ -43,10 +46,11 @@ from cvextract.verifiers import get_verifier
 from pathlib import Path
 
 verifier = get_verifier("file-roundtrip-verifier")
+source_file: Path = Path("original.json")
+target_file: Path = Path("roundtrip.json")
 result = verifier.verify(
-    {},  # Not used
-    source_file=Path("original.json"),
-    target_file=Path("roundtrip.json")
+    source_file=source_file,
+    target_file=target_file
 )
 ```
 
@@ -64,8 +68,8 @@ result = render_and_verify(work)
 
 ### Parameters
 
-- **RoundtripVerifier**: `verify(data, target_data=...)`
-- **FileRoundtripVerifier**: `verify(data, source_file=..., target_file=...)`
+- **RoundtripVerifier**: `verify(data=..., target_data=...)`
+- **FileRoundtripVerifier**: `verify(source_file=..., target_file=...)`
 
 ## Interfaces
 

@@ -20,17 +20,19 @@ class ExtractedDataVerifier(CVVerifier):
     and warns about missing optional sections.
     """
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, **kwargs) -> VerificationResult:
         """
         Verify extracted CV data for completeness and validity.
 
         Args:
-            data: Dictionary containing extracted CV data
-            **kwargs: Not used for this verifier
+            **kwargs: Must contain 'data' (Dict[str, Any]) with extracted CV data
 
         Returns:
             VerificationResult with errors for critical issues and warnings for optional issues
         """
+        data = kwargs.get("data")
+        if data is None:
+            raise ValueError("ExtractedDataVerifier requires 'data' parameter")
         errs: List[str] = []
         warns: List[str] = []
 

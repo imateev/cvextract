@@ -93,7 +93,7 @@ class TestVerifierRegistry:
         class CustomVerifier(CVVerifier):
             """Custom test verifier for testing."""
 
-            def verify(self, data, **kwargs):
+            def verify(self, **kwargs):
                 return VerificationResult(
                     ok=True, errors=[], warnings=["custom-verifier"]
                 )
@@ -113,7 +113,7 @@ class TestVerifierRegistry:
             assert isinstance(verifier, CustomVerifier)
 
             # Should work
-            result = verifier.verify({})
+            result = verifier.verify(data={})
             assert result.ok is True
             assert "custom-verifier" in result.warnings
         finally:

@@ -57,15 +57,18 @@ roundtrip-verifier: Verifier for comparing two CV data structures.
 ### Getting a Verifier Instance
 
 ```python
+from typing import Any, Dict
 from cvextract.verifiers import get_verifier
+
+cv_data: Dict[str, Any] = {...}
 
 # Get a verifier by name
 verifier = get_verifier('private-internal-verifier')
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 
 # Pass constructor arguments
 verifier = get_verifier('cv-schema-verifier', schema_path=custom_schema_path)
-result = verifier.verify(cv_data)
+result = verifier.verify(data=cv_data)
 ```
 
 ### Registering Custom Verifiers
@@ -77,7 +80,7 @@ from cvextract.shared import VerificationResult
 class CustomVerifier(CVVerifier):
     """My custom CV verifier."""
     
-    def verify(self, data, **kwargs):
+    def verify(self, **kwargs):
         # Custom verification logic
         return VerificationResult(ok=True, errors=[], warnings=[])
 

@@ -111,7 +111,7 @@ class TestCompareJsonFiles:
             json.dump(data, f)
 
         verifier = get_verifier("file-roundtrip-verifier")
-        result = verifier.verify({}, source_file=file1, target_file=file2)
+        result = verifier.verify(source_file=file1, target_file=file2)
         assert result.ok is True
         assert result.errors == []
 
@@ -148,7 +148,7 @@ class TestCompareJsonFiles:
             json.dump(data2, f)
 
         verifier = get_verifier("file-roundtrip-verifier")
-        result = verifier.verify({}, source_file=file1, target_file=file2)
+        result = verifier.verify(source_file=file1, target_file=file2)
         assert result.ok is False
         assert len(result.errors) > 0
 
@@ -162,7 +162,7 @@ class TestCompareDataStructures:
         new = {"key": "value2"}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)
 
@@ -172,7 +172,7 @@ class TestCompareDataStructures:
         new = {"key": 123}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
         assert any("type mismatch" in err for err in result.errors)
 
@@ -182,7 +182,7 @@ class TestCompareDataStructures:
         new = {"items": [1, 2]}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
         assert any("list length mismatch" in err for err in result.errors)
 
@@ -192,7 +192,7 @@ class TestCompareDataStructures:
         new = {"a": {"b": {"c": 2}}}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
         assert any("value mismatch" in err for err in result.errors)
 
@@ -202,7 +202,7 @@ class TestCompareDataStructures:
         new = {"a": 1}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
         assert any("missing key" in err for err in result.errors)
 
@@ -212,7 +212,7 @@ class TestCompareDataStructures:
         new = {"a": 1, "b": 2}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
 
     def test_compare_environment_field_normalization(self):
@@ -237,7 +237,7 @@ class TestCompareDataStructures:
         }
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         # Should be OK because environment is normalized and equivalent
         assert result.ok is True
 
@@ -249,7 +249,7 @@ class TestCompareDataStructures:
         new = {"experiences": [{"heading": "Job", "environment": ["C++", "Rust"]}]}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        result = verifier.verify(data=original, target_data=new)
         assert result.ok is False
         assert any("environment mismatch" in err for err in result.errors)
 

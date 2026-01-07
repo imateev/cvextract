@@ -385,7 +385,7 @@ def test_verify_extracted_data_missing_identity():
         "experiences": [{"heading": "h", "description": "d"}],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
+    result = verifier.verify(data=data)
     assert result.ok is False
     assert "identity" in result.errors
 
@@ -403,7 +403,7 @@ def test_verify_extracted_data_empty_sidebar():
         "experiences": [{"heading": "h", "description": "d"}],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
+    result = verifier.verify(data=data)
     assert result.ok is False
     assert "sidebar" in result.errors
 
@@ -421,7 +421,7 @@ def test_verify_extracted_data_no_experiences():
         "experiences": [],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
+    result = verifier.verify(data=data)
     assert result.ok is False
     assert "experiences_empty" in result.errors
 
@@ -452,6 +452,6 @@ def test_verify_extracted_data_invalid_environment():
         ],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
+    result = verifier.verify(data=data)
     assert result.ok is True
     assert any("invalid environment format" in w for w in result.warnings)
