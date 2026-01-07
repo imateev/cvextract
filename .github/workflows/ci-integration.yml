@@ -62,3 +62,34 @@ jobs:
           test -f /tmp/integration_test_output/documents/Sarah_Connor_CV_NEW.docx || exit 1
           
           echo "✅ Integration test passed: Extract and render pipeline completed successfully"
+
+      - name: Run integration test on examples (parallel)
+        run: |
+          # Test parallel extract+render across all example CVs
+          set +e  # Don't exit immediately on error
+          output=$(python -m cvextract.cli \
+            --parallel source=examples/cvs n=3 \
+            --extract \
+            --render template=examples/templates/CV_Template_Jinja2.docx \
+            --target /tmp/integration_test_parallel_output 2>&1)
+          exit_code=$?
+          set -e  # Re-enable exit on error
+
+          # Print the output for debugging
+          echo "$output"
+
+          # Check exit code is 0
+          if [ $exit_code -ne 0 ]; then
+           echo "❌ Parallel integration test failed: Exit code was $exit_code (expected 0)"
+           exit 1
+          fi
+
+          # Verify output files were created for all example CVs
+          test -f /tmp/integration_test_parallel_output/structured_data/Luke_Reese_CV.json || exit 1
+          test -f /tmp/integration_test_parallel_output/structured_data/Sarah_Connor_CV.json || exit 1
+          test -f /tmp/integration_test_parallel_output/structured_data/T800_Model_101_CV.json || exit 1
+          test -f /tmp/integration_test_parallel_output/documents/Luke_Reese_CV_NEW.docx || exit 1
+          test -f /tmp/integration_test_parallel_output/documents/Sarah_Connor_CV_NEW.docx || exit 1
+          test -f /tmp/integration_test_parallel_output/documents/T800_Model_101_CV_NEW.docx || exit 1
+
+          echo "✅ Parallel integration test passed: Extract and render pipeline completed successfully"
