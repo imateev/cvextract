@@ -221,4 +221,4 @@ result = render_cv_with_custom_template(
 
 ## Integration with Existing Pipeline
 
-The renderers integrate with the existing pipeline through the `render_cv_data()` function in `pipeline_highlevel.py`, which uses the default renderer (`"private-internal-renderer"`).
+The renderers integrate with the existing pipeline through the `render_cv_data()` function in `pipeline_helpers.py`, which uses the default renderer (`"private-internal-renderer"`).

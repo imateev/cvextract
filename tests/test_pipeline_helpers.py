@@ -44,7 +44,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
         work.output.write_text(json.dumps(fake_data()), encoding="utf-8")
         return work
 
-    monkeypatch.setattr(p, "process_single_docx", fake_process_with_data)
+    monkeypatch.setattr(p, "extract_cv_data", fake_process_with_data)
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
@@ -83,7 +83,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
         work.output.write_text(json.dumps(data), encoding="utf-8")
         return work
 
-    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    monkeypatch.setattr(p, "extract_cv_data", fake_process)
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
@@ -106,7 +106,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     def fake_process(_work, extractor=None):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    monkeypatch.setattr(p, "extract_cv_data", fake_process)
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
@@ -144,7 +144,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     roundtrip_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
-    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    monkeypatch.setattr(p, "extract_cv_data", fake_process)
     monkeypatch.setattr(
         p,
         "get_verifier",
@@ -217,7 +217,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     roundtrip_verifier.verify = fake_compare
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
-    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    monkeypatch.setattr(p, "extract_cv_data", fake_process)
     monkeypatch.setattr(
         p,
         "get_verifier",

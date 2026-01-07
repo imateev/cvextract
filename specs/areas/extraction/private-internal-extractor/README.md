@@ -144,7 +144,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json`:
 ### Integration Points
 
 - Registered in `cvextract/extractors/__init__.py` as `"private-internal-extractor"`
-- Used by `cvextract.pipeline_highlevel.extract_cv_structure()` as default (expects `UnitOfWork`)
+- Used by `cvextract.pipeline_helpers.extract_cv_data()` as default (expects `UnitOfWork`)
 - Used by `cvextract.cli_execute_pipeline.execute_pipeline()` for extraction stage
 
 ## Test Coverage

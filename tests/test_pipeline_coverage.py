@@ -55,7 +55,7 @@ class TestExtractSingle:
         )
 
         with patch(
-            "cvextract.pipeline_helpers.process_single_docx"
+            "cvextract.pipeline_helpers.extract_cv_data"
         ) as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
@@ -87,7 +87,7 @@ class TestExtractSingle:
 
         mock_data = {"identity": {}}  # Missing required fields
 
-        with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract:
 
             def _process(work, extractor=None):
                 return _write_output(work, mock_data)
@@ -114,7 +114,7 @@ class TestExtractSingle:
         out_json = tmp_path / "out.json"
         docx_path.touch()
 
-        with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract:
             mock_extract.side_effect = ValueError("Bad file")
 
             work = UnitOfWork(
@@ -139,7 +139,7 @@ class TestExtractSingle:
         docx_path.touch()
 
         with patch(
-            "cvextract.pipeline_helpers.process_single_docx"
+            "cvextract.pipeline_helpers.extract_cv_data"
         ) as mock_extract, patch("cvextract.pipeline_helpers.dump_body_sample"):
 
             mock_extract.side_effect = ValueError("Bad file")
@@ -182,7 +182,7 @@ class TestExtractSingle:
         )
 
         with patch(
-            "cvextract.pipeline_helpers.process_single_docx"
+            "cvextract.pipeline_helpers.extract_cv_data"
         ) as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
@@ -240,7 +240,7 @@ class TestRenderAndVerify:
         )
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
-            "cvextract.pipeline_helpers.process_single_docx"
+            "cvextract.pipeline_helpers.extract_cv_data"
         ) as mock_process, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
@@ -345,7 +345,7 @@ class TestRenderAndVerify:
         )
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
-            "cvextract.pipeline_helpers.process_single_docx"
+            "cvextract.pipeline_helpers.extract_cv_data"
         ) as mock_process, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
@@ -409,7 +409,7 @@ class TestRenderAndVerify:
         )
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
-            "cvextract.pipeline_helpers.process_single_docx"
+            "cvextract.pipeline_helpers.extract_cv_data"
         ) as mock_process, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:

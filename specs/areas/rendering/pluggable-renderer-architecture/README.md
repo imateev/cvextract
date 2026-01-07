@@ -102,7 +102,7 @@ None (base class is pure Python)
 ### Integration Points
 
 - Implemented by `cvextract.renderers.DocxCVRenderer` (registered as `"private-internal-renderer"`)
-- Used by `cvextract.pipeline_highlevel.render_cv_data()`
+- Used by `cvextract.pipeline_helpers.render_cv_data()`
 - Registry pattern mirrors `cvextract.extractors.extractor_registry`
 
 ## Test Coverage

@@ -186,4 +186,4 @@ test_data = json.loads(work.output.read_text(encoding="utf-8"))
 
 ## Integration with Existing Pipeline
 
-The extractors integrate seamlessly with the existing pipeline through the `extract_cv_structure()` function in `pipeline_highlevel.py`, which uses `DocxCVExtractor` by default and expects a `UnitOfWork`.
+The extractors integrate seamlessly with the existing pipeline through the `extract_cv_data()` function in `pipeline_helpers.py`, which uses `DocxCVExtractor` by default and expects a `UnitOfWork`.

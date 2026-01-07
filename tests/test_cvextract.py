@@ -14,7 +14,7 @@ from cvextract.extractors.sidebar_parser import (
     extract_all_header_paragraphs,
     split_identity_and_sidebar,
 )
-from cvextract.pipeline_highlevel import extract_cv_structure
+from cvextract.pipeline_helpers import extract_cv_data
 from cvextract.shared import UnitOfWork
 
 # -------------------------
@@ -268,7 +268,7 @@ def test_header_parsing_splits_identity_and_sidebar_with_linebreaks(tmp_path: Pa
 # -------------------------
 
 
-def test_extract_cv_structure_end_to_end(tmp_path: Path):
+def test_extract_cv_data_end_to_end(tmp_path: Path):
 
     doc_xml = _doc_xml(
         [
@@ -299,7 +299,7 @@ def test_extract_cv_structure_end_to_end(tmp_path: Path):
         input=docx_path,
         output=output_path,
     )
-    extract_cv_structure(work)
+    extract_cv_data(work)
     data = json.loads(output_path.read_text(encoding="utf-8"))
 
     assert data["identity"]["full_name"] == "Rajesh Koothrappali"
