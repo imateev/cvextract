@@ -1,9 +1,11 @@
 import importlib
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 
+from cvextract.cli_config import UserConfig
 from cvextract.extractors.body_parser import parse_cv_from_docx_body
 
 # Import implementation functions directly
@@ -13,6 +15,7 @@ from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
 )
 from cvextract.pipeline_highlevel import extract_cv_structure
+from cvextract.shared import UnitOfWork
 
 # -------------------------
 # Helpers to build minimal DOCX-like zips
@@ -290,7 +293,14 @@ def test_extract_cv_structure_end_to_end(tmp_path: Path):
     docx_path = tmp_path / "e2e.docx"
     _write_docx_zip(docx_path, doc_xml, headers={"word/header1.xml": hdr_xml})
 
-    data = extract_cv_structure(docx_path)
+    output_path = tmp_path / "e2e.json"
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path),
+        input=docx_path,
+        output=output_path,
+    )
+    extract_cv_structure(work)
+    data = json.loads(output_path.read_text(encoding="utf-8"))
 
     assert data["identity"]["full_name"] == "Rajesh Koothrappali"
     assert "high-quality" in data["overview"]  # from the <w:softHyphen/> node paragraph

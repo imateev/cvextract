@@ -20,6 +20,11 @@ from cvextract.shared import (
 from cvextract.verifiers import get_verifier
 
 
+def _write_output(work: UnitOfWork, data: dict) -> UnitOfWork:
+    work.output.write_text(json.dumps(data), encoding="utf-8")
+    return work
+
+
 class TestExtractSingle:
     """Tests for extract_single function."""
 
@@ -55,7 +60,10 @@ class TestExtractSingle:
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
 
-            mock_extract.return_value = mock_data
+            def _process(work, extractor=None):
+                return _write_output(work, mock_data)
+
+            mock_extract.side_effect = _process
             mock_get_verifier.return_value = mock_verifier
 
             work = UnitOfWork(
@@ -81,7 +89,10 @@ class TestExtractSingle:
 
         with patch("cvextract.pipeline_helpers.process_single_docx") as mock_extract:
 
-            mock_extract.return_value = mock_data
+            def _process(work, extractor=None):
+                return _write_output(work, mock_data)
+
+            mock_extract.side_effect = _process
 
             work = UnitOfWork(
                 config=UserConfig(
@@ -176,7 +187,10 @@ class TestExtractSingle:
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
 
-            mock_extract.return_value = mock_data
+            def _process(work, extractor=None):
+                return _write_output(work, mock_data)
+
+            mock_extract.side_effect = _process
             mock_get_verifier.return_value = mock_verifier
 
             work = UnitOfWork(
@@ -232,7 +246,11 @@ class TestRenderAndVerify:
         ) as mock_get_verifier:
 
             mock_render.side_effect = lambda work: work
-            mock_process.return_value = json.loads(json_path.read_text())
+
+            def _process(work, extractor=None):
+                return _write_output(work, json.loads(json_path.read_text()))
+
+            mock_process.side_effect = _process
             mock_get_verifier.return_value = mock_verifier
 
             config = UserConfig(
@@ -333,7 +351,11 @@ class TestRenderAndVerify:
         ) as mock_get_verifier:
 
             mock_render.side_effect = lambda work: work
-            mock_process.return_value = test_data
+
+            def _process(work, extractor=None):
+                return _write_output(work, test_data)
+
+            mock_process.side_effect = _process
             mock_get_verifier.return_value = mock_verifier
 
             config = UserConfig(
@@ -393,12 +415,17 @@ class TestRenderAndVerify:
         ) as mock_get_verifier:
 
             mock_render.side_effect = lambda work: work
-            mock_process.return_value = {
+            mismatch_data = {
                 "identity": {"title": "Different"},
                 "sidebar": {},
                 "overview": "",
                 "experiences": [],
             }
+
+            def _process(work, extractor=None):
+                return _write_output(work, mismatch_data)
+
+            mock_process.side_effect = _process
             mock_get_verifier.return_value = mock_verifier
 
             config = UserConfig(

@@ -1,5 +1,6 @@
 """Tests for pipeline helper functions."""
 
+import json
 from pathlib import Path
 
 import cvextract.pipeline_helpers as p
@@ -21,8 +22,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     output = tmp_path / "test.json"
     docx.write_text("docx")
 
-    def fake_process(_path, out, extractor=None):
-        out.write_text("{}", encoding="utf-8")
+    def fake_data():
         return {
             "identity": {
                 "title": "T",
@@ -40,7 +40,11 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
             "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
         }
 
-    monkeypatch.setattr(p, "process_single_docx", fake_process)
+    def fake_process_with_data(work, extractor=None):
+        work.output.write_text(json.dumps(fake_data()), encoding="utf-8")
+        return work
+
+    monkeypatch.setattr(p, "process_single_docx", fake_process_with_data)
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
@@ -59,9 +63,8 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     output = tmp_path / "test.json"
     docx.write_text("docx")
 
-    def fake_process(_path, out, extractor=None):
-        out.write_text("{}", encoding="utf-8")
-        return {
+    def fake_process(work, extractor=None):
+        data = {
             "identity": {
                 "title": "T",
                 "full_name": "F N",
@@ -77,6 +80,8 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
             },
             "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
         }
+        work.output.write_text(json.dumps(data), encoding="utf-8")
+        return work
 
     monkeypatch.setattr(p, "process_single_docx", fake_process)
 
@@ -98,7 +103,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     output = tmp_path / "test.json"
     docx.write_text("docx")
 
-    def fake_process(_path, out, extractor=None):
+    def fake_process(_work, extractor=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(p, "process_single_docx", fake_process)
@@ -126,10 +131,10 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     def fake_render(work):
         return work
 
-    def fake_process(_docx, out=None):
-        if out:
-            out.write_text('{"a": 1}', encoding="utf-8")
-        return {"a": 1}
+    def fake_process(work, extractor=None):
+        if work.output:
+            work.output.write_text('{"a": 1}', encoding="utf-8")
+        return work
 
     def fake_compare(orig, target_data):
         return VerificationResult(ok=True, errors=[], warnings=[])
@@ -200,8 +205,9 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     def fake_render(work):
         return work
 
-    def fake_process(_docx, out=None):
-        return {"a": 2}
+    def fake_process(work, extractor=None):
+        work.output.write_text('{"a": 2}', encoding="utf-8")
+        return work
 
     def fake_compare(orig, target_data):
         return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])

@@ -3,13 +3,24 @@
 import json
 from unittest.mock import Mock, patch
 
+import pytest
+from cvextract.cli_config import UserConfig
+from cvextract.extractors import CVExtractor
 from cvextract.pipeline_highlevel import (
     extract_cv_structure,
     process_single_docx,
     render_cv_data,
 )
-from cvextract.shared import VerificationResult
+from cvextract.shared import UnitOfWork, VerificationResult
 from cvextract.verifiers import get_verifier
+
+
+class _StubExtractor(CVExtractor):
+    def __init__(self, data: dict):
+        self._data = data
+
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
+        return self._write_output_json(work, self._data)
 
 
 class TestExtractCvStructure:
@@ -20,30 +31,23 @@ class TestExtractCvStructure:
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
 
-        mock_data = {
-            "identity": {
-                "title": "Engineer",
-                "full_name": "John Doe",
-                "first_name": "John",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["EN"], "tools": ["Python"]},
-            "overview": "Overview text",
-            "experiences": [{"heading": "Job", "description": "desc"}],
-        }
-
         with patch(
             "cvextract.pipeline_highlevel.DocxCVExtractor"
         ) as mock_extractor_class:
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path),
+                input=mock_docx,
+                output=tmp_path / "output.json",
+            )
             mock_extractor = Mock()
-            mock_extractor.extract.return_value = mock_data
+            mock_extractor.extract.return_value = work
             mock_extractor_class.return_value = mock_extractor
 
-            result = extract_cv_structure(mock_docx)
+            result = extract_cv_structure(work)
 
-            assert result == mock_data
+            assert result == work
             mock_extractor_class.assert_called_once()
-            mock_extractor.extract.assert_called_once_with(mock_docx)
+            mock_extractor.extract.assert_called_once_with(work)
 
 
 class TestRenderCvData:
@@ -130,30 +134,17 @@ class TestRenderCvData:
 class TestProcessSingleDocx:
     """Tests for process_single_docx function."""
 
-    def test_process_single_docx_without_output(self, tmp_path):
-        """Test process_single_docx extracts data without writing to file."""
+    def test_process_single_docx_requires_output(self, tmp_path):
+        """Test process_single_docx raises when output is not set."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
 
-        mock_data = {
-            "identity": {
-                "title": "Engineer",
-                "full_name": "Jane",
-                "first_name": "Jane",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["EN"]},
-            "overview": "Overview",
-            "experiences": [],
-        }
-
-        with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
-            mock_extract.return_value = mock_data
-
-            result = process_single_docx(mock_docx, out=None)
-
-            assert result == mock_data
-            mock_extract.assert_called_once_with(mock_docx, None)
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path), input=mock_docx, output=None
+        )
+        extractor = _StubExtractor({"identity": {}})
+        with pytest.raises(ValueError, match="output path is not set"):
+            process_single_docx(work, extractor)
 
     def test_process_single_docx_with_output_creates_file(self, tmp_path):
         """Test process_single_docx writes JSON to specified output path."""
@@ -173,18 +164,21 @@ class TestProcessSingleDocx:
             "experiences": [{"heading": "2020-Present", "description": "Senior role"}],
         }
 
-        with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
-            mock_extract.return_value = mock_data
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=mock_docx,
+            output=output_file,
+        )
+        extractor = _StubExtractor(mock_data)
+        result = process_single_docx(work, extractor)
 
-            result = process_single_docx(mock_docx, out=output_file)
+        assert result == work
+        assert output_file.exists()
 
-            assert result == mock_data
-            assert output_file.exists()
+        with output_file.open("r", encoding="utf-8") as f:
+            saved_data = json.load(f)
 
-            with output_file.open("r", encoding="utf-8") as f:
-                saved_data = json.load(f)
-
-            assert saved_data == mock_data
+        assert saved_data == mock_data
 
     def test_process_single_docx_creates_parent_directories(self, tmp_path):
         """Test process_single_docx creates parent directories if needed."""
@@ -206,14 +200,17 @@ class TestProcessSingleDocx:
             "experiences": [],
         }
 
-        with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
-            mock_extract.return_value = mock_data
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=mock_docx,
+            output=deep_output,
+        )
+        extractor = _StubExtractor(mock_data)
+        result = process_single_docx(work, extractor)
 
-            result = process_single_docx(mock_docx, out=deep_output)
-
-            assert result == mock_data
-            assert deep_output.parent.exists()
-            assert deep_output.exists()
+        assert result == work
+        assert deep_output.parent.exists()
+        assert deep_output.exists()
 
     def test_process_single_docx_with_unicode_characters(self, tmp_path):
         """Test process_single_docx handles Unicode in data correctly."""
@@ -233,15 +230,18 @@ class TestProcessSingleDocx:
             "experiences": [{"heading": "2020-Present", "description": "Ðoing çöðé"}],
         }
 
-        with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
-            mock_extract.return_value = mock_data
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=mock_docx,
+            output=output_file,
+        )
+        extractor = _StubExtractor(mock_data)
+        result = process_single_docx(work, extractor)
 
-            result = process_single_docx(mock_docx, out=output_file)
+        assert result == work
 
-            assert result == mock_data
-
-            with output_file.open("r", encoding="utf-8") as f:
-                saved_data = json.load(f)
+        with output_file.open("r", encoding="utf-8") as f:
+            saved_data = json.load(f)
 
             # Verify Unicode is preserved (ensure_ascii=False)
             assert saved_data["identity"]["title"] == "工程师 (Engineer)"
@@ -266,13 +266,16 @@ class TestProcessSingleDocx:
             "experiences": [{"heading": "2020-Now", "description": "Work"}],
         }
 
-        with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
-            mock_extract.return_value = mock_data
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=mock_docx,
+            output=output_file,
+        )
+        extractor = _StubExtractor(mock_data)
+        process_single_docx(work, extractor)
 
-            process_single_docx(mock_docx, out=output_file)
-
-            with output_file.open("r", encoding="utf-8") as f:
-                content = f.read()
+        with output_file.open("r", encoding="utf-8") as f:
+            content = f.read()
 
             # Verify formatting with indentation
             assert "\n" in content  # Multi-line format

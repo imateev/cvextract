@@ -6,12 +6,12 @@ Extracts structured CV data from Word .docx files.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from .base import CVExtractor
 from .body_parser import parse_cv_from_docx_body
 from .sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
+from ..shared import UnitOfWork
 
 
 class DocxCVExtractor(CVExtractor):
@@ -25,20 +25,21 @@ class DocxCVExtractor(CVExtractor):
     - Returns structured data conforming to the CV schema
     """
 
-    def extract(self, source: Path) -> Dict[str, Any]:
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
         """
         Extract structured CV data from a .docx file.
 
         Args:
-            source: Path to the .docx file
+            work: UnitOfWork containing input/output paths.
 
         Returns:
-            Dictionary with extracted CV data (identity, sidebar, overview, experiences)
+            UnitOfWork with output JSON populated.
 
         Raises:
             FileNotFoundError: If the .docx file does not exist
             Exception: For parsing or extraction errors
         """
+        source = work.input
         if not source.exists():
             raise FileNotFoundError(f"Source file not found: {source}")
 
@@ -52,9 +53,10 @@ class DocxCVExtractor(CVExtractor):
         header_paragraphs = extract_all_header_paragraphs(source)
         identity, sidebar = split_identity_and_sidebar(header_paragraphs)
 
-        return {
+        data: dict[str, Any] = {
             "identity": identity.as_dict(),
             "sidebar": sidebar,
             "overview": overview,
             "experiences": experiences,
         }
+        return self._write_output_json(work, data)

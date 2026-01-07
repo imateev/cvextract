@@ -25,11 +25,11 @@ This enables the CLI and pipeline to dynamically select extractors without hard-
 ```python
 from cvextract.extractors import register_extractor, get_extractor, list_extractors
 from cvextract.extractors import CVExtractor
-from pathlib import Path
+from cvextract.shared import UnitOfWork
 
 # Register a custom extractor
 class MyExtractor(CVExtractor):
-    def extract(self, source: Path):
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
         # Implementation
         pass
 
@@ -81,8 +81,8 @@ All extractors must inherit from `CVExtractor` and implement:
 ```python
 class CVExtractor(ABC):
     @abstractmethod
-    def extract(self, source: Path) -> Dict[str, Any]:
-        """Extract CV data from source file."""
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
+        """Extract CV data and write JSON to work.output."""
         pass
     
     def name(self) -> str:
@@ -148,19 +148,21 @@ The registry pattern was introduced as part of the pluggable architecture refact
 ### Custom Extractor Registration
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, register_extractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
-from typing import Dict, Any
 
 class PdfCVExtractor(CVExtractor):
-    def extract(self, source: Path) -> Dict[str, Any]:
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
         # PDF extraction logic
-        return {
+        data = {
             "identity": {...},
             "sidebar": {...},
             "overview": "...",
             "experiences": [...]
         }
+        return self._write_output_json(work, data)
     
     def name(self) -> str:
         return "pdf-extractor"
@@ -174,7 +176,12 @@ register_extractor("pdf-extractor", PdfCVExtractor)
 # Use
 from cvextract.extractors import get_extractor
 extractor = get_extractor("pdf-extractor")
-cv_data = extractor.extract(Path("cv.pdf"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.pdf"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
 ```
 
 ### Dynamic Extractor Loading

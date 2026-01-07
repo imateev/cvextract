@@ -25,11 +25,20 @@ The extractor is optimized for DOCX files with a specific, predefined structure 
 ### Programmatic API
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 extractor = DocxCVExtractor()
-cv_data = extractor.extract(Path("cv.docx"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.docx"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ### CLI Usage
@@ -47,10 +56,20 @@ python -m cvextract.cli \
 ### Registry Access
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import get_extractor
+from cvextract.shared import UnitOfWork
+from pathlib import Path
+import json
 
 extractor = get_extractor("private-internal-extractor")
-cv_data = extractor.extract(Path("cv.docx"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.docx"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ## Configuration
@@ -125,7 +144,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json`:
 ### Integration Points
 
 - Registered in `cvextract/extractors/__init__.py` as `"private-internal-extractor"`
-- Used by `cvextract.pipeline_highlevel.extract_cv_structure()` as default
+- Used by `cvextract.pipeline_highlevel.extract_cv_structure()` as default (expects `UnitOfWork`)
 - Used by `cvextract.cli_execute_pipeline.execute_pipeline()` for extraction stage
 
 ## Test Coverage

@@ -57,10 +57,19 @@ python -m cvextract.cli \
 
 ```python
 # In tests
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 sample_cv = Path("examples/cvs/Sarah_Connor_CV.docx")
-result = extractor.extract(sample_cv)
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=sample_cv,
+    output=Path("outputs/Sarah_Connor_CV.json"),
+)
+extractor.extract(work)
+result = json.loads(work.output.read_text(encoding="utf-8"))
 assert result["identity"]["full_name"] == "Sarah Connor"
 ```
 

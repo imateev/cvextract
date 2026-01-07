@@ -5,13 +5,22 @@ Tests that the abstract interface is properly defined and enforces
 correct implementation patterns for concrete extractors.
 """
 
+import json
 from pathlib import Path
-from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
 
+from cvextract.cli_config import UserConfig
 from cvextract.extractors.base import CVExtractor
+from cvextract.shared import UnitOfWork
+
+
+def _make_work(tmp_path: Path, input_name: str = "input.docx") -> UnitOfWork:
+    input_path = tmp_path / input_name
+    output_path = tmp_path / f"{input_path.name}.json"
+    config = UserConfig(target_dir=tmp_path)
+    return UnitOfWork(config=config, input=input_path, output=output_path)
 
 
 class TestCVExtractorAbstract:
@@ -34,171 +43,198 @@ class TestCVExtractorAbstract:
         with pytest.raises(TypeError):
             IncompleteExtractor()
 
-    def test_extract_method_can_be_implemented(self):
+    def test_extract_method_can_be_implemented(self, tmp_path):
         """Test that extract() can be properly implemented in concrete class."""
 
         class ConcreteExtractor(CVExtractor):
             """Concrete implementation of CVExtractor."""
 
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"identity": {}}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"identity": {}})
 
+        work = _make_work(tmp_path)
         extractor = ConcreteExtractor()
-        result = extractor.extract(Path("dummy.docx"))
-        assert isinstance(result, dict)
-        assert "identity" in result
+        result = extractor.extract(work)
+        assert isinstance(result, UnitOfWork)
+        assert json.loads(work.output.read_text(encoding="utf-8"))["identity"] == {}
 
-    def test_extract_method_signature_accepts_path(self):
-        """Test that extract() accepts a Path argument."""
-
-        class TestExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                assert isinstance(source, Path)
-                return {}
-
-        extractor = TestExtractor()
-        test_path = Path("test.docx")
-        extractor.extract(test_path)
-
-    def test_extract_method_returns_dict(self):
-        """Test that extract() returns a dictionary."""
+    def test_extract_method_signature_accepts_work(self, tmp_path):
+        """Test that extract() accepts a UnitOfWork argument."""
 
         class TestExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"identity": {"full_name": "John Doe"}}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                assert isinstance(work.input, Path)
+                return self._write_output_json(work, {})
 
         extractor = TestExtractor()
-        result = extractor.extract(Path("test.docx"))
-        assert isinstance(result, dict)
+        work = _make_work(tmp_path)
+        extractor.extract(work)
 
-    def test_extract_method_can_raise_file_not_found(self):
+    def test_extract_method_returns_unit_of_work(self, tmp_path):
+        """Test that extract() returns a UnitOfWork."""
+
+        class TestExtractor(CVExtractor):
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(
+                    work, {"identity": {"full_name": "John Doe"}}
+                )
+
+        extractor = TestExtractor()
+        work = _make_work(tmp_path)
+        result = extractor.extract(work)
+        assert isinstance(result, UnitOfWork)
+
+    def test_extract_method_can_raise_file_not_found(self, tmp_path):
         """Test that extract() can raise FileNotFoundError."""
 
         class TestExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                if not source.exists():
-                    raise FileNotFoundError(f"File not found: {source}")
-                return {}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                if not work.input.exists():
+                    raise FileNotFoundError(f"File not found: {work.input}")
+                return self._write_output_json(work, {})
 
         extractor = TestExtractor()
-        non_existent = Path("/path/that/does/not/exist.docx")
+        non_existent = _make_work(tmp_path, input_name="missing.docx")
 
         with pytest.raises(FileNotFoundError):
             extractor.extract(non_existent)
 
-    def test_extract_method_can_raise_generic_exception(self):
+    def test_extract_method_can_raise_generic_exception(self, tmp_path):
         """Test that extract() can raise generic Exception for extraction errors."""
 
         class TestExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
                 raise Exception("Extraction failed")
 
         extractor = TestExtractor()
+        work = _make_work(tmp_path)
         with pytest.raises(Exception) as exc_info:
-            extractor.extract(Path("test.docx"))
+            extractor.extract(work)
         assert "Extraction failed" in str(exc_info.value)
 
-    def test_concrete_implementation_with_full_schema(self):
+    def test_concrete_implementation_with_full_schema(self, tmp_path):
         """Test concrete implementation returning full CV schema structure."""
 
         class FullExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {
-                    "identity": {
-                        "title": "Senior Developer",
-                        "full_name": "Jane Smith",
-                        "first_name": "Jane",
-                        "last_name": "Smith",
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(
+                    work,
+                    {
+                        "identity": {
+                            "title": "Senior Developer",
+                            "full_name": "Jane Smith",
+                            "first_name": "Jane",
+                            "last_name": "Smith",
+                        },
+                        "sidebar": {
+                            "languages": ["Python", "JavaScript"],
+                            "tools": ["Git", "Docker"],
+                            "certifications": ["AWS"],
+                            "industries": ["Tech"],
+                            "spoken_languages": ["English", "French"],
+                            "academic_background": ["BS Computer Science"],
+                        },
+                        "overview": "Experienced developer",
+                        "experiences": [
+                            {
+                                "heading": "Software Engineer",
+                                "description": "Built systems",
+                                "bullets": ["Led team"],
+                                "environment": ["Python", "AWS"],
+                            }
+                        ],
                     },
-                    "sidebar": {
-                        "languages": ["Python", "JavaScript"],
-                        "tools": ["Git", "Docker"],
-                        "certifications": ["AWS"],
-                        "industries": ["Tech"],
-                        "spoken_languages": ["English", "French"],
-                        "academic_background": ["BS Computer Science"],
-                    },
-                    "overview": "Experienced developer",
-                    "experiences": [
-                        {
-                            "heading": "Software Engineer",
-                            "description": "Built systems",
-                            "bullets": ["Led team"],
-                            "environment": ["Python", "AWS"],
-                        }
-                    ],
-                }
+                )
 
         extractor = FullExtractor()
-        result = extractor.extract(Path("cv.docx"))
+        work = _make_work(tmp_path)
+        extractor.extract(work)
+        data = json.loads(work.output.read_text(encoding="utf-8"))
 
-        assert result["identity"]["full_name"] == "Jane Smith"
-        assert len(result["sidebar"]["languages"]) == 2
-        assert len(result["experiences"]) == 1
-        assert result["experiences"][0]["heading"] == "Software Engineer"
+        assert data["identity"]["full_name"] == "Jane Smith"
+        assert len(data["sidebar"]["languages"]) == 2
+        assert len(data["experiences"]) == 1
+        assert data["experiences"][0]["heading"] == "Software Engineer"
 
-    def test_multiple_extractors_can_coexist(self):
+    def test_multiple_extractors_can_coexist(self, tmp_path):
         """Test that multiple concrete extractors can be defined independently."""
 
         class DocxExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"format": "docx"}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"format": "docx"})
 
         class PDFExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"format": "pdf"}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"format": "pdf"})
 
         docx = DocxExtractor()
         pdf = PDFExtractor()
 
-        assert docx.extract(Path("test.docx"))["format"] == "docx"
-        assert pdf.extract(Path("test.pdf"))["format"] == "pdf"
+        docx_work = _make_work(tmp_path, input_name="test.docx")
+        pdf_work = _make_work(tmp_path, input_name="test.pdf")
 
-    def test_extract_method_can_process_source_path(self):
+        docx.extract(docx_work)
+        pdf.extract(pdf_work)
+
+        assert json.loads(docx_work.output.read_text(encoding="utf-8"))["format"] == "docx"
+        assert json.loads(pdf_work.output.read_text(encoding="utf-8"))["format"] == "pdf"
+
+    def test_extract_method_can_process_source_path(self, tmp_path):
         """Test that concrete implementation can process the source path."""
 
         class PathAwareExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {
-                    "source_file": source.name,
-                    "source_stem": source.stem,
-                    "source_suffix": source.suffix,
-                }
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(
+                    work,
+                    {
+                        "source_file": work.input.name,
+                        "source_stem": work.input.stem,
+                        "source_suffix": work.input.suffix,
+                    },
+                )
 
         extractor = PathAwareExtractor()
-        result = extractor.extract(Path("my_cv.docx"))
+        work = _make_work(tmp_path, input_name="my_cv.docx")
+        extractor.extract(work)
+        data = json.loads(work.output.read_text(encoding="utf-8"))
 
-        assert result["source_file"] == "my_cv.docx"
-        assert result["source_stem"] == "my_cv"
-        assert result["source_suffix"] == ".docx"
+        assert data["source_file"] == "my_cv.docx"
+        assert data["source_stem"] == "my_cv"
+        assert data["source_suffix"] == ".docx"
 
-    def test_extract_with_empty_dict_return(self):
+    def test_extract_with_empty_dict_return(self, tmp_path):
         """Test that extract() can return empty dictionary."""
 
         class EmptyExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {})
 
         extractor = EmptyExtractor()
-        result = extractor.extract(Path("test.docx"))
-        assert result == {}
+        work = _make_work(tmp_path)
+        extractor.extract(work)
+        assert json.loads(work.output.read_text(encoding="utf-8")) == {}
 
-    def test_extract_method_override_works(self):
+    def test_extract_method_override_works(self, tmp_path):
         """Test that extract() method can be properly overridden."""
 
         class BaseExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
+            def _build_data(self) -> dict:
                 return {"version": 1}
 
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, self._build_data())
+
         class DerivedExtractor(BaseExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                base_result = super().extract(source)
+            def _build_data(self) -> dict:
+                base_result = super()._build_data()
                 base_result["version"] = 2
                 return base_result
 
         extractor = DerivedExtractor()
-        result = extractor.extract(Path("test.docx"))
-        assert result["version"] == 2
+        work = _make_work(tmp_path)
+        extractor.extract(work)
+        data = json.loads(work.output.read_text(encoding="utf-8"))
+        assert data["version"] == 2
 
     def test_is_abstract_base_class(self):
         """Test that CVExtractor is an abstract base class."""
@@ -208,7 +244,6 @@ class TestCVExtractorAbstract:
 
     def test_extract_is_abstractmethod(self):
         """Test that extract is marked as abstract."""
-        from abc import abstractmethod
         from inspect import isabstract
 
         # Check that the class is abstract
@@ -218,45 +253,54 @@ class TestCVExtractorAbstract:
         assert hasattr(CVExtractor.extract, "__isabstractmethod__")
         assert CVExtractor.extract.__isabstractmethod__
 
-    def test_extract_can_handle_path_with_spaces(self):
+    def test_extract_can_handle_path_with_spaces(self, tmp_path):
         """Test that extract() can handle paths with spaces."""
 
         class TestExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"filename": source.name}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"filename": work.input.name})
 
         extractor = TestExtractor()
-        result = extractor.extract(Path("My CV File.docx"))
-        assert result["filename"] == "My CV File.docx"
+        work = _make_work(tmp_path, input_name="My CV File.docx")
+        extractor.extract(work)
+        data = json.loads(work.output.read_text(encoding="utf-8"))
+        assert data["filename"] == "My CV File.docx"
 
-    def test_concrete_implementations_are_independent(self):
+    def test_concrete_implementations_are_independent(self, tmp_path):
         """Test that different implementations don't interfere."""
 
         class Impl1(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"impl": 1}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"impl": 1})
 
         class Impl2(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"impl": 2}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"impl": 2})
 
         impl1 = Impl1()
         impl2 = Impl2()
 
-        assert impl1.extract(Path("x"))["impl"] == 1
-        assert impl2.extract(Path("x"))["impl"] == 2
-        assert impl1.extract(Path("x"))["impl"] == 1  # Verify not changed
+        work1 = _make_work(tmp_path, input_name="x1.docx")
+        work2 = _make_work(tmp_path, input_name="x2.docx")
 
-    def test_extract_with_mocked_implementation(self):
+        impl1.extract(work1)
+        impl2.extract(work2)
+
+        assert json.loads(work1.output.read_text(encoding="utf-8"))["impl"] == 1
+        assert json.loads(work2.output.read_text(encoding="utf-8"))["impl"] == 2
+        assert json.loads(work1.output.read_text(encoding="utf-8"))["impl"] == 1
+
+    def test_extract_with_mocked_implementation(self, tmp_path):
         """Test that extract() works correctly when mocked."""
 
         class TestExtractor(CVExtractor):
-            def extract(self, source: Path) -> Dict[str, Any]:
-                return {"extracted": True}
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                return self._write_output_json(work, {"extracted": True})
 
         extractor = TestExtractor()
+        work = _make_work(tmp_path)
         with patch.object(extractor, "extract") as mock_extract:
-            mock_extract.return_value = {"mocked": True}
-            result = extractor.extract(Path("test.docx"))
-            assert result["mocked"] is True
+            mock_extract.return_value = work
+            result = extractor.extract(work)
+            assert result is work
             mock_extract.assert_called_once()

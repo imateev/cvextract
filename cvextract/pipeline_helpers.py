@@ -11,6 +11,7 @@ Provides utilities for:
 
 from __future__ import annotations
 
+import json
 import os
 import traceback
 from dataclasses import replace
@@ -118,6 +119,10 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         StepName.Extract, work.input, "input file", must_be_file=True
     ):
         return work
+    if work.output is None:
+        work.add_error(StepName.Extract, "extract: output JSON path is not set")
+        return work
+
     try:
         extractor: Optional[CVExtractor] = None
         if work.config.extract and work.config.extract.name:
@@ -131,14 +136,25 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                     extract_status.ConfiguredExecutorAvailable = False
                 return work
 
-        data = process_single_docx(work.input, out=work.output, extractor=extractor)
+        extract_work = process_single_docx(work, extractor=extractor)
+        if extract_work.output is None:
+            extract_work.add_error(StepName.Extract, "extract: output JSON path is not set")
+            return extract_work
+        if not extract_work.output.exists():
+            extract_work.add_error(
+                StepName.Extract,
+                f"extract: output JSON not found: {extract_work.output}",
+            )
+            return extract_work
+        with extract_work.output.open("r", encoding="utf-8") as f:
+            data = json.load(f)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
         for err in result.errors:
-            work.add_error(StepName.Extract, err)
+            extract_work.add_error(StepName.Extract, err)
         for warn in result.warnings:
-            work.add_warning(StepName.Extract, warn)
-        return work
+            extract_work.add_warning(StepName.Extract, warn)
+        return extract_work
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
@@ -148,13 +164,26 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
 
 
 def _roundtrip_compare(
+    render_work: UnitOfWork,
     output_docx: Path,
     roundtrip_dir: Path,
     original_data: dict,
 ) -> VerificationResult:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
-    roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
+    roundtrip_work = UnitOfWork(
+        config=render_work.config,
+        input=output_docx,
+        output=roundtrip_json,
+        initial_input=render_work.initial_input,
+    )
+    roundtrip_work = process_single_docx(roundtrip_work)
+    if roundtrip_work.output is None or not roundtrip_work.output.exists():
+        raise FileNotFoundError(
+            f"roundtrip JSON not created: {roundtrip_work.output or roundtrip_json}"
+        )
+    with roundtrip_work.output.open("r", encoding="utf-8") as f:
+        roundtrip_data = json.load(f)
     verifier = get_verifier("roundtrip-verifier")
     return verifier.verify(original_data, target_data=roundtrip_data)
 
@@ -187,6 +216,7 @@ def _verify_roundtrip(
     roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
     try:
         compare_result = _roundtrip_compare(
+            render_work,
             output_docx,
             roundtrip_dir,
             original_cv_data,
