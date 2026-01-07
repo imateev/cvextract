@@ -37,3 +37,18 @@ source .venv/bin/activate  # macOS/Linux
 
 pip install -U pip
 pip install -e .
+```
+###Sanity-check the CLI
+```bash
+python -m cvextract.cli --help
+python -m cvextract.cli --list extractors
+python -m cvextract.cli --list adjusters
+```
+### Extract a CV
+```bash
+export OPENAI_API_KEY="..."
+python -m cvextract.cli \
+  --extract name=openai-extractor source=/path/to/cv.docx \
+  --render template=/path/to/template.docx \
+  --target /tmp/out
+```
