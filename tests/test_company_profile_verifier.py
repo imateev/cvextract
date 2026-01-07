@@ -5,7 +5,7 @@ Tests for CompanyProfileVerifier.
 import pytest
 
 from cvextract.verifiers import get_verifier
-from cvextract.verifiers.company_profile_verifier import CompanyProfileVerifier
+from cvextract.verifiers.default_company_research_verifier import CompanyProfileVerifier
 
 
 class TestCompanyProfileVerifier:

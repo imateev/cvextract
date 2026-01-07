@@ -204,7 +204,7 @@ The research schema was created alongside the company research adjuster to ensur
 **Key Files**:
 - `cvextract/contracts/research_schema.json` - Schema definition
 - `cvextract/adjusters/openai_company_research_adjuster.py` - Research producer/consumer
-- `cvextract/verifiers/company_profile_verifier.py` - Research validator
+- `cvextract/verifiers/default_company_research_verifier.py` - Research validator
 
 ## Example Valid Data
 
@@ -247,7 +247,7 @@ The research schema was created alongside the company research adjuster to ensur
 
 - Schema: `cvextract/contracts/research_schema.json`
 - Producer: `cvextract/adjusters/openai_company_research_adjuster.py`
-- Validator: `cvextract/verifiers/company_profile_verifier.py`
+- Validator: `cvextract/verifiers/default_company_research_verifier.py`
 - Tests: `tests/test_adjusters.py`, `tests/test_verifiers.py`
 - Documentation: `cvextract/contracts/README.md`
 

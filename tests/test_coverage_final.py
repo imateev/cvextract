@@ -1,6 +1,5 @@
 """Tests for improved coverage of verification and sidebar_parser modules."""
 
-import json
 from zipfile import ZipFile
 
 from cvextract.extractors.sidebar_parser import (
@@ -83,74 +82,6 @@ class TestNormalizeEnvironmentList:
         """Test that extra whitespace is stripped."""
         result = self.verifier._normalize_environment_list(["  Python  ", "  Java  "])
         assert "python" in result and "java" in result
-
-
-class TestCompareJsonFiles:
-    """Tests for FileRoundtripVerifier."""
-
-    def test_compare_identical_json_files(self, tmp_path):
-        """Test comparing identical JSON files."""
-        data = {
-            "identity": {
-                "title": "Engineer",
-                "full_name": "John Doe",
-                "first_name": "John",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["EN"]},
-            "overview": "Text",
-            "experiences": [],
-        }
-
-        file1 = tmp_path / "file1.json"
-        file2 = tmp_path / "file2.json"
-
-        with file1.open("w") as f:
-            json.dump(data, f)
-        with file2.open("w") as f:
-            json.dump(data, f)
-
-        verifier = get_verifier("file-roundtrip-verifier")
-        result = verifier.verify(source_file=file1, target_file=file2)
-        assert result.ok is True
-        assert result.errors == []
-
-    def test_compare_different_json_files(self, tmp_path):
-        """Test comparing different JSON files."""
-        data1 = {
-            "identity": {
-                "title": "Engineer",
-                "full_name": "John Doe",
-                "first_name": "John",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["EN"]},
-            "overview": "Text1",
-            "experiences": [],
-        }
-        data2 = {
-            "identity": {
-                "title": "Manager",
-                "full_name": "Jane Doe",
-                "first_name": "Jane",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["FR"]},
-            "overview": "Text2",
-            "experiences": [],
-        }
-        file1 = tmp_path / "file1.json"
-        file2 = tmp_path / "file2.json"
-
-        with file1.open("w") as f:
-            json.dump(data1, f)
-        with file2.open("w") as f:
-            json.dump(data2, f)
-
-        verifier = get_verifier("file-roundtrip-verifier")
-        result = verifier.verify(source_file=file1, target_file=file2)
-        assert result.ok is False
-        assert len(result.errors) > 0
 
 
 class TestCompareDataStructures:

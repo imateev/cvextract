@@ -106,12 +106,12 @@ Tested in:
 The data verifier was part of the initial implementation to ensure extraction quality.
 
 **Key Files**:
-- `cvextract/verifiers/data_verifier.py` - Implementation
+- `cvextract/verifiers/default_expected_cv_data_verifier.py` - Implementation
 - `cvextract/verifiers/base.py` - Base class
 
 ## File Paths
 
-- Implementation: `cvextract/verifiers/data_verifier.py`
+- Implementation: `cvextract/verifiers/default_expected_cv_data_verifier.py`
 - Base Class: `cvextract/verifiers/base.py`
 - Tests: `tests/test_verifiers.py`
 - Documentation: `cvextract/verifiers/README.md`
@@ -120,5 +120,5 @@ The data verifier was part of the initial implementation to ensure extraction qu
 
 - [Verification Architecture](../README.md)
 - [Schema Verifier](../schema-verifier/README.md)
-- [Comparison Verifiers](../comparison-verifiers/README.md)
+- [Roundtrip Verifier](../comparison-verifiers/README.md)
 - Module README: `cvextract/verifiers/README.md`

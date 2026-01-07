@@ -1,5 +1,5 @@
 """
-Schema verifier for company profile data.
+Default company research verifier.
 
 Validates company profile data against the JSON schema defined in research_schema.json.
 """

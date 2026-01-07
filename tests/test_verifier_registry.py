@@ -32,7 +32,6 @@ class TestVerifierRegistry:
         # Check for built-in verifiers
         assert "private-internal-verifier" in names
         assert "roundtrip-verifier" in names
-        assert "file-roundtrip-verifier" in names
         assert "cv-schema-verifier" in names
 
         # Each should have a description
@@ -50,16 +49,9 @@ class TestVerifierRegistry:
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
 
-    def test_get_verifier_returns_comparison_verifier(self):
+    def test_get_verifier_returns_roundtrip_verifier(self):
         """get_verifier() returns roundtrip-verifier instance."""
         verifier = get_verifier("roundtrip-verifier")
-
-        assert verifier is not None
-        assert isinstance(verifier, CVVerifier)
-
-    def test_get_verifier_returns_file_comparison_verifier(self):
-        """get_verifier() returns file-roundtrip-verifier instance."""
-        verifier = get_verifier("file-roundtrip-verifier")
 
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)

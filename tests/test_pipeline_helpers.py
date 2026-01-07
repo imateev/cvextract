@@ -13,7 +13,7 @@ from cvextract.shared import (
     get_status_icons,
 )
 from cvextract.verifiers import get_verifier
-from cvextract.verifiers.comparison_verifier import RoundtripVerifier
+from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
 
 def test_extract_single_success(monkeypatch, tmp_path: Path):

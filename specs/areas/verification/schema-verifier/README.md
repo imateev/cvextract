@@ -128,7 +128,7 @@ Tested in:
 Schema validation was added to provide formal contract enforcement beyond basic completeness checks.
 
 **Key Files**:
-- `cvextract/verifiers/schema_verifier.py` - Implementation
+- `cvextract/verifiers/default_cv_schema_verifier.py` - Implementation
 - `cvextract/contracts/cv_schema.json` - Schema definition
 - `cvextract/verifiers/base.py` - Base class
 
@@ -141,7 +141,7 @@ Schema validation was added to provide formal contract enforcement beyond basic 
 
 ## File Paths
 
-- Implementation: `cvextract/verifiers/schema_verifier.py`
+- Implementation: `cvextract/verifiers/default_cv_schema_verifier.py`
 - Schema: `cvextract/contracts/cv_schema.json`
 - Base Class: `cvextract/verifiers/base.py`
 - Tests: `tests/test_verifiers.py`

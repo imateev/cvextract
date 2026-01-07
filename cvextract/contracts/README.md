@@ -42,7 +42,7 @@ Defines the structure for company research data used in ML-based CV adjustment.
 Schemas are automatically loaded by the relevant modules using relative paths:
 
 ```python
-# In verifiers/schema_verifier.py
+# In verifiers/default_cv_schema_verifier.py
 schema_path = Path(__file__).parent.parent / "contracts" / "cv_schema.json"
 
 # In ml_adjustment/adjuster.py

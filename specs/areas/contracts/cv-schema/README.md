@@ -180,7 +180,7 @@ The CV schema was defined in the initial implementation and has remained stable,
 
 **Key Files**:
 - `cvextract/contracts/cv_schema.json` - Schema definition
-- `cvextract/verifiers/schema_verifier.py` - Runtime validator
+- `cvextract/verifiers/default_cv_schema_verifier.py` - Runtime validator
 
 ## Open Questions
 
@@ -225,7 +225,7 @@ The CV schema was defined in the initial implementation and has remained stable,
 ## File Paths
 
 - Schema: `cvextract/contracts/cv_schema.json`
-- Validator: `cvextract/verifiers/schema_verifier.py`
+- Validator: `cvextract/verifiers/default_cv_schema_verifier.py`
 - Tests: `tests/test_contracts.py`
 - Documentation: `cvextract/contracts/README.md`
 

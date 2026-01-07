@@ -1,8 +1,8 @@
-# Roundtrip Verifiers
+# Roundtrip Verifier
 
 ## Overview
 
-Roundtrip verifiers check equivalence between two CV data structures, primarily used for roundtrip verification (extract → render → extract comparison).
+The roundtrip verifier checks equivalence between two CV data structures, primarily used for roundtrip verification (extract → render → extract comparison).
 
 ## Status
 
@@ -10,11 +10,10 @@ Roundtrip verifiers check equivalence between two CV data structures, primarily 
 
 ## Description
 
-Two implementations:
+Implementation:
 1. **`RoundtripVerifier`**: Compares in-memory data structures
-2. **`FileRoundtripVerifier`**: Loads and compares JSON files
 
-Both check:
+It checks:
 - Structural equivalence
 - Field-by-field comparison
 - Deep equality of nested structures
@@ -39,21 +38,6 @@ else:
     print(f"Differences: {result.errors}")
 ```
 
-### FileRoundtripVerifier (Files)
-
-```python
-from cvextract.verifiers import get_verifier
-from pathlib import Path
-
-verifier = get_verifier("file-roundtrip-verifier")
-source_file: Path = Path("original.json")
-target_file: Path = Path("roundtrip.json")
-result = verifier.verify(
-    source_file=source_file,
-    target_file=target_file
-)
-```
-
 ### Pipeline Integration
 
 Used in roundtrip verification:
@@ -69,7 +53,6 @@ result = render_and_verify(work)
 ### Parameters
 
 - **RoundtripVerifier**: `verify(data=..., target_data=...)`
-- **FileRoundtripVerifier**: `verify(source_file=..., target_file=...)`
 
 ## Interfaces
 
@@ -113,7 +96,7 @@ Tested in:
 Comparison verifiers were added to ensure data integrity during extract → render → extract roundtrips.
 
 **Key Files**:
-- `cvextract/verifiers/comparison_verifier.py` - Implementation
+- `cvextract/verifiers/roundtrip_verifier.py` - Implementation
 - `cvextract/verifiers/base.py` - Base class
 
 ## Open Questions
@@ -124,7 +107,7 @@ Comparison verifiers were added to ensure data integrity during extract → rend
 
 ## File Paths
 
-- Implementation: `cvextract/verifiers/comparison_verifier.py`
+- Implementation: `cvextract/verifiers/roundtrip_verifier.py`
 - Base Class: `cvextract/verifiers/base.py`
 - Tests: `tests/test_verifiers.py`
 - Documentation: `cvextract/verifiers/README.md`

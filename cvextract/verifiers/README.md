@@ -96,23 +96,6 @@ if result.ok:
     print("Data structures match!")
 ```
 
-#### FileRoundtripVerifier
-
-Compares two CV data JSON files:
-
-```python
-from cvextract.verifiers import get_verifier
-from pathlib import Path
-
-verifier = get_verifier("file-roundtrip-verifier")
-source_file: Path = Path("original.json")
-target_file: Path = Path("roundtrip.json")
-result = verifier.verify(
-    source_file=source_file,
-    target_file=target_file
-)
-```
-
 ## CV Data Schema
 
 All verifiers work with data conforming to the CV schema defined in `cv_schema.json`. The structure includes:
@@ -331,9 +314,9 @@ All verification-related code is organized in the `cvextract/verifiers/` directo
 cvextract/verifiers/
 ├── __init__.py              # Public API exports
 ├── base.py                  # CVVerifier abstract base class
-├── data_verifier.py         # ExtractedDataVerifier implementation
-├── comparison_verifier.py   # RoundtripVerifier and FileRoundtripVerifier
-├── schema_verifier.py       # CVSchemaVerifier implementation
+├── default_expected_cv_data_verifier.py         # ExtractedDataVerifier implementation
+├── roundtrip_verifier.py   # RoundtripVerifier implementation
+├── default_cv_schema_verifier.py       # CVSchemaVerifier implementation
 └── README.md                # This file
 ```
 

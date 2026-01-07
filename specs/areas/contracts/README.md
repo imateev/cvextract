@@ -53,4 +53,4 @@ Company Research → Produces research data conforming to research_schema.json
 - CV Schema: `cvextract/contracts/cv_schema.json`
 - Research Schema: `cvextract/contracts/research_schema.json`
 - Documentation: `cvextract/contracts/README.md`
-- Verifier: `cvextract/verifiers/schema_verifier.py`
+- Verifier: `cvextract/verifiers/default_cv_schema_verifier.py`

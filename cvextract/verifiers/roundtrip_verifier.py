@@ -1,5 +1,5 @@
 """
-Comparison verifier for CV data structures.
+Roundtrip verifier for CV data structures.
 
 Validates that two CV data structures are equivalent, with special
 handling for certain fields like environment lists.
@@ -7,10 +7,8 @@ handling for certain fields like environment lists.
 
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
 from ..shared import VerificationResult
 from .base import CVVerifier
@@ -104,41 +102,3 @@ class RoundtripVerifier(CVVerifier):
         # Primitive or other immutable
         if a != b:
             errors.append(f"value mismatch at {path or '<root>'}: {a!r} vs {b!r}")
-
-
-class FileRoundtripVerifier(CVVerifier):
-    """
-    Verifier for comparing two CV data files.
-
-    Loads JSON files and delegates to RoundtripVerifier.
-    """
-
-    def __init__(self):
-        self._roundtrip_verifier = RoundtripVerifier()
-
-    def verify(self, **kwargs) -> VerificationResult:
-        """
-        Compare two CV data JSON files.
-
-        Args:
-            **kwargs: Must contain 'source_file' and 'target_file' (Path | str) values
-
-        Returns:
-            VerificationResult with comparison results
-        """
-        source_file = kwargs.get("source_file")
-        target_file = kwargs.get("target_file")
-
-        if not source_file or not target_file:
-            raise ValueError(
-                "FileRoundtripVerifier requires 'source_file' and 'target_file' parameters"
-            )
-
-        with Path(source_file).open("r", encoding="utf-8") as f:
-            source_data = json.load(f)
-        with Path(target_file).open("r", encoding="utf-8") as f:
-            target_data = json.load(f)
-
-        return self._roundtrip_verifier.verify(
-            data=source_data, target_data=target_data
-        )

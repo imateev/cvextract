@@ -1,9 +1,5 @@
 """Tests for the new verifier architecture."""
 
-import json
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from cvextract.shared import VerificationResult
@@ -11,12 +7,9 @@ from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
 )
-from cvextract.verifiers.comparison_verifier import (
-    FileRoundtripVerifier,
-    RoundtripVerifier,
-)
-from cvextract.verifiers.data_verifier import ExtractedDataVerifier
-from cvextract.verifiers.schema_verifier import CVSchemaVerifier
+from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
+from cvextract.verifiers.default_expected_cv_data_verifier import ExtractedDataVerifier
+from cvextract.verifiers.default_cv_schema_verifier import CVSchemaVerifier
 
 
 class TestExtractedDataVerifier:
@@ -132,56 +125,6 @@ class TestRoundtripVerifier:
         verifier = RoundtripVerifier()
         with pytest.raises(ValueError, match="target_data"):
             verifier.verify(data={"x": 1})
-
-
-class TestFileRoundtripVerifier:
-    """Tests for FileRoundtripVerifier."""
-
-    def test_verifier_compares_json_files(self):
-        """Verifier should load and compare JSON files."""
-        verifier = FileRoundtripVerifier()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_file = Path(tmpdir) / "source.json"
-            target_file = Path(tmpdir) / "target.json"
-
-            data = {"identity": {"title": "Engineer"}, "sidebar": {}, "experiences": []}
-
-            with source_file.open("w") as f:
-                json.dump(data, f)
-            with target_file.open("w") as f:
-                json.dump(data, f)
-
-            result = verifier.verify(source_file=source_file, target_file=target_file
-            )
-            assert result.ok is True
-
-    def test_verifier_detects_file_differences(self):
-        """Verifier should detect differences between files."""
-        verifier = FileRoundtripVerifier()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_file = Path(tmpdir) / "source.json"
-            target_file = Path(tmpdir) / "target.json"
-
-            source_data = {"x": 1}
-            target_data = {"x": 2}
-
-            with source_file.open("w") as f:
-                json.dump(source_data, f)
-            with target_file.open("w") as f:
-                json.dump(target_data, f)
-
-            result = verifier.verify(source_file=source_file, target_file=target_file
-            )
-            assert result.ok is False
-            assert any("value mismatch" in e for e in result.errors)
-
-    def test_verifier_requires_file_parameters(self):
-        """Verifier should raise error if file parameters are missing."""
-        verifier = FileRoundtripVerifier()
-        with pytest.raises(ValueError, match="source_file.*target_file"):
-            verifier.verify(data={})
 
 
 class TestCVSchemaVerifier:
@@ -647,8 +590,8 @@ class TestParameterPassing:
         result = verifier.verify(data=external_data)
         assert isinstance(result, VerificationResult)
 
-    def test_comparison_verifier_accepts_external_source_and_target(self):
-        """Comparison verifier should accept both source and target from outside."""
+    def test_roundtrip_verifier_accepts_external_source_and_target(self):
+        """Roundtrip verifier should accept both source and target from outside."""
         verifier = RoundtripVerifier()
 
         # Simulate external data sources

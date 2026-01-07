@@ -1,5 +1,5 @@
 """
-Data verifier for extracted CV data.
+Default expected CV data verifier.
 
 Validates completeness and basic structure of extracted CV data.
 """
