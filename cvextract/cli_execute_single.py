@@ -8,10 +8,10 @@ from dataclasses import replace
 from pathlib import Path
 
 from .cli_config import UserConfig
-from .logging_utils import LOG
 from .cli_execute_adjust import execute as execute_adjust
 from .cli_execute_extract import execute as execute_extract
 from .cli_execute_render import execute as execute_render
+from .logging_utils import LOG
 from .shared import StepName, UnitOfWork, emit_summary, emit_work_status
 
 
@@ -28,7 +28,9 @@ def _resolve_input_source(config: UserConfig) -> Path | None:
 def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     source = _resolve_input_source(config)
     if source is None:
-        LOG.error("No input source specified. Use source= in --extract, or data= in --render when not chained with --extract")
+        LOG.error(
+            "No input source specified. Use source= in --extract, or data= in --render when not chained with --extract"
+        )
         return 1, None
 
     work = UnitOfWork(

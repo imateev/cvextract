@@ -27,47 +27,49 @@ import traceback
 from pathlib import Path
 from typing import List, Optional
 
+from cvextract.cli_execute_pipeline import execute_pipeline
 from cvextract.cli_gather import gather_user_requirements
 from cvextract.cli_prepare import prepare_execution_environment
-from cvextract.cli_execute_pipeline import execute_pipeline
 from cvextract.logging_utils import LOG, setup_logging
-from cvextract.output_controller import initialize_output_controller, VerbosityLevel
+from cvextract.output_controller import VerbosityLevel, initialize_output_controller
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     """
     Main CLI entry point with three-phase architecture.
-    
+
     Phase 1: Gather user requirements (parse args)
     Phase 2: Prepare execution environment (validate, setup)
     Phase 3: Execute pipeline (run operations)
     """
     # Phase 1: Gather requirements
     config = gather_user_requirements(argv)
-    
+
     # Setup logging (side effect necessary for all phases)
     if config.log_file:
-        Path(config.log_file).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+        Path(config.log_file).expanduser().resolve().parent.mkdir(
+            parents=True, exist_ok=True
+        )
     setup_logging(config.debug, log_file=config.log_file)
-    
+
     # Initialize output controller
     verbosity_map = {
-        'minimal': VerbosityLevel.MINIMAL,
-        'verbose': VerbosityLevel.VERBOSE,
-        'debug': VerbosityLevel.DEBUG,
+        "minimal": VerbosityLevel.MINIMAL,
+        "verbose": VerbosityLevel.VERBOSE,
+        "debug": VerbosityLevel.DEBUG,
     }
     verbosity = verbosity_map.get(config.verbosity, VerbosityLevel.MINIMAL)
     enable_buffering = config.parallel is not None
     initialize_output_controller(
         verbosity=verbosity,
         enable_buffering=enable_buffering,
-        debug_external=config.debug_external
+        debug_external=config.debug_external,
     )
-    
+
     try:
         # Phase 2: Prepare environment
         config = prepare_execution_environment(config)
-        
+
         # Phase 3: Execute
         return execute_pipeline(config)
     except Exception as e:
@@ -75,6 +77,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if config.debug:
             LOG.error(traceback.format_exc())
         return 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

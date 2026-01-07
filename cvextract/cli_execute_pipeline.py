@@ -22,6 +22,7 @@ def execute_pipeline(config: UserConfig) -> int:
     # Check if parallel mode is enabled
     if config.parallel:
         from .cli_execute_parallel import execute_parallel_pipeline
+
         return execute_parallel_pipeline(config)
 
     exit_code, _ = execute_single(config)

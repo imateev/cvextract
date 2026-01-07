@@ -1,10 +1,12 @@
 """Tests for cli_prepare module to achieve 91% coverage."""
 
 import os
-import pytest
 from pathlib import Path
+
+import pytest
+
+from cvextract.cli_config import ExtractStage, RenderStage, UserConfig
 from cvextract.cli_prepare import _collect_inputs, prepare_execution_environment
-from cvextract.cli_config import UserConfig, ExtractStage, RenderStage
 from cvextract.logging_utils import LOG
 
 
@@ -15,24 +17,24 @@ class TestCollectInputs:
         """Test _collect_inputs returns single DOCX file for extraction."""
         test_file = tmp_path / "test.docx"
         test_file.touch()
-        
+
         result = _collect_inputs(test_file, is_extraction=True, template_path=None)
-        
+
         assert result == [test_file]
 
     def test_collect_inputs_valid_json_apply(self, tmp_path):
         """Test _collect_inputs returns single JSON file for apply."""
         test_file = tmp_path / "data.json"
         test_file.touch()
-        
+
         result = _collect_inputs(test_file, is_extraction=False, template_path=None)
-        
+
         assert result == [test_file]
 
     def test_collect_inputs_nonexistent_file(self, tmp_path):
         """Test _collect_inputs raises error for nonexistent file."""
         nonexistent = tmp_path / "nonexistent.docx"
-        
+
         with pytest.raises(FileNotFoundError, match="Path not found"):
             _collect_inputs(nonexistent, is_extraction=True, template_path=None)
 
@@ -45,7 +47,7 @@ class TestCollectInputs:
         """Test _collect_inputs accepts any file type for extraction (extractor validates)."""
         test_file = tmp_path / "test.json"
         test_file.touch()
-        
+
         # Should not raise - extractor will validate file type
         result = _collect_inputs(test_file, is_extraction=True, template_path=None)
         assert len(result) == 1
@@ -55,7 +57,7 @@ class TestCollectInputs:
         """Test _collect_inputs raises error for non-JSON file during apply."""
         test_file = tmp_path / "test.docx"
         test_file.touch()
-        
+
         with pytest.raises(ValueError, match="Input file must be a JSON file"):
             _collect_inputs(test_file, is_extraction=False, template_path=None)
 
@@ -63,18 +65,18 @@ class TestCollectInputs:
         """Test _collect_inputs handles uppercase extensions."""
         test_file = tmp_path / "test.DOCX"
         test_file.touch()
-        
+
         result = _collect_inputs(test_file, is_extraction=True, template_path=None)
-        
+
         assert result == [test_file]
 
     def test_collect_inputs_json_uppercase(self, tmp_path):
         """Test _collect_inputs handles uppercase JSON extension."""
         test_file = tmp_path / "test.JSON"
         test_file.touch()
-        
+
         result = _collect_inputs(test_file, is_extraction=False, template_path=None)
-        
+
         assert result == [test_file]
 
     def test_collect_inputs_symlink_treated_as_file(self, tmp_path):
@@ -83,9 +85,9 @@ class TestCollectInputs:
         real_file.touch()
         symlink = tmp_path / "link.docx"
         symlink.symlink_to(real_file)
-        
+
         result = _collect_inputs(symlink, is_extraction=True, template_path=None)
-        
+
         assert result == [symlink]
 
     def test_collect_inputs_path_exists_but_not_file(self, tmp_path):
@@ -93,7 +95,7 @@ class TestCollectInputs:
         # Create a directory
         test_dir = tmp_path / "subdir"
         test_dir.mkdir()
-        
+
         # Try to treat it as a file (should fail because is_dir returns True first)
         with pytest.raises(ValueError, match="Directories are not supported"):
             _collect_inputs(test_dir, is_extraction=True, template_path=None)
@@ -118,9 +120,9 @@ class TestPrepareExecutionEnvironment:
             target_dir=target,
             extract=ExtractStage(source=source, output=None),
         )
-        
+
         result = prepare_execution_environment(config)
-        
+
         assert result == config
         assert target.is_dir()
 
@@ -133,12 +135,11 @@ class TestPrepareExecutionEnvironment:
         data.touch()
 
         config = UserConfig(
-            target_dir=target,
-            render=RenderStage(template=template, data=data)
+            target_dir=target, render=RenderStage(template=template, data=data)
         )
-        
+
         result = prepare_execution_environment(config)
-        
+
         assert result == config
         assert target.is_dir()
 
@@ -146,12 +147,9 @@ class TestPrepareExecutionEnvironment:
         """Test prepare_execution_environment raises error for missing template."""
         target = tmp_path / "output"
         template = tmp_path / "nonexistent.docx"
-        
-        config = UserConfig(
-            target_dir=target,
-            render=RenderStage(template=template)
-        )
-        
+
+        config = UserConfig(target_dir=target, render=RenderStage(template=template))
+
         with pytest.raises(ValueError, match="Invalid template"):
             prepare_execution_environment(config)
 
@@ -160,12 +158,9 @@ class TestPrepareExecutionEnvironment:
         target = tmp_path / "output"
         template = tmp_path / "template.txt"
         template.touch()
-        
-        config = UserConfig(
-            target_dir=target,
-            render=RenderStage(template=template)
-        )
-        
+
+        config = UserConfig(target_dir=target, render=RenderStage(template=template))
+
         with pytest.raises(ValueError, match="Invalid template"):
             prepare_execution_environment(config)
 
@@ -178,9 +173,9 @@ class TestPrepareExecutionEnvironment:
             target_dir=target,
             extract=ExtractStage(source=source, output=None),
         )
-        
+
         result = prepare_execution_environment(config)
-        
+
         assert target.is_dir()
 
     def test_prepare_execution_environment_template_is_directory(self, tmp_path):
@@ -188,16 +183,15 @@ class TestPrepareExecutionEnvironment:
         target = tmp_path / "output"
         template = tmp_path / "template_dir"
         template.mkdir()
-        
-        config = UserConfig(
-            target_dir=target,
-            render=RenderStage(template=template)
-        )
-        
+
+        config = UserConfig(target_dir=target, render=RenderStage(template=template))
+
         with pytest.raises(ValueError, match="Invalid template"):
             prepare_execution_environment(config)
 
-    def test_prepare_execution_environment_target_fails_is_dir_check(self, tmp_path, monkeypatch):
+    def test_prepare_execution_environment_target_fails_is_dir_check(
+        self, tmp_path, monkeypatch
+    ):
         """Simulate target_dir reporting False for is_dir to hit the validation branch."""
         target = tmp_path / "output"
         source = tmp_path / "input.docx"
@@ -221,22 +215,21 @@ class TestPrepareExecutionEnvironment:
 
     def test_prepare_execution_environment_with_adjust_data(self, tmp_path):
         """Test prepare_execution_environment with adjust stage that has data."""
-        from cvextract.cli_config import AdjustStage, AdjusterConfig
-        
+        from cvextract.cli_config import AdjusterConfig, AdjustStage
+
         target = tmp_path / "output"
         data = tmp_path / "data.json"
         data.touch()
-        
+
         config = UserConfig(
             target_dir=target,
             adjust=AdjustStage(
-                data=data,
-                adjusters=[AdjusterConfig(name="test-adjuster", params={})]
-            )
+                data=data, adjusters=[AdjusterConfig(name="test-adjuster", params={})]
+            ),
         )
-        
+
         result = prepare_execution_environment(config)
-        
+
         assert result == config
         assert target.is_dir()
         assert config.workspace.json_dir.is_dir()
@@ -245,11 +238,11 @@ class TestPrepareExecutionEnvironment:
     def test_prepare_execution_environment_no_input_source(self, tmp_path):
         """Test prepare_execution_environment raises error when no input source provided."""
         target = tmp_path / "output"
-        
+
         config = UserConfig(
             target_dir=target,
             # No extract, adjust, or render with data
         )
-        
+
         with pytest.raises(ValueError, match="No input source specified"):
             prepare_execution_environment(config)

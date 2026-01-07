@@ -2,14 +2,15 @@
 
 from zipfile import ZipFile
 
+from lxml import etree
+
+from cvextract.extractors.docx_utils import XML_PARSER
 from cvextract.extractors.sidebar_parser import (
-    split_identity_and_sidebar,
-    extract_all_header_paragraphs,
     _extract_paragraph_texts,
     _iter_heading_positions,
+    extract_all_header_paragraphs,
+    split_identity_and_sidebar,
 )
-from cvextract.extractors.docx_utils import XML_PARSER
-from lxml import etree
 
 
 class TestExtractParagraphTexts:
@@ -23,7 +24,7 @@ class TestExtractParagraphTexts:
         </root>"""
         root = etree.fromstring(xml_str.encode(), XML_PARSER)
         result = _extract_paragraph_texts(root)
-        
+
         assert "Content" in result
         assert len([x for x in result if x == ""]) == 0
 
@@ -34,7 +35,7 @@ class TestExtractParagraphTexts:
         </root>"""
         root = etree.fromstring(xml_str.encode(), XML_PARSER)
         result = _extract_paragraph_texts(root)
-        
+
         assert "Line1" in result
         assert "Line2" in result
 
@@ -59,7 +60,7 @@ class TestExtractParagraphTexts:
         </root>"""
         root = etree.fromstring(xml_str.encode(), XML_PARSER)
         result = _extract_paragraph_texts(root)
-        
+
         # Should have textbox content
         assert "TextboxPara" in result
         # Should NOT have fallback normal para (because textbox found)
@@ -72,7 +73,7 @@ class TestExtractParagraphTexts:
         </root>"""
         root = etree.fromstring(xml_str.encode(), XML_PARSER)
         result = _extract_paragraph_texts(root)
-        
+
         assert "OnlyNormalPara" in result
 
     def test_extract_whitespace_only_stripped(self):
@@ -84,7 +85,7 @@ class TestExtractParagraphTexts:
         </root>"""
         root = etree.fromstring(xml_str.encode(), XML_PARSER)
         result = _extract_paragraph_texts(root)
-        
+
         assert "Content" in result
         assert "More" in result
         # Should not have whitespace-only entries
@@ -98,23 +99,25 @@ class TestIterHeadingPositions:
         """Test finding known sidebar headings."""
         paragraphs = ["Title", "Name", "Languages", "English", "Tools", "Python"]
         positions = _iter_heading_positions(paragraphs)
-        
+
         # Should find Languages and Tools
         heading_texts = [paragraphs[pos[0]] for pos in positions]
-        assert any("Language" in h for h in heading_texts) or any("Language" in h.lower() for h in heading_texts)
+        assert any("Language" in h for h in heading_texts) or any(
+            "Language" in h.lower() for h in heading_texts
+        )
 
     def test_no_headings_found(self):
         """Test when no headings are found."""
         paragraphs = ["Random", "Text", "That", "Matches", "Nothing"]
         positions = _iter_heading_positions(paragraphs)
-        
+
         assert positions == []
 
     def test_headings_with_trailing_punctuation(self):
         """Test headings with trailing punctuation (should still match)."""
         paragraphs = ["Languages:", "English", "Tools/", "Python"]
         positions = _iter_heading_positions(paragraphs)
-        
+
         # Should find both headings despite punctuation
         assert len(positions) >= 1
 
@@ -130,9 +133,9 @@ class TestSplitIdentityMultipartName:
             "Languages",
             "English",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         assert identity.title == "Software Engineer"
         assert identity.first_name == "John"
         assert "Van Der Berg" in identity.last_name or "Van" in identity.last_name
@@ -144,9 +147,9 @@ class TestSplitIdentityMultipartName:
             "Languages",
             "French",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Either gets parsed as title or as full name
         assert identity.full_name != "" or identity.title != ""
 
@@ -159,9 +162,9 @@ class TestSplitIdentityMultipartName:
             "Python",
             "Manager John Smith",  # Only 2 lines, single entry
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Should handle the 2-line fallback case
         assert identity.title != "" or identity.full_name != ""
 
@@ -181,9 +184,9 @@ class TestSplitIdentityContentBetweenHeadings:
             "Python",
             "Go",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Languages should have English and French
         languages = sidebar.get("languages", [])
         assert len(languages) >= 1  # At least one language found
@@ -196,9 +199,9 @@ class TestSplitIdentityContentBetweenHeadings:
             "Tools",
             "Python",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Tools section should get Python
         tools = sidebar.get("tools", [])
         assert len(tools) >= 1 or True  # Tools section should exist
@@ -215,9 +218,9 @@ class TestSplitIdentityContentBetweenHeadings:
             "Tools",
             "Python",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         languages = sidebar.get("languages", [])
         # Count "English" occurrences
         english_count = sum(1 for l in languages if "English" in l)
@@ -236,9 +239,9 @@ class TestSplitIdentityContentBetweenHeadings:
             "Tools",
             "Python",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Should still extract languages and tools correctly
         languages = sidebar.get("languages", [])
         tools = sidebar.get("tools", [])
@@ -256,9 +259,9 @@ class TestSplitIdentityContentBetweenHeadings:
             "Tools",
             "Python",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # "Should not be added" should not appear in languages
         languages = sidebar.get("languages", [])
         # This is implementation dependent - the duplicate Languages heading
@@ -272,7 +275,7 @@ class TestHeaderWithMultipleTextboxes:
     def test_extract_multiple_textbox_paragraphs(self, tmp_path):
         """Test extracting paragraphs from multiple textboxes."""
         docx_path = tmp_path / "test.docx"
-        
+
         with ZipFile(docx_path, "w") as z:
             header_xml = b"""<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -307,7 +310,7 @@ class TestHeaderWithMultipleTextboxes:
     </w:body>
 </w:document>"""
             z.writestr("word/header1.xml", header_xml)
-        
+
         paragraphs = extract_all_header_paragraphs(docx_path)
         assert "Box1" in paragraphs
         assert "Box2" in paragraphs

@@ -40,10 +40,13 @@ HEADER_NS = {
     "w10": "urn:schemas-microsoft-com:office:word",
 }
 
+
 def dump_body_sample(docx_path: Path, n: int = 25) -> None:
     LOG.info("---- BODY SAMPLE ----")
     try:
-        for i, (txt, is_bullet, style) in enumerate(iter_document_paragraphs(docx_path)):
+        for i, (txt, is_bullet, style) in enumerate(
+            iter_document_paragraphs(docx_path)
+        ):
             if i >= n:
                 break
             flag = "•" if is_bullet else " "
@@ -51,6 +54,7 @@ def dump_body_sample(docx_path: Path, n: int = 25) -> None:
     except Exception as e:
         LOG.error("(failed to dump body sample: %s)", e)
     LOG.info("---------------------")
+
 
 def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]:
     """
@@ -66,6 +70,7 @@ def iter_document_paragraphs(docx_path: Path) -> Iterator[Tuple[str, bool, str]]
             continue
         yield text, _p_is_bullet(p), _p_style(p)
 
+
 def extract_text_from_w_p(p: etree._Element) -> str:
     parts: List[str] = []
     for node in p.iter():
@@ -80,11 +85,13 @@ def extract_text_from_w_p(p: etree._Element) -> str:
             parts.append("\t")
     return normalize_text_for_processing("".join(parts)).strip()
 
+
 def _p_style(p: etree._Element) -> str:
     pstyle = p.find(".//w:pPr/w:pStyle", DOCX_NS)
     if pstyle is None:
         return ""
     return pstyle.get(f"{{{W_NS}}}val", "") or ""
+
 
 def _p_is_bullet(p: etree._Element) -> bool:
     # Word list formatting is usually in <w:numPr>

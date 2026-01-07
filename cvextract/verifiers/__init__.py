@@ -16,7 +16,7 @@ from .verifier_registry import (
 )
 
 
- # Register built-in verifiers
+# Register built-in verifiers
 register_verifier("private-internal-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("file-roundtrip-verifier", FileRoundtripVerifier)

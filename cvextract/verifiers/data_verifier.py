@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .base import CVVerifier
 from ..shared import VerificationResult
+from .base import CVVerifier
 
 
 class ExtractedDataVerifier(CVVerifier):
     """
     Verifier for extracted CV data completeness and validity.
-    
+
     Checks that all required fields are present and non-empty,
     and warns about missing optional sections.
     """
@@ -23,11 +23,11 @@ class ExtractedDataVerifier(CVVerifier):
     def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
         """
         Verify extracted CV data for completeness and validity.
-        
+
         Args:
             data: Dictionary containing extracted CV data
             **kwargs: Not used for this verifier
-        
+
         Returns:
             VerificationResult with errors for critical issues and warnings for optional issues
         """
@@ -35,17 +35,30 @@ class ExtractedDataVerifier(CVVerifier):
         warns: List[str] = []
 
         identity = data.get("identity", {}) or {}
-        if not identity.get("title") or not identity.get("full_name") or not identity.get("first_name") or not identity.get("last_name"):
+        if (
+            not identity.get("title")
+            or not identity.get("full_name")
+            or not identity.get("first_name")
+            or not identity.get("last_name")
+        ):
             errs.append("identity")
 
         sidebar = data.get("sidebar", {}) or {}
 
-        expected_sidebar = ["languages", "tools", "industries", "spoken_languages", "academic_background"]
+        expected_sidebar = [
+            "languages",
+            "tools",
+            "industries",
+            "spoken_languages",
+            "academic_background",
+        ]
         missing_sidebar = [s for s in expected_sidebar if not sidebar.get(s)]
         has_all_expected = all(s in sidebar for s in expected_sidebar)
 
         # Sidebar is an error only if absent or all expected sections are present but empty.
-        if not sidebar or (has_all_expected and len(missing_sidebar) == len(expected_sidebar)):
+        if not sidebar or (
+            has_all_expected and len(missing_sidebar) == len(expected_sidebar)
+        ):
             errs.append("sidebar")
         elif missing_sidebar:
             warns.append("missing sidebar: " + ", ".join(missing_sidebar))

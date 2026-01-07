@@ -38,15 +38,14 @@ except Exception:  # pragma: no cover
 
 try:
     # Python 3.9+
-    from importlib.resources import files, as_file
+    from importlib.resources import as_file, files
 except ModuleNotFoundError:
     # Python < 3.9 backport
     from importlib_resources import files, as_file  # type: ignore
 
-from .base import CVAdjuster
-from ..shared import UnitOfWork
-from ..shared import format_prompt
+from ..shared import UnitOfWork, format_prompt
 from ..verifiers import get_verifier
+from .base import CVAdjuster
 
 LOG = logging.getLogger("cvextract")
 
@@ -215,7 +214,9 @@ class _OpenAIRetry:
         )
         return any(m in msg for m in transient_markers)
 
-    def _sleep_with_backoff(self, attempt_idx: int, *, is_write: bool, exc: Exception) -> None:
+    def _sleep_with_backoff(
+        self, attempt_idx: int, *, is_write: bool, exc: Exception
+    ) -> None:
         retry_after = self._get_retry_after_s(exc)
         if retry_after is not None and retry_after > 0:
             self._sleep(min(self._retry.max_delay_s, retry_after))
@@ -280,9 +281,15 @@ def _fetch_job_description(url: str) -> str:
             return ""
 
         # Remove script/style/noscript
-        html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-        html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
-        html = re.sub(r"<noscript[^>]*>.*?</noscript>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        html = re.sub(
+            r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+        )
+        html = re.sub(
+            r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE
+        )
+        html = re.sub(
+            r"<noscript[^>]*>.*?</noscript>", "", html, flags=re.DOTALL | re.IGNORECASE
+        )
 
         # Strip tags
         text = re.sub(r"<[^>]+>", " ", html)
@@ -354,10 +361,14 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         self.validate_params(**kwargs)
 
         if not self._api_key or OpenAI is None:
-            LOG.warning("Job-specific adjust skipped: OpenAI unavailable or API key missing.")
+            LOG.warning(
+                "Job-specific adjust skipped: OpenAI unavailable or API key missing."
+            )
             return self._write_output_json(work, cv_data)
 
-        job_description = kwargs.get("job_description", kwargs.get("job-description", "")) or ""
+        job_description = (
+            kwargs.get("job_description", kwargs.get("job-description", "")) or ""
+        )
         job_url = kwargs.get("job_url", kwargs.get("job-url", "")) or ""
 
         # Get job description from URL or direct text
@@ -365,13 +376,19 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             LOG.info("Fetching job description from %s", job_url)
             job_description = _fetch_job_description(job_url)
             if not job_description:
-                LOG.warning("Job-specific adjust: failed to fetch job description from URL")
+                LOG.warning(
+                    "Job-specific adjust: failed to fetch job description from URL"
+                )
                 return self._write_output_json(work, cv_data)
 
         # Load prompt (keep typo key for compatibility, add fallback)
-        system_prompt = format_prompt("adjuster_promp_for_specific_job", job_description=job_description)
+        system_prompt = format_prompt(
+            "adjuster_promp_for_specific_job", job_description=job_description
+        )
         if not system_prompt:
-            system_prompt = format_prompt("adjuster_prompt_for_specific_job", job_description=job_description)
+            system_prompt = format_prompt(
+                "adjuster_prompt_for_specific_job", job_description=job_description
+            )
 
         if not system_prompt:
             LOG.warning("Job-specific adjust skipped: failed to load prompt template")
@@ -393,7 +410,10 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                     model=self._model,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+                        {
+                            "role": "user",
+                            "content": json.dumps(user_payload, ensure_ascii=False),
+                        },
                     ],
                     temperature=0.2,
                     timeout=self._request_timeout_s,
@@ -402,7 +422,9 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 op_name="Job-specific adjust completion",
             )
         except Exception as e:
-            LOG.warning("Job-specific adjust error (%s); using original JSON.", type(e).__name__)
+            LOG.warning(
+                "Job-specific adjust error (%s); using original JSON.", type(e).__name__
+            )
             return self._write_output_json(work, cv_data)
 
         content = None
@@ -417,7 +439,10 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             finish_reason = None
 
         if isinstance(finish_reason, str) and finish_reason != "stop":
-            LOG.warning("Job-specific adjust: completion not finished (%s); using original JSON.", finish_reason)
+            LOG.warning(
+                "Job-specific adjust: completion not finished (%s); using original JSON.",
+                finish_reason,
+            )
             return self._write_output_json(work, cv_data)
 
         if not content:
@@ -426,20 +451,27 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
 
         adjusted = _extract_json_object(content)
         if adjusted is None:
-            LOG.warning("Job-specific adjust: invalid JSON response; using original JSON.")
+            LOG.warning(
+                "Job-specific adjust: invalid JSON response; using original JSON."
+            )
             return self._write_output_json(work, cv_data)
 
         # Validate adjusted CV against schema
         _ = _load_cv_schema()
         cv_verifier = get_verifier("cv-schema-verifier")
         if not cv_verifier:
-            LOG.warning("Job-specific adjust: CV schema verifier not available; using original JSON.")
+            LOG.warning(
+                "Job-specific adjust: CV schema verifier not available; using original JSON."
+            )
             return self._write_output_json(work, cv_data)
 
         try:
             validation_result = cv_verifier.verify(adjusted)
         except Exception as e:
-            LOG.warning("Job-specific adjust: schema validation error (%s); using original JSON.", type(e).__name__)
+            LOG.warning(
+                "Job-specific adjust: schema validation error (%s); using original JSON.",
+                type(e).__name__,
+            )
             return self._write_output_json(work, cv_data)
 
         if validation_result.ok:

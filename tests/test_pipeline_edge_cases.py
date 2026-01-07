@@ -2,6 +2,7 @@
 
 import zipfile
 from pathlib import Path
+
 import cvextract.cli as cli
 import cvextract.pipeline as pipeline
 import cvextract.pipeline_helpers as helpers
@@ -15,46 +16,54 @@ class TestCliEdgeCases:
     def test_main_no_matching_inputs(self, monkeypatch, tmp_path: Path):
         """Test main when no matching input files found."""
         template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
+        with zipfile.ZipFile(template, "w") as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
+
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         # Create a file that won't match (.txt instead of .docx or .json)
         (src_dir / "file.txt").write_text("content")
-        
-        rc = cli.main([
-            "--extract", f"source={src_dir}",
-            "--target", str(tmp_path / "out")
-        ])
-        
+
+        rc = cli.main(
+            ["--extract", f"source={src_dir}", "--target", str(tmp_path / "out")]
+        )
+
         assert rc == 1
 
     def test_main_source_not_found(self, tmp_path: Path):
         """Test main when source path does not exist."""
         template = tmp_path / "tpl.docx"
-        with zipfile.ZipFile(template, 'w') as zf:
+        with zipfile.ZipFile(template, "w") as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
-        rc = cli.main([
-            "--extract", f"source={tmp_path / 'nonexistent'}",
-            "--target", str(tmp_path / "out")
-        ])
-        
+
+        rc = cli.main(
+            [
+                "--extract",
+                f"source={tmp_path / 'nonexistent'}",
+                "--target",
+                str(tmp_path / "out"),
+            ]
+        )
+
         assert rc == 1
 
     def test_main_template_not_found(self, tmp_path: Path):
         """Test main when template file does not exist."""
         src = tmp_path / "src.docx"
-        with zipfile.ZipFile(src, 'w') as zf:
+        with zipfile.ZipFile(src, "w") as zf:
             zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
-        
-        rc = cli.main([
-            "--extract", f"source={src}",
-            "--render", f"template={tmp_path / 'nonexistent.docx'}",
-            "--target", str(tmp_path / "out")
-        ])
-        
+
+        rc = cli.main(
+            [
+                "--extract",
+                f"source={src}",
+                "--render",
+                f"template={tmp_path / 'nonexistent.docx'}",
+                "--target",
+                str(tmp_path / "out"),
+            ]
+        )
+
         assert rc == 1
 
 
@@ -71,7 +80,7 @@ class TestPipelineEdgeCases:
         # Create a path that will fail relative_to
         p = Path("/some/absolute/path")
         root = Path("/different/path")
-        
+
         result = pipeline.safe_relpath(p, root)
         # Should fall back to just the name
         assert result == "path"
@@ -114,7 +123,9 @@ class TestPipelineEdgeCases:
         )
         work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
+        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+            step=StepName.RoundtripComparer
+        )
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "🟢"
         assert icons[StepName.Render] == "✅"

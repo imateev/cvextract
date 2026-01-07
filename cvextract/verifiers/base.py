@@ -15,7 +15,7 @@ from ..shared import VerificationResult
 class CVVerifier(ABC):
     """
     Abstract base class for CV verifiers.
-    
+
     Implementations of this interface can verify CV data in different ways,
     such as schema validation, completeness checks, or data comparisons.
     """

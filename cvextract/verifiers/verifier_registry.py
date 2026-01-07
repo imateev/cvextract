@@ -7,10 +7,9 @@ different verification strategies via the CLI.
 
 from __future__ import annotations
 
-from typing import Dict, List, Type, Optional
+from typing import Dict, List, Optional, Type
 
 from .base import CVVerifier
-
 
 # Global verifier registry
 _VERIFIER_REGISTRY: Dict[str, Type[CVVerifier]] = {}
@@ -19,7 +18,7 @@ _VERIFIER_REGISTRY: Dict[str, Type[CVVerifier]] = {}
 def register_verifier(name: str, verifier_class: Type[CVVerifier]) -> None:
     """
     Register a verifier class in the global registry.
-    
+
     Args:
         name: The name to register the verifier under (e.g., "data-verifier")
         verifier_class: The verifier class to register
@@ -30,11 +29,11 @@ def register_verifier(name: str, verifier_class: Type[CVVerifier]) -> None:
 def get_verifier(name: str, **kwargs) -> Optional[CVVerifier]:
     """
     Get a verifier instance by name.
-    
+
     Args:
         name: The verifier name (e.g., "data-verifier", "cv-schema-verifier")
         **kwargs: Arguments to pass to the verifier constructor
-    
+
     Returns:
         Verifier instance, or None if not found
     """
@@ -47,7 +46,7 @@ def get_verifier(name: str, **kwargs) -> Optional[CVVerifier]:
 def list_verifiers() -> List[Dict[str, str]]:
     """
     List all registered verifiers with their descriptions.
-    
+
     Returns:
         List of dicts with 'name' and 'description' keys
     """
@@ -56,18 +55,15 @@ def list_verifiers() -> List[Dict[str, str]]:
         # Try to get description from class docstring
         description = verifier_class.__doc__ or "No description available"
         # Extract first line of docstring
-        description = description.strip().split('\n')[0]
-        verifiers.append({
-            'name': name,
-            'description': description
-        })
-    return sorted(verifiers, key=lambda x: x['name'])
+        description = description.strip().split("\n")[0]
+        verifiers.append({"name": name, "description": description})
+    return sorted(verifiers, key=lambda x: x["name"])
 
 
 def unregister_verifier(name: str) -> None:
     """
     Unregister a verifier from the global registry.
-    
+
     Args:
         name: The verifier name to unregister
     """

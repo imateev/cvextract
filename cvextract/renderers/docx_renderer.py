@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import json
 
-from .base import CVRenderer
-from ..shared import StepName, UnitOfWork, sanitize_for_xml_in_obj
-
 from docxtpl import DocxTemplate
+
+from ..shared import StepName, UnitOfWork, sanitize_for_xml_in_obj
+from .base import CVRenderer
 
 
 class DocxCVRenderer(CVRenderer):
     """
     CV renderer for Microsoft Word .docx files.
-    
+
     This implementation:
     - Uses docxtpl for template rendering
     - Sanitizes content for XML safety before rendering
@@ -54,7 +54,7 @@ class DocxCVRenderer(CVRenderer):
 
         if not template_path.is_file():
             raise ValueError(f"Template path is not a file: {template_path}")
-        
+
         if template_path.suffix.lower() != ".docx":
             raise ValueError(f"Template must be a .docx file: {template_path}")
         with work.input.open("r", encoding="utf-8") as f:
@@ -72,5 +72,5 @@ class DocxCVRenderer(CVRenderer):
 
         # Save rendered document
         tpl.save(str(work.output))
-        
+
         return work

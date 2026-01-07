@@ -14,7 +14,7 @@ from typing import Any, Dict
 class CVExtractor(ABC):
     """
     Abstract base class for CV extractors.
-    
+
     Implementations of this interface can extract structured CV data
     from various input formats and return a standardized dictionary
     conforming to the CV schema.

@@ -2,8 +2,9 @@
 
 import logging
 from pathlib import Path
+
 from cvextract.cli_config import UserConfig
-from cvextract.logging_utils import fmt_issues, setup_logging, LOG
+from cvextract.logging_utils import LOG, fmt_issues, setup_logging
 from cvextract.shared import StepName, StepStatus, UnitOfWork
 
 
@@ -83,10 +84,10 @@ class TestLoggingSetup:
     def test_setup_with_file_creates_log_file(self, tmp_path: Path):
         """When log_file is provided, should create file and write logs to it."""
         LOG.handlers.clear()
-        
+
         log_file = tmp_path / "test.log"
         setup_logging(debug=False, log_file=log_file)
-        
+
         LOG.info("test message")
-        
+
         assert log_file.exists()

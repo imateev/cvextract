@@ -1,6 +1,6 @@
 """Tests for prompt loading functions."""
 
-from cvextract.shared import load_prompt, format_prompt
+from cvextract.shared import format_prompt, load_prompt
 
 
 class TestLoadPrompt:
@@ -53,7 +53,7 @@ class TestFormatPrompt:
         result = format_prompt(
             "website_analysis_prompt",
             customer_url="https://example.com",
-            schema='{"type": "object"}'
+            schema='{"type": "object"}',
         )
         assert result is not None
         assert "https://example.com" in result
@@ -65,7 +65,7 @@ class TestFormatPrompt:
             "cv_extraction_user",
             schema_json='{"type": "object"}',
             file_name="test.docx",
-            file_content="Sample CV content here"
+            file_content="Sample CV content here",
         )
         assert result is not None
         assert '"type": "object"' in result
@@ -83,7 +83,7 @@ class TestFormatPrompt:
             "website_analysis_prompt",
             customer_url="https://example.com",
             schema='{"type": "object"}',
-            extra_var="ignored"  # Extra variable
+            extra_var="ignored",  # Extra variable
         )
         assert result is not None
         assert "https://example.com" in result

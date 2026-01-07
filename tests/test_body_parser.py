@@ -1,6 +1,7 @@
 """Tests for body parser functionality."""
 
 from pathlib import Path
+
 import cvextract.extractors.body_parser as bp
 
 
@@ -30,7 +31,9 @@ class TestCVBodyParsing:
         assert len(exps) == 1
         assert exps[0]["heading"].startswith("Jan 2020")
         assert "Did things" in exps[0]["description"]
-        assert exps[0]["bullets"] == ["• bullet 1"] or exps[0]["bullets"] == ["bullet 1"]
+        assert exps[0]["bullets"] == ["• bullet 1"] or exps[0]["bullets"] == [
+            "bullet 1"
+        ]
         assert exps[0]["environment"] == ["Python", "AWS"]
 
     def test_parse_with_text_outside_sections_ignores_it(self, monkeypatch):

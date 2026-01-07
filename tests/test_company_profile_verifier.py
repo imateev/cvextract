@@ -3,8 +3,9 @@ Tests for CompanyProfileVerifier.
 """
 
 import pytest
-from cvextract.verifiers.company_profile_verifier import CompanyProfileVerifier
+
 from cvextract.verifiers import get_verifier
+from cvextract.verifiers.company_profile_verifier import CompanyProfileVerifier
 
 
 class TestCompanyProfileVerifier:
@@ -272,6 +273,7 @@ class TestCompanyProfileVerifier:
         result = verifier.verify(data)
         assert result.ok
         assert not result.errors
+
     def test_technology_signals_not_array(self, verifier):
         """Test that technology_signals must be an array."""
         data = {
@@ -382,7 +384,9 @@ class TestCompanyProfileVerifier:
         }
         result = verifier.verify(data)
         assert not result.ok
-        assert any("industry_classification must be an object" in err for err in result.errors)
+        assert any(
+            "industry_classification must be an object" in err for err in result.errors
+        )
 
     def test_industry_classification_naics_not_string(self, verifier):
         """Test that naics must be a string or null."""
