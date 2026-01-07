@@ -54,9 +54,7 @@ class TestExtractSingle:
             ok=True, errors=[], warnings=[]
         )
 
-        with patch(
-            "cvextract.pipeline_helpers.extract_cv_data"
-        ) as mock_extract, patch(
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
 
@@ -138,9 +136,9 @@ class TestExtractSingle:
         out_json = tmp_path / "out.json"
         docx_path.touch()
 
-        with patch(
-            "cvextract.pipeline_helpers.extract_cv_data"
-        ) as mock_extract, patch("cvextract.pipeline_helpers.dump_body_sample"):
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
+            "cvextract.pipeline_helpers.dump_body_sample"
+        ):
 
             mock_extract.side_effect = ValueError("Bad file")
 
@@ -181,9 +179,7 @@ class TestExtractSingle:
             ok=True, errors=[], warnings=["Warning message"]
         )
 
-        with patch(
-            "cvextract.pipeline_helpers.extract_cv_data"
-        ) as mock_extract, patch(
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
         ) as mock_get_verifier:
 
