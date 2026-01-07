@@ -49,6 +49,6 @@ python -m cvextract.cli --list adjusters
 export OPENAI_API_KEY="..."
 python -m cvextract.cli \
   --extract name=openai-extractor source=/path/to/cv.docx \
-  --render template=/path/to/template.docx \
+  --render template=./examples/templates/CV_Template_Jinja2.docx \
   --target /tmp/out
 ```
