@@ -1,29 +1,45 @@
-# Contributing
+# Contributing to cvextract
 
-Thanks for your interest in contributing to cvextract.
+Thanks for your interest in contributing! 🎉
 
-This project is primarily an experimental playground for CV parsing, transformation, and document rendering workflows. Contributions are welcome, but the scope is intentionally limited and opinionated.
+**cvextract** turns CVs into structured, validated JSON that can be automatically adapted and rendered into a new document (today: primarily DOCX). The core workflow is a composable CLI pipeline:
 
-## What contributions are welcome
+> **Extract → Adjust → Render**
 
-- Bug fixes and small improvements
-- Clarifications or improvements to documentation
-- Additional extractors, renderers, or verifiers that follow the existing architecture
-- Tests or examples that improve confidence in existing behavior
+The project is actively evolving. Contributions that improve correctness, determinism, and “real-world CV” robustness are especially welcome.
 
-## What is out of scope
+---
 
-- Support for arbitrary or heuristic-based CV layouts
-- Large refactors without prior discussion
-- Features that significantly change the project’s core assumptions
+## Code of Conduct
 
-## How to contribute
+Please read and follow the Code of Conduct in this repository.
 
-1. Open an issue to discuss non-trivial changes before submitting a pull request.
-2. Keep changes focused and reasonably small.
-3. Follow the existing code style and structure.
-4. Include tests or examples where appropriate.
+---
 
-## Code of conduct
+## Ways to contribute
 
-Be respectful and constructive. This project follows standard open-source etiquette.
+You don’t need to write code to help:
+
+- Fix docs, examples, CLI help text, or error messages
+- Report bugs with minimal reproducible samples (ideally with sanitized CVs/templates)
+- Add tests for edge-cases (formatting oddities, missing sections, etc.)
+- Improve schema validation and clearer validation errors
+- Implement or improve:
+  - **Extractors** (new input formats or more robust parsing)
+  - **Adjusters** (e.g., better tailoring logic, safer defaults)
+  - **Renderers** (new output targets, better templating ergonomics)
+
+---
+
+## Getting started (dev setup)
+
+### 1) Clone + install editable
+```bash
+git clone https://github.com/imateev/cvextract.git
+cd cvextract
+python -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate   # Windows PowerShell
+
+pip install -U pip
+pip install -e .
