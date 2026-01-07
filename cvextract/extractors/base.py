@@ -6,8 +6,8 @@ Defines the contract for pluggable CV extraction implementations.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import json
+from abc import ABC, abstractmethod
 from typing import Any, Dict
 
 from ..shared import UnitOfWork

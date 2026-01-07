@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..shared import UnitOfWork
 from .base import CVExtractor
 from .body_parser import parse_cv_from_docx_body
 from .sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
-from ..shared import UnitOfWork
 
 
 class DocxCVExtractor(CVExtractor):

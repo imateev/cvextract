@@ -4,6 +4,7 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
+
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor
 from cvextract.pipeline_highlevel import (

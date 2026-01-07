@@ -138,7 +138,9 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
 
         extract_work = process_single_docx(work, extractor=extractor)
         if extract_work.output is None:
-            extract_work.add_error(StepName.Extract, "extract: output JSON path is not set")
+            extract_work.add_error(
+                StepName.Extract, "extract: output JSON path is not set"
+            )
             return extract_work
         if not extract_work.output.exists():
             extract_work.add_error(

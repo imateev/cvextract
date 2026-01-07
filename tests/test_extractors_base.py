@@ -176,8 +176,12 @@ class TestCVExtractorAbstract:
         docx.extract(docx_work)
         pdf.extract(pdf_work)
 
-        assert json.loads(docx_work.output.read_text(encoding="utf-8"))["format"] == "docx"
-        assert json.loads(pdf_work.output.read_text(encoding="utf-8"))["format"] == "pdf"
+        assert (
+            json.loads(docx_work.output.read_text(encoding="utf-8"))["format"] == "docx"
+        )
+        assert (
+            json.loads(pdf_work.output.read_text(encoding="utf-8"))["format"] == "pdf"
+        )
 
     def test_extract_method_can_process_source_path(self, tmp_path):
         """Test that concrete implementation can process the source path."""
