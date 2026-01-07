@@ -1,8 +1,10 @@
 """Tests for extractor registry functionality."""
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import (
     CVExtractor,
     get_extractor,
@@ -10,6 +12,7 @@ from cvextract.extractors import (
     register_extractor,
 )
 from cvextract.extractors.extractor_registry import unregister_extractor
+from cvextract.shared import UnitOfWork
 
 
 class TestExtractorRegistry:
@@ -68,14 +71,14 @@ class TestExtractorRegistry:
             assert hasattr(extractor, "model")
             assert extractor.model == "gpt-4"
 
-    def test_register_custom_extractor(self):
+    def test_register_custom_extractor(self, tmp_path):
         """register_extractor() allows registering custom extractors."""
 
         class CustomExtractor(CVExtractor):
             """Custom test extractor for testing."""
 
-            def extract(self, source: Path):
-                return {
+            def extract(self, work: UnitOfWork) -> UnitOfWork:
+                data = {
                     "identity": {
                         "title": "Custom",
                         "full_name": "Custom Extractor",
@@ -86,6 +89,7 @@ class TestExtractorRegistry:
                     "overview": "Custom overview",
                     "experiences": [],
                 }
+                return self._write_output_json(work, data)
 
         # Register custom extractor
         register_extractor("custom-test-extractor", CustomExtractor)
@@ -102,7 +106,13 @@ class TestExtractorRegistry:
             assert isinstance(extractor, CustomExtractor)
 
             # Should work
-            result = extractor.extract(Path("/any/path"))
+            work = UnitOfWork(
+                config=UserConfig(target_dir=tmp_path),
+                input=Path("/any/path"),
+                output=tmp_path / "output.json",
+            )
+            extractor.extract(work)
+            result = json.loads(work.output.read_text(encoding="utf-8"))
             assert result["identity"]["title"] == "Custom"
         finally:
             # Clean up the custom extractor

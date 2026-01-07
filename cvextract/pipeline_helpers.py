@@ -11,16 +11,17 @@ Provides utilities for:
 
 from __future__ import annotations
 
+import json
 import os
 import traceback
 from dataclasses import replace
 from pathlib import Path
 from typing import List, Optional
 
-from .extractors import CVExtractor, get_extractor
+from .extractors import CVExtractor, DocxCVExtractor, get_extractor
 from .extractors.docx_utils import dump_body_sample
 from .logging_utils import LOG
-from .pipeline_highlevel import process_single_docx, render_cv_data
+from .renderers import get_renderer
 from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
 from .verifiers import get_verifier
 
@@ -46,6 +47,43 @@ def safe_relpath(p: Path, root: Path) -> str:
         return p.resolve().relative_to(root.resolve()).as_posix()
     except Exception:
         return p.name
+
+
+def extract_cv_data(
+    work: UnitOfWork, extractor: Optional[CVExtractor] = None
+) -> UnitOfWork:
+    """
+    Extract CV structure from a source file using the specified extractor.
+
+    Args:
+        work: UnitOfWork containing input/output paths.
+        extractor: CVExtractor instance to use. If None, uses default DocxCVExtractor
+
+    Returns:
+        UnitOfWork with output JSON populated.
+    """
+    if extractor is None:
+        extractor = DocxCVExtractor()
+    return extractor.extract(work)
+
+
+def render_cv_data(work: UnitOfWork) -> UnitOfWork:
+    """
+    Render CV data to a DOCX file using the default renderer.
+
+    This function uses the default renderer from the pluggable
+    renderer architecture.
+
+    Args:
+        work: UnitOfWork containing render configuration and paths.
+
+    Returns:
+        UnitOfWork with rendered output populated
+    """
+    renderer = get_renderer("private-internal-renderer")
+    if not renderer:
+        raise ValueError("Default renderer 'private-internal-renderer' not found")
+    return renderer.render(work)
 
 
 def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
@@ -118,6 +156,10 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         StepName.Extract, work.input, "input file", must_be_file=True
     ):
         return work
+    if work.output is None:
+        work.add_error(StepName.Extract, "extract: output JSON path is not set")
+        return work
+
     try:
         extractor: Optional[CVExtractor] = None
         if work.config.extract and work.config.extract.name:
@@ -131,14 +173,27 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                     extract_status.ConfiguredExecutorAvailable = False
                 return work
 
-        data = process_single_docx(work.input, out=work.output, extractor=extractor)
+        extract_work = extract_cv_data(work, extractor=extractor)
+        if extract_work.output is None:
+            extract_work.add_error(
+                StepName.Extract, "extract: output JSON path is not set"
+            )
+            return extract_work
+        if not extract_work.output.exists():
+            extract_work.add_error(
+                StepName.Extract,
+                f"extract: output JSON not found: {extract_work.output}",
+            )
+            return extract_work
+        with extract_work.output.open("r", encoding="utf-8") as f:
+            data = json.load(f)
         verifier = get_verifier("private-internal-verifier")
         result = verifier.verify(data)
         for err in result.errors:
-            work.add_error(StepName.Extract, err)
+            extract_work.add_error(StepName.Extract, err)
         for warn in result.warnings:
-            work.add_warning(StepName.Extract, warn)
-        return work
+            extract_work.add_warning(StepName.Extract, warn)
+        return extract_work
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
@@ -148,13 +203,26 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
 
 
 def _roundtrip_compare(
+    render_work: UnitOfWork,
     output_docx: Path,
     roundtrip_dir: Path,
     original_data: dict,
 ) -> VerificationResult:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
-    roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
+    roundtrip_work = UnitOfWork(
+        config=render_work.config,
+        input=output_docx,
+        output=roundtrip_json,
+        initial_input=render_work.initial_input,
+    )
+    roundtrip_work = extract_cv_data(roundtrip_work)
+    if roundtrip_work.output is None or not roundtrip_work.output.exists():
+        raise FileNotFoundError(
+            f"roundtrip JSON not created: {roundtrip_work.output or roundtrip_json}"
+        )
+    with roundtrip_work.output.open("r", encoding="utf-8") as f:
+        roundtrip_data = json.load(f)
     verifier = get_verifier("roundtrip-verifier")
     return verifier.verify(original_data, target_data=roundtrip_data)
 
@@ -187,6 +255,7 @@ def _verify_roundtrip(
     roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
     try:
         compare_result = _roundtrip_compare(
+            render_work,
             output_docx,
             roundtrip_dir,
             original_cv_data,

@@ -1,7 +1,7 @@
 # cvextract/__init__.py
 
-from .pipeline_highlevel import extract_cv_structure
+from .pipeline_helpers import extract_cv_data
 
 __all__ = [
-    "extract_cv_structure",
+    "extract_cv_data",
 ]

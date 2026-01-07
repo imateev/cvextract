@@ -9,8 +9,10 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, OpenAICVExtractor
 from cvextract.extractors.openai_extractor import _RetryConfig
+from cvextract.shared import UnitOfWork
 
 
 class TestOpenAICVExtractorInit:
@@ -52,12 +54,17 @@ class TestOpenAICVExtractorInit:
 class TestExtractFileValidation:
     """Tests for file validation in extract()."""
 
-    def test_extract_missing_file(self):
+    def test_extract_missing_file(self, tmp_path):
         """extract() raises FileNotFoundError for missing file."""
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
             extractor = OpenAICVExtractor()
             with pytest.raises(FileNotFoundError, match="Document not found"):
-                extractor.extract(Path("/nonexistent/file.pdf"))
+                work = UnitOfWork(
+                    config=UserConfig(target_dir=tmp_path),
+                    input=Path("/nonexistent/file.pdf"),
+                    output=tmp_path / "output.json",
+                )
+                extractor.extract(work)
 
     def test_extract_directory_not_allowed(self, tmp_path):
         """extract() raises ValueError for directory."""
@@ -66,7 +73,12 @@ class TestExtractFileValidation:
             test_dir = tmp_path / "test_dir"
             test_dir.mkdir()
             with pytest.raises(ValueError, match="must be a file"):
-                extractor.extract(test_dir)
+                work = UnitOfWork(
+                    config=UserConfig(target_dir=tmp_path),
+                    input=test_dir,
+                    output=tmp_path / "output.json",
+                )
+                extractor.extract(work)
 
         def test_extract_loads_schema_and_validates(self, tmp_path, monkeypatch):
             """extract() loads schema and validates after file checks."""
@@ -80,8 +92,14 @@ class TestExtractFileValidation:
                 extractor._parse_and_validate = MagicMock(return_value={"identity": {}})
                 with patch("cvextract.extractors.openai_extractor.files") as mock_files:
                     mock_files.return_value.joinpath.return_value = test_file
-                    result = extractor.extract(str(test_file))
-                    assert result == {"identity": {}}
+                    work = UnitOfWork(
+                        config=UserConfig(target_dir=tmp_path),
+                        input=test_file,
+                        output=tmp_path / "output.json",
+                    )
+                    result = extractor.extract(work)
+                    assert result == work
+                    assert json.loads(work.output.read_text()) == {"identity": {}}
 
     def test_resource_cache_created_and_used(self, tmp_path, monkeypatch):
         """Test that resource cache is created and reused."""
@@ -233,8 +251,15 @@ class TestExtractFileValidation:
                     }
                 ),
             ):
-                result = extractor.extract(test_file)
-                assert result["identity"]["full_name"] == "User"
+                work = UnitOfWork(
+                    config=UserConfig(target_dir=tmp_path),
+                    input=test_file,
+                    output=tmp_path / "output.json",
+                )
+                result = extractor.extract(work)
+                assert result == work
+                data = json.loads(work.output.read_text())
+                assert data["identity"]["full_name"] == "User"
 
 
 class TestRetryMechanisms:

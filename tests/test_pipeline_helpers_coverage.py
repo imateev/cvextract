@@ -225,9 +225,7 @@ class TestPipelineHelpersCoverage:
         )
         work = UnitOfWork(config=config, input=docx, output=output)
 
-        with patch(
-            "cvextract.pipeline_helpers.process_single_docx"
-        ) as mock_process, patch(
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_process, patch(
             "cvextract.pipeline_helpers.dump_body_sample"
         ) as mock_dump:
             mock_process.side_effect = RuntimeError("Test error")

@@ -39,7 +39,7 @@ Rendered Document (.docx)
 ### Integration Points
 
 - **CLI**: `--render template=<path> data=<json>`
-- **Pipeline**: `cvextract.pipeline_highlevel.render_cv_data()`
+- **Pipeline**: `cvextract.pipeline_helpers.render_cv_data()`
 - **Templates**: Jinja2 templates in `examples/templates/`
 
 ## Dependencies

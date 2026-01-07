@@ -234,11 +234,16 @@ import json
 
 # Extract original data
 extractor = DocxCVExtractor()
-original_data = extractor.extract(Path("cv.docx"))
+json_path = Path("roundtrip.json")
+extract_work = UnitOfWork(
+    config=UserConfig(target_dir=Path(".")),
+    input=Path("cv.docx"),
+    output=json_path,
+)
+extractor.extract(extract_work)
+original_data = json.loads(json_path.read_text(encoding="utf-8"))
 
 # Render to new document
-json_path = Path("roundtrip.json")
-json_path.write_text(json.dumps(original_data, indent=2), encoding="utf-8")
 output_path = Path("output.docx")
 
 config = UserConfig(
@@ -251,7 +256,14 @@ renderer = DocxCVRenderer()
 renderer.render(work)
 
 # Extract from rendered document
-roundtrip_data = extractor.extract(Path("output.docx"))
+roundtrip_json = Path("roundtrip_rendered.json")
+roundtrip_work = UnitOfWork(
+    config=UserConfig(target_dir=Path(".")),
+    input=output_path,
+    output=roundtrip_json,
+)
+extractor.extract(roundtrip_work)
+roundtrip_data = json.loads(roundtrip_json.read_text(encoding="utf-8"))
 
 # Verify they match
 verifier = get_verifier("roundtrip-verifier")

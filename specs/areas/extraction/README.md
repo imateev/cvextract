@@ -33,10 +33,10 @@ The extraction area provides a pluggable architecture for extracting structured 
 Source File (.docx, .txt)
     │
     v
-[Extractor.extract(source: Path)]
+[Extractor.extract(work: UnitOfWork)]
     │
     v
-Structured JSON Data
+Structured JSON Data (work.output)
     │
     v
 {
@@ -50,7 +50,7 @@ Structured JSON Data
 ### Integration Points
 
 - **CLI**: `--extract source=<path> name=<extractor-name>`
-- **Pipeline**: `cvextract.pipeline_highlevel.extract_cv_structure()`
+- **Pipeline**: `cvextract.pipeline_helpers.extract_cv_data()` (expects `UnitOfWork`)
 - **Verification**: Extracted data is validated by `ExtractedDataVerifier` and `CVSchemaVerifier`
 
 ## Dependencies

@@ -45,11 +45,20 @@ The extractor is format-agnostic and can extract from any text-based source, mak
 ### Programmatic API
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import OpenAICVExtractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 extractor = OpenAICVExtractor()
-cv_data = extractor.extract(Path("cv.txt"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.txt"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ### CLI Usage
@@ -70,10 +79,20 @@ python -m cvextract.cli \
 ### Registry Access
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import get_extractor
+from cvextract.shared import UnitOfWork
+from pathlib import Path
+import json
 
 extractor = get_extractor("openai-extractor")
-cv_data = extractor.extract(Path("cv.txt"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.txt"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ## Configuration
@@ -92,13 +111,22 @@ cv_data = extractor.extract(Path("cv.txt"))
 ### Programmatic Configuration
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import OpenAICVExtractor
 from cvextract.extractors.openai_extractor import _RetryConfig
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 # Default configuration
 extractor = OpenAICVExtractor()
-cv_data = extractor.extract(Path("cv.txt"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.txt"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 
 # Custom model and timeout
 extractor = OpenAICVExtractor(

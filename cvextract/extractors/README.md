@@ -19,18 +19,18 @@ The `CVExtractor` abstract base class defines the contract that all extractors m
 
 ```python
 from cvextract.extractors import CVExtractor
-from pathlib import Path
-from typing import Dict, Any
+from cvextract.shared import UnitOfWork
 
 class CustomExtractor(CVExtractor):
-    def extract(self, source: Path) -> Dict[str, Any]:
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
         # Your extraction logic here
-        return {
+        data = {
             "identity": {...},
             "sidebar": {...},
             "overview": "...",
             "experiences": [...]
         }
+        return self._write_output_json(work, data)
 ```
 
 ### DocxCVExtractor
@@ -38,16 +38,25 @@ class CustomExtractor(CVExtractor):
 The `DocxCVExtractor` is the default implementation that extracts CV data from Microsoft Word `.docx` files:
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 extractor = DocxCVExtractor()
-cv_data = extractor.extract(Path("path/to/cv.docx"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("path/to/cv.docx"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ## CV Data Schema
 
-All extractors must return data conforming to the CV schema defined in `cv_schema.json`. The structure includes:
+All extractors must write data conforming to the CV schema defined in `cv_schema.json`. The structure includes:
 
 - **identity**: Personal information (title, full_name, first_name, last_name)
 - **sidebar**: Categorized lists (languages, tools, certifications, industries, spoken_languages, academic_background)
@@ -63,27 +72,36 @@ To create a custom extractor:
 1. Import the base class:
    ```python
    from cvextract.extractors import CVExtractor
+   from cvextract.shared import UnitOfWork
    ```
 
 2. Create your implementation:
    ```python
    class MyCustomExtractor(CVExtractor):
-       def extract(self, source: Path) -> Dict[str, Any]:
+       def extract(self, work: UnitOfWork) -> UnitOfWork:
            # Read and parse the source file
            # Extract the required fields
-           # Return data matching the CV schema
-           return {
+           data = {
                "identity": {...},
                "sidebar": {...},
                "overview": "...",
                "experiences": [...]
            }
+           return self._write_output_json(work, data)
    ```
 
 3. Use your extractor:
    ```python
+   from cvextract.cli_config import UserConfig
+   from pathlib import Path
+
    extractor = MyCustomExtractor()
-   cv_data = extractor.extract(Path("path/to/source"))
+   work = UnitOfWork(
+       config=UserConfig(target_dir=Path("outputs")),
+       input=Path("path/to/source"),
+       output=Path("outputs/source.json"),
+   )
+   extractor.extract(work)
    ```
 
 ## Examples
@@ -91,7 +109,9 @@ To create a custom extractor:
 ### Using the Default DOCX Extractor
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
 import json
 
@@ -99,7 +119,13 @@ import json
 extractor = DocxCVExtractor()
 
 # Extract CV data
-cv_data = extractor.extract(Path("consultant_cv.docx"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("consultant_cv.docx"),
+    output=Path("outputs/consultant_cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 
 # Work with the extracted data
 print(cv_data["identity"]["full_name"])
@@ -113,12 +139,15 @@ with open("output.json", "w") as f:
 ### Creating a Mock Extractor for Testing
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 class MockCVExtractor(CVExtractor):
-    def extract(self, source: Path) -> Dict[str, Any]:
-        return {
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
+        data = {
             "identity": {
                 "title": "Test Engineer",
                 "full_name": "Test User",
@@ -142,12 +171,19 @@ class MockCVExtractor(CVExtractor):
                 }
             ]
         }
+        return self._write_output_json(work, data)
 
 # Use in tests
 extractor = MockCVExtractor()
-test_data = extractor.extract(Path("any/path"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("any/path"),
+    output=Path("outputs/mock.json"),
+)
+extractor.extract(work)
+test_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ## Integration with Existing Pipeline
 
-The extractors integrate seamlessly with the existing pipeline through the `extract_cv_structure()` function in `pipeline_highlevel.py`, which uses `DocxCVExtractor` by default while maintaining backward compatibility.
+The extractors integrate seamlessly with the existing pipeline through the `extract_cv_data()` function in `pipeline_helpers.py`, which uses `DocxCVExtractor` by default and expects a `UnitOfWork`.

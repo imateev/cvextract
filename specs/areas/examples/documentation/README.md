@@ -171,12 +171,21 @@ python -m cvextract.cli \
 ### Programmatic Examples
 
 ```python
+from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
+from cvextract.shared import UnitOfWork
 from pathlib import Path
+import json
 
 # Clear comment
 extractor = DocxCVExtractor()
-cv_data = extractor.extract(Path("cv.docx"))
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("outputs")),
+    input=Path("cv.docx"),
+    output=Path("outputs/cv.json"),
+)
+extractor.extract(work)
+cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 ```
 
 ### Feature Documentation

@@ -34,7 +34,7 @@ except ModuleNotFoundError:
     # Python < 3.9 backport
     from importlib_resources import files, as_file  # type: ignore
 
-from ..shared import format_prompt, load_prompt
+from ..shared import UnitOfWork, format_prompt, load_prompt
 from ..verifiers import get_verifier
 from .base import CVExtractor
 
@@ -107,21 +107,21 @@ class OpenAICVExtractor(CVExtractor):
             self._client = OpenAI(api_key=api_key)
         return self._client
 
-    def extract(self, file_path: str | Path) -> dict[str, Any]:
+    def extract(self, work: UnitOfWork) -> UnitOfWork:
         """
         Extract structured CV data from a document file.
 
         Args:
-            file_path: Path to the document file (PDF, DOCX, etc.)
+            work: UnitOfWork containing input/output paths.
 
         Returns:
-            Dictionary with extracted CV data conforming to cv_schema.json
+            UnitOfWork with output JSON populated.
 
         Raises:
             FileNotFoundError: If the file does not exist
             ValueError: If extraction or validation fails
         """
-        file_path = Path(file_path)
+        file_path = work.input
 
         if not file_path.exists():
             raise FileNotFoundError(f"Document not found: {file_path}")
@@ -131,7 +131,8 @@ class OpenAICVExtractor(CVExtractor):
 
         cv_schema = self._load_cv_schema()
         response_text = self._extract_with_openai(file_path, cv_schema)
-        return self._parse_and_validate(response_text, cv_schema)
+        data = self._parse_and_validate(response_text, cv_schema)
+        return self._write_output_json(work, data)
 
     def _load_cv_schema(self) -> dict[str, Any]:
         """Load the CV schema."""
