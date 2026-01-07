@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class CVRenderer(ABC):
     """
     Abstract base class for CV renderers.
-    
+
     Implementations of this interface can render CV data to various output formats
     using different templates or rendering engines.
     """

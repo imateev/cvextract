@@ -9,17 +9,16 @@ from __future__ import annotations
 
 import hashlib
 import re
-
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, TYPE_CHECKING
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .cli_config import UserConfig
 
 from .logging_utils import LOG, fmt_issues
+
 
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)
@@ -37,6 +36,7 @@ class UnitOfWork:
     initial_input preserves the original input path before adjustments.
     input/output represent the current step's paths.
     """
+
     config: "UserConfig"
     input: Path
     output: Path
@@ -91,7 +91,10 @@ class UnitOfWork:
 
     def has_no_warnings_or_errors(self, step: Optional["StepName"] = None) -> bool:
         if step is None:
-            return all((not status.errors and not status.warnings) for status in self.step_statuses.values())
+            return all(
+                (not status.errors and not status.warnings)
+                for status in self.step_statuses.values()
+            )
         status = self.step_statuses.get(step)
         if status is None:
             return True
@@ -120,6 +123,7 @@ class StepStatus:
 
 def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
     """Generate status icons for pipeline steps based on UnitOfWork statuses."""
+
     def icon_for(step_name: StepName) -> str:
         status = work.step_statuses.get(step_name)
 
@@ -137,8 +141,14 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
 
     return {step_name: icon_for(step_name) for step_name in StepName}
 
+
 def select_issue_step(work: "UnitOfWork") -> "StepName":
-    for candidate in (StepName.RoundtripComparer, StepName.Render, StepName.Adjust, StepName.Extract):
+    for candidate in (
+        StepName.RoundtripComparer,
+        StepName.Render,
+        StepName.Adjust,
+        StepName.Extract,
+    ):
         status = work.step_statuses.get(candidate)
         if status and (status.errors or status.warnings):
             return candidate
@@ -163,17 +173,19 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
 def emit_summary(work: "UnitOfWork") -> str:
     config = work.config
     if config.extract and config.render:
-        return (
-            "📊 Extract+Render complete. JSON: %s | DOCX: %s"
-            % (config.workspace.json_dir, config.workspace.documents_dir)
+        return "📊 Extract+Render complete. JSON: %s | DOCX: %s" % (
+            config.workspace.json_dir,
+            config.workspace.documents_dir,
         )
     if config.extract:
         return "📊 Extract complete. JSON in: %s" % config.workspace.json_dir
     return "📊 Render complete. Output in: %s" % config.workspace.documents_dir
 
+
 # ------------------------- XML parsing helpers -------------------------
 
 _WS_RE = re.compile(r"\s+")
+
 
 def _strip_invalid_xml_1_0_chars(s: str) -> str:
     """
@@ -198,6 +210,7 @@ def _strip_invalid_xml_1_0_chars(s: str) -> str:
             out.append(ch)
     return "".join(out)
 
+
 def normalize_text_for_processing(s: str) -> str:
     """
     Normalize what we consider "text":
@@ -206,11 +219,12 @@ def normalize_text_for_processing(s: str) -> str:
     - normalize newlines
     - strip invalid XML chars
     """
-    s = s.replace("\u00A0", " ")
-    s = s.replace("\u00AD", "-")  # preserve "high-quality"
+    s = s.replace("\u00a0", " ")
+    s = s.replace("\u00ad", "-")  # preserve "high-quality"
     s = s.replace("\r\n", "\n").replace("\r", "\n")
     s = _strip_invalid_xml_1_0_chars(s)
     return s
+
 
 def clean_text(text: str) -> str:
     """Collapse whitespace for clean JSON output."""
@@ -218,12 +232,14 @@ def clean_text(text: str) -> str:
     text = _WS_RE.sub(" ", text)
     return text.strip()
 
+
 def sanitize_for_xml_in_obj(obj: Any) -> Any:
     """
     Sanitize strings for insertion into docxtpl (XML-safe):
     - normalize NBSP
     - strip invalid XML 1.0 chars
     """
+
     def _sanitize(x: Any) -> Any:
         if isinstance(x, str):
             x = normalize_text_for_processing(x)
@@ -233,6 +249,7 @@ def sanitize_for_xml_in_obj(obj: Any) -> Any:
         if isinstance(x, dict):
             return {k: _sanitize(v) for k, v in x.items()}
         return x
+
     return _sanitize(obj)
 
 
@@ -264,18 +281,18 @@ _ML_PROMPTS_DIR = Path(__file__).parent / "ml_adjustment" / "prompts"
 def load_prompt(prompt_name: str) -> Optional[str]:
     """
     Load a prompt template from a Markdown file.
-    
+
     Searches in this order:
     1. Extractor prompts folder: cvextract/extractors/prompts/{prompt_name}.md
     2. Adjuster prompts folder: cvextract/adjusters/prompts/{prompt_name}.md
     3. ML adjustment prompts folder: cvextract/ml_adjustment/prompts/{prompt_name}.md
-    
+
     Args:
         prompt_name: Name of the prompt file (without .md extension)
-    
+
     Returns:
         The prompt text, or None if the file doesn't exist or can't be read
-    
+
     Example:
         >>> cv_system = load_prompt("cv_extraction_system")
         >>> if cv_system:
@@ -289,7 +306,7 @@ def load_prompt(prompt_name: str) -> Optional[str]:
         except Exception as e:
             LOG.error("Failed to read prompt %s: %s", extractor_prompt_path, e)
             return None
-    
+
     # Try adjuster prompts folder
     adjuster_prompt_path = _ADJUSTER_PROMPTS_DIR / f"{prompt_name}.md"
     if adjuster_prompt_path.exists():
@@ -298,7 +315,7 @@ def load_prompt(prompt_name: str) -> Optional[str]:
         except Exception as e:
             LOG.error("Failed to read prompt %s: %s", adjuster_prompt_path, e)
             return None
-    
+
     # Fall back to ml_adjustment prompts folder
     ml_prompt_path = _ML_PROMPTS_DIR / f"{prompt_name}.md"
     try:
@@ -311,16 +328,16 @@ def load_prompt(prompt_name: str) -> Optional[str]:
 def format_prompt(prompt_name: str, **kwargs) -> Optional[str]:
     """
     Load a prompt template and format it with the provided variables.
-    
+
     Args:
         prompt_name: Name of the prompt file (without .md extension)
         **kwargs: Variables to substitute in the prompt template
-    
+
     Returns:
         The formatted prompt text, or None if the file doesn't exist or can't be read
-    
+
     Example:
-        >>> prompt = format_prompt("website_analysis_prompt", 
+        >>> prompt = format_prompt("website_analysis_prompt",
         ...                        customer_url="https://example.com",
         ...                        schema="{}")
         >>> if prompt:
@@ -329,7 +346,7 @@ def format_prompt(prompt_name: str, **kwargs) -> Optional[str]:
     template = load_prompt(prompt_name)
     if template is None:
         return None
-    
+
     try:
         return template.format(**kwargs)
     except Exception as e:

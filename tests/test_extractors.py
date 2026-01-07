@@ -1,7 +1,9 @@
 """Tests for CV extractor interfaces and implementations."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from cvextract.extractors import CVExtractor, DocxCVExtractor
 
 
@@ -15,6 +17,7 @@ class TestCVExtractorInterface:
 
     def test_cv_extractor_requires_extract_method(self):
         """Subclasses must implement the extract method."""
+
         class IncompleteCVExtractor(CVExtractor):
             pass
 
@@ -52,8 +55,14 @@ class TestDocxCVExtractor:
         docx_path = tmp_path / "test.docx"
         docx_path.write_text("test")
 
-        monkeypatch.setattr(docx_extractor, "parse_cv_from_docx_body", lambda _: ("overview", [{"heading": "Job"}]))
-        monkeypatch.setattr(docx_extractor, "extract_all_header_paragraphs", lambda _: ["header"])
+        monkeypatch.setattr(
+            docx_extractor,
+            "parse_cv_from_docx_body",
+            lambda _: ("overview", [{"heading": "Job"}]),
+        )
+        monkeypatch.setattr(
+            docx_extractor, "extract_all_header_paragraphs", lambda _: ["header"]
+        )
 
         class FakeIdentity:
             def as_dict(self):
@@ -90,7 +99,7 @@ class TestExtractorPluggability:
 
     def test_custom_extractor_can_be_created(self):
         """Custom extractors can be created by implementing CVExtractor."""
-        
+
         class MockCVExtractor(CVExtractor):
             def extract(self, source: Path):
                 return {
@@ -98,14 +107,14 @@ class TestExtractorPluggability:
                         "title": "Mock Title",
                         "full_name": "Mock Name",
                         "first_name": "Mock",
-                        "last_name": "Name"
+                        "last_name": "Name",
                     },
                     "sidebar": {
                         "languages": ["Python"],
                         "tools": ["Tool1"],
                         "industries": ["Tech"],
                         "spoken_languages": ["English"],
-                        "academic_background": ["BS"]
+                        "academic_background": ["BS"],
                     },
                     "overview": "Mock overview",
                     "experiences": [
@@ -113,9 +122,9 @@ class TestExtractorPluggability:
                             "heading": "2020 - Present",
                             "description": "Mock job",
                             "bullets": ["Did stuff"],
-                            "environment": ["Python"]
+                            "environment": ["Python"],
                         }
-                    ]
+                    ],
                 }
 
         extractor = MockCVExtractor()

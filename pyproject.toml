@@ -3,27 +3,28 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-dependencies = [
-  "lxml",
-  "docxtpl",
-  "requests",
-  "openai",
-]
+dependencies = ["lxml", "docxtpl", "requests", "openai"]
 name = "cvextract"
 version = "0.7.0"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "black", "isort"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["cvextract*"]
 
 [tool.setuptools.package-data]
-cvextract = [
-  "contracts/*.json",
-  "**/prompts/*.md",
-]
+cvextract = ["contracts/*.json", "**/prompts/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.coverage.run]
 omit = ["*/tests/*"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_glob = ["**/__init__.py"]
+known_first_party = ["cvextract"]

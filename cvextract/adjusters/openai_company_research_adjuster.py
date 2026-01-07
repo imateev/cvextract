@@ -37,14 +37,14 @@ except Exception:  # pragma: no cover
 
 try:
     # Python 3.9+
-    from importlib.resources import files, as_file
+    from importlib.resources import as_file, files
 except ModuleNotFoundError:
     # Python < 3.9 backport
     from importlib_resources import files, as_file  # type: ignore
 
-from .base import CVAdjuster
 from ..shared import UnitOfWork, format_prompt, url_to_cache_filename
 from ..verifiers import get_verifier
+from .base import CVAdjuster
 
 LOG = logging.getLogger("cvextract")
 
@@ -94,7 +94,9 @@ class _RetryConfig:
 def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     """Write JSON atomically to avoid cache corruption on crash."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", dir=str(path.parent)) as tmp:
+    with tempfile.NamedTemporaryFile(
+        "w", delete=False, encoding="utf-8", dir=str(path.parent)
+    ) as tmp:
         json.dump(data, tmp, ensure_ascii=False, indent=2)
         tmp.flush()
         os.fsync(tmp.fileno())
@@ -113,7 +115,9 @@ def _load_cached_research(cache_path: Path) -> Optional[Dict[str, Any]]:
             return cached_data
         LOG.warning("Cached company research failed validation, will re-research")
     except Exception as e:
-        LOG.warning("Failed to load cached research (%s), will re-research", type(e).__name__)
+        LOG.warning(
+            "Failed to load cached research (%s), will re-research", type(e).__name__
+        )
     return None
 
 
@@ -290,7 +294,9 @@ class _OpenAIRetry:
         )
         return any(m in msg for m in transient_markers)
 
-    def _sleep_with_backoff(self, attempt_idx: int, *, is_write: bool, exc: Exception) -> None:
+    def _sleep_with_backoff(
+        self, attempt_idx: int, *, is_write: bool, exc: Exception
+    ) -> None:
         retry_after = self._get_retry_after_s(exc)
         if retry_after is not None and retry_after > 0:
             self._sleep(min(self._retry.max_delay_s, retry_after))
@@ -449,15 +455,21 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
     def validate_params(self, **kwargs) -> None:
         has_customer_url = "customer_url" in kwargs or "customer-url" in kwargs
-        if not has_customer_url or not (kwargs.get("customer_url") or kwargs.get("customer-url")):
-            raise ValueError(f"Adjuster '{self.name()}' requires 'customer-url' parameter")
+        if not has_customer_url or not (
+            kwargs.get("customer_url") or kwargs.get("customer-url")
+        ):
+            raise ValueError(
+                f"Adjuster '{self.name()}' requires 'customer-url' parameter"
+            )
 
     def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
         cv_data = self._load_input_json(work)
         self.validate_params(**kwargs)
 
         if not self._api_key or OpenAI is None:
-            LOG.warning("Company research adjust skipped: OpenAI unavailable or API key missing.")
+            LOG.warning(
+                "Company research adjust skipped: OpenAI unavailable or API key missing."
+            )
             return self._write_output_json(work, cv_data)
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
@@ -481,11 +493,17 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 _cache_research_data(cache_path, research_data)
 
         if not research_data:
-            LOG.warning("Company research adjust: failed to research company; using original CV.")
+            LOG.warning(
+                "Company research adjust: failed to research company; using original CV."
+            )
             return self._write_output_json(work, cv_data)
 
         # Step 2: Build research context text
-        domains_text = ", ".join(research_data.get("domains", [])) if isinstance(research_data.get("domains"), list) else ""
+        domains_text = (
+            ", ".join(research_data.get("domains", []))
+            if isinstance(research_data.get("domains"), list)
+            else ""
+        )
         company_name = research_data.get("name", "the company")
         company_desc = research_data.get("description", "") or ""
 
@@ -506,9 +524,13 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 except (TypeError, ValueError):
                     conf_str = "0.00"
 
-                tech_signals_parts.append(f"\n- {tech} (interest: {interest}, confidence: {conf_str})")
+                tech_signals_parts.append(
+                    f"\n- {tech} (interest: {interest}, confidence: {conf_str})"
+                )
                 if isinstance(evidence, list) and evidence:
-                    tech_signals_parts.append(f"\n  Evidence: {'; '.join([str(x) for x in evidence[:2]])}")
+                    tech_signals_parts.append(
+                        f"\n  Evidence: {'; '.join([str(x) for x in evidence[:2]])}"
+                    )
 
         tech_signals_text = "".join(tech_signals_parts)
 
@@ -522,13 +544,19 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         # Step 3: Load system prompt template with research context
         # Keep legacy template name (typo) for compatibility.
-        system_prompt = format_prompt("adjuster_promp_for_a_company", research_context=research_context)
+        system_prompt = format_prompt(
+            "adjuster_promp_for_a_company", research_context=research_context
+        )
         if not system_prompt:
             # Try a corrected template key as a fallback if it exists in your prompts.
-            system_prompt = format_prompt("adjuster_prompt_for_a_company", research_context=research_context)
+            system_prompt = format_prompt(
+                "adjuster_prompt_for_a_company", research_context=research_context
+            )
 
         if not system_prompt:
-            LOG.warning("Company research adjust: failed to load prompt template; using original CV.")
+            LOG.warning(
+                "Company research adjust: failed to load prompt template; using original CV."
+            )
             return self._write_output_json(work, cv_data)
 
         # Step 4: Create user payload with research data and cv_data
@@ -548,7 +576,10 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                     model=self._model,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+                        {
+                            "role": "user",
+                            "content": json.dumps(user_payload, ensure_ascii=False),
+                        },
                     ],
                     temperature=0.2,
                 ),
@@ -556,12 +587,17 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 op_name="Company research adjust completion",
             )
         except Exception as e:
-            LOG.warning("Company research adjust: API call failed (%s); using original CV.", type(e).__name__)
+            LOG.warning(
+                "Company research adjust: API call failed (%s); using original CV.",
+                type(e).__name__,
+            )
             return self._write_output_json(work, cv_data)
 
         content = None
         try:
-            content = completion.choices[0].message.content if completion.choices else None
+            content = (
+                completion.choices[0].message.content if completion.choices else None
+            )
         except Exception:
             content = None
 
@@ -571,18 +607,24 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         adjusted = _extract_json_object(content)
         if adjusted is None:
-            LOG.warning("Company research adjust: failed to parse JSON response; using original CV.")
+            LOG.warning(
+                "Company research adjust: failed to parse JSON response; using original CV."
+            )
             return self._write_output_json(work, cv_data)
 
         # Step 6: Validate adjusted CV against schema
         if not isinstance(adjusted, dict):
-            LOG.warning("Company research adjust: result is not a dict; using original CV.")
+            LOG.warning(
+                "Company research adjust: result is not a dict; using original CV."
+            )
             return self._write_output_json(work, cv_data)
 
         try:
             cv_verifier = get_verifier("cv-schema-verifier")
             if not cv_verifier:
-                LOG.warning("Company research adjust: CV schema verifier not available; using original CV.")
+                LOG.warning(
+                    "Company research adjust: CV schema verifier not available; using original CV."
+                )
                 return self._write_output_json(work, cv_data)
 
             validation_result = cv_verifier.verify(adjusted)
@@ -597,5 +639,8 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             return self._write_output_json(work, cv_data)
 
         except Exception as e:
-            LOG.warning("Company research adjust: schema validation error (%s); using original CV.", type(e).__name__)
+            LOG.warning(
+                "Company research adjust: schema validation error (%s); using original CV.",
+                type(e).__name__,
+            )
             return self._write_output_json(work, cv_data)

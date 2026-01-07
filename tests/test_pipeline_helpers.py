@@ -1,12 +1,18 @@
 """Tests for pipeline helper functions."""
 
 from pathlib import Path
+
 import cvextract.pipeline_helpers as p
-from cvextract.cli_config import UserConfig, ExtractStage, RenderStage
-from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
+from cvextract.cli_config import ExtractStage, RenderStage, UserConfig
+from cvextract.shared import (
+    StepName,
+    StepStatus,
+    UnitOfWork,
+    VerificationResult,
+    get_status_icons,
+)
 from cvextract.verifiers import get_verifier
 from cvextract.verifiers.comparison_verifier import RoundtripVerifier
-from cvextract.shared import VerificationResult
 
 
 def test_extract_single_success(monkeypatch, tmp_path: Path):
@@ -14,18 +20,28 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
-    
+
     def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
         return {
-            "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-            "sidebar": {"languages": ["Python"], "tools": ["x"], "industries": ["x"], 
-                       "spoken_languages": ["EN"], "academic_background": ["x"]},
+            "identity": {
+                "title": "T",
+                "full_name": "F N",
+                "first_name": "F",
+                "last_name": "N",
+            },
+            "sidebar": {
+                "languages": ["Python"],
+                "tools": ["x"],
+                "industries": ["x"],
+                "spoken_languages": ["EN"],
+                "academic_background": ["x"],
+            },
             "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
         }
-    
+
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    
+
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
         input=docx,
@@ -42,18 +58,28 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
-    
+
     def fake_process(_path, out, extractor=None):
         out.write_text("{}", encoding="utf-8")
         return {
-            "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-            "sidebar": {"languages": ["Python"], "tools": [], "industries": [], 
-                       "spoken_languages": [], "academic_background": []},
+            "identity": {
+                "title": "T",
+                "full_name": "F N",
+                "first_name": "F",
+                "last_name": "N",
+            },
+            "sidebar": {
+                "languages": ["Python"],
+                "tools": [],
+                "industries": [],
+                "spoken_languages": [],
+                "academic_background": [],
+            },
             "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
         }
-    
+
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    
+
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
         input=docx,
@@ -71,12 +97,12 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
-    
+
     def fake_process(_path, out, extractor=None):
         raise RuntimeError("boom")
-    
+
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    
+
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
         input=docx,
@@ -114,13 +140,19 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
+    monkeypatch.setattr(
+        p,
+        "get_verifier",
+        lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None,
+    )
 
     config = UserConfig(
         target_dir=out_dir,
         render=RenderStage(template=template, data=json_file),
     )
-    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    work = UnitOfWork(
+        config=config, input=json_file, output=json_file, initial_input=json_file
+    )
     result = p.render_and_verify(work)
     render_status = result.step_statuses[StepName.Render]
     verify_status = result.step_statuses[StepName.RoundtripComparer]
@@ -146,7 +178,9 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
         target_dir=out_dir,
         render=RenderStage(template=template, data=json_file),
     )
-    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    work = UnitOfWork(
+        config=config, input=json_file, output=json_file, initial_input=json_file
+    )
     result = p.render_and_verify(work)
     render_status = result.step_statuses[StepName.Render]
     assert render_status.errors == []
@@ -178,13 +212,19 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(p, "render_cv_data", fake_render)
     monkeypatch.setattr(p, "process_single_docx", fake_process)
-    monkeypatch.setattr(p, "get_verifier", lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None)
+    monkeypatch.setattr(
+        p,
+        "get_verifier",
+        lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None,
+    )
 
     config = UserConfig(
         target_dir=out_dir,
         render=RenderStage(template=template, data=json_file),
     )
-    work = UnitOfWork(config=config, input=json_file, output=json_file, initial_input=json_file)
+    work = UnitOfWork(
+        config=config, input=json_file, output=json_file, initial_input=json_file
+    )
     result = p.render_and_verify(work)
     render_status = result.step_statuses[StepName.Render]
     verify_status = result.step_statuses[StepName.RoundtripComparer]
@@ -250,7 +290,9 @@ def test_get_status_icons_apply_success():
     )
     work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-    work.step_statuses[StepName.RoundtripComparer] = StepStatus(step=StepName.RoundtripComparer)
+    work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        step=StepName.RoundtripComparer
+    )
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "✅"
@@ -281,7 +323,9 @@ def test_get_status_icons_apply_failed():
 
 def test_categorize_result_extract_failed():
     """Test categorization when extraction fails."""
-    full, part, fail = p.categorize_result(extract_ok=False, has_warns=False, apply_ok=None)
+    full, part, fail = p.categorize_result(
+        extract_ok=False, has_warns=False, apply_ok=None
+    )
     assert full == 0
     assert part == 0
     assert fail == 1
@@ -289,7 +333,9 @@ def test_categorize_result_extract_failed():
 
 def test_categorize_result_extract_success_no_warnings_no_apply():
     """Test categorization for successful extraction without apply."""
-    full, part, fail = p.categorize_result(extract_ok=True, has_warns=False, apply_ok=None)
+    full, part, fail = p.categorize_result(
+        extract_ok=True, has_warns=False, apply_ok=None
+    )
     assert full == 1
     assert part == 0
     assert fail == 0
@@ -297,7 +343,9 @@ def test_categorize_result_extract_success_no_warnings_no_apply():
 
 def test_categorize_result_extract_success_with_warnings():
     """Test categorization for extraction with warnings."""
-    full, part, fail = p.categorize_result(extract_ok=True, has_warns=True, apply_ok=None)
+    full, part, fail = p.categorize_result(
+        extract_ok=True, has_warns=True, apply_ok=None
+    )
     assert full == 0
     assert part == 1
     assert fail == 0
@@ -305,7 +353,9 @@ def test_categorize_result_extract_success_with_warnings():
 
 def test_categorize_result_apply_failed():
     """Test categorization when apply fails."""
-    full, part, fail = p.categorize_result(extract_ok=True, has_warns=False, apply_ok=False)
+    full, part, fail = p.categorize_result(
+        extract_ok=True, has_warns=False, apply_ok=False
+    )
     assert full == 0
     assert part == 1
     assert fail == 0
@@ -313,7 +363,9 @@ def test_categorize_result_apply_failed():
 
 def test_categorize_result_fully_successful():
     """Test categorization for fully successful run."""
-    full, part, fail = p.categorize_result(extract_ok=True, has_warns=False, apply_ok=True)
+    full, part, fail = p.categorize_result(
+        extract_ok=True, has_warns=False, apply_ok=True
+    )
     assert full == 1
     assert part == 0
     assert fail == 0
@@ -335,7 +387,12 @@ def test_verify_extracted_data_missing_identity():
 def test_verify_extracted_data_empty_sidebar():
     """Test verification with empty sidebar."""
     data = {
-        "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+        "identity": {
+            "title": "T",
+            "full_name": "F N",
+            "first_name": "F",
+            "last_name": "N",
+        },
         "sidebar": {},
         "experiences": [{"heading": "h", "description": "d"}],
     }
@@ -348,7 +405,12 @@ def test_verify_extracted_data_empty_sidebar():
 def test_verify_extracted_data_no_experiences():
     """Test verification with no experiences."""
     data = {
-        "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
+        "identity": {
+            "title": "T",
+            "full_name": "F N",
+            "first_name": "F",
+            "last_name": "N",
+        },
         "sidebar": {"languages": ["EN"]},
         "experiences": [],
     }
@@ -361,10 +423,27 @@ def test_verify_extracted_data_no_experiences():
 def test_verify_extracted_data_invalid_environment():
     """Test verification with invalid environment format."""
     data = {
-        "identity": {"title": "T", "full_name": "F N", "first_name": "F", "last_name": "N"},
-        "sidebar": {"languages": ["EN"], "tools": ["x"], "industries": ["x"], 
-                   "spoken_languages": ["EN"], "academic_background": ["x"]},
-        "experiences": [{"heading": "h", "description": "d", "bullets": ["b"], "environment": "not-a-list"}],
+        "identity": {
+            "title": "T",
+            "full_name": "F N",
+            "first_name": "F",
+            "last_name": "N",
+        },
+        "sidebar": {
+            "languages": ["EN"],
+            "tools": ["x"],
+            "industries": ["x"],
+            "spoken_languages": ["EN"],
+            "academic_background": ["x"],
+        },
+        "experiences": [
+            {
+                "heading": "h",
+                "description": "d",
+                "bullets": ["b"],
+                "environment": "not-a-list",
+            }
+        ],
     }
     verifier = get_verifier("private-internal-verifier")
     result = verifier.verify(data)

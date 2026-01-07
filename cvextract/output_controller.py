@@ -27,21 +27,23 @@ from typing import List, Optional
 
 class VerbosityLevel(Enum):
     """Output verbosity levels."""
+
     MINIMAL = "minimal"  # One line per file with icons, no third-party output
     VERBOSE = "verbose"  # Grouped per-file output with warnings and major steps
-    DEBUG = "debug"      # Full output including third-party logs
+    DEBUG = "debug"  # Full output including third-party logs
 
 
 @dataclass
 class FileOutputBuffer:
     """Buffer for output associated with a single file."""
+
     file_path: Path
     lines: List[str] = field(default_factory=list)
-    
+
     def add_line(self, line: str) -> None:
         """Add a line to the buffer."""
         self.lines.append(line)
-    
+
     def get_output(self) -> str:
         """Get all buffered output as a single string."""
         return "\n".join(self.lines) if self.lines else ""
@@ -50,11 +52,11 @@ class FileOutputBuffer:
 class BufferingLogHandler(logging.Handler):
     """
     Custom logging handler that buffers log messages per file.
-    
+
     Used in parallel mode to capture output for each file separately
     and emit it atomically when the file completes processing.
     """
-    
+
     def __init__(self, verbosity: VerbosityLevel, debug_external: bool = False):
         super().__init__()
         self.verbosity = verbosity
@@ -62,46 +64,48 @@ class BufferingLogHandler(logging.Handler):
         self._buffers: dict[Path, FileOutputBuffer] = {}
         self._lock = threading.Lock()
         self._thread_local = threading.local()
-    
+
     def set_current_file(self, file_path: Optional[Path]) -> None:
         """Set the current file being processed in this thread."""
         self._thread_local.current_file = file_path
-        
+
         if file_path and file_path not in self._buffers:
             with self._lock:
                 if file_path not in self._buffers:
                     self._buffers[file_path] = FileOutputBuffer(file_path)
-    
+
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record."""
         try:
             # Skip output from third-party libraries unless debug_external is enabled
             if not self.debug_external:
-                if record.name.startswith(('openai', 'httpx', 'httpcore', 'urllib3', 'requests')):
+                if record.name.startswith(
+                    ("openai", "httpx", "httpcore", "urllib3", "requests")
+                ):
                     return
-            
+
             # Get current file context
-            current_file = getattr(self._thread_local, 'current_file', None)
-            
+            current_file = getattr(self._thread_local, "current_file", None)
+
             if current_file is None:
                 # No file context, skip (will be handled by other handlers)
                 return
-            
+
             # Format the message
             message = self.format(record)
-            
+
             # Apply verbosity filtering
             if not self._should_output(record):
                 return
-            
+
             # Add to buffer
             with self._lock:
                 if current_file in self._buffers:
                     self._buffers[current_file].add_line(message)
-        
+
         except Exception:
             self.handleError(record)
-    
+
     def _should_output(self, record: logging.LogRecord) -> bool:
         """Determine if a record should be output based on verbosity."""
         if self.verbosity == VerbosityLevel.MINIMAL:
@@ -113,18 +117,18 @@ class BufferingLogHandler(logging.Handler):
         else:  # DEBUG
             # In debug mode, show everything
             return True
-    
+
     def flush_file(self, file_path: Path, summary_line: str) -> None:
         """
         Flush buffered output for a file atomically.
-        
+
         Args:
             file_path: Path of the file to flush
             summary_line: One-line summary to output
         """
         with self._lock:
             buffer = self._buffers.get(file_path)
-            
+
             if self.verbosity == VerbosityLevel.MINIMAL:
                 # Minimal mode: only output summary line
                 print(summary_line, flush=True)
@@ -138,7 +142,7 @@ class BufferingLogHandler(logging.Handler):
             else:
                 # No buffered content, just output summary
                 print(summary_line, flush=True)
-            
+
             # Clean up buffer
             if file_path in self._buffers:
                 del self._buffers[file_path]
@@ -147,19 +151,19 @@ class BufferingLogHandler(logging.Handler):
 class OutputController:
     """
     Centralized controller for all console output.
-    
+
     Ensures deterministic, non-interleaved output in parallel execution
     by buffering output per file and flushing atomically when complete.
     """
 
     _THIRD_PARTY_LOGGERS = [
-        'openai',
-        'httpx',
-        'httpcore',
-        'requests',
-        'urllib3',
+        "openai",
+        "httpx",
+        "httpcore",
+        "requests",
+        "urllib3",
     ]
-    
+
     def __init__(
         self,
         verbosity: VerbosityLevel = VerbosityLevel.MINIMAL,
@@ -168,7 +172,7 @@ class OutputController:
     ):
         """
         Initialize the output controller.
-        
+
         Args:
             verbosity: Output verbosity level
             enable_buffering: Enable per-file buffering (for parallel mode)
@@ -179,45 +183,51 @@ class OutputController:
         self.debug_external = debug_external
         self._handler: Optional[BufferingLogHandler] = None
         self._removed_console_handlers: List[logging.Handler] = []
-        
+
         if enable_buffering:
             # Create and install buffering handler
             self._handler = BufferingLogHandler(verbosity, debug_external)
             self._handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-            
+
             # Get cvextract logger
             logger = logging.getLogger("cvextract")
-            
+
             # Remove console handlers to prevent double output
             # (buffering controller will handle console output)
             for handler in logger.handlers[:]:
-                if isinstance(handler, logging.StreamHandler) and handler.stream in (sys.stdout, sys.stderr):
+                if isinstance(handler, logging.StreamHandler) and handler.stream in (
+                    sys.stdout,
+                    sys.stderr,
+                ):
                     logger.removeHandler(handler)
                     self._removed_console_handlers.append(handler)
 
             # Remove root console handlers to prevent propagation bypassing buffering.
             root_logger = logging.getLogger()
             for handler in root_logger.handlers[:]:
-                if isinstance(handler, logging.StreamHandler) and handler.stream in (sys.stdout, sys.stderr):
+                if isinstance(handler, logging.StreamHandler) and handler.stream in (
+                    sys.stdout,
+                    sys.stderr,
+                ):
                     root_logger.removeHandler(handler)
                     self._removed_console_handlers.append(handler)
-            
+
             # Install buffering handler on cvextract logger
             logger.addHandler(self._handler)
-            
+
             # Install buffering handler on external provider loggers when debug_external is enabled
             if debug_external:
                 self._setup_external_provider_handlers()
             else:
                 # Suppress third-party loggers when debug_external is not enabled
                 self._suppress_third_party_loggers()
-    
+
     def _suppress_third_party_loggers(self) -> None:
         """Suppress third-party library loggers."""
         for logger_name in self._THIRD_PARTY_LOGGERS:
             logger = logging.getLogger(logger_name)
             logger.setLevel(logging.CRITICAL + 1)  # Effectively silence
-    
+
     def _setup_external_provider_handlers(self) -> None:
         """Setup handlers for external provider loggers to route through buffering."""
         for logger_name in self._THIRD_PARTY_LOGGERS:
@@ -227,31 +237,31 @@ class OutputController:
             # Add our buffering handler to capture the logs
             logger.addHandler(self._handler)
             logger.propagate = True
-    
+
     @contextmanager
     def file_context(self, file_path: Path):
         """
         Context manager for processing a file.
-        
+
         All output emitted within this context is associated with the file
         and buffered if buffering is enabled.
-        
+
         Args:
             file_path: Path of the file being processed
         """
         if self._handler:
             self._handler.set_current_file(file_path)
-        
+
         try:
             yield
         finally:
             if self._handler:
                 self._handler.set_current_file(None)
-    
+
     def flush_file(self, file_path: Path, summary_line: str) -> None:
         """
         Flush buffered output for a file atomically.
-        
+
         Args:
             file_path: Path of the file to flush
             summary_line: One-line summary to output
@@ -261,13 +271,13 @@ class OutputController:
         else:
             # No buffering, just print summary
             print(summary_line, flush=True)
-    
+
     def direct_print(self, message: str) -> None:
         """
         Print a message directly without buffering or filtering.
-        
+
         Used for immediate output like progress indicators or summaries.
-        
+
         Args:
             message: Message to print
         """
@@ -282,7 +292,7 @@ _controller_lock = threading.Lock()
 def get_output_controller() -> OutputController:
     """
     Get the global output controller instance.
-    
+
     Returns:
         The global OutputController instance
     """
@@ -301,12 +311,12 @@ def initialize_output_controller(
 ) -> OutputController:
     """
     Initialize the global output controller.
-    
+
     Args:
         verbosity: Output verbosity level
         enable_buffering: Enable per-file buffering
         debug_external: Capture external provider logs (OpenAI, httpx, etc.)
-    
+
     Returns:
         The initialized OutputController instance
     """

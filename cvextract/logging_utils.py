@@ -12,6 +12,7 @@ from typing import List, Optional
 
 LOG = logging.getLogger("cvextract")
 
+
 def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
     level = logging.DEBUG if debug else logging.INFO
 
@@ -36,6 +37,7 @@ def setup_logging(debug: bool, log_file: Optional[str] = None) -> None:
         handlers.append(file_handler)
 
     logging.basicConfig(level=level, handlers=handlers)
+
 
 def fmt_issues(work: "UnitOfWork", step: "StepName") -> str:
     """

@@ -14,51 +14,58 @@ from .cli_config import UserConfig
 from .logging_utils import LOG
 
 
-def _collect_inputs(src: Path, is_extraction: bool, template_path: Optional[Path]) -> List[Path]:
+def _collect_inputs(
+    src: Path, is_extraction: bool, template_path: Optional[Path]
+) -> List[Path]:
     """
     Validate and collect single input file.
-    
+
     This function now only accepts single files, not directories.
     Directories are rejected with a clear error message.
     Also validates file type matches the operation (JSON for render, any for extraction).
     """
     if not src.exists():
         raise FileNotFoundError(f"Path not found: {src}")
-    
+
     if src.is_dir():
         raise ValueError(
             f"Directories are not supported. Please provide a single file path.\n"
             f"Provided: {src}\n"
             f"Expected: A single file path."
         )
-    
+
     if not src.is_file():
         raise FileNotFoundError(f"Path is not a file: {src}")
-    
+
     # Validate file type for render/adjust (must be JSON)
     if not is_extraction and src.suffix.lower() != ".json":
-        raise ValueError(f"Input file must be a JSON file for render/adjust. Got: {src}")
-    
+        raise ValueError(
+            f"Input file must be a JSON file for render/adjust. Got: {src}"
+        )
+
     # For extraction, let the extractor handle file type validation
     # (different extractors support different file types)
-    
+
     return [src]
 
 
 def prepare_execution_environment(config: UserConfig) -> UserConfig:
     """
     Phase 2: Validate inputs and prepare execution environment.
-    
+
     - Validates template exists and is .docx
     - Creates target directory
     - Collects input files
     - No execution yet
-    
+
     Returns the same config (for chaining).
     """
     # Validate template if render stage is configured
     if config.render:
-        if not config.render.template.is_file() or config.render.template.suffix.lower() != ".docx":
+        if (
+            not config.render.template.is_file()
+            or config.render.template.suffix.lower() != ".docx"
+        ):
             LOG.error("Template not found or not a .docx: %s", config.render.template)
             raise ValueError(f"Invalid template: {config.render.template}")
 

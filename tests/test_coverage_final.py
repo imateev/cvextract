@@ -1,12 +1,13 @@
 """Tests for improved coverage of verification and sidebar_parser modules."""
+
 import json
 from zipfile import ZipFile
 
-from cvextract.verifiers import get_verifier
 from cvextract.extractors.sidebar_parser import (
-    split_identity_and_sidebar,
     extract_all_header_paragraphs,
+    split_identity_and_sidebar,
 )
+from cvextract.verifiers import get_verifier
 
 
 class TestIsEnvironmentPath:
@@ -90,20 +91,25 @@ class TestCompareJsonFiles:
     def test_compare_identical_json_files(self, tmp_path):
         """Test comparing identical JSON files."""
         data = {
-            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
             "sidebar": {"languages": ["EN"]},
             "overview": "Text",
             "experiences": [],
         }
-        
+
         file1 = tmp_path / "file1.json"
         file2 = tmp_path / "file2.json"
-        
+
         with file1.open("w") as f:
             json.dump(data, f)
         with file2.open("w") as f:
             json.dump(data, f)
-        
+
         verifier = get_verifier("file-roundtrip-verifier")
         result = verifier.verify({}, source_file=file1, target_file=file2)
         assert result.ok is True
@@ -112,25 +118,35 @@ class TestCompareJsonFiles:
     def test_compare_different_json_files(self, tmp_path):
         """Test comparing different JSON files."""
         data1 = {
-            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
             "sidebar": {"languages": ["EN"]},
             "overview": "Text1",
             "experiences": [],
         }
         data2 = {
-            "identity": {"title": "Manager", "full_name": "Jane Doe", "first_name": "Jane", "last_name": "Doe"},
+            "identity": {
+                "title": "Manager",
+                "full_name": "Jane Doe",
+                "first_name": "Jane",
+                "last_name": "Doe",
+            },
             "sidebar": {"languages": ["FR"]},
             "overview": "Text2",
             "experiences": [],
         }
         file1 = tmp_path / "file1.json"
         file2 = tmp_path / "file2.json"
-        
+
         with file1.open("w") as f:
             json.dump(data1, f)
         with file2.open("w") as f:
             json.dump(data2, f)
-        
+
         verifier = get_verifier("file-roundtrip-verifier")
         result = verifier.verify({}, source_file=file1, target_file=file2)
         assert result.ok is False
@@ -144,7 +160,7 @@ class TestCompareDataStructures:
         """Test detection of primitive value mismatches."""
         original = {"key": "value1"}
         new = {"key": "value2"}
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -154,7 +170,7 @@ class TestCompareDataStructures:
         """Test detection of type mismatches."""
         original = {"key": "value"}
         new = {"key": 123}
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -164,7 +180,7 @@ class TestCompareDataStructures:
         """Test detection of list length mismatches."""
         original = {"items": [1, 2, 3]}
         new = {"items": [1, 2]}
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -174,7 +190,7 @@ class TestCompareDataStructures:
         """Test detection of nested dict mismatches."""
         original = {"a": {"b": {"c": 1}}}
         new = {"a": {"b": {"c": 2}}}
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -184,7 +200,7 @@ class TestCompareDataStructures:
         """Test detection of missing keys."""
         original = {"a": 1, "b": 2}
         new = {"a": 1}
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -194,7 +210,7 @@ class TestCompareDataStructures:
         """Test detection of extra keys."""
         original = {"a": 1}
         new = {"a": 1, "b": 2}
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -206,7 +222,7 @@ class TestCompareDataStructures:
                 {
                     "heading": "Job",
                     "description": "Work",
-                    "environment": ["Python, Java, Go"]
+                    "environment": ["Python, Java, Go"],
                 }
             ]
         }
@@ -215,11 +231,11 @@ class TestCompareDataStructures:
                 {
                     "heading": "Job",
                     "description": "Work",
-                    "environment": ["Java • Python • Go"]
+                    "environment": ["Java • Python • Go"],
                 }
             ]
         }
-        
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         # Should be OK because environment is normalized and equivalent
@@ -228,22 +244,10 @@ class TestCompareDataStructures:
     def test_compare_environment_real_mismatch(self):
         """Test real environment mismatches are detected."""
         original = {
-            "experiences": [
-                {
-                    "heading": "Job",
-                    "environment": ["Python", "Java"]
-                }
-            ]
+            "experiences": [{"heading": "Job", "environment": ["Python", "Java"]}]
         }
-        new = {
-            "experiences": [
-                {
-                    "heading": "Job",
-                    "environment": ["C++", "Rust"]
-                }
-            ]
-        }
-        
+        new = {"experiences": [{"heading": "Job", "environment": ["C++", "Rust"]}]}
+
         verifier = get_verifier("roundtrip-verifier")
         result = verifier.verify(original, target_data=new)
         assert result.ok is False
@@ -265,9 +269,9 @@ class TestSplitIdentityAndSidebar:
             "Python",
             "Go",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         assert identity.title == "Software Engineer"
         assert identity.full_name == "John Doe"
         assert identity.first_name == "John"
@@ -283,9 +287,9 @@ class TestSplitIdentityAndSidebar:
             "Some random text",
             "More random text",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         assert identity.title == ""
         assert identity.full_name == ""
         assert all(len(v) == 0 for v in sidebar.values())
@@ -301,9 +305,9 @@ class TestSplitIdentityAndSidebar:
             "Architect",
             "Bob Johnson",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # The function should still extract identity from beginning or end
         # In this case, since there's no content before Languages, it tries the end
         assert identity.full_name != "" or identity.title != ""
@@ -316,9 +320,9 @@ class TestSplitIdentityAndSidebar:
             "Languages",
             "English",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         assert identity.title == "Engineer"
         assert identity.first_name == "Madonna"
         assert identity.last_name == ""
@@ -335,9 +339,9 @@ class TestSplitIdentityAndSidebar:
             "Tools",
             "Git",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Second "Languages" should not create a duplicate section
         assert identity.title == "Dev"
 
@@ -350,9 +354,9 @@ class TestSplitIdentityAndSidebar:
             "Tools",
             "Python",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         # Languages section has no items before Tools heading
         assert sidebar.get("languages", []) == []
         assert "Python" in sidebar.get("tools", [])
@@ -366,12 +370,14 @@ class TestSplitIdentityAndSidebar:
             "  English  ",
             "  French  ",
         ]
-        
+
         identity, sidebar = split_identity_and_sidebar(paragraphs)
-        
+
         assert "John Doe" in identity.full_name or identity.full_name == "John Doe"
         # Languages should be recognized despite case variation
-        lang_found = any("english" in str(v).lower() for v in sidebar.get("languages", []))
+        lang_found = any(
+            "english" in str(v).lower() for v in sidebar.get("languages", [])
+        )
         assert lang_found or "English" in sidebar.get("languages", [])
 
 
@@ -381,7 +387,7 @@ class TestExtractAllHeaderParagraphs:
     def test_extract_from_single_header(self, tmp_path):
         """Test extracting paragraphs from a single header."""
         docx_path = tmp_path / "test.docx"
-        
+
         with ZipFile(docx_path, "w") as z:
             header_xml = b"""<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -391,7 +397,7 @@ class TestExtractAllHeaderParagraphs:
     </w:body>
 </w:document>"""
             z.writestr("word/header1.xml", header_xml)
-        
+
         paragraphs = extract_all_header_paragraphs(docx_path)
         assert "Title" in paragraphs
         assert "Name" in paragraphs
@@ -399,7 +405,7 @@ class TestExtractAllHeaderParagraphs:
     def test_extract_deduplicates_paragraphs(self, tmp_path):
         """Test that duplicate paragraphs are removed."""
         docx_path = tmp_path / "test.docx"
-        
+
         with ZipFile(docx_path, "w") as z:
             header_xml = b"""<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -410,7 +416,7 @@ class TestExtractAllHeaderParagraphs:
     </w:body>
 </w:document>"""
             z.writestr("word/header1.xml", header_xml)
-        
+
         paragraphs = extract_all_header_paragraphs(docx_path)
         # Count occurrences of "Title"
         title_count = sum(1 for p in paragraphs if p == "Title")
@@ -419,7 +425,7 @@ class TestExtractAllHeaderParagraphs:
     def test_extract_multiple_headers(self, tmp_path):
         """Test extracting from multiple header files."""
         docx_path = tmp_path / "test.docx"
-        
+
         with ZipFile(docx_path, "w") as z:
             header1_xml = b"""<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -435,7 +441,7 @@ class TestExtractAllHeaderParagraphs:
 </w:document>"""
             z.writestr("word/header1.xml", header1_xml)
             z.writestr("word/header2.xml", header2_xml)
-        
+
         paragraphs = extract_all_header_paragraphs(docx_path)
         assert "Header1" in paragraphs
         assert "Header2" in paragraphs
@@ -443,7 +449,7 @@ class TestExtractAllHeaderParagraphs:
     def test_extract_from_textbox(self, tmp_path):
         """Test extracting from textbox content (w:txbxContent)."""
         docx_path = tmp_path / "test.docx"
-        
+
         with ZipFile(docx_path, "w") as z:
             header_xml = b"""<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -465,6 +471,6 @@ class TestExtractAllHeaderParagraphs:
     </w:body>
 </w:document>"""
             z.writestr("word/header1.xml", header_xml)
-        
+
         paragraphs = extract_all_header_paragraphs(docx_path)
         assert "TextboxContent" in paragraphs

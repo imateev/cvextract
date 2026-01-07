@@ -66,7 +66,9 @@ class TestCVRendererAbstract:
         assert isinstance(result, UnitOfWork)
         assert result.output == work.output
 
-    def test_render_method_signature_accepts_all_parameters(self, tmp_path, make_render_work):
+    def test_render_method_signature_accepts_all_parameters(
+        self, tmp_path, make_render_work
+    ):
         """Test that render() accepts UnitOfWork."""
 
         class TestRenderer(CVRenderer):
@@ -97,7 +99,9 @@ class TestCVRendererAbstract:
         result = renderer.render(work)
         assert isinstance(result, UnitOfWork)
 
-    def test_render_method_can_raise_file_not_found_for_template(self, tmp_path, make_render_work):
+    def test_render_method_can_raise_file_not_found_for_template(
+        self, tmp_path, make_render_work
+    ):
         """Test that render() can raise FileNotFoundError for missing template."""
 
         class TestRenderer(CVRenderer):
@@ -118,7 +122,9 @@ class TestCVRendererAbstract:
         with pytest.raises(FileNotFoundError):
             renderer.render(work)
 
-    def test_render_method_can_raise_generic_exception(self, tmp_path, make_render_work):
+    def test_render_method_can_raise_generic_exception(
+        self, tmp_path, make_render_work
+    ):
         """Test that render() can raise generic Exception for rendering errors."""
 
         class TestRenderer(CVRenderer):
@@ -131,7 +137,9 @@ class TestCVRendererAbstract:
             renderer.render(work)
         assert "Rendering failed" in str(exc_info.value)
 
-    def test_concrete_implementation_processes_cv_data(self, tmp_path, make_render_work):
+    def test_concrete_implementation_processes_cv_data(
+        self, tmp_path, make_render_work
+    ):
         """Test concrete implementation can process CV data from work.input."""
 
         class DataAwareRenderer(CVRenderer):
@@ -209,8 +217,12 @@ class TestCVRendererAbstract:
         docx = DocxRenderer()
         pdf = PDFRenderer()
 
-        work_docx = _make_work(make_render_work, tmp_path, output_path=tmp_path / "output.docx")
-        work_pdf = _make_work(make_render_work, tmp_path, output_path=tmp_path / "output")
+        work_docx = _make_work(
+            make_render_work, tmp_path, output_path=tmp_path / "output.docx"
+        )
+        work_pdf = _make_work(
+            make_render_work, tmp_path, output_path=tmp_path / "output"
+        )
 
         result_docx = docx.render(work_docx)
         result_pdf = pdf.render(work_pdf)
@@ -273,6 +285,7 @@ class TestCVRendererAbstract:
     def test_is_abstract_base_class(self):
         """Test that CVRenderer is an abstract base class."""
         from abc import ABC
+
         assert issubclass(CVRenderer, ABC)
 
     def test_render_is_abstractmethod(self):

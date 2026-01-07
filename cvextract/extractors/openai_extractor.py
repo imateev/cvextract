@@ -21,22 +21,22 @@ import re
 import tempfile
 import time
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
 from openai import OpenAI
-from importlib.metadata import PackageNotFoundError, version
 
 try:
     # Python 3.9+
-    from importlib.resources import files, as_file
+    from importlib.resources import as_file, files
 except ModuleNotFoundError:
     # Python < 3.9 backport
     from importlib_resources import files, as_file  # type: ignore
 
-from .base import CVExtractor
-from ..shared import load_prompt, format_prompt
+from ..shared import format_prompt, load_prompt
 from ..verifiers import get_verifier
+from .base import CVExtractor
 
 T = TypeVar("T")
 
@@ -255,7 +255,9 @@ class OpenAICVExtractor(CVExtractor):
         )
         return any(m in msg for m in transient_markers)
 
-    def _sleep_with_backoff(self, attempt_idx: int, *, is_write: bool, exc: Exception) -> None:
+    def _sleep_with_backoff(
+        self, attempt_idx: int, *, is_write: bool, exc: Exception
+    ) -> None:
         """
         Sleep according to Retry-After when present, else exponential backoff with jitter.
         attempt_idx is 0-based (0 => after first failure).
@@ -268,7 +270,7 @@ class OpenAICVExtractor(CVExtractor):
 
         # exponential backoff
         mult = self._retry.write_multiplier if is_write else 1.0
-        raw = self._retry.base_delay_s * (2 ** attempt_idx) * mult
+        raw = self._retry.base_delay_s * (2**attempt_idx) * mult
         capped = min(self._retry.max_delay_s, raw)
 
         if self._retry.deterministic:
@@ -281,7 +283,9 @@ class OpenAICVExtractor(CVExtractor):
         delay = max(0.25, delay)
         self._sleep(delay)
 
-    def _call_with_retry(self, fn: Callable[[], T], *, is_write: bool, op_name: str) -> T:
+    def _call_with_retry(
+        self, fn: Callable[[], T], *, is_write: bool, op_name: str
+    ) -> T:
         """
         Centralized retry wrapper for OpenAI calls.
         """
@@ -320,10 +324,13 @@ class OpenAICVExtractor(CVExtractor):
         Returns:
             file_id
         """
+
         def _do() -> Any:
             with open(file_path, "rb") as f:
                 # Purpose 'assistants' is correct for attaching to threads / file_search.
-                return self.client.files.create(file=(file_path.name, f), purpose="assistants")
+                return self.client.files.create(
+                    file=(file_path.name, f), purpose="assistants"
+                )
 
         resp = self._call_with_retry(_do, is_write=True, op_name="OpenAI file upload")
         file_id = getattr(resp, "id", None)
@@ -356,7 +363,9 @@ class OpenAICVExtractor(CVExtractor):
             raise RuntimeError("Create thread returned no thread id")
         return thread_id
 
-    def _create_message(self, *, thread_id: str, user_prompt: str, file_id: str) -> None:
+    def _create_message(
+        self, *, thread_id: str, user_prompt: str, file_id: str
+    ) -> None:
         def _do() -> Any:
             return self.client.beta.threads.messages.create(
                 thread_id=thread_id,
@@ -369,7 +378,9 @@ class OpenAICVExtractor(CVExtractor):
 
     def _create_run(self, *, thread_id: str, assistant_id: str) -> str:
         def _do() -> Any:
-            return self.client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
+            return self.client.beta.threads.runs.create(
+                thread_id=thread_id, assistant_id=assistant_id
+            )
 
         resp = self._call_with_retry(_do, is_write=True, op_name="Create run")
         run_id = getattr(resp, "id", None)
@@ -379,7 +390,9 @@ class OpenAICVExtractor(CVExtractor):
 
     def _retrieve_run(self, *, thread_id: str, run_id: str) -> Any:
         def _do() -> Any:
-            return self.client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
+            return self.client.beta.threads.runs.retrieve(
+                thread_id=thread_id, run_id=run_id
+            )
 
         # retrieve is "read" op, but still can 429 hard if you poll too fast
         return self._call_with_retry(_do, is_write=False, op_name="Retrieve run")
@@ -444,7 +457,9 @@ class OpenAICVExtractor(CVExtractor):
             thread_id = self._create_thread()
 
             # Add message w/ attachment
-            self._create_message(thread_id=thread_id, user_prompt=user_prompt, file_id=file_id)
+            self._create_message(
+                thread_id=thread_id, user_prompt=user_prompt, file_id=file_id
+            )
 
             # Create run
             run_id = self._create_run(thread_id=thread_id, assistant_id=assistant_id)
@@ -457,7 +472,9 @@ class OpenAICVExtractor(CVExtractor):
                 status = getattr(run, "status", "unknown")
                 last_error = getattr(run, "last_error", None)
                 if last_error:
-                    raise RuntimeError(f"Assistant run failed with status: {status}. last_error={last_error}")
+                    raise RuntimeError(
+                        f"Assistant run failed with status: {status}. last_error={last_error}"
+                    )
                 raise RuntimeError(f"Assistant run failed with status: {status}")
 
             # Fetch messages and extract assistant output
@@ -494,7 +511,9 @@ class OpenAICVExtractor(CVExtractor):
         while getattr(run, "status", None) in ("queued", "in_progress"):
             elapsed = self._time() - start
             if elapsed >= self._run_timeout_s:
-                raise RuntimeError(f"Assistant run timed out after {int(self._run_timeout_s)}s")
+                raise RuntimeError(
+                    f"Assistant run timed out after {int(self._run_timeout_s)}s"
+                )
 
             delay = schedule[min(idx, len(schedule) - 1)]
             idx += 1
@@ -559,7 +578,9 @@ class OpenAICVExtractor(CVExtractor):
     # Parse / validate
     # --------------------------
 
-    def _parse_and_validate(self, response_text: str, cv_schema: dict[str, Any]) -> dict[str, Any]:
+    def _parse_and_validate(
+        self, response_text: str, cv_schema: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Parse the response and validate against the schema.
         """
@@ -579,7 +600,9 @@ class OpenAICVExtractor(CVExtractor):
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse response as JSON: {e}\nResponse was: {text[:500]}") from e
+            raise ValueError(
+                f"Failed to parse response as JSON: {e}\nResponse was: {text[:500]}"
+            ) from e
 
         # Validate using the verifier
         verifier = get_verifier("cv-schema-verifier")

@@ -8,22 +8,24 @@ Extracts text from DOCX header parts and converts it into:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from zipfile import ZipFile
 
 from lxml import etree
+
 from ..shared import (
     clean_text,
 )
 from .docx_utils import (
-    extract_text_from_w_p,
     XML_PARSER,
+    extract_text_from_w_p,
 )
 
 # ------------------------- Models -------------------------
+
 
 @dataclass(frozen=True)
 class Identity:
@@ -39,7 +41,8 @@ class Identity:
             "first_name": self.first_name,
             "last_name": self.last_name,
         }
-    
+
+
 # ------------------------- Patterns / section titles -------------------------
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -70,6 +73,7 @@ SECTION_TITLES: Dict[str, str] = {
     "ACADEMIC BACKGROUND": "academic_background",
 }
 
+
 # Normalize heading text (strip/clean + uppercase + trim trailing punctuation)
 def _normalize_heading(text: str) -> str:
     cleaned = clean_text(text)
@@ -86,6 +90,7 @@ def _iter_heading_positions(paragraphs: List[str]) -> List[Tuple[int, str]]:
             positions.append((i, key))
     return positions
 
+
 def _normalize_sidebar_sections(sections: Dict[str, List[str]]) -> Dict[str, List[str]]:
     """
     Normalize sidebar sections into clean lists.
@@ -100,7 +105,7 @@ def _normalize_sidebar_sections(sections: Dict[str, List[str]]) -> Dict[str, Lis
         items: List[str] = []
         seen: set[str] = set()
 
-        for line in (lines or []):
+        for line in lines or []:
             line = clean_text(line)
             if not line:
                 continue
@@ -117,6 +122,7 @@ def _normalize_sidebar_sections(sections: Dict[str, List[str]]) -> Dict[str, Lis
         out[key] = items
 
     return out
+
 
 def _extract_paragraph_texts(root: etree._Element) -> List[str]:
     """
@@ -149,6 +155,7 @@ def _extract_paragraph_texts(root: etree._Element) -> List[str]:
 
     return paras
 
+
 def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
     """
     Collect header paragraphs from all header parts (word/header*.xml),
@@ -170,7 +177,10 @@ def extract_all_header_paragraphs(docx_path: Path) -> List[str]:
             out.append(p)
     return out
 
-def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[str, List[str]]]:
+
+def split_identity_and_sidebar(
+    paragraphs: List[str],
+) -> Tuple[Identity, Dict[str, List[str]]]:
     """
     Given ordered header paragraphs, split into:
       identity: title + name
@@ -181,8 +191,12 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
     # Locate all sidebar section headings (robust to trailing punctuation)
     heading_positions = _iter_heading_positions(paragraphs)
 
-    first_section_idx: Optional[int] = heading_positions[0][0] if heading_positions else None
-    last_section_idx: Optional[int] = heading_positions[-1][0] if heading_positions else None
+    first_section_idx: Optional[int] = (
+        heading_positions[0][0] if heading_positions else None
+    )
+    last_section_idx: Optional[int] = (
+        heading_positions[-1][0] if heading_positions else None
+    )
 
     # No sidebar headings found
     if first_section_idx is None:
@@ -209,7 +223,7 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
     # If identity is at the end, take the last 3 lines (title, first, last)
     ident_tail_n = 0
     if not raw_identity_lines and last_section_idx is not None:
-        trailing_all = [p for p in paragraphs[last_section_idx + 1:]]
+        trailing_all = [p for p in paragraphs[last_section_idx + 1 :]]
         trailing = _unique_lines(trailing_all)
         if len(trailing) >= 3:
             raw_identity_lines = trailing[-3:]
@@ -240,7 +254,9 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
     # Parse section contents from first heading to end, but exclude identity tail if present
     end_idx_exclusive = len(paragraphs)
     if ident_tail_n:
-        end_idx_exclusive = max(first_section_idx or 0, end_idx_exclusive - ident_tail_n)
+        end_idx_exclusive = max(
+            first_section_idx or 0, end_idx_exclusive - ident_tail_n
+        )
 
     for idx, p in enumerate(paragraphs[first_section_idx:end_idx_exclusive]):
         p_clean = clean_text(p)
@@ -264,6 +280,6 @@ def split_identity_and_sidebar(paragraphs: List[str]) -> Tuple[Identity, Dict[st
             # avoid duplicates while preserving order
             if p_clean not in sections[current_key]:
                 sections[current_key].append(p_clean)
-    
+
     sections = _normalize_sidebar_sections(sections)
     return identity, sections

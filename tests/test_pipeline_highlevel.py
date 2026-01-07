@@ -2,9 +2,14 @@
 
 import json
 from unittest.mock import Mock, patch
-from cvextract.pipeline_highlevel import extract_cv_structure, render_cv_data, process_single_docx
-from cvextract.verifiers import get_verifier
+
+from cvextract.pipeline_highlevel import (
+    extract_cv_structure,
+    process_single_docx,
+    render_cv_data,
+)
 from cvextract.shared import VerificationResult
+from cvextract.verifiers import get_verifier
 
 
 class TestExtractCvStructure:
@@ -14,21 +19,28 @@ class TestExtractCvStructure:
         """Test extract_cv_structure uses the DocxCVExtractor."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
-        
+
         mock_data = {
-            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
             "sidebar": {"languages": ["EN"], "tools": ["Python"]},
             "overview": "Overview text",
             "experiences": [{"heading": "Job", "description": "desc"}],
         }
-        
-        with patch("cvextract.pipeline_highlevel.DocxCVExtractor") as mock_extractor_class:
+
+        with patch(
+            "cvextract.pipeline_highlevel.DocxCVExtractor"
+        ) as mock_extractor_class:
             mock_extractor = Mock()
             mock_extractor.extract.return_value = mock_data
             mock_extractor_class.return_value = mock_extractor
-            
+
             result = extract_cv_structure(mock_docx)
-            
+
             assert result == mock_data
             mock_extractor_class.assert_called_once()
             mock_extractor.extract.assert_called_once_with(mock_docx)
@@ -42,23 +54,28 @@ class TestRenderCvData:
         mock_template = tmp_path / "template.docx"
         mock_template.touch()
         output_path = tmp_path / "output.docx"
-        
+
         cv_data = {
-            "identity": {"title": "Engineer", "full_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+            "identity": {
+                "title": "Engineer",
+                "full_name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+            },
             "sidebar": {"languages": ["EN"], "tools": ["Python"]},
             "overview": "Overview text",
             "experiences": [{"heading": "Job", "description": "desc"}],
         }
-        
+
         work = make_render_work(cv_data, mock_template, output_path)
 
         with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             mock_renderer = Mock()
             mock_renderer.render.return_value = work
             mock_get_renderer.return_value = mock_renderer
-            
+
             result = render_cv_data(work)
-            
+
             assert result == work
             mock_get_renderer.assert_called_once_with("private-internal-renderer")
             mock_renderer.render.assert_called_once_with(work)
@@ -68,7 +85,7 @@ class TestRenderCvData:
         mock_template = tmp_path / "template.docx"
         mock_template.touch()
         output_path = tmp_path / "output.docx"
-        
+
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
 
         work = make_render_work(cv_data, mock_template, output_path)
@@ -78,19 +95,21 @@ class TestRenderCvData:
             expected_return = work
             mock_renderer.render.return_value = expected_return
             mock_get_renderer.return_value = mock_renderer
-            
+
             result = render_cv_data(work)
-            
+
             assert result == expected_return
 
-    def test_render_cv_data_raises_error_when_renderer_not_found(self, tmp_path, make_render_work):
+    def test_render_cv_data_raises_error_when_renderer_not_found(
+        self, tmp_path, make_render_work
+    ):
         """Test render_cv_data raises ValueError when default renderer is not found."""
         import pytest
-        
+
         mock_template = tmp_path / "template.docx"
         mock_template.touch()
         output_path = tmp_path / "output.docx"
-        
+
         cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
 
         work = make_render_work(cv_data, mock_template, output_path)
@@ -98,10 +117,13 @@ class TestRenderCvData:
         with patch("cvextract.pipeline_highlevel.get_renderer") as mock_get_renderer:
             # Simulate renderer not found
             mock_get_renderer.return_value = None
-            
-            with pytest.raises(ValueError, match="Default renderer 'private-internal-renderer' not found"):
+
+            with pytest.raises(
+                ValueError,
+                match="Default renderer 'private-internal-renderer' not found",
+            ):
                 render_cv_data(work)
-            
+
             mock_get_renderer.assert_called_once_with("private-internal-renderer")
 
 
@@ -112,19 +134,24 @@ class TestProcessSingleDocx:
         """Test process_single_docx extracts data without writing to file."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
-        
+
         mock_data = {
-            "identity": {"title": "Engineer", "full_name": "Jane", "first_name": "Jane", "last_name": "Doe"},
+            "identity": {
+                "title": "Engineer",
+                "full_name": "Jane",
+                "first_name": "Jane",
+                "last_name": "Doe",
+            },
             "sidebar": {"languages": ["EN"]},
             "overview": "Overview",
             "experiences": [],
         }
-        
+
         with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
             mock_extract.return_value = mock_data
-            
+
             result = process_single_docx(mock_docx, out=None)
-            
+
             assert result == mock_data
             mock_extract.assert_called_once_with(mock_docx, None)
 
@@ -133,47 +160,57 @@ class TestProcessSingleDocx:
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
         output_file = tmp_path / "output.json"
-        
+
         mock_data = {
-            "identity": {"title": "Senior Dev", "full_name": "Bob Smith", "first_name": "Bob", "last_name": "Smith"},
+            "identity": {
+                "title": "Senior Dev",
+                "full_name": "Bob Smith",
+                "first_name": "Bob",
+                "last_name": "Smith",
+            },
             "sidebar": {"tools": ["Python", "Rust"]},
             "overview": "Experienced developer",
             "experiences": [{"heading": "2020-Present", "description": "Senior role"}],
         }
-        
+
         with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
             mock_extract.return_value = mock_data
-            
+
             result = process_single_docx(mock_docx, out=output_file)
-            
+
             assert result == mock_data
             assert output_file.exists()
-            
+
             with output_file.open("r", encoding="utf-8") as f:
                 saved_data = json.load(f)
-            
+
             assert saved_data == mock_data
 
     def test_process_single_docx_creates_parent_directories(self, tmp_path):
         """Test process_single_docx creates parent directories if needed."""
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
-        
+
         # Output path with non-existent parent directories
         deep_output = tmp_path / "deep" / "nested" / "dirs" / "output.json"
-        
+
         mock_data = {
-            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "identity": {
+                "title": "T",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
             "sidebar": {},
             "overview": "",
             "experiences": [],
         }
-        
+
         with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
             mock_extract.return_value = mock_data
-            
+
             result = process_single_docx(mock_docx, out=deep_output)
-            
+
             assert result == mock_data
             assert deep_output.parent.exists()
             assert deep_output.exists()
@@ -183,29 +220,29 @@ class TestProcessSingleDocx:
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
         output_file = tmp_path / "output.json"
-        
+
         mock_data = {
             "identity": {
                 "title": "工程师 (Engineer)",
                 "full_name": "José García",
                 "first_name": "José",
-                "last_name": "García"
+                "last_name": "García",
             },
             "sidebar": {"languages": ["中文", "English", "Français"]},
             "overview": "Multilingual developer with emoji 🚀",
             "experiences": [{"heading": "2020-Present", "description": "Ðoing çöðé"}],
         }
-        
+
         with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
             mock_extract.return_value = mock_data
-            
+
             result = process_single_docx(mock_docx, out=output_file)
-            
+
             assert result == mock_data
-            
+
             with output_file.open("r", encoding="utf-8") as f:
                 saved_data = json.load(f)
-            
+
             # Verify Unicode is preserved (ensure_ascii=False)
             assert saved_data["identity"]["title"] == "工程师 (Engineer)"
             assert saved_data["sidebar"]["languages"] == ["中文", "English", "Français"]
@@ -216,22 +253,27 @@ class TestProcessSingleDocx:
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
         output_file = tmp_path / "output.json"
-        
+
         mock_data = {
-            "identity": {"title": "Dev", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "identity": {
+                "title": "Dev",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
             "sidebar": {"tools": ["Python"]},
             "overview": "Text",
             "experiences": [{"heading": "2020-Now", "description": "Work"}],
         }
-        
+
         with patch("cvextract.pipeline_highlevel.extract_cv_structure") as mock_extract:
             mock_extract.return_value = mock_data
-            
+
             process_single_docx(mock_docx, out=output_file)
-            
+
             with output_file.open("r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Verify formatting with indentation
             assert "\n" in content  # Multi-line format
             assert "    " in content  # 2-level indent (indent=2 becomes spaces)
@@ -243,10 +285,28 @@ class TestExtractedDataVerification:
     def test_verify_complete_valid_data_returns_ok(self):
         """When all required fields are present and valid, should return ok=True."""
         data = {
-            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
-            "sidebar": {"languages": ["EN"], "tools": ["X"], "industries": ["Y"], "spoken_languages": ["EN"], "academic_background": ["Z"]},
+            "identity": {
+                "title": "T",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
+            "sidebar": {
+                "languages": ["EN"],
+                "tools": ["X"],
+                "industries": ["Y"],
+                "spoken_languages": ["EN"],
+                "academic_background": ["Z"],
+            },
             "overview": "hi",
-            "experiences": [{"heading": "Jan 2020 - Present", "description": "d", "bullets": ["b"], "environment": ["Python"]}],
+            "experiences": [
+                {
+                    "heading": "Jan 2020 - Present",
+                    "description": "d",
+                    "bullets": ["b"],
+                    "environment": ["Python"],
+                }
+            ],
         }
         verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
@@ -256,7 +316,12 @@ class TestExtractedDataVerification:
 
     def test_verify_with_missing_identity_returns_error(self):
         """When identity is missing or empty, should return ok=False with error."""
-        data = {"identity": {}, "sidebar": {"languages": ["EN"]}, "overview": "hi", "experiences": [{"heading": "h", "description": "d"}]}
+        data = {
+            "identity": {},
+            "sidebar": {"languages": ["EN"]},
+            "overview": "hi",
+            "experiences": [{"heading": "h", "description": "d"}],
+        }
         verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
         assert res.ok is False
@@ -265,8 +330,19 @@ class TestExtractedDataVerification:
     def test_verify_with_all_empty_sidebar_sections_returns_error(self):
         """When all sidebar sections are empty, should return ok=False with error."""
         data = {
-            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
-            "sidebar": {"languages": [], "tools": [], "industries": [], "spoken_languages": [], "academic_background": []},
+            "identity": {
+                "title": "T",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
+            "sidebar": {
+                "languages": [],
+                "tools": [],
+                "industries": [],
+                "spoken_languages": [],
+                "academic_background": [],
+            },
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
         }
@@ -278,7 +354,12 @@ class TestExtractedDataVerification:
     def test_verify_with_some_missing_sidebar_sections_returns_warning(self):
         """When some sidebar sections are missing, should return ok=True with warning."""
         data = {
-            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "identity": {
+                "title": "T",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
             "sidebar": {"languages": ["EN"]},
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
@@ -291,10 +372,17 @@ class TestExtractedDataVerification:
     def test_verify_with_invalid_environment_format_returns_warning(self):
         """When environment is not a list or None, should return ok=True with warning."""
         data = {
-            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "identity": {
+                "title": "T",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
             "sidebar": {"languages": ["EN"]},
             "overview": "hi",
-            "experiences": [{"heading": "h", "description": "d", "environment": "Python"}],  # should be list or None
+            "experiences": [
+                {"heading": "h", "description": "d", "environment": "Python"}
+            ],  # should be list or None
         }
         verifier = get_verifier("private-internal-verifier")
         res = verifier.verify(data)
@@ -304,7 +392,12 @@ class TestExtractedDataVerification:
     def test_verify_with_no_experiences_returns_error(self):
         """When experiences list is empty, should return ok=False with error."""
         data = {
-            "identity": {"title": "T", "full_name": "A B", "first_name": "A", "last_name": "B"},
+            "identity": {
+                "title": "T",
+                "full_name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
             "sidebar": {"languages": ["EN"]},
             "overview": "hi",
             "experiences": [],

@@ -20,31 +20,35 @@ from .logging_utils import LOG
 from .output_controller import get_output_controller
 from .shared import UnitOfWork, emit_work_status
 
-def scan_directory_for_files(directory: Path, file_pattern: str = "*.docx") -> List[Path]:
+
+def scan_directory_for_files(
+    directory: Path, file_pattern: str = "*.docx"
+) -> List[Path]:
     """
     Recursively scan directory for files matching the given pattern.
-    
+
     Args:
         directory: Directory to scan
         file_pattern: Glob pattern for files to match (e.g., "*.docx", "*.txt")
-    
+
     Returns:
         List of Path objects for all matching files found
     """
     if not directory.exists():
         raise FileNotFoundError(f"Directory not found: {directory}")
-    
+
     if not directory.is_dir():
         raise ValueError(f"Path is not a directory: {directory}")
-    
+
     files = []
     for file in directory.rglob(file_pattern):
         if file.is_file():
             # Skip temporary Word files (start with ~$)
             if not file.name.startswith("~$"):
                 files.append(file)
-    
+
     return sorted(files)
+
 
 def _build_file_config(config: UserConfig, file_path: Path) -> UserConfig:
     extract = config.extract
@@ -69,7 +73,10 @@ def _build_file_config(config: UserConfig, file_path: Path) -> UserConfig:
         input_dir=config.parallel.source if config.parallel else None,
     )
 
-def _execute_file(file_path: Path, config: UserConfig) -> Tuple[int, Optional[UnitOfWork]]:
+
+def _execute_file(
+    file_path: Path, config: UserConfig
+) -> Tuple[int, Optional[UnitOfWork]]:
     controller = get_output_controller()
     file_config = _build_file_config(config, file_path)
     with controller.file_context(file_path):
@@ -90,7 +97,7 @@ def _process_future_result(
         exit_code, work = future.result()
         if not work:
             raise ValueError("Expected UnitOfWork from execute_single")
-        
+
         status = _derive_work_status(work)
         summary_message = emit_work_status(work)
         if summary_message.endswith(" | -"):
@@ -101,23 +108,27 @@ def _process_future_result(
         log_args = (progress_str, summary_message)
         return status, str(file_path) if status == _WorkStatus.FAILED else None
     except Exception as e:
-        summary_line = f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
+        summary_line = (
+            f"❌ {progress_str} {file_path.name} | Unexpected error: {str(e)}"
+        )
 
         log_fn = LOG.error
         log_args = (summary_line,)
         if config.debug:
             LOG.error(traceback.format_exc())
-            
+
         return _WorkStatus.FAILED, str(file_path)
     finally:
         if log_fn:
             log_fn(*log_args)
             controller.flush_file(file_path, summary_line)
 
+
 class _WorkStatus(str, Enum):
     FULL = "full"
     PARTIAL = "partial"
     FAILED = "failed"
+
 
 def _derive_work_status(work: UnitOfWork) -> "_WorkStatus":
     if not work.has_no_errors():
@@ -125,6 +136,7 @@ def _derive_work_status(work: UnitOfWork) -> "_WorkStatus":
     if not work.has_no_warnings_or_errors():
         return _WorkStatus.PARTIAL
     return _WorkStatus.FULL
+
 
 def _emit_parallel_summary(
     total_files: int,
@@ -142,12 +154,19 @@ def _emit_parallel_summary(
     if partial_success_count > 0:
         summary_msg = (
             "Completed: %d/%d files succeeded (%d full, %d partial), %d failed"
-            % (success_count, total_files, full_success_count, partial_success_count, failed_count)
+            % (
+                success_count,
+                total_files,
+                full_success_count,
+                partial_success_count,
+                failed_count,
+            )
         )
     else:
-        summary_msg = (
-            "Completed: %d/%d files succeeded, %d failed"
-            % (success_count, total_files, failed_count)
+        summary_msg = "Completed: %d/%d files succeeded, %d failed" % (
+            success_count,
+            total_files,
+            failed_count,
         )
     controller.direct_print(summary_msg)
     LOG.info(summary_msg)
@@ -159,29 +178,32 @@ def _emit_parallel_summary(
             controller.direct_print(f"  - {failed_file}")
             LOG.info("  - %s", failed_file)
 
+
 def execute_parallel_pipeline(config: UserConfig) -> int:
     """
     Execute pipeline in parallel mode, processing entire directory of files.
-    
+
     Args:
         config: User configuration with parallel settings
-    
+
     Returns:
         Exit code (0 = all success, 1 = one or more failed)
     """
     if not config.parallel:
-        raise ValueError("execute_parallel_pipeline called without parallel configuration")
-    
+        raise ValueError(
+            "execute_parallel_pipeline called without parallel configuration"
+        )
+
     # Validate input directory
     input_dir = config.parallel.source
     if not input_dir.exists():
         LOG.error("Input directory not found: %s", input_dir)
         return 1
-    
+
     if not input_dir.is_dir():
         LOG.error("Input path is not a directory: %s", input_dir)
         return 1
-    
+
     # Scan for files matching the pattern
     try:
         files = scan_directory_for_files(input_dir, config.parallel.file_type)
@@ -190,25 +212,30 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         if config.debug:
             LOG.error(traceback.format_exc())
         return 1
-    
+
     if not files:
-        LOG.error("No files matching pattern '%s' found in directory: %s", 
-                  config.parallel.file_type, input_dir)
+        LOG.error(
+            "No files matching pattern '%s' found in directory: %s",
+            config.parallel.file_type,
+            input_dir,
+        )
         return 1
-    
+
     # Log start of parallel processing
     n_workers = config.parallel.n
     total_files = len(files)
     controller = get_output_controller()
-    controller.direct_print(f"Processing {total_files} files matching '{config.parallel.file_type}' with {n_workers} parallel workers")
-    
+    controller.direct_print(
+        f"Processing {total_files} files matching '{config.parallel.file_type}' with {n_workers} parallel workers"
+    )
+
     # Track results - categorize as fully successful, partial (warnings), or failed
     full_success_count = 0
     partial_success_count = 0  # Files with warnings but no errors
     failed_count = 0
     failed_files = []
     completed_count = 0  # Track completed files for progress
-    
+
     # Process files in parallel (but logging is serialized)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         # Submit all tasks
@@ -216,17 +243,19 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
             executor.submit(_execute_file, file_path, config): file_path
             for file_path in files
         }
-        
+
         # Process results as they complete
         for future in as_completed(future_to_file):
             file_path = future_to_file[future]
             completed_count += 1
-            
+
             # Calculate progress percentage
             total_width = len(str(total_files))
             progress_pct = int((completed_count / total_files) * 100)
-            progress_str = f"[{completed_count:>{total_width}}/{total_files} | {progress_pct:>3}%]"
-            
+            progress_str = (
+                f"[{completed_count:>{total_width}}/{total_files} | {progress_pct:>3}%]"
+            )
+
             status, failed_file = _process_future_result(
                 future,
                 file_path,
@@ -242,7 +271,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
                 failed_count += 1
                 if failed_file:
                     failed_files.append(failed_file)
-    
+
     _emit_parallel_summary(
         total_files=len(files),
         full_success_count=full_success_count,
@@ -252,7 +281,7 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
         config=config,
         controller=controller,
     )
-    
+
     # Return exit code
     # Success even if some files failed (user request)
     return 0

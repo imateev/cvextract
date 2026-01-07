@@ -9,28 +9,37 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class ExtractStage:
     """Configuration for the extract stage."""
+
     source: Path  # Input file(s)
-    name: str = "private-internal-extractor"  # Extractor name (default: private-internal-extractor)
-    output: Optional[Path] = None  # Output JSON (optional, defaults to target_dir/structured_data/)
+    name: str = (
+        "private-internal-extractor"  # Extractor name (default: private-internal-extractor)
+    )
+    output: Optional[Path] = (
+        None  # Output JSON (optional, defaults to target_dir/structured_data/)
+    )
 
 
 @dataclass
 class AdjusterConfig:
     """Configuration for a single adjuster."""
+
     name: str  # Adjuster name (e.g., "openai-company-research")
     params: Dict[str, Any]  # Adjuster-specific parameters
-    openai_model: Optional[str] = None  # OpenAI model to use (for OpenAI-based adjusters)
+    openai_model: Optional[str] = (
+        None  # OpenAI model to use (for OpenAI-based adjusters)
+    )
 
 
 @dataclass
 class AdjustStage:
     """Configuration for the adjust stage (supports multiple adjusters)."""
+
     adjusters: List[AdjusterConfig]  # List of adjusters to apply in order
     data: Optional[Path] = None  # Input JSON (optional if chained after extract)
     output: Optional[Path] = None  # Output JSON (optional, defaults based on source)
@@ -40,14 +49,18 @@ class AdjustStage:
 @dataclass
 class RenderStage:
     """Configuration for the render stage."""
+
     template: Path  # Template DOCX file
     data: Optional[Path] = None  # Input JSON (optional if chained after extract/adjust)
-    output: Optional[Path] = None  # Output DOCX (optional, defaults to target_dir/documents/)
+    output: Optional[Path] = (
+        None  # Output DOCX (optional, defaults to target_dir/documents/)
+    )
 
 
 @dataclass
 class ParallelStage:
     """Configuration for the parallel processing stage."""
+
     source: Path  # Input directory to scan recursively
     n: int = 1  # Number of parallel workers (default=1)
     file_type: str = "*.docx"  # File pattern to match (default=*.docx)
@@ -56,24 +69,30 @@ class ParallelStage:
 @dataclass
 class UserConfig:
     """Configuration gathered from user input."""
-    
+
     # Global output directory (required)
     target_dir: Path
-    
+
     # Stage configurations (None if stage not requested)
     extract: Optional[ExtractStage] = None
     adjust: Optional[AdjustStage] = None
     render: Optional[RenderStage] = None
     parallel: Optional[ParallelStage] = None
-    
+
     # Execution settings
     verbosity: str = "minimal"  # Output verbosity level: minimal, verbose, debug
     debug_external: bool = False  # Capture external provider logs (OpenAI, httpx, etc.)
     log_file: Optional[str] = None
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
-    input_dir: Optional[Path] = None  # Root input directory for relative path calculation (used in parallel processing)
-    suppress_file_logging: bool = False  # Suppress individual file logging (used in parallel mode)
-    last_warnings: List[str] = field(default_factory=list)  # Warnings from the most recent run
+    input_dir: Optional[Path] = (
+        None  # Root input directory for relative path calculation (used in parallel processing)
+    )
+    suppress_file_logging: bool = (
+        False  # Suppress individual file logging (used in parallel mode)
+    )
+    last_warnings: List[str] = field(
+        default_factory=list
+    )  # Warnings from the most recent run
 
     @property
     def workspace(self) -> "Workspace":
@@ -110,6 +129,7 @@ class UserConfig:
 @dataclass(frozen=True)
 class Workspace:
     """Output directory layout for a run."""
+
     target_dir: Path
 
     @property

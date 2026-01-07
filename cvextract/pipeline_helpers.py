@@ -11,18 +11,19 @@ Provides utilities for:
 
 from __future__ import annotations
 
+import os
 import traceback
 from dataclasses import replace
 from pathlib import Path
 from typing import List, Optional
-import os
 
-from .logging_utils import LOG
-from .extractors.docx_utils import dump_body_sample
 from .extractors import CVExtractor, get_extractor
-from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
+from .extractors.docx_utils import dump_body_sample
+from .logging_utils import LOG
 from .pipeline_highlevel import process_single_docx, render_cv_data
+from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
 from .verifiers import get_verifier
+
 
 def infer_source_root(inputs: List[Path]) -> Path:
     """
@@ -38,12 +39,14 @@ def infer_source_root(inputs: List[Path]) -> Path:
     parents = [p.parent.resolve() for p in inputs]
     return Path(os.path.commonpath([str(p) for p in parents])).resolve()
 
+
 def safe_relpath(p: Path, root: Path) -> str:
     """Best-effort relative path for nicer logging."""
     try:
         return p.resolve().relative_to(root.resolve()).as_posix()
     except Exception:
         return p.name
+
 
 def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
     if work.config.input_dir:
@@ -62,12 +65,14 @@ def _resolve_source_base_for_render(work: UnitOfWork, input_path: Path) -> Path:
 
     return input_path.parent.resolve()
 
+
 def _resolve_parent(input_path, source_base):
     try:
         rel_path = input_path.parent.resolve().relative_to(source_base)
     except Exception:
         rel_path = Path(".")
     return rel_path
+
 
 def _render_docx(work: UnitOfWork) -> UnitOfWork:
     if not work.config.render:
@@ -95,27 +100,32 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
     render_work.ensure_step_status(StepName.Render)
     return render_work
 
+
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
     Extract and verify a single file. Returns a UnitOfWork copy with results.
-    
+
     Args:
         work: UnitOfWork describing the extraction inputs
-    
+
     Returns:
         UnitOfWork copy with extract StepStatus populated
     """
     statuses = dict(work.step_statuses)
     statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
     work = replace(work, step_statuses=statuses)
-    if not work.ensure_path_exists(StepName.Extract, work.input, "input file", must_be_file=True):
+    if not work.ensure_path_exists(
+        StepName.Extract, work.input, "input file", must_be_file=True
+    ):
         return work
     try:
         extractor: Optional[CVExtractor] = None
         if work.config.extract and work.config.extract.name:
             extractor = get_extractor(work.config.extract.name)
             if not extractor:
-                work.add_error(StepName.Extract, f"unknown extractor: {work.config.extract.name}")
+                work.add_error(
+                    StepName.Extract, f"unknown extractor: {work.config.extract.name}"
+                )
                 extract_status = work.step_statuses.get(StepName.Extract)
                 if extract_status:
                     extract_status.ConfiguredExecutorAvailable = False
@@ -136,6 +146,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
         return work
 
+
 def _roundtrip_compare(
     output_docx: Path,
     roundtrip_dir: Path,
@@ -146,6 +157,7 @@ def _roundtrip_compare(
     roundtrip_data = process_single_docx(output_docx, out=roundtrip_json)
     verifier = get_verifier("roundtrip-verifier")
     return verifier.verify(original_data, target_data=roundtrip_data)
+
 
 def _verify_roundtrip(
     render_work: UnitOfWork,
@@ -160,7 +172,9 @@ def _verify_roundtrip(
     except Exception as e:
         if render_work.config.debug:
             LOG.error(traceback.format_exc())
-        render_work.add_error(StepName.RoundtripComparer, f"roundtrip comparer: {type(e).__name__}")
+        render_work.add_error(
+            StepName.RoundtripComparer, f"roundtrip comparer: {type(e).__name__}"
+        )
         return render_work
 
     output_docx = render_work.output
@@ -190,13 +204,14 @@ def _verify_roundtrip(
         render_work.add_warning(StepName.RoundtripComparer, warn)
     return render_work
 
+
 def render_and_verify(work: UnitOfWork) -> UnitOfWork:
     """
     Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
-    
+
     Args:
         work: UnitOfWork with config, output JSON path, and initial input path
-    
+
     Returns:
         UnitOfWork with Render/Verify statuses populated.
     """
@@ -215,20 +230,30 @@ def render_and_verify(work: UnitOfWork) -> UnitOfWork:
 
     original_cv_path = work.output
     if original_cv_path is None:
-        render_work.add_error(StepName.RoundtripComparer, "render: input JSON path is not set")
+        render_work.add_error(
+            StepName.RoundtripComparer, "render: input JSON path is not set"
+        )
         return render_work
 
     return _verify_roundtrip(render_work, original_cv_path)
+
 
 def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:
     if work.config.render and work.config.render.output:
         output_docx = work.config.render.output
     else:
-        output_docx = work.config.workspace.documents_dir / rel_path / f"{input_path.stem}_NEW.docx"
+        output_docx = (
+            work.config.workspace.documents_dir
+            / rel_path
+            / f"{input_path.stem}_NEW.docx"
+        )
     output_docx.parent.mkdir(parents=True, exist_ok=True)
     return output_docx
 
-def categorize_result(extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]) -> tuple[int, int, int]:
+
+def categorize_result(
+    extract_ok: bool, has_warns: bool, apply_ok: Optional[bool]
+) -> tuple[int, int, int]:
     """Categorize result into (fully_ok, partial_ok, failed) counts."""
     if not extract_ok:
         return 0, 0, 1

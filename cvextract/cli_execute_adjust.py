@@ -40,7 +40,9 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             elif config.render and config.render.data:
                 source = config.render.data
             if source is not None:
-                source_base = source.parent.resolve() if source.is_file() else source.resolve()
+                source_base = (
+                    source.parent.resolve() if source.is_file() else source.resolve()
+                )
             else:
                 source_base = base_input.parent.resolve()
 
@@ -64,12 +66,16 @@ def execute(work: UnitOfWork) -> UnitOfWork:
                 LOG.debug("Waiting 3 seconds before applying next adjuster...")
                 time.sleep(3.0)
 
-            LOG.info("Applying adjuster %d/%d: %s",
-                     idx + 1, len(config.adjust.adjusters), adjuster_config.name)
+            LOG.info(
+                "Applying adjuster %d/%d: %s",
+                idx + 1,
+                len(config.adjust.adjusters),
+                adjuster_config.name,
+            )
 
             adjuster = get_adjuster(
                 adjuster_config.name,
-                model=adjuster_config.openai_model or "gpt-4o-mini"
+                model=adjuster_config.openai_model or "gpt-4o-mini",
             )
 
             if not adjuster:
@@ -81,7 +87,11 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             try:
                 adjuster.validate_params(**adjuster_params)
             except ValueError as e:
-                LOG.error("Adjuster '%s' parameter validation failed: %s", adjuster_config.name, e)
+                LOG.error(
+                    "Adjuster '%s' parameter validation failed: %s",
+                    adjuster_config.name,
+                    e,
+                )
                 raise
 
             adjust_work = adjuster.adjust(adjust_work, **adjuster_params)

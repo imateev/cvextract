@@ -1,17 +1,22 @@
 """Tests for the new verifier architecture."""
 
-import pytest
-from pathlib import Path
 import json
 import tempfile
+from pathlib import Path
+
+import pytest
+
+from cvextract.shared import VerificationResult
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
 )
+from cvextract.verifiers.comparison_verifier import (
+    FileRoundtripVerifier,
+    RoundtripVerifier,
+)
 from cvextract.verifiers.data_verifier import ExtractedDataVerifier
-from cvextract.verifiers.comparison_verifier import RoundtripVerifier, FileRoundtripVerifier
 from cvextract.verifiers.schema_verifier import CVSchemaVerifier
-from cvextract.shared import VerificationResult
 
 
 class TestExtractedDataVerifier:
@@ -135,38 +140,42 @@ class TestFileRoundtripVerifier:
     def test_verifier_compares_json_files(self):
         """Verifier should load and compare JSON files."""
         verifier = FileRoundtripVerifier()
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             source_file = Path(tmpdir) / "source.json"
             target_file = Path(tmpdir) / "target.json"
-            
+
             data = {"identity": {"title": "Engineer"}, "sidebar": {}, "experiences": []}
-            
+
             with source_file.open("w") as f:
                 json.dump(data, f)
             with target_file.open("w") as f:
                 json.dump(data, f)
-            
-            result = verifier.verify({}, source_file=source_file, target_file=target_file)
+
+            result = verifier.verify(
+                {}, source_file=source_file, target_file=target_file
+            )
             assert result.ok is True
 
     def test_verifier_detects_file_differences(self):
         """Verifier should detect differences between files."""
         verifier = FileRoundtripVerifier()
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             source_file = Path(tmpdir) / "source.json"
             target_file = Path(tmpdir) / "target.json"
-            
+
             source_data = {"x": 1}
             target_data = {"x": 2}
-            
+
             with source_file.open("w") as f:
                 json.dump(source_data, f)
             with target_file.open("w") as f:
                 json.dump(target_data, f)
-            
-            result = verifier.verify({}, source_file=source_file, target_file=target_file)
+
+            result = verifier.verify(
+                {}, source_file=source_file, target_file=target_file
+            )
             assert result.ok is False
             assert any("value mismatch" in e for e in result.errors)
 
@@ -247,9 +256,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "Overview",
-            "experiences": [
-                {"heading": "Title"}  # Missing description
-            ],
+            "experiences": [{"heading": "Title"}],  # Missing description
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -262,7 +269,7 @@ class TestCVSchemaVerifier:
             "identity": None,  # None instead of object
             "sidebar": {},
             "overview": "",
-            "experiences": []
+            "experiences": [],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -279,7 +286,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": []
+            "experiences": [],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -297,7 +304,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": []
+            "experiences": [],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -314,7 +321,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": "not a dict",  # Should be dict or None
             "overview": "",
-            "experiences": []
+            "experiences": [],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -332,7 +339,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": 123,  # Should be string or None
-            "experiences": []
+            "experiences": [],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -350,7 +357,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": {"not": "array"}
+            "experiences": {"not": "array"},
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -368,7 +375,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": ["not a dict"]
+            "experiences": ["not a dict"],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -386,7 +393,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": [{"description": "desc"}]
+            "experiences": [{"description": "desc"}],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -404,7 +411,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": [{"heading": 123, "description": "desc"}]
+            "experiences": [{"heading": 123, "description": "desc"}],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -422,7 +429,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": [{"heading": "Title"}]
+            "experiences": [{"heading": "Title"}],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -440,7 +447,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": [{"heading": "Title", "description": 123}]
+            "experiences": [{"heading": "Title", "description": 123}],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -459,12 +466,8 @@ class TestCVSchemaVerifier:
             "sidebar": {},
             "overview": "",
             "experiences": [
-                {
-                    "heading": "Title",
-                    "description": "desc",
-                    "bullets": "not an array"
-                }
-            ]
+                {"heading": "Title", "description": "desc", "bullets": "not an array"}
+            ],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -483,12 +486,8 @@ class TestCVSchemaVerifier:
             "sidebar": {},
             "overview": "",
             "experiences": [
-                {
-                    "heading": "Title",
-                    "description": "desc",
-                    "bullets": [123, "string"]
-                }
-            ]
+                {"heading": "Title", "description": "desc", "bullets": [123, "string"]}
+            ],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -510,9 +509,9 @@ class TestCVSchemaVerifier:
                 {
                     "heading": "Title",
                     "description": "desc",
-                    "environment": "not an array"
+                    "environment": "not an array",
                 }
-            ]
+            ],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -534,9 +533,9 @@ class TestCVSchemaVerifier:
                 {
                     "heading": "Title",
                     "description": "desc",
-                    "environment": [123, "Python"]
+                    "environment": [123, "Python"],
                 }
-            ]
+            ],
         }
         result = verifier.verify(data)
         assert result.ok is False
@@ -555,12 +554,8 @@ class TestCVSchemaVerifier:
             "sidebar": {},
             "overview": "",
             "experiences": [
-                {
-                    "heading": "Title",
-                    "description": "desc",
-                    "environment": None
-                }
-            ]
+                {"heading": "Title", "description": "desc", "environment": None}
+            ],
         }
         result = verifier.verify(data)
         assert result.ok is True
@@ -577,13 +572,7 @@ class TestCVSchemaVerifier:
             },
             "sidebar": {},
             "overview": "",
-            "experiences": [
-                {
-                    "heading": "Title",
-                    "description": "desc",
-                    "bullets": []
-                }
-            ]
+            "experiences": [{"heading": "Title", "description": "desc", "bullets": []}],
         }
         result = verifier.verify(data)
         assert result.ok is True
@@ -601,12 +590,8 @@ class TestCVSchemaVerifier:
             "sidebar": {},
             "overview": "",
             "experiences": [
-                {
-                    "heading": "Title",
-                    "description": "desc",
-                    "environment": []
-                }
-            ]
+                {"heading": "Title", "description": "desc", "environment": []}
+            ],
         }
         result = verifier.verify(data)
         assert result.ok is True
@@ -617,7 +602,7 @@ class TestVerifierInterface:
 
     def test_custom_verifier_can_be_implemented(self):
         """Custom verifiers can extend CVVerifier."""
-        
+
         class CustomVerifier(CVVerifier):
             def verify(self, data, **kwargs):
                 # Simple custom verification
@@ -626,13 +611,13 @@ class TestVerifierInterface:
                 return VerificationResult(
                     ok=False, errors=["missing custom_field"], warnings=[]
                 )
-        
+
         verifier = CustomVerifier()
-        
+
         # Test with field present
         result = verifier.verify({"custom_field": "value"})
         assert result.ok is True
-        
+
         # Test with field missing
         result = verifier.verify({})
         assert result.ok is False
@@ -645,7 +630,7 @@ class TestParameterPassing:
     def test_extracted_verifier_accepts_external_data(self):
         """Verifier should accept data from any source."""
         verifier = ExtractedDataVerifier()
-        
+
         # Simulate loading from external source
         external_data = {
             "identity": {
@@ -657,17 +642,17 @@ class TestParameterPassing:
             "sidebar": {"languages": ["Python"]},
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        
+
         result = verifier.verify(external_data)
         assert isinstance(result, VerificationResult)
 
     def test_comparison_verifier_accepts_external_source_and_target(self):
         """Comparison verifier should accept both source and target from outside."""
         verifier = RoundtripVerifier()
-        
+
         # Simulate external data sources
         source_data = {"x": 1, "y": 2}
         target_data = {"x": 1, "y": 2}
-        
+
         result = verifier.verify(source_data, target_data=target_data)
         assert result.ok is True

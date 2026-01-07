@@ -6,11 +6,11 @@ The main pipeline execution has been consolidated into cli.py.
 """
 
 from .pipeline_helpers import (
-    infer_source_root,
-    safe_relpath,
-    extract_single,
-    render_and_verify,
     categorize_result,
+    extract_single,
+    infer_source_root,
+    render_and_verify,
+    safe_relpath,
 )
 from .shared import UnitOfWork, get_status_icons
 

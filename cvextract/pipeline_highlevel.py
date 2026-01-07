@@ -11,23 +11,23 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .extractors import DocxCVExtractor, CVExtractor
+from .extractors import CVExtractor, DocxCVExtractor
 from .renderers import get_renderer
 from .shared import UnitOfWork
-    
+
 # ------------------------- High-level pipeline -------------------------
 
+
 def extract_cv_structure(
-    source_path: Path, 
-    extractor: Optional[CVExtractor] = None
+    source_path: Path, extractor: Optional[CVExtractor] = None
 ) -> Dict[str, Any]:
     """
     Extract CV structure from a source file using the specified extractor.
-    
+
     Args:
         source_path: Path to the source file
         extractor: CVExtractor instance to use. If None, uses default DocxCVExtractor
-    
+
     Returns:
         Dictionary containing extracted CV data
     """
@@ -35,16 +35,17 @@ def extract_cv_structure(
         extractor = DocxCVExtractor()
     return extractor.extract(source_path)
 
+
 def render_cv_data(work: UnitOfWork) -> UnitOfWork:
     """
     Render CV data to a DOCX file using the default renderer.
-    
+
     This function uses the default renderer from the pluggable
     renderer architecture.
-    
+
     Args:
         work: UnitOfWork containing render configuration and paths.
-    
+
     Returns:
         UnitOfWork with rendered output populated
     """
@@ -53,19 +54,20 @@ def render_cv_data(work: UnitOfWork) -> UnitOfWork:
         raise ValueError("Default renderer 'private-internal-renderer' not found")
     return renderer.render(work)
 
+
 def process_single_docx(
-    source_path: Path, 
+    source_path: Path,
     out: Optional[Path] = None,
-    extractor: Optional[CVExtractor] = None
+    extractor: Optional[CVExtractor] = None,
 ) -> Dict[str, Any]:
     """
     Extract CV structure and optionally write to JSON.
-    
+
     Args:
         source_path: Path to the source file
         out: Optional output path for JSON file
         extractor: Optional CVExtractor instance to use
-    
+
     Returns:
         Dictionary containing extracted CV data
     """

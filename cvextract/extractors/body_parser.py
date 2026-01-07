@@ -12,8 +12,8 @@ CV-specific structure and rules.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,6 +25,7 @@ from .docx_utils import (
 )
 
 # ------------------------- Models -------------------------
+
 
 @dataclass
 class ExperienceBuilder:
@@ -40,7 +41,8 @@ class ExperienceBuilder:
             "bullets": self.bullets[:],
             "environment": self.environment[:] or None,
         }
-    
+
+
 # ------------------------- Patterns / section titles -------------------------
 
 MONTH_NAME = (
@@ -60,6 +62,7 @@ ENVIRONMENT_PATTERN = re.compile(
     r"^Environment\s*:\s*(.+)$",
     re.IGNORECASE,
 )
+
 
 def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]:
     """
@@ -104,7 +107,7 @@ def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]
 
         if in_experience:
             # Heading detection: either matches date range OR is a heading style
-            is_heading_style = (style.lower().startswith("heading") and not is_bullet)
+            is_heading_style = style.lower().startswith("heading") and not is_bullet
             if HEADING_PATTERN.search(line) or is_heading_style:
                 flush_current()
                 current_exp = ExperienceBuilder(heading=clean_text(line))
