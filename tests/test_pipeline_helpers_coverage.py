@@ -213,6 +213,87 @@ class TestPipelineHelpersCoverage:
         assert "unknown extractor" in extract_status.errors[0]
         assert extract_status.ConfiguredExecutorAvailable is False
 
+    def test_extract_single_missing_input_path(self, tmp_path):
+        """Test extract_single handles missing input path."""
+        docx = tmp_path / "missing.docx"
+        output = tmp_path / "test.json"
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            extract=ExtractStage(source=docx),
+        )
+        work = UnitOfWork(config=config, input=docx, output=output)
+
+        result = p.extract_single(work)
+
+        extract_status = result.step_statuses.get(StepName.Extract)
+        assert extract_status is not None
+        assert any("input file not found" in e for e in extract_status.errors)
+
+    def test_extract_single_missing_output_path(self, tmp_path):
+        """Test extract_single reports missing output path."""
+        docx = tmp_path / "test.docx"
+        docx.touch()
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            extract=ExtractStage(source=docx),
+        )
+        work = UnitOfWork(config=config, input=docx, output=None)
+
+        result = p.extract_single(work)
+
+        extract_status = result.step_statuses.get(StepName.Extract)
+        assert extract_status is not None
+        assert "output JSON path is not set" in extract_status.errors[0]
+
+    def test_extract_single_output_cleared_by_extractor(self, tmp_path, monkeypatch):
+        """Test extract_single handles extractors that clear output."""
+        docx = tmp_path / "test.docx"
+        docx.touch()
+        output = tmp_path / "test.json"
+
+        def fake_extract(work, extractor=None):
+            work.output = None
+            return work
+
+        monkeypatch.setattr(p, "extract_cv_data", fake_extract)
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            extract=ExtractStage(source=docx),
+        )
+        work = UnitOfWork(config=config, input=docx, output=output)
+
+        result = p.extract_single(work)
+
+        extract_status = result.step_statuses.get(StepName.Extract)
+        assert extract_status is not None
+        assert "output JSON path is not set" in extract_status.errors[0]
+
+    def test_extract_single_output_file_missing(self, tmp_path, monkeypatch):
+        """Test extract_single handles missing output JSON file."""
+        docx = tmp_path / "test.docx"
+        docx.touch()
+        output = tmp_path / "test.json"
+
+        def fake_extract(work, extractor=None):
+            return work
+
+        monkeypatch.setattr(p, "extract_cv_data", fake_extract)
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            extract=ExtractStage(source=docx),
+        )
+        work = UnitOfWork(config=config, input=docx, output=output)
+
+        result = p.extract_single(work)
+
+        extract_status = result.step_statuses.get(StepName.Extract)
+        assert extract_status is not None
+        assert "output JSON not found" in extract_status.errors[0]
+
     def test_extract_single_with_debug_mode(self, tmp_path):
         """Test extract_single in debug mode dumps body sample on error."""
         docx = tmp_path / "test.docx"
@@ -346,6 +427,87 @@ class TestPipelineHelpersCoverage:
             assert comparer_status is not None
             assert len(comparer_status.errors) > 0
             assert "RuntimeError" in comparer_status.errors[0]
+
+    def test_roundtrip_compare_raises_when_json_missing(self, tmp_path, monkeypatch):
+        """Test _roundtrip_compare raises when roundtrip JSON is missing."""
+        output_docx = tmp_path / "output.docx"
+        output_docx.touch()
+        original_cv = tmp_path / "original.json"
+        original_cv.write_text("{}", encoding="utf-8")
+        roundtrip_dir = tmp_path / "roundtrip"
+
+        def fake_extract(work):
+            return work
+
+        monkeypatch.setattr(p, "extract_cv_data", fake_extract)
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            render=RenderStage(template=tmp_path / "template.docx"),
+        )
+        render_work = UnitOfWork(
+            config=config, input=original_cv, output=output_docx, initial_input=original_cv
+        )
+
+        with pytest.raises(FileNotFoundError, match="roundtrip JSON not created"):
+            p._roundtrip_compare(render_work, output_docx, roundtrip_dir, original_cv)
+
+    def test_roundtrip_compare_uses_custom_verifier(self, tmp_path, monkeypatch):
+        """Test _roundtrip_compare uses custom verifier name when configured."""
+        output_docx = tmp_path / "output.docx"
+        output_docx.touch()
+        original_cv = tmp_path / "original.json"
+        original_cv.write_text("{}", encoding="utf-8")
+        roundtrip_dir = tmp_path / "roundtrip"
+
+        def fake_extract(work):
+            work.output.write_text("{}", encoding="utf-8")
+            return work
+
+        verifier = MagicMock()
+        verifier.verify.side_effect = lambda w: w
+        get_verifier = MagicMock(return_value=verifier)
+
+        monkeypatch.setattr(p, "extract_cv_data", fake_extract)
+        monkeypatch.setattr(p, "get_verifier", get_verifier)
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            render=RenderStage(template=tmp_path / "template.docx", verifier="custom"),
+        )
+        render_work = UnitOfWork(
+            config=config, input=original_cv, output=output_docx, initial_input=original_cv
+        )
+
+        p._roundtrip_compare(render_work, output_docx, roundtrip_dir, original_cv)
+
+        get_verifier.assert_called_once_with("custom")
+
+    def test_roundtrip_compare_raises_for_unknown_verifier(self, tmp_path, monkeypatch):
+        """Test _roundtrip_compare raises when verifier is missing."""
+        output_docx = tmp_path / "output.docx"
+        output_docx.touch()
+        original_cv = tmp_path / "original.json"
+        original_cv.write_text("{}", encoding="utf-8")
+        roundtrip_dir = tmp_path / "roundtrip"
+
+        def fake_extract(work):
+            work.output.write_text("{}", encoding="utf-8")
+            return work
+
+        monkeypatch.setattr(p, "extract_cv_data", fake_extract)
+        monkeypatch.setattr(p, "get_verifier", lambda _name: None)
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            render=RenderStage(template=tmp_path / "template.docx"),
+        )
+        render_work = UnitOfWork(
+            config=config, input=original_cv, output=output_docx, initial_input=original_cv
+        )
+
+        with pytest.raises(ValueError, match="unknown verifier"):
+            p._roundtrip_compare(render_work, output_docx, roundtrip_dir, original_cv)
 
     def test_render_and_verify_skips_compare_openai_extractor(self, tmp_path):
         """Test execute_render skips comparison for openai-extractor."""

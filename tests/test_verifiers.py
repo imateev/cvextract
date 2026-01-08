@@ -113,6 +113,87 @@ class TestExtractedDataVerifier:
         status = _status(result, StepName.Extract)
         assert any("missing sidebar" in w for w in status.warnings)
 
+    def test_verifier_reports_missing_output_path(self, tmp_path):
+        """Missing output path should surface as error."""
+        verifier = ExtractedDataVerifier()
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=None,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("path is not set" in e for e in status.errors)
+
+    def test_verifier_reports_missing_output_file(self, tmp_path):
+        """Missing output file should surface as error."""
+        verifier = ExtractedDataVerifier()
+        output_path = tmp_path / "missing.json"
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=output_path,
+            output=output_path,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("not found" in e for e in status.errors)
+
+    def test_verifier_reports_unreadable_output(self, tmp_path):
+        """Unreadable JSON should surface as error."""
+        verifier = ExtractedDataVerifier()
+        output_path = tmp_path / "bad.json"
+        output_path.write_text("{invalid", encoding="utf-8")
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=output_path,
+            output=output_path,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("unreadable" in e for e in status.errors)
+
+    def test_verifier_reports_non_object_json(self, tmp_path):
+        """Non-object JSON should surface as error."""
+        verifier = ExtractedDataVerifier()
+        output_path = tmp_path / "list.json"
+        output_path.write_text("[1, 2, 3]", encoding="utf-8")
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=output_path,
+            output=output_path,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("must be an object" in e for e in status.errors)
+
+    def test_verifier_warns_on_incomplete_experience_fields(self, tmp_path):
+        """Missing experience fields should be reported in warnings."""
+        verifier = ExtractedDataVerifier()
+        data = {
+            "identity": {
+                "title": "T",
+                "full_name": "F L",
+                "first_name": "F",
+                "last_name": "L",
+            },
+            "sidebar": {
+                "languages": ["Python"],
+                "tools": ["x"],
+                "industries": ["x"],
+                "spoken_languages": ["EN"],
+                "academic_background": ["x"],
+            },
+            "experiences": [{"heading": "", "description": ""}],
+        }
+        work = _make_work(tmp_path, data)
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("incomplete" in w for w in status.warnings)
+
 
 class TestRoundtripVerifier:
     """Tests for RoundtripVerifier."""
@@ -180,6 +261,43 @@ class TestRoundtripVerifier:
         status = _status(result, StepName.RoundtripComparer)
         assert any("target" in e for e in status.errors)
 
+    def test_verifier_reports_missing_source_file(self, tmp_path):
+        """Missing source file should surface as error."""
+        verifier = RoundtripVerifier()
+        source_path = tmp_path / "missing.json"
+        target_path = tmp_path / "target.json"
+        target_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
+
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=source_path,
+            output=target_path,
+        )
+        work.current_step = StepName.RoundtripComparer
+        work.ensure_step_status(StepName.RoundtripComparer)
+        result = verifier.verify(work)
+        status = _status(result, StepName.RoundtripComparer)
+        assert any("source JSON not found" in e for e in status.errors)
+
+    def test_verifier_reports_unreadable_source(self, tmp_path):
+        """Unreadable JSON should surface as error."""
+        verifier = RoundtripVerifier()
+        source_path = tmp_path / "source.json"
+        source_path.write_text("{bad", encoding="utf-8")
+        target_path = tmp_path / "target.json"
+        target_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
+
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=source_path,
+            output=target_path,
+        )
+        work.current_step = StepName.RoundtripComparer
+        work.ensure_step_status(StepName.RoundtripComparer)
+        result = verifier.verify(work)
+        status = _status(result, StepName.RoundtripComparer)
+        assert any("unreadable" in e for e in status.errors)
+
 
 class TestCVSchemaVerifier:
     """Tests for CVSchemaVerifier."""
@@ -210,6 +328,63 @@ class TestCVSchemaVerifier:
         result = _verify_data(verifier, tmp_path, data)
         status = _status(result, StepName.Extract)
         assert status.errors == []
+
+    def test_schema_verifier_reports_missing_output_path(self, tmp_path):
+        """Missing output path should surface as error."""
+        verifier = CVSchemaVerifier()
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=None,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("path is not set" in e for e in status.errors)
+
+    def test_schema_verifier_reports_missing_output_file(self, tmp_path):
+        """Missing output file should surface as error."""
+        verifier = CVSchemaVerifier()
+        output_path = tmp_path / "missing.json"
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=output_path,
+            output=output_path,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("not found" in e for e in status.errors)
+
+    def test_schema_verifier_reports_unreadable_output(self, tmp_path):
+        """Unreadable JSON should surface as error."""
+        verifier = CVSchemaVerifier()
+        output_path = tmp_path / "bad.json"
+        output_path.write_text("{invalid", encoding="utf-8")
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=output_path,
+            output=output_path,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("unreadable" in e for e in status.errors)
+
+    def test_schema_verifier_reports_non_object_json(self, tmp_path):
+        """Non-object JSON should surface as error."""
+        verifier = CVSchemaVerifier()
+        output_path = tmp_path / "list.json"
+        output_path.write_text("[1, 2, 3]", encoding="utf-8")
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=output_path,
+            output=output_path,
+        )
+        work.current_step = StepName.Extract
+        result = verifier.verify(work)
+        status = _status(result, StepName.Extract)
+        assert any("must be an object" in e for e in status.errors)
 
     def test_verifier_detects_missing_required_fields(self, tmp_path):
         """Missing required fields should fail validation."""

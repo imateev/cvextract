@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from importlib.metadata import PackageNotFoundError
 
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, OpenAICVExtractor
@@ -49,6 +50,22 @@ class TestOpenAICVExtractorInit:
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
             extractor = OpenAICVExtractor(run_timeout_s=300.0)
             assert extractor._run_timeout_s == 300.0
+
+    def test_client_requires_api_key(self):
+        """Client property should raise without API key."""
+        extractor = OpenAICVExtractor()
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(RuntimeError, match="OPENAI_API_KEY must be set"):
+                _ = extractor.client
+
+    def test_get_cache_version_tag_falls_back_to_dev(self):
+        """_get_cache_version_tag falls back to dev on PackageNotFoundError."""
+        extractor = OpenAICVExtractor()
+        with patch(
+            "cvextract.extractors.openai_extractor.version",
+            side_effect=PackageNotFoundError,
+        ):
+            assert extractor._get_cache_version_tag() == "dev"
 
 
 class TestExtractFileValidation:

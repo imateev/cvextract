@@ -2185,6 +2185,39 @@ class TestOpenAICompanyResearchHelpers:
         result = _validate_research_data({"name": "Test Corp"})
         assert result is False
 
+    def test_validate_research_data_rejects_invalid_employee_count(self):
+        """_validate_research_data() rejects invalid employee_count values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        result = _validate_research_data(
+            {"name": "Test Corp", "domains": ["tech"], "employee_count": 0}
+        )
+        assert result is False
+
+    def test_validate_research_data_rejects_invalid_ownership_type(self):
+        """_validate_research_data() rejects unknown ownership_type."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        result = _validate_research_data(
+            {"name": "Test Corp", "domains": ["tech"], "ownership_type": "other"}
+        )
+        assert result is False
+
+    def test_validate_research_data_rejects_invalid_website(self):
+        """_validate_research_data() rejects non-string website values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        result = _validate_research_data(
+            {"name": "Test Corp", "domains": ["tech"], "website": 123}
+        )
+        assert result is False
+
     def test_extract_json_object_rejects_non_string(self):
         """_extract_json_object() returns None for non-string input."""
         from cvextract.adjusters.openai_company_research_adjuster import (
@@ -2271,6 +2304,46 @@ class TestCompanyResearchRetryHelpers:
         retryer = _OpenAIRetry(retry=_RetryConfig(), sleep=lambda _: None)
         assert retryer._get_retry_after_s(exc) is None
 
+    def test_sleep_with_backoff_uses_jitter_when_not_deterministic(self):
+        """_sleep_with_backoff() uses jitter when deterministic is False."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _OpenAIRetry,
+            _RetryConfig,
+        )
+
+        mock_sleep = MagicMock()
+        retryer = _OpenAIRetry(
+            retry=_RetryConfig(base_delay_s=1.0, max_delay_s=10.0),
+            sleep=mock_sleep,
+        )
+        exc = Exception("Rate limited")
+        exc.status_code = 429
+
+        with patch("cvextract.adjusters.openai_company_research_adjuster.random.random", return_value=0.5):
+            retryer._sleep_with_backoff(0, is_write=False, exc=exc)
+
+        mock_sleep.assert_called_once_with(0.5)
+
+    def test_call_raises_after_max_attempts(self):
+        """call() raises after exhausting retries with status in message."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _OpenAIRetry,
+            _RetryConfig,
+        )
+
+        retryer = _OpenAIRetry(
+            retry=_RetryConfig(max_attempts=2, deterministic=True),
+            sleep=lambda _: None,
+        )
+        err = Exception("boom")
+        err.status_code = 503
+
+        def fail():
+            raise err
+
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            retryer.call(fail, is_write=False, op_name="Company research")
+
 
 class TestCompanyResearchSchemaLoading:
     """Tests for research schema loading edge cases."""
@@ -2341,6 +2414,24 @@ class TestResearchCompanyProfileCache:
         research_data = {"name": "Fresh Co", "description": "Fresh", "domains": []}
         _cache_research_data(cache_path, research_data)
         assert json.loads(cache_path.read_text(encoding="utf-8")) == research_data
+
+    def test_load_cached_research_skips_validation_when_configured(self, tmp_path):
+        """_load_cached_research() returns cached data when skip_verify is True."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _load_cached_research,
+        )
+
+        cached = {"name": "Cache Co", "domains": []}
+        cache_path = tmp_path / "research.json"
+        cache_path.write_text(json.dumps(cached))
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._validate_research_data",
+            return_value=False,
+        ):
+            result = _load_cached_research(cache_path, skip_verify=True)
+
+        assert result == cached
 
 
 class TestResearchCompanyProfileFailures:

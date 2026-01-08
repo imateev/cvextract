@@ -96,3 +96,58 @@ def test_execute_unknown_verifier_adds_error(tmp_path: Path):
 
     extract_status = result.step_statuses[StepName.Extract]
     assert any("unknown verifier" in e for e in extract_status.errors)
+
+
+def test_execute_returns_work_when_extract_missing(tmp_path: Path):
+    """execute should return unchanged work when extract stage is missing."""
+    source = tmp_path / "input.docx"
+    source.touch()
+
+    config = UserConfig(target_dir=tmp_path)
+    work = UnitOfWork(config=config, input=source, output=None)
+
+    result = execute(work)
+
+    assert result is work
+
+
+def test_execute_reports_missing_output_for_verification(tmp_path: Path):
+    """execute should add an error when output JSON is missing for verification."""
+    source = tmp_path / "input.docx"
+    source.touch()
+
+    config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
+    work = UnitOfWork(config=config, input=source, output=None)
+
+    with patch(
+        "cvextract.cli_execute_extract.extract_single",
+        side_effect=lambda w: w,
+    ):
+        result = execute(work)
+
+    extract_status = result.step_statuses[StepName.Extract]
+    assert any("output JSON not found for verification" in e for e in extract_status.errors)
+
+
+def test_execute_handles_verifier_exception(tmp_path: Path):
+    """execute should surface verifier exceptions as errors."""
+    source = tmp_path / "input.docx"
+    source.touch()
+
+    config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
+    work = UnitOfWork(config=config, input=source, output=None)
+
+    verifier = MagicMock()
+    verifier.verify.side_effect = ValueError("boom")
+
+    with patch(
+        "cvextract.cli_execute_extract.extract_single",
+        side_effect=lambda w: _write_output(w, {"identity": {}}),
+    ), patch(
+        "cvextract.cli_execute_extract.get_verifier",
+        return_value=verifier,
+    ):
+        result = execute(work)
+
+    extract_status = result.step_statuses[StepName.Extract]
+    assert any("verify failed" in e for e in extract_status.errors)
