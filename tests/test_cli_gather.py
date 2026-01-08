@@ -331,6 +331,42 @@ class TestGatherUserRequirements:
                 ["--parallel", "n=4", "--target", "/output"]
             )
 
+    def test_parallel_without_source_allowed_for_rerun_failed(self):
+        """--parallel allows missing source when rerun-failed is set."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--parallel",
+                "n=4",
+                "--rerun-failed",
+                "/tmp/failed.txt",
+                "--target",
+                "/output",
+                "--extract",
+                "source=/path/to/file.docx",
+            ]
+        )
+
+        assert config.parallel is not None
+        assert config.rerun_failed == Path("/tmp/failed.txt")
+        assert config.parallel.source == Path(".")
+
+    def test_rerun_failed_allows_extract_without_source(self):
+        """--rerun-failed allows --extract without source."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--rerun-failed",
+                "/tmp/failed.txt",
+                "--extract",
+                "name=private-internal-extractor",
+                "--target",
+                "/output",
+            ]
+        )
+
+        assert config.rerun_failed == Path("/tmp/failed.txt")
+        assert config.extract is not None
+        assert config.extract.source == Path(".")
+
     def test_parallel_with_source(self):
         """--parallel with source creates ParallelStage."""
         config = cli_gather.gather_user_requirements(

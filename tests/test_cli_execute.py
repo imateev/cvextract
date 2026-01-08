@@ -12,6 +12,7 @@ from cvextract.cli_config import (
     AdjusterConfig,
     AdjustStage,
     ExtractStage,
+    ParallelStage,
     RenderStage,
     UserConfig,
 )
@@ -894,6 +895,62 @@ class TestFolderStructurePreservation:
             exit_code = execute_pipeline(config)
             assert exit_code == 0
             mock_parallel.assert_called_once_with(config)
+
+    def test_rerun_failed_serial_writes_failed_list(self, tmp_path: Path):
+        """execute_pipeline() reruns a failed list serially and logs failures."""
+        failed_list = tmp_path / "failed.txt"
+        doc_a = tmp_path / "a.docx"
+        doc_b = tmp_path / "b.docx"
+        failed_list.write_text(f"{doc_a}\n{doc_b}\n", encoding="utf-8")
+
+        config = UserConfig(
+            extract=ExtractStage(source=doc_a, output=None),
+            adjust=None,
+            render=None,
+            target_dir=tmp_path / "output",
+            log_failed=tmp_path / "rerun_failed_out.txt",
+            rerun_failed=failed_list,
+        )
+
+        def _fake_execute_single(cfg):
+            work = UnitOfWork(config=cfg, input=doc_a, output=None)
+            exit_code = 1 if cfg.extract and cfg.extract.source == doc_b else 0
+            return exit_code, work
+
+        with patch(
+            "cvextract.cli_execute_pipeline.execute_single",
+            side_effect=_fake_execute_single,
+        ):
+            exit_code = execute_pipeline(config)
+
+        assert exit_code == 1
+        logged = config.log_failed.read_text(encoding="utf-8").strip().splitlines()
+        assert logged == [str(doc_b)]
+
+    def test_rerun_failed_parallel_uses_failed_list(self, tmp_path: Path):
+        """execute_pipeline() uses rerun list for parallel reruns."""
+        failed_list = tmp_path / "failed.txt"
+        doc_a = tmp_path / "a.docx"
+        doc_b = tmp_path / "b.docx"
+        failed_list.write_text(f"{doc_a}\n{doc_b}\n", encoding="utf-8")
+
+        config = UserConfig(
+            extract=ExtractStage(source=doc_a, output=None),
+            adjust=None,
+            render=None,
+            target_dir=tmp_path / "output",
+            parallel=ParallelStage(source=tmp_path, n=2, file_type="*.docx"),
+            rerun_failed=failed_list,
+        )
+
+        with patch(
+            "cvextract.cli_execute_parallel._execute_parallel_pipeline", return_value=0
+        ) as mock_parallel:
+            exit_code = execute_pipeline(config)
+
+        assert exit_code == 0
+        args, _kwargs = mock_parallel.call_args
+        assert [str(p) for p in args[0]] == [str(doc_a), str(doc_b)]
 
     @patch("cvextract.cli_execute_extract.extract_single")
     def test_relative_path_calculation_with_value_error_fallback(

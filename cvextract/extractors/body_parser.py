@@ -17,12 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..shared import (
-    clean_text,
-)
-from .docx_utils import (
-    iter_document_paragraphs,
-)
+from ..shared import clean_text
+from .docx_utils import iter_document_paragraphs
 
 # ------------------------- Models -------------------------
 

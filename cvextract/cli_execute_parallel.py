@@ -50,6 +50,32 @@ def scan_directory_for_files(
     return sorted(files)
 
 
+def _load_failed_list(path: Path) -> List[Path]:
+    if not path.exists():
+        raise FileNotFoundError(f"Failed list not found: {path}")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    files: List[Path] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            continue
+        if line.startswith("- "):
+            line = line[2:].strip()
+        if line:
+            files.append(Path(line))
+    return files
+
+
+def _write_failed_list(path: Path, failed_files: List[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = "\n".join(failed_files)
+    if content:
+        content += "\n"
+    path.write_text(content, encoding="utf-8")
+
+
 def _build_file_config(config: UserConfig, file_path: Path) -> UserConfig:
     extract = config.extract
     adjust = config.adjust
@@ -178,55 +204,33 @@ def _emit_parallel_summary(
             controller.direct_print(f"  - {failed_file}")
             LOG.info("  - %s", failed_file)
 
+    if config.log_failed:
+        _write_failed_list(config.log_failed, failed_files)
 
-def execute_parallel_pipeline(config: UserConfig) -> int:
+
+def _execute_parallel_pipeline(
+    files: List[Path],
+    config: UserConfig,
+    *,
+    source_label: str,
+) -> int:
     """
-    Execute pipeline in parallel mode, processing entire directory of files.
+    Execute pipeline in parallel mode for a prepared list of files.
 
     Args:
+        files: Explicit list of files to process
         config: User configuration with parallel settings
+        source_label: Description of how files were selected (for logging)
 
     Returns:
         Exit code (0 = all success, 1 = one or more failed)
     """
-    if not config.parallel:
-        raise ValueError(
-            "execute_parallel_pipeline called without parallel configuration"
-        )
-
-    # Validate input directory
-    input_dir = config.parallel.source
-    if not input_dir.exists():
-        LOG.error("Input directory not found: %s", input_dir)
-        return 1
-
-    if not input_dir.is_dir():
-        LOG.error("Input path is not a directory: %s", input_dir)
-        return 1
-
-    # Scan for files matching the pattern
-    try:
-        files = scan_directory_for_files(input_dir, config.parallel.file_type)
-    except Exception as e:
-        LOG.error("Failed to scan directory: %s", e)
-        if config.debug:
-            LOG.error(traceback.format_exc())
-        return 1
-
-    if not files:
-        LOG.error(
-            "No files matching pattern '%s' found in directory: %s",
-            config.parallel.file_type,
-            input_dir,
-        )
-        return 1
-
     # Log start of parallel processing
     n_workers = config.parallel.n
     total_files = len(files)
     controller = get_output_controller()
     controller.direct_print(
-        f"Processing {total_files} files matching '{config.parallel.file_type}' with {n_workers} parallel workers"
+        f"Processing {total_files} files {source_label} with {n_workers} parallel workers"
     )
 
     # Track results - categorize as fully successful, partial (warnings), or failed
@@ -285,3 +289,63 @@ def execute_parallel_pipeline(config: UserConfig) -> int:
     # Return exit code
     # Success even if some files failed (user request)
     return 0
+
+
+def execute_parallel_pipeline(config: UserConfig) -> int:
+    """
+    Execute pipeline in parallel mode, preparing file lists from configuration.
+
+    Args:
+        config: User configuration with parallel settings
+
+    Returns:
+        Exit code (0 = all success, 1 = one or more failed)
+    """
+    if not config.parallel:
+        raise ValueError(
+            "execute_parallel_pipeline called without parallel configuration"
+        )
+
+    if config.rerun_failed:
+        try:
+            files = _load_failed_list(config.rerun_failed)
+        except Exception as e:
+            LOG.error("Failed to read rerun list: %s", e)
+            if config.debug:
+                LOG.error(traceback.format_exc())
+            return 1
+        if not files:
+            LOG.error("No files found in rerun list: %s", config.rerun_failed)
+            return 1
+        source_label = f"from failed list '{config.rerun_failed}'"
+        return _execute_parallel_pipeline(files, config, source_label=source_label)
+
+    # Validate input directory
+    input_dir = config.parallel.source
+    if not input_dir.exists():
+        LOG.error("Input directory not found: %s", input_dir)
+        return 1
+
+    if not input_dir.is_dir():
+        LOG.error("Input path is not a directory: %s", input_dir)
+        return 1
+
+    # Scan for files matching the pattern
+    try:
+        files = scan_directory_for_files(input_dir, config.parallel.file_type)
+    except Exception as e:
+        LOG.error("Failed to scan directory: %s", e)
+        if config.debug:
+            LOG.error(traceback.format_exc())
+        return 1
+
+    if not files:
+        LOG.error(
+            "No files matching pattern '%s' found in directory: %s",
+            config.parallel.file_type,
+            input_dir,
+        )
+        return 1
+
+    source_label = f"matching '{config.parallel.file_type}'"
+    return _execute_parallel_pipeline(files, config, source_label=source_label)

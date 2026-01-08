@@ -90,6 +90,8 @@ class UserConfig:
     skip_all_verify: bool = False  # Skip all verification steps (global override)
     debug_external: bool = False  # Capture external provider logs (OpenAI, httpx, etc.)
     log_file: Optional[str] = None
+    log_failed: Optional[Path] = None  # Optional file path to write failed files
+    rerun_failed: Optional[Path] = None  # Optional file path to re-run failed files
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
     input_dir: Optional[Path] = (
         None  # Root input directory for relative path calculation (used in parallel processing)
