@@ -17,23 +17,25 @@ from cvextract.adjusters import (
 from cvextract.adjusters.adjuster_registry import unregister_adjuster
 from cvextract.adjusters.openai_job_specific_adjuster import _fetch_job_description
 from cvextract.cli_config import ExtractStage, UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 def make_work(tmp_path: Path, cv_data: dict) -> UnitOfWork:
     input_path = tmp_path / "input.json"
     input_path.write_text(json.dumps(cv_data, indent=2))
     output_path = tmp_path / "output.json"
-    return UnitOfWork(
+    work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=input_path)),
         initial_input=input_path,
-        input=input_path,
-        output=output_path,
     )
+    work.set_step_paths(
+        StepName.Adjust, input_path=input_path, output_path=output_path
+    )
+    return work
 
 
 def read_output(work: UnitOfWork) -> dict:
-    return json.loads(work.output.read_text())
+    return json.loads(work.get_step_output(StepName.Adjust).read_text())
 
 
 class TestCVAdjusterBase:

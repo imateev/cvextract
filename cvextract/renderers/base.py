@@ -28,9 +28,9 @@ class CVRenderer(ABC):
 
         Args:
             work: UnitOfWork containing render configuration and paths.
-                The renderer should read CV data from work.input, use
-                work.config.render.template as the template path, and
-                write the rendered output to work.output.
+                The renderer should read CV data from the Render step input,
+                use work.config.render.template as the template path, and
+                write the rendered output to the Render step output.
 
         Returns:
             UnitOfWork with rendered output populated

@@ -17,7 +17,12 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     if not config.extract:
         return work
 
-    input_path = work.input
+    input_path = (
+        work.get_step_input(StepName.Extract)
+        or work.initial_input
+        or config.extract.source
+    )
+    work.set_step_paths(StepName.Extract, input_path=input_path)
     if config.input_dir:
         source_base = config.input_dir.resolve()
     else:
@@ -37,23 +42,25 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    work = replace(work, output=output_path)
+    work = replace(work)
+    work.set_step_paths(StepName.Extract, output_path=output_path)
     work = extract_single(work)
     if not work.has_no_errors(StepName.Extract):
-        return replace(work, input=work.output)
+        return work
 
     skip_verify = bool(
         config.skip_all_verify
         or (config.extract and config.extract.skip_verify)
     )
     if skip_verify:
-        return replace(work, input=work.output)
+        return work
 
-    if not work.output or not work.output.exists():
+    output_path = work.get_step_output(StepName.Extract)
+    if not output_path or not output_path.exists():
         work.add_error(
             StepName.Extract, "extract: output JSON not found for verification"
         )
-        return replace(work, input=work.output)
+        return work
 
     verifier_name = "private-internal-verifier"
     if config.extract and config.extract.verifier:
@@ -61,7 +68,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     verifier = get_verifier(verifier_name)
     if not verifier:
         work.add_error(StepName.Extract, f"unknown verifier: {verifier_name}")
-        return replace(work, input=work.output)
+        return work
 
     work.ensure_step_status(StepName.Extract)
     work.current_step = StepName.Extract
@@ -71,6 +78,6 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         work.add_error(
             StepName.Extract, f"extract: verify failed ({type(e).__name__})"
         )
-        return replace(work, input=work.output)
+        return work
 
-    return replace(work, input=work.output)
+    return work

@@ -21,7 +21,8 @@ from cvextract.verifiers.verifier_registry import unregister_verifier
 def _make_work(tmp_path):
     path = tmp_path / "data.json"
     path.write_text(json.dumps({}), encoding="utf-8")
-    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(StepName.Extract, input_path=path, output_path=path)
     work.current_step = StepName.Extract
     work.ensure_step_status(StepName.Extract)
     return work

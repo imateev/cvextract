@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 
 from cvextract.renderers.base import CVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 def _make_work(
@@ -29,7 +29,8 @@ def _make_work(
 
 
 def _load_cv_data(work: UnitOfWork) -> dict:
-    with work.input.open("r", encoding="utf-8") as f:
+    input_path = work.get_step_input(StepName.Render)
+    with input_path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -64,7 +65,9 @@ class TestCVRendererAbstract:
         work = _make_work(make_render_work, tmp_path)
         result = renderer.render(work)
         assert isinstance(result, UnitOfWork)
-        assert result.output == work.output
+        assert result.get_step_output(StepName.Render) == work.get_step_output(
+            StepName.Render
+        )
 
     def test_render_method_signature_accepts_all_parameters(
         self, tmp_path, make_render_work
@@ -75,7 +78,7 @@ class TestCVRendererAbstract:
             def render(self, work: UnitOfWork) -> UnitOfWork:
                 assert isinstance(work, UnitOfWork)
                 assert isinstance(work.config.render.template, Path)
-                assert isinstance(work.output, Path)
+                assert isinstance(work.get_step_output(StepName.Render), Path)
                 return work
 
         renderer = TestRenderer()
@@ -85,7 +88,7 @@ class TestCVRendererAbstract:
         work = make_render_work(cv_data, template, output)
 
         result = renderer.render(work)
-        assert result.output == output
+        assert result.get_step_output(StepName.Render) == output
 
     def test_render_method_returns_unit_of_work(self, tmp_path, make_render_work):
         """Test that render() returns a UnitOfWork object."""
@@ -158,7 +161,9 @@ class TestCVRendererAbstract:
         }
         work = _make_work(make_render_work, tmp_path, cv_data=cv_data)
         result = renderer.render(work)
-        assert result.output == work.output
+        assert result.get_step_output(StepName.Render) == work.get_step_output(
+            StepName.Render
+        )
 
     def test_concrete_implementation_with_full_schema(self, tmp_path, make_render_work):
         """Test concrete implementation with full CV schema."""
@@ -200,7 +205,9 @@ class TestCVRendererAbstract:
         }
         work = _make_work(make_render_work, tmp_path, cv_data=cv_data)
         result = renderer.render(work)
-        assert result.output == work.output
+        assert result.get_step_output(StepName.Render) == work.get_step_output(
+            StepName.Render
+        )
 
     def test_multiple_renderers_can_coexist(self, tmp_path, make_render_work):
         """Test that multiple concrete renderers can be defined independently."""
@@ -211,7 +218,8 @@ class TestCVRendererAbstract:
 
         class PDFRenderer(CVRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:
-                work.output = work.output.with_suffix(".pdf")
+                status = work.ensure_step_status(StepName.Render)
+                status.output = status.output.with_suffix(".pdf")
                 return work
 
         docx = DocxRenderer()
@@ -227,15 +235,16 @@ class TestCVRendererAbstract:
         result_docx = docx.render(work_docx)
         result_pdf = pdf.render(work_pdf)
 
-        assert result_docx.output.suffix == ".docx"
-        assert result_pdf.output.suffix == ".pdf"
+        assert result_docx.get_step_output(StepName.Render).suffix == ".docx"
+        assert result_pdf.get_step_output(StepName.Render).suffix == ".pdf"
 
     def test_render_creates_output_path_object(self, tmp_path, make_render_work):
         """Test that render() can create and return new Path objects."""
 
         class PathCreatorRenderer(CVRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:
-                work.output = Path(work.output.parent) / work.output.name
+                status = work.ensure_step_status(StepName.Render)
+                status.output = Path(status.output.parent) / status.output.name
                 return work
 
         renderer = PathCreatorRenderer()
@@ -247,7 +256,7 @@ class TestCVRendererAbstract:
         result = renderer.render(work)
 
         assert isinstance(result, UnitOfWork)
-        assert result.output.name == "result.docx"
+        assert result.get_step_output(StepName.Render).name == "result.docx"
 
     def test_render_with_empty_cv_data(self, tmp_path, make_render_work):
         """Test that render() can handle empty CV data."""
@@ -262,7 +271,9 @@ class TestCVRendererAbstract:
         renderer = TestRenderer()
         work = _make_work(make_render_work, tmp_path, cv_data={})
         result = renderer.render(work)
-        assert result.output == work.output
+        assert result.get_step_output(StepName.Render) == work.get_step_output(
+            StepName.Render
+        )
 
     def test_render_method_override_works(self, tmp_path, make_render_work):
         """Test that render() method can be properly overridden."""
@@ -273,14 +284,15 @@ class TestCVRendererAbstract:
 
         class DerivedRenderer(BaseRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:
-                base_output = super().render(work).output
-                work.output = Path(str(base_output).replace(".docx", "_derived.docx"))
+                base_output = super().render(work).get_step_output(StepName.Render)
+                status = work.ensure_step_status(StepName.Render)
+                status.output = Path(str(base_output).replace(".docx", "_derived.docx"))
                 return work
 
         renderer = DerivedRenderer()
         work = _make_work(make_render_work, tmp_path)
         result = renderer.render(work)
-        assert "_derived" in str(result.output)
+        assert "_derived" in str(result.get_step_output(StepName.Render))
 
     def test_is_abstract_base_class(self):
         """Test that CVRenderer is an abstract base class."""
@@ -301,7 +313,8 @@ class TestCVRendererAbstract:
 
         class TestRenderer(CVRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:
-                work.output = work.output.resolve()
+                status = work.ensure_step_status(StepName.Render)
+                status.output = status.output.resolve()
                 return work
 
         renderer = TestRenderer()
@@ -315,7 +328,7 @@ class TestCVRendererAbstract:
         result = renderer.render(work)
 
         assert isinstance(result, UnitOfWork)
-        assert str(result.output).startswith("/")
+        assert str(result.get_step_output(StepName.Render)).startswith("/")
 
     def test_render_can_handle_relative_paths(self, tmp_path, make_render_work):
         """Test that render() can handle relative paths."""
@@ -333,19 +346,21 @@ class TestCVRendererAbstract:
         )
         result = renderer.render(work)
 
-        assert str(result.output) == "outputs/my_cv.docx"
+        assert str(result.get_step_output(StepName.Render)) == "outputs/my_cv.docx"
 
     def test_render_implementations_are_independent(self, tmp_path, make_render_work):
         """Test that different implementations don't interfere."""
 
         class Impl1(CVRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:
-                work.output = Path("format1.docx")
+                status = work.ensure_step_status(StepName.Render)
+                status.output = Path("format1.docx")
                 return work
 
         class Impl2(CVRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:
-                work.output = Path("format2.docx")
+                status = work.ensure_step_status(StepName.Render)
+                status.output = Path("format2.docx")
                 return work
 
         impl1 = Impl1()
@@ -356,8 +371,8 @@ class TestCVRendererAbstract:
         result1 = impl1.render(work1)
         result2 = impl2.render(work2)
 
-        assert str(result1.output) == "format1.docx"
-        assert str(result2.output) == "format2.docx"
+        assert str(result1.get_step_output(StepName.Render)) == "format1.docx"
+        assert str(result2.get_step_output(StepName.Render)) == "format2.docx"
 
     def test_render_with_mocked_implementation(self, tmp_path, make_render_work):
         """Test that render() works correctly when mocked."""

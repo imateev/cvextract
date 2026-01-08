@@ -36,9 +36,14 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     work = UnitOfWork(
         config=config,
         initial_input=source,
-        input=source,
-        output=None,
     )
+    if config.extract:
+        work.set_step_paths(StepName.Extract, input_path=source)
+    else:
+        if config.adjust:
+            work.set_step_paths(StepName.Adjust, input_path=source)
+        if config.render:
+            work.set_step_paths(StepName.Render, input_path=source)
 
     # Step 1: Extract (if configured)
     if config.extract:
@@ -54,11 +59,14 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
             if config.adjust or config.render:
                 config = replace(config, adjust=None, render=None)
     else:
-        # No extraction, use input JSON directly
-        work = replace(work, input=work.input, output=work.input)
+        # No extraction, use input JSON directly for downstream steps
+        if config.adjust:
+            work.set_step_paths(StepName.Adjust, input_path=source)
+        if config.render:
+            work.set_step_paths(StepName.Render, input_path=source)
 
     # Step 2: Adjust (if configured)
-    if config.adjust and work.output:
+    if config.adjust:
         work = execute_adjust(work)
 
         if not work.has_no_errors(StepName.Adjust):

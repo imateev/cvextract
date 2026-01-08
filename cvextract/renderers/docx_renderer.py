@@ -42,10 +42,11 @@ class DocxCVRenderer(CVRenderer):
         if not work.config.render:
             raise ValueError("Render configuration is missing")
 
-        if work.output is None:
+        status = work.ensure_step_status(StepName.Render)
+        if status.output is None:
             raise ValueError("Render output path is not set")
 
-        if work.input is None:
+        if status.input is None:
             raise ValueError("Render input path is not set")
 
         template_path = work.config.render.template
@@ -57,7 +58,7 @@ class DocxCVRenderer(CVRenderer):
 
         if template_path.suffix.lower() != ".docx":
             raise ValueError(f"Template must be a .docx file: {template_path}")
-        with work.input.open("r", encoding="utf-8") as f:
+        with status.input.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
 
         # Sanitize data for XML safety
@@ -68,9 +69,9 @@ class DocxCVRenderer(CVRenderer):
         tpl.render(sanitized_data, autoescape=True)
 
         # Ensure output directory exists
-        work.output.parent.mkdir(parents=True, exist_ok=True)
+        status.output.parent.mkdir(parents=True, exist_ok=True)
 
         # Save rendered document
-        tpl.save(str(work.output))
+        tpl.save(str(status.output))
 
         return work

@@ -13,9 +13,18 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     if not config.render or (config.adjust and config.adjust.dry_run):
         return work
 
+    input_path = (
+        work.get_step_output(StepName.Adjust)
+        or work.get_step_output(StepName.Extract)
+        or (config.render.data if config.render else None)
+    )
+    if input_path is None:
+        return work
+    work.set_step_paths(StepName.Render, input_path=input_path)
+
     if not work.ensure_path_exists(
         StepName.Render,
-        work.output,
+        input_path,
         "render input JSON",
         must_be_file=True,
     ):
@@ -40,11 +49,4 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     if skip_compare:
         return render_work
 
-    original_cv_path = work.output
-    if original_cv_path is None:
-        render_work.add_error(
-            StepName.RoundtripComparer, "render: input JSON path is not set"
-        )
-        return render_work
-
-    return _verify_roundtrip(render_work, original_cv_path)
+    return _verify_roundtrip(render_work, input_path)

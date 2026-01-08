@@ -142,8 +142,6 @@ class TestUnitOfWorkHelpers:
         """resolve_verification_step should raise if no current step is set."""
         work = UnitOfWork(
             config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
         )
         work.ensure_step_status(StepName.Extract)
         work.ensure_step_status(StepName.Adjust)
@@ -155,8 +153,6 @@ class TestUnitOfWorkHelpers:
         """resolve_verification_step should return the only status step."""
         work = UnitOfWork(
             config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
         )
         work.ensure_step_status(StepName.Extract)
 
@@ -168,8 +164,6 @@ class TestUnitOfWorkHelpers:
         path.mkdir()
         work = UnitOfWork(
             config=UserConfig(target_dir=tmp_path),
-            input=path,
-            output=path,
         )
 
         ok = work.ensure_path_exists(
@@ -184,8 +178,6 @@ class TestUnitOfWorkHelpers:
         """has_no_warnings_or_errors returns True when step status is absent."""
         work = UnitOfWork(
             config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
         )
 
         assert work.has_no_warnings_or_errors(StepName.Render) is True
@@ -194,8 +186,6 @@ class TestUnitOfWorkHelpers:
         """has_no_warnings_or_errors reflects existing warnings."""
         work = UnitOfWork(
             config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
         )
         status = work.ensure_step_status(StepName.Render)
         status.warnings.append("warn")

@@ -18,7 +18,8 @@ from cvextract.verifiers.default_cv_schema_verifier import CVSchemaVerifier
 def _make_work(tmp_path, data):
     path = tmp_path / "data.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(StepName.Extract, input_path=path, output_path=path)
     work.current_step = StepName.Extract
     work.ensure_step_status(StepName.Extract)
     return work
@@ -29,10 +30,9 @@ def _make_roundtrip_work(tmp_path, source, target):
     target_path = tmp_path / "target.json"
     source_path.write_text(json.dumps(source), encoding="utf-8")
     target_path.write_text(json.dumps(target), encoding="utf-8")
-    work = UnitOfWork(
-        config=UserConfig(target_dir=tmp_path),
-        input=source_path,
-        output=target_path,
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(
+        StepName.RoundtripComparer, input_path=source_path, output_path=target_path
     )
     work.current_step = StepName.RoundtripComparer
     work.ensure_step_status(StepName.RoundtripComparer)
@@ -116,11 +116,9 @@ class TestExtractedDataVerifier:
     def test_verifier_reports_missing_output_path(self, tmp_path):
         """Missing output path should surface as error."""
         verifier = ExtractedDataVerifier()
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=None,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        status = work.ensure_step_status(StepName.Extract)
+        status.input = tmp_path / "input.json"
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -130,11 +128,8 @@ class TestExtractedDataVerifier:
         """Missing output file should surface as error."""
         verifier = ExtractedDataVerifier()
         output_path = tmp_path / "missing.json"
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=output_path,
-            output=output_path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -145,11 +140,8 @@ class TestExtractedDataVerifier:
         verifier = ExtractedDataVerifier()
         output_path = tmp_path / "bad.json"
         output_path.write_text("{invalid", encoding="utf-8")
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=output_path,
-            output=output_path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -160,11 +152,8 @@ class TestExtractedDataVerifier:
         verifier = ExtractedDataVerifier()
         output_path = tmp_path / "list.json"
         output_path.write_text("[1, 2, 3]", encoding="utf-8")
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=output_path,
-            output=output_path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -250,11 +239,9 @@ class TestRoundtripVerifier:
         verifier = RoundtripVerifier()
         source_path = tmp_path / "source.json"
         source_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=source_path,
-            output=None,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        status = work.ensure_step_status(StepName.RoundtripComparer)
+        status.input = source_path
         work.current_step = StepName.RoundtripComparer
         work.ensure_step_status(StepName.RoundtripComparer)
         result = verifier.verify(work)
@@ -268,10 +255,9 @@ class TestRoundtripVerifier:
         target_path = tmp_path / "target.json"
         target_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=source_path,
-            output=target_path,
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.RoundtripComparer, input_path=source_path, output_path=target_path
         )
         work.current_step = StepName.RoundtripComparer
         work.ensure_step_status(StepName.RoundtripComparer)
@@ -287,10 +273,9 @@ class TestRoundtripVerifier:
         target_path = tmp_path / "target.json"
         target_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=source_path,
-            output=target_path,
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.RoundtripComparer, input_path=source_path, output_path=target_path
         )
         work.current_step = StepName.RoundtripComparer
         work.ensure_step_status(StepName.RoundtripComparer)
@@ -332,11 +317,9 @@ class TestCVSchemaVerifier:
     def test_schema_verifier_reports_missing_output_path(self, tmp_path):
         """Missing output path should surface as error."""
         verifier = CVSchemaVerifier()
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=None,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        status = work.ensure_step_status(StepName.Extract)
+        status.input = tmp_path / "input.json"
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -346,11 +329,8 @@ class TestCVSchemaVerifier:
         """Missing output file should surface as error."""
         verifier = CVSchemaVerifier()
         output_path = tmp_path / "missing.json"
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=output_path,
-            output=output_path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -361,11 +341,8 @@ class TestCVSchemaVerifier:
         verifier = CVSchemaVerifier()
         output_path = tmp_path / "bad.json"
         output_path.write_text("{invalid", encoding="utf-8")
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=output_path,
-            output=output_path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -376,11 +353,8 @@ class TestCVSchemaVerifier:
         verifier = CVSchemaVerifier()
         output_path = tmp_path / "list.json"
         output_path.write_text("[1, 2, 3]", encoding="utf-8")
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=output_path,
-            output=output_path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -780,7 +754,8 @@ class TestVerifierInterface:
 
         class CustomVerifier(CVVerifier):
             def verify(self, work: UnitOfWork):
-                with work.output.open("r", encoding="utf-8") as f:
+                output_path = work.get_step_output(StepName.Extract)
+                with output_path.open("r", encoding="utf-8") as f:
                     data = json.load(f)
                 # Simple custom verification
                 if "custom_field" in data:

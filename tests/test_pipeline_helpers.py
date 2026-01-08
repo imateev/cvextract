@@ -18,7 +18,8 @@ from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 def _make_work(tmp_path, data):
     path = tmp_path / "data.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), initial_input=path)
+    work.set_step_paths(StepName.Extract, input_path=path, output_path=path)
     work.current_step = StepName.Extract
     work.ensure_step_status(StepName.Extract)
     return work
@@ -49,16 +50,17 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
         }
 
     def fake_process_with_data(work, extractor=None):
-        work.output.write_text(json.dumps(fake_data()), encoding="utf-8")
+        output_path = work.get_step_output(StepName.Extract)
+        output_path.write_text(json.dumps(fake_data()), encoding="utf-8")
         return work
 
     monkeypatch.setattr(p, "extract_cv_data", fake_process_with_data)
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
-        input=docx,
-        output=output,
+        initial_input=docx,
     )
+    work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
     result = p.extract_single(work)
     extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
@@ -88,16 +90,17 @@ def test_extract_single_does_not_verify(monkeypatch, tmp_path: Path):
             },
             "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
         }
-        work.output.write_text(json.dumps(data), encoding="utf-8")
+        output_path = work.get_step_output(StepName.Extract)
+        output_path.write_text(json.dumps(data), encoding="utf-8")
         return work
 
     monkeypatch.setattr(p, "extract_cv_data", fake_process)
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
-        input=docx,
-        output=output,
+        initial_input=docx,
     )
+    work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
     result = p.extract_single(work)
     extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
@@ -117,9 +120,9 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
 
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
-        input=docx,
-        output=output,
+        initial_input=docx,
     )
+    work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
     result = p.extract_single(work)
     extract_status = result.step_states[StepName.Extract]
     assert len(extract_status.errors) == 1
@@ -134,7 +137,8 @@ def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
     docx.write_text("docx")
 
     def fake_process(work, extractor=None):
-        work.output.write_text('{"identity": {}}', encoding="utf-8")
+        output_path = work.get_step_output(StepName.Extract)
+        output_path.write_text('{"identity": {}}', encoding="utf-8")
         return work
 
     def fail_if_called(_name):
@@ -148,9 +152,9 @@ def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
             target_dir=tmp_path,
             extract=ExtractStage(source=docx),
         ),
-        input=docx,
-        output=output,
+        initial_input=docx,
     )
+    work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
     result = p.extract_single(work)
     extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
@@ -169,8 +173,9 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
         return work
 
     def fake_process(work, extractor=None):
-        if work.output:
-            work.output.write_text('{"a": 1}', encoding="utf-8")
+        output_path = work.get_step_output(StepName.Extract)
+        if output_path:
+            output_path.write_text('{"a": 1}', encoding="utf-8")
         return work
 
     def fake_compare(work):
@@ -192,8 +197,9 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
         target_dir=out_dir,
         render=RenderStage(template=template, data=json_file),
     )
-    work = UnitOfWork(
-        config=config, input=json_file, output=json_file, initial_input=json_file
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Render, input_path=json_file, output_path=json_file
     )
     render_work = p.render(work)
     result = p._verify_roundtrip(render_work, json_file)
@@ -221,8 +227,9 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
         target_dir=out_dir,
         render=RenderStage(template=template, data=json_file),
     )
-    work = UnitOfWork(
-        config=config, input=json_file, output=json_file, initial_input=json_file
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Render, input_path=json_file, output_path=json_file
     )
     result = p.render(work)
     render_status = result.step_states[StepName.Render]
@@ -244,7 +251,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         return work
 
     def fake_process(work, extractor=None):
-        work.output.write_text('{"a": 2}', encoding="utf-8")
+        output_path = work.get_step_output(StepName.Extract)
+        output_path.write_text('{"a": 2}', encoding="utf-8")
         return work
 
     def fake_compare(work):
@@ -267,8 +275,9 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         target_dir=out_dir,
         render=RenderStage(template=template, data=json_file),
     )
-    work = UnitOfWork(
-        config=config, input=json_file, output=json_file, initial_input=json_file
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Render, input_path=json_file, output_path=json_file
     )
     render_work = p.render(work)
     result = p._verify_roundtrip(render_work, json_file)
@@ -281,11 +290,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
 
 def test_get_status_icons_extract_success_no_warnings():
     """Test icons for successful extraction without warnings."""
-    work = UnitOfWork(
-        config=UserConfig(target_dir=Path(".")),
-        input=Path("input.json"),
-        output=Path("output.json"),
-    )
+    work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
@@ -295,11 +300,7 @@ def test_get_status_icons_extract_success_no_warnings():
 
 def test_get_status_icons_extract_success_with_warnings():
     """Test icons for successful extraction with warnings."""
-    work = UnitOfWork(
-        config=UserConfig(target_dir=Path(".")),
-        input=Path("input.json"),
-        output=Path("output.json"),
-    )
+    work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(
         step=StepName.Extract,
         warnings=["warning"],
@@ -312,11 +313,7 @@ def test_get_status_icons_extract_success_with_warnings():
 
 def test_get_status_icons_extract_failed():
     """Test icons for failed extraction."""
-    work = UnitOfWork(
-        config=UserConfig(target_dir=Path(".")),
-        input=Path("input.json"),
-        output=Path("output.json"),
-    )
+    work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(
         step=StepName.Extract,
         errors=["error"],
@@ -329,11 +326,7 @@ def test_get_status_icons_extract_failed():
 
 def test_get_status_icons_apply_success():
     """Test icons for successful apply."""
-    work = UnitOfWork(
-        config=UserConfig(target_dir=Path(".")),
-        input=Path("input.json"),
-        output=Path("output.json"),
-    )
+    work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
     work.step_states[StepName.RoundtripComparer] = StepStatus(
@@ -347,11 +340,7 @@ def test_get_status_icons_apply_success():
 
 def test_get_status_icons_apply_failed():
     """Test icons for failed apply."""
-    work = UnitOfWork(
-        config=UserConfig(target_dir=Path(".")),
-        input=Path("input.json"),
-        output=Path("output.json"),
-    )
+    work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_states[StepName.Render] = StepStatus(
         step=StepName.Render,

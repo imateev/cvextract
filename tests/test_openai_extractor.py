@@ -13,7 +13,7 @@ from importlib.metadata import PackageNotFoundError
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, OpenAICVExtractor
 from cvextract.extractors.openai_extractor import _RetryConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 class TestOpenAICVExtractorInit:
@@ -76,10 +76,11 @@ class TestExtractFileValidation:
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
             extractor = OpenAICVExtractor()
             with pytest.raises(FileNotFoundError, match="Document not found"):
-                work = UnitOfWork(
-                    config=UserConfig(target_dir=tmp_path),
-                    input=Path("/nonexistent/file.pdf"),
-                    output=tmp_path / "output.json",
+                work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+                work.set_step_paths(
+                    StepName.Extract,
+                    input_path=Path("/nonexistent/file.pdf"),
+                    output_path=tmp_path / "output.json",
                 )
                 extractor.extract(work)
 
@@ -90,10 +91,11 @@ class TestExtractFileValidation:
             test_dir = tmp_path / "test_dir"
             test_dir.mkdir()
             with pytest.raises(ValueError, match="must be a file"):
-                work = UnitOfWork(
-                    config=UserConfig(target_dir=tmp_path),
-                    input=test_dir,
-                    output=tmp_path / "output.json",
+                work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+                work.set_step_paths(
+                    StepName.Extract,
+                    input_path=test_dir,
+                    output_path=tmp_path / "output.json",
                 )
                 extractor.extract(work)
 
@@ -109,14 +111,20 @@ class TestExtractFileValidation:
                 extractor._parse_and_validate = MagicMock(return_value={"identity": {}})
                 with patch("cvextract.extractors.openai_extractor.files") as mock_files:
                     mock_files.return_value.joinpath.return_value = test_file
-                    work = UnitOfWork(
-                        config=UserConfig(target_dir=tmp_path),
-                        input=test_file,
-                        output=tmp_path / "output.json",
+                    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+                    work.set_step_paths(
+                        StepName.Extract,
+                        input_path=test_file,
+                        output_path=tmp_path / "output.json",
                     )
                     result = extractor.extract(work)
                     assert result == work
-                    assert json.loads(work.output.read_text()) == {"identity": {}}
+                    assert (
+                        json.loads(
+                            work.get_step_output(StepName.Extract).read_text()
+                        )
+                        == {"identity": {}}
+                    )
 
     def test_resource_cache_created_and_used(self, tmp_path, monkeypatch):
         """Test that resource cache is created and reused."""
@@ -262,14 +270,17 @@ class TestExtractFileValidation:
                     }
                 ),
             ):
-                work = UnitOfWork(
-                    config=UserConfig(target_dir=tmp_path),
-                    input=test_file,
-                    output=tmp_path / "output.json",
+                work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+                work.set_step_paths(
+                    StepName.Extract,
+                    input_path=test_file,
+                    output_path=tmp_path / "output.json",
                 )
                 result = extractor.extract(work)
                 assert result == work
-                data = json.loads(work.output.read_text())
+                data = json.loads(
+                    work.get_step_output(StepName.Extract).read_text()
+                )
                 assert data["identity"]["full_name"] == "User"
 
 

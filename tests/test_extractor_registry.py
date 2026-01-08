@@ -12,7 +12,7 @@ from cvextract.extractors import (
     register_extractor,
 )
 from cvextract.extractors.extractor_registry import unregister_extractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 class TestExtractorRegistry:
@@ -106,13 +106,16 @@ class TestExtractorRegistry:
             assert isinstance(extractor, CustomExtractor)
 
             # Should work
-            work = UnitOfWork(
-                config=UserConfig(target_dir=tmp_path),
-                input=Path("/any/path"),
-                output=tmp_path / "output.json",
+            work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+            work.set_step_paths(
+                StepName.Extract,
+                input_path=Path("/any/path"),
+                output_path=tmp_path / "output.json",
             )
             extractor.extract(work)
-            result = json.loads(work.output.read_text(encoding="utf-8"))
+            result = json.loads(
+                work.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+            )
             assert result["identity"]["title"] == "Custom"
         finally:
             # Clean up the custom extractor

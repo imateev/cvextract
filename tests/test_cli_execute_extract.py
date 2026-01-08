@@ -11,7 +11,8 @@ from cvextract.shared import StepName, UnitOfWork
 
 def _write_output(work: UnitOfWork, payload: dict) -> UnitOfWork:
     work.ensure_step_status(StepName.Extract)
-    work.output.write_text(json.dumps(payload), encoding="utf-8")
+    output_path = work.get_step_output(StepName.Extract)
+    output_path.write_text(json.dumps(payload), encoding="utf-8")
     return work
 
 
@@ -21,7 +22,8 @@ def test_execute_verifies_extracted_output(tmp_path: Path):
     source.touch()
 
     config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
-    work = UnitOfWork(config=config, input=source, output=None)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(StepName.Extract, input_path=source)
 
     verifier = MagicMock()
     verifier.verify.side_effect = (
@@ -55,7 +57,8 @@ def test_execute_skips_verification_when_global_skip_all_verify(tmp_path: Path):
         extract=ExtractStage(source=source),
         skip_all_verify=True,
     )
-    work = UnitOfWork(config=config, input=source, output=None)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(StepName.Extract, input_path=source)
 
     def fail_if_called(_name):
         raise AssertionError("verifier should not be called")
@@ -83,7 +86,8 @@ def test_execute_unknown_verifier_adds_error(tmp_path: Path):
         target_dir=tmp_path,
         extract=ExtractStage(source=source, verifier="unknown-verifier"),
     )
-    work = UnitOfWork(config=config, input=source, output=None)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(StepName.Extract, input_path=source)
 
     with patch(
         "cvextract.cli_execute_extract.extract_single",
@@ -104,7 +108,8 @@ def test_execute_returns_work_when_extract_missing(tmp_path: Path):
     source.touch()
 
     config = UserConfig(target_dir=tmp_path)
-    work = UnitOfWork(config=config, input=source, output=None)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(StepName.Extract, input_path=source)
 
     result = execute(work)
 
@@ -117,7 +122,8 @@ def test_execute_reports_missing_output_for_verification(tmp_path: Path):
     source.touch()
 
     config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
-    work = UnitOfWork(config=config, input=source, output=None)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(StepName.Extract, input_path=source)
 
     with patch(
         "cvextract.cli_execute_extract.extract_single",
@@ -135,7 +141,8 @@ def test_execute_handles_verifier_exception(tmp_path: Path):
     source.touch()
 
     config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
-    work = UnitOfWork(config=config, input=source, output=None)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(StepName.Extract, input_path=source)
 
     verifier = MagicMock()
     verifier.verify.side_effect = ValueError("boom")

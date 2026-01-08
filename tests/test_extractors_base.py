@@ -13,14 +13,18 @@ import pytest
 
 from cvextract.cli_config import UserConfig
 from cvextract.extractors.base import CVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 def _make_work(tmp_path: Path, input_name: str = "input.docx") -> UnitOfWork:
     input_path = tmp_path / input_name
     output_path = tmp_path / f"{input_path.name}.json"
     config = UserConfig(target_dir=tmp_path)
-    return UnitOfWork(config=config, input=input_path, output=output_path)
+    work = UnitOfWork(config=config, initial_input=input_path)
+    work.set_step_paths(
+        StepName.Extract, input_path=input_path, output_path=output_path
+    )
+    return work
 
 
 class TestCVExtractorAbstract:
@@ -56,14 +60,15 @@ class TestCVExtractorAbstract:
         extractor = ConcreteExtractor()
         result = extractor.extract(work)
         assert isinstance(result, UnitOfWork)
-        assert json.loads(work.output.read_text(encoding="utf-8"))["identity"] == {}
+        output_path = work.get_step_output(StepName.Extract)
+        assert json.loads(output_path.read_text(encoding="utf-8"))["identity"] == {}
 
     def test_extract_method_signature_accepts_work(self, tmp_path):
         """Test that extract() accepts a UnitOfWork argument."""
 
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                assert isinstance(work.input, Path)
+                assert isinstance(work.get_step_input(StepName.Extract), Path)
                 return self._write_output_json(work, {})
 
         extractor = TestExtractor()
@@ -89,8 +94,9 @@ class TestCVExtractorAbstract:
 
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                if not work.input.exists():
-                    raise FileNotFoundError(f"File not found: {work.input}")
+                source = work.get_step_input(StepName.Extract)
+                if not source or not source.exists():
+                    raise FileNotFoundError(f"File not found: {source}")
                 return self._write_output_json(work, {})
 
         extractor = TestExtractor()
@@ -149,7 +155,8 @@ class TestCVExtractorAbstract:
         extractor = FullExtractor()
         work = _make_work(tmp_path)
         extractor.extract(work)
-        data = json.loads(work.output.read_text(encoding="utf-8"))
+        output_path = work.get_step_output(StepName.Extract)
+        data = json.loads(output_path.read_text(encoding="utf-8"))
 
         assert data["identity"]["full_name"] == "Jane Smith"
         assert len(data["sidebar"]["languages"]) == 2
@@ -177,10 +184,16 @@ class TestCVExtractorAbstract:
         pdf.extract(pdf_work)
 
         assert (
-            json.loads(docx_work.output.read_text(encoding="utf-8"))["format"] == "docx"
+            json.loads(
+                docx_work.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+            )["format"]
+            == "docx"
         )
         assert (
-            json.loads(pdf_work.output.read_text(encoding="utf-8"))["format"] == "pdf"
+            json.loads(
+                pdf_work.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+            )["format"]
+            == "pdf"
         )
 
     def test_extract_method_can_process_source_path(self, tmp_path):
@@ -191,16 +204,17 @@ class TestCVExtractorAbstract:
                 return self._write_output_json(
                     work,
                     {
-                        "source_file": work.input.name,
-                        "source_stem": work.input.stem,
-                        "source_suffix": work.input.suffix,
+                        "source_file": work.get_step_input(StepName.Extract).name,
+                        "source_stem": work.get_step_input(StepName.Extract).stem,
+                        "source_suffix": work.get_step_input(StepName.Extract).suffix,
                     },
                 )
 
         extractor = PathAwareExtractor()
         work = _make_work(tmp_path, input_name="my_cv.docx")
         extractor.extract(work)
-        data = json.loads(work.output.read_text(encoding="utf-8"))
+        output_path = work.get_step_output(StepName.Extract)
+        data = json.loads(output_path.read_text(encoding="utf-8"))
 
         assert data["source_file"] == "my_cv.docx"
         assert data["source_stem"] == "my_cv"
@@ -216,7 +230,8 @@ class TestCVExtractorAbstract:
         extractor = EmptyExtractor()
         work = _make_work(tmp_path)
         extractor.extract(work)
-        assert json.loads(work.output.read_text(encoding="utf-8")) == {}
+        output_path = work.get_step_output(StepName.Extract)
+        assert json.loads(output_path.read_text(encoding="utf-8")) == {}
 
     def test_extract_method_override_works(self, tmp_path):
         """Test that extract() method can be properly overridden."""

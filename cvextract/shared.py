@@ -27,19 +27,19 @@ class UnitOfWork:
     Container for extraction inputs and outputs.
 
     initial_input preserves the original input path before adjustments.
-    input/output represent the current step's paths.
+    step_states track per-step input/output paths.
     """
 
     config: "UserConfig"
-    input: Path
-    output: Path
     initial_input: Optional[Path] = None
     step_states: Dict["StepName", "StepStatus"] = field(default_factory=dict)
     current_step: Optional["StepName"] = None
 
     def __post_init__(self) -> None:
         if self.initial_input is None:
-            self.initial_input = self.input
+            extract_status = self.step_states.get(StepName.Extract)
+            if extract_status and extract_status.input is not None:
+                self.initial_input = extract_status.input
 
     def _get_step_status(self, step: "StepName") -> "StepStatus":
         status = self.step_states.get(step)
@@ -50,6 +50,30 @@ class UnitOfWork:
 
     def ensure_step_status(self, step: "StepName") -> "StepStatus":
         return self._get_step_status(step)
+
+    def set_step_paths(
+        self,
+        step: "StepName",
+        *,
+        input_path: Optional[Path] = None,
+        output_path: Optional[Path] = None,
+    ) -> "StepStatus":
+        status = self._get_step_status(step)
+        if input_path is not None:
+            status.input = input_path
+            if step == StepName.Extract and self.initial_input is None:
+                self.initial_input = input_path
+        if output_path is not None:
+            status.output = output_path
+        return status
+
+    def get_step_input(self, step: "StepName") -> Optional[Path]:
+        status = self.step_states.get(step)
+        return status.input if status else None
+
+    def get_step_output(self, step: "StepName") -> Optional[Path]:
+        status = self.step_states.get(step)
+        return status.output if status else None
 
     def add_warning(self, step: "StepName", message: str) -> None:
         status = self._get_step_status(step)
@@ -113,6 +137,8 @@ class StepName(str, Enum):
 @dataclass
 class StepStatus:
     step: StepName
+    input: Optional[Path] = None
+    output: Optional[Path] = None
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     ConfiguredExecutorAvailable: bool = True
@@ -161,12 +187,13 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
     issue_step = step
     if issue_step is None:
         issue_step = select_issue_step(work)
-    input_path = work.initial_input or work.input
+    input_path = work.initial_input or work.get_step_input(StepName.Extract)
+    input_name = input_path.name if input_path else "<unknown>"
     return (
         f"{icons[StepName.Extract]}"
         f"·{icons[StepName.Render]}·"
         f"{icons[StepName.RoundtripComparer]} "
-        f"{input_path.name} | "
+        f"{input_name} | "
         f"{fmt_issues(work, issue_step)}"
     )
 

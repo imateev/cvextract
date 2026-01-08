@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from dataclasses import replace
 from typing import Any, Dict
 
-from ..shared import UnitOfWork
+from ..shared import StepName, UnitOfWork
 
 
 class CVAdjuster(ABC):
@@ -48,7 +47,8 @@ class CVAdjuster(ABC):
         Adjust CV data based on the adjuster's specific logic.
 
         Args:
-            work: UnitOfWork with input/output paths and config. Adjusters should load JSON from work.input
+            work: UnitOfWork with Adjust step input/output paths and config.
+                Adjusters should load JSON from the Adjust step input.
             **kwargs: Adjuster-specific parameters (e.g., customer_url, job_url, etc.)
 
         Returns:
@@ -60,14 +60,20 @@ class CVAdjuster(ABC):
         ...
 
     def _load_input_json(self, work: UnitOfWork) -> Dict[str, Any]:
-        with work.input.open("r", encoding="utf-8") as f:
+        status = work.ensure_step_status(StepName.Adjust)
+        if status.input is None:
+            raise ValueError("Adjust input path is not set")
+        with status.input.open("r", encoding="utf-8") as f:
             return json.load(f)
 
     def _write_output_json(self, work: UnitOfWork, data: Dict[str, Any]) -> UnitOfWork:
-        work.output.parent.mkdir(parents=True, exist_ok=True)
-        with work.output.open("w", encoding="utf-8") as f:
+        status = work.ensure_step_status(StepName.Adjust)
+        if status.output is None:
+            raise ValueError("Adjust output path is not set")
+        status.output.parent.mkdir(parents=True, exist_ok=True)
+        with status.output.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        return replace(work, output=work.output)
+        return work
 
     def validate_params(self, **kwargs) -> None:
         """

@@ -34,7 +34,7 @@ except ModuleNotFoundError:
     # Python < 3.9 backport
     from importlib_resources import files, as_file  # type: ignore
 
-from ..shared import UnitOfWork, format_prompt, load_prompt
+from ..shared import StepName, UnitOfWork, format_prompt, load_prompt
 from .base import CVExtractor
 
 T = TypeVar("T")
@@ -111,7 +111,7 @@ class OpenAICVExtractor(CVExtractor):
         Extract structured CV data from a document file.
 
         Args:
-            work: UnitOfWork containing input/output paths.
+            work: UnitOfWork containing Extract step input/output paths.
 
         Returns:
             UnitOfWork with output JSON populated.
@@ -120,7 +120,9 @@ class OpenAICVExtractor(CVExtractor):
             FileNotFoundError: If the file does not exist
             ValueError: If extraction or validation fails
         """
-        file_path = work.input
+        file_path = work.get_step_input(StepName.Extract)
+        if file_path is None:
+            raise ValueError("Extraction input path is not set")
 
         if not file_path.exists():
             raise FileNotFoundError(f"Document not found: {file_path}")

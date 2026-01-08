@@ -23,11 +23,8 @@ class TestCVVerifierAbstract:
     def _make_work(tmp_path, data: Dict[str, Any]) -> UnitOfWork:
         path = tmp_path / "data.json"
         path.write_text(json.dumps(data), encoding="utf-8")
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=path,
-            output=path,
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=path, output_path=path)
         work.current_step = StepName.Extract
         work.ensure_step_status(StepName.Extract)
         return work
@@ -126,7 +123,9 @@ class TestCVVerifierAbstract:
 
         class DataInspectingVerifier(CVVerifier):
             def verify(self, work: UnitOfWork) -> UnitOfWork:
-                with work.output.open("r", encoding="utf-8") as f:
+                with work.get_step_output(StepName.Extract).open(
+                    "r", encoding="utf-8"
+                ) as f:
                     data = json.load(f)
                 errors = []
                 if "identity" not in data:
@@ -151,7 +150,9 @@ class TestCVVerifierAbstract:
 
         class SchemaVerifier(CVVerifier):
             def verify(self, work: UnitOfWork) -> UnitOfWork:
-                with work.output.open("r", encoding="utf-8") as f:
+                with work.get_step_output(StepName.Extract).open(
+                    "r", encoding="utf-8"
+                ) as f:
                     data = json.load(f)
                 errors = []
 
@@ -192,7 +193,9 @@ class TestCVVerifierAbstract:
 
         class WarningVerifier(CVVerifier):
             def verify(self, work: UnitOfWork) -> UnitOfWork:
-                with work.output.open("r", encoding="utf-8") as f:
+                with work.get_step_output(StepName.Extract).open(
+                    "r", encoding="utf-8"
+                ) as f:
                     data = json.load(f)
 
                 warnings = []
@@ -267,7 +270,9 @@ class TestCVVerifierAbstract:
 
         class TestVerifier(CVVerifier):
             def verify(self, work: UnitOfWork) -> UnitOfWork:
-                with work.output.open("r", encoding="utf-8") as f:
+                with work.get_step_output(StepName.Extract).open(
+                    "r", encoding="utf-8"
+                ) as f:
                     data = json.load(f)
                 if not data:
                     return self._record(work, ["Data is empty"], [])
@@ -284,7 +289,9 @@ class TestCVVerifierAbstract:
 
         class MultiErrorVerifier(CVVerifier):
             def verify(self, work: UnitOfWork) -> UnitOfWork:
-                with work.output.open("r", encoding="utf-8") as f:
+                with work.get_step_output(StepName.Extract).open(
+                    "r", encoding="utf-8"
+                ) as f:
                     data = json.load(f)
                 errors = []
 
@@ -348,7 +355,9 @@ class TestCVVerifierAbstract:
 
         class FieldVerifier(CVVerifier):
             def verify(self, work: UnitOfWork) -> UnitOfWork:
-                with work.output.open("r", encoding="utf-8") as f:
+                with work.get_step_output(StepName.Extract).open(
+                    "r", encoding="utf-8"
+                ) as f:
                     data = json.load(f)
                 errors = []
 

@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
-from ..shared import UnitOfWork
+from ..shared import StepName, UnitOfWork
 
 
 class CVExtractor(ABC):
@@ -28,8 +28,9 @@ class CVExtractor(ABC):
         Extract structured CV data from the given work unit.
 
         Args:
-            work: UnitOfWork with input/output paths and config. Implementations
-                should read from work.input and write JSON to work.output.
+            work: UnitOfWork with Extract step input/output paths and config.
+                Implementations should read from the Extract step input and
+                write JSON to the Extract step output.
 
         Returns:
             UnitOfWork with output JSON populated.
@@ -42,9 +43,10 @@ class CVExtractor(ABC):
         ...
 
     def _write_output_json(self, work: UnitOfWork, data: Dict[str, Any]) -> UnitOfWork:
-        if work.output is None:
+        status = work.ensure_step_status(StepName.Extract)
+        if status.output is None:
             raise ValueError("Extraction output path is not set")
-        work.output.parent.mkdir(parents=True, exist_ok=True)
-        with work.output.open("w", encoding="utf-8") as f:
+        status.output.parent.mkdir(parents=True, exist_ok=True)
+        with status.output.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return work

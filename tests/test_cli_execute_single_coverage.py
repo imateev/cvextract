@@ -24,16 +24,16 @@ def test_execute_single_skips_render_when_adjust_fails(tmp_path):
         render=RenderStage(template=template),
     )
 
-    extracted = UnitOfWork(
-        config=config, initial_input=source, input=source, output=tmp_path / "out.json"
+    extracted = UnitOfWork(config=config, initial_input=source)
+    extracted.set_step_paths(
+        StepName.Extract, input_path=source, output_path=tmp_path / "out.json"
     )
     extracted.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
 
-    adjusted = UnitOfWork(
-        config=config,
-        initial_input=source,
-        input=extracted.output,
-        output=extracted.output,
+    adjusted = UnitOfWork(config=config, initial_input=source)
+    adjusted_output = extracted.get_step_output(StepName.Extract)
+    adjusted.set_step_paths(
+        StepName.Adjust, input_path=adjusted_output, output_path=adjusted_output
     )
     adjusted.step_states[StepName.Adjust] = StepStatus(
         step=StepName.Adjust, errors=["adjust failed"]

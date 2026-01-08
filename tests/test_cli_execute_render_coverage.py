@@ -12,7 +12,7 @@ from docx import Document
 
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.cli_execute_render import execute
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 class TestCliExecuteRenderCoverage:
@@ -21,10 +21,11 @@ class TestCliExecuteRenderCoverage:
     def test_execute_returns_work_when_render_missing(self, tmp_path):
         """Test execute returns work unchanged when config.render is None."""
         config = UserConfig(target_dir=tmp_path)
-        work = UnitOfWork(
-            config=config,
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
+        work = UnitOfWork(config=config)
+        work.set_step_paths(
+            StepName.Render,
+            input_path=tmp_path / "input.json",
+            output_path=tmp_path / "output.json",
         )
 
         result = execute(work)
@@ -49,8 +50,11 @@ class TestCliExecuteRenderCoverage:
         )
         work = UnitOfWork(
             config=config,
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
+        )
+        work.set_step_paths(
+            StepName.Render,
+            input_path=tmp_path / "input.json",
+            output_path=tmp_path / "output.json",
         )
 
         result = execute(work)
@@ -68,14 +72,17 @@ class TestCliExecuteRenderCoverage:
         nonexistent_output = tmp_path / "nonexistent.json"
 
         config = UserConfig(target_dir=tmp_path, render=RenderStage(template=template))
-        work = UnitOfWork(
-            config=config, input=tmp_path / "input.json", output=nonexistent_output
+        work = UnitOfWork(config=config)
+        work.set_step_paths(
+            StepName.Render,
+            input_path=tmp_path / "input.json",
+            output_path=nonexistent_output,
         )
 
         result = execute(work)
 
         # Should return work without raising error (ensure_path_exists handles it)
-        assert result.output == nonexistent_output
+        assert result.get_step_output(StepName.Render) == nonexistent_output
 
     def test_execute_returns_work_when_template_missing(self, tmp_path):
         """Test execute returns work when template doesn't exist."""
@@ -99,8 +106,11 @@ class TestCliExecuteRenderCoverage:
         config = UserConfig(
             target_dir=tmp_path, render=RenderStage(template=nonexistent_template)
         )
-        work = UnitOfWork(
-            config=config, input=tmp_path / "input.json", output=output_json
+        work = UnitOfWork(config=config)
+        work.set_step_paths(
+            StepName.Render,
+            input_path=tmp_path / "input.json",
+            output_path=output_json,
         )
 
         result = execute(work)

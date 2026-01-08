@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any, List
 
-from ..shared import UnitOfWork
+from ..shared import StepName, UnitOfWork
 from .base import CVVerifier
 
 
@@ -30,7 +30,8 @@ class RoundtripVerifier(CVVerifier):
         Returns:
             Updated UnitOfWork with errors for differences
         """
-        data, data_errs = self._load_json(work.input, "roundtrip source JSON")
+        step = work.ensure_step_status(StepName.Extract)
+        data, data_errs = self._load_json(step.output, "roundtrip source JSON")
         target_data, target_errs = self._load_json(
             work.output, "roundtrip target JSON"
         )

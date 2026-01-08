@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from cvextract.renderers import CVRenderer, DocxCVRenderer
+from cvextract.shared import StepName
 
 
 @pytest.fixture
@@ -114,16 +115,18 @@ class TestRendererPluggability:
                 self.last_render = None
 
             def render(self, work):
-                with work.input.open("r", encoding="utf-8") as f:
+                input_path = work.get_step_input(StepName.Render)
+                with input_path.open("r", encoding="utf-8") as f:
                     cv_data = json.load(f)
                 self.last_render = {
                     "cv_data": cv_data,
                     "template": work.config.render.template,
-                    "output": work.output,
+                    "output": work.get_step_output(StepName.Render),
                 }
                 # Create a mock output file
-                work.output.parent.mkdir(parents=True, exist_ok=True)
-                work.output.write_text("Mock rendered content")
+                output_path = work.get_step_output(StepName.Render)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("Mock rendered content")
                 return work
 
         renderer = MockCVRenderer()
@@ -143,8 +146,9 @@ class TestRendererPluggability:
         )
         result = renderer.render(work)
         assert renderer.last_render["cv_data"] == cv_data
-        assert result.output.exists()
-        assert result.output.read_text() == "Mock rendered content"
+        output_path = result.get_step_output(StepName.Render)
+        assert output_path.exists()
+        assert output_path.read_text() == "Mock rendered content"
 
 
 class TestRendererWithExternalParameters:
@@ -155,12 +159,14 @@ class TestRendererWithExternalParameters:
 
         class MockCVRenderer(CVRenderer):
             def render(self, work):
-                with work.input.open("r", encoding="utf-8") as f:
+                input_path = work.get_step_input(StepName.Render)
+                with input_path.open("r", encoding="utf-8") as f:
                     cv_data = json.load(f)
                 assert "identity" in cv_data
                 assert "sidebar" in cv_data
-                work.output.parent.mkdir(parents=True, exist_ok=True)
-                work.output.write_text(json.dumps(cv_data))
+                output_path = work.get_step_output(StepName.Render)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(json.dumps(cv_data))
                 return work
 
         # Simulate external data source
@@ -189,7 +195,9 @@ class TestRendererWithExternalParameters:
         result = renderer.render(work)
 
         # Verify output contains the external data
-        rendered_data = json.loads(result.output.read_text())
+        rendered_data = json.loads(
+            result.get_step_output(StepName.Render).read_text()
+        )
         assert rendered_data["identity"]["full_name"] == "Jane Doe"
         assert "Python" in rendered_data["sidebar"]["languages"]
 
@@ -200,8 +208,9 @@ class TestRendererWithExternalParameters:
             def render(self, work):
                 template_path = work.config.render.template
                 assert template_path.name == "custom_template.docx"
-                work.output.parent.mkdir(parents=True, exist_ok=True)
-                work.output.write_text(f"Used template: {template_path}")
+                output_path = work.get_step_output(StepName.Render)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(f"Used template: {template_path}")
                 return work
 
         cv_data = {
@@ -223,7 +232,9 @@ class TestRendererWithExternalParameters:
         work = make_render_work(cv_data, custom_template, tmp_path / "output.docx")
         result = renderer.render(work)
 
-        assert "custom_template.docx" in result.output.read_text()
+        assert "custom_template.docx" in result.get_step_output(
+            StepName.Render
+        ).read_text()
 
 
 class TestDocxCVRendererFullRendering:
@@ -289,8 +300,8 @@ class TestDocxCVRendererFullRendering:
         result = renderer.render(work)
 
         # Verify output
-        assert result.output == output_path
-        assert result.output.parent.exists()
+        assert result.get_step_output(StepName.Render) == output_path
+        assert result.get_step_output(StepName.Render).parent.exists()
         assert mock_tpl.rendered_data is not None
         assert mock_tpl.rendered_autoescape is True
         assert mock_tpl.saved_path == str(output_path)
@@ -404,8 +415,8 @@ class TestDocxCVRendererFullRendering:
         work = make_render_work(cv_data, template_path, output_path)
         result = renderer.render(work)
 
-        assert result.output == output_path
-        assert result.output.parent.exists()
+        assert result.get_step_output(StepName.Render) == output_path
+        assert result.get_step_output(StepName.Render).parent.exists()
 
 
 class TestDocxCVRendererIntegration:
@@ -450,14 +461,14 @@ class TestDocxCVRendererIntegration:
         result = renderer.render(work)
 
         # Verify output file was created
-        assert result.output == output_path
-        assert result.output.exists()
-        assert result.output.stat().st_size > 0
+        assert result.get_step_output(StepName.Render) == output_path
+        assert result.get_step_output(StepName.Render).exists()
+        assert result.get_step_output(StepName.Render).stat().st_size > 0
 
         # Verify it's a valid DOCX file by trying to open it
         from docx import Document
 
-        doc = Document(str(result.output))
+        doc = Document(str(result.get_step_output(StepName.Render)))
         text = "\n".join([p.text for p in doc.paragraphs])
 
         # Verify the data was rendered into the template

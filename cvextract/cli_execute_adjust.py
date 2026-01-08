@@ -17,19 +17,28 @@ from .verifiers import get_verifier
 
 def execute(work: UnitOfWork) -> UnitOfWork:
     config = work.config
-    if not config.adjust or not work.output:
+    if not config.adjust:
         return work
 
     base_work = work
+    input_path = work.get_step_input(StepName.Adjust) or work.get_step_output(
+        StepName.Extract
+    )
+    if input_path is None:
+        return work
     if not work.ensure_path_exists(
         StepName.Adjust,
-        work.output,
+        input_path,
         "adjust input JSON",
         must_be_file=True,
     ):
         return base_work
     try:
-        base_input = work.initial_input or work.input
+        base_input = (
+            work.initial_input
+            or work.get_step_input(StepName.Extract)
+            or input_path
+        )
         if config.input_dir:
             source_base = config.input_dir.resolve()
         else:
@@ -55,11 +64,9 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         output_path = config.adjust.output or (
             config.workspace.adjusted_json_dir / rel_path / f"{base_input.stem}.json"
         )
-        adjust_work = UnitOfWork(
-            config=config,
-            initial_input=work.initial_input,
-            input=work.output,
-            output=output_path,
+        adjust_work = replace(work)
+        adjust_work.set_step_paths(
+            StepName.Adjust, input_path=input_path, output_path=output_path
         )
 
         for idx, adjuster_config in enumerate(config.adjust.adjusters):
@@ -96,7 +103,9 @@ def execute(work: UnitOfWork) -> UnitOfWork:
                 raise
 
             adjust_work = adjuster.adjust(adjust_work, **adjuster_params)
-            adjust_work = replace(adjust_work, input=adjust_work.output)
+            output_path = adjust_work.get_step_output(StepName.Adjust)
+            if output_path is not None:
+                adjust_work.set_step_paths(StepName.Adjust, input_path=output_path)
 
         skip_verify = bool(
             config.skip_all_verify
@@ -105,7 +114,8 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         if skip_verify:
             return adjust_work
 
-        if not adjust_work.output or not adjust_work.output.exists():
+        output_path = adjust_work.get_step_output(StepName.Adjust)
+        if not output_path or not output_path.exists():
             adjust_work.add_error(
                 StepName.Adjust, "adjust: output JSON not found for verification"
             )
