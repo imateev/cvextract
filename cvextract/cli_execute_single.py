@@ -50,9 +50,9 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
             LOG.error("Use --list extractors to see available extractors")
             return 1, work
 
-        # If extraction failed and we need to render, exit early
-        if (not work.has_no_errors(StepName.Extract)) and config.render:
-            return 1, work
+        if not work.has_no_errors(StepName.Extract):
+            if config.adjust or config.render:
+                config = replace(config, adjust=None, render=None)
     else:
         # No extraction, use input JSON directly
         work = replace(work, input=work.input, output=work.input)
@@ -60,6 +60,10 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     # Step 2: Adjust (if configured)
     if config.adjust and work.output:
         work = execute_adjust(work)
+
+        if not work.has_no_errors(StepName.Adjust):
+            if config.render:
+                config = replace(config, render=None)
 
     # Step 3: Render (if configured and not dry-run)
     if config.render:

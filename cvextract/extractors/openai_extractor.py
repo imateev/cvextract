@@ -35,7 +35,6 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from ..shared import UnitOfWork, format_prompt, load_prompt
-from ..verifiers import get_verifier
 from .base import CVExtractor
 
 T = TypeVar("T")
@@ -131,7 +130,10 @@ class OpenAICVExtractor(CVExtractor):
 
         cv_schema = self._load_cv_schema()
         response_text = self._extract_with_openai(file_path, cv_schema)
-        data = self._parse_and_validate(response_text, cv_schema)
+        data = self._parse_and_validate(
+            response_text,
+            cv_schema,
+        )
         return self._write_output_json(work, data)
 
     def _load_cv_schema(self) -> dict[str, Any]:
@@ -580,7 +582,9 @@ class OpenAICVExtractor(CVExtractor):
     # --------------------------
 
     def _parse_and_validate(
-        self, response_text: str, cv_schema: dict[str, Any]
+        self,
+        response_text: str,
+        cv_schema: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Parse the response and validate against the schema.
@@ -605,13 +609,7 @@ class OpenAICVExtractor(CVExtractor):
                 f"Failed to parse response as JSON: {e}\nResponse was: {text[:500]}"
             ) from e
 
-        # Validate using the verifier
-        verifier = get_verifier("cv-schema-verifier")
-        if not verifier:
-            raise RuntimeError("CV schema verifier not available")
-
-        result = verifier.verify(data)
-        if not result.ok:
-            raise ValueError(f"Response does not match schema: {result.errors}")
+        if not isinstance(data, dict):
+            raise ValueError("Response must be a JSON object")
 
         return data

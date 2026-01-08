@@ -22,10 +22,15 @@ The `ExtractedDataVerifier` class checks:
 ### Programmatic API
 
 ```python
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 verifier = get_verifier("private-internal-verifier")
-result = verifier.verify(cv_data)
+result = verifier.verify(work)
 
 if result.ok:
     print("Data is valid!")
@@ -40,7 +45,7 @@ Used automatically in `cvextract.pipeline` after extraction:
 
 ```python
 from pathlib import Path
-from cvextract.pipeline_helpers import extract_single
+from cvextract.cli_execute_extract import execute as execute_extract
 from cvextract.shared import UnitOfWork
 from cvextract.cli_config import UserConfig, ExtractStage
 
@@ -48,9 +53,9 @@ from cvextract.cli_config import UserConfig, ExtractStage
 work = UnitOfWork(
     config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=source_path)),
     input=source_path,
-    output=json_output,
+    output=None,
 )
-result = extract_single(work)
+result = execute_extract(work)
 ```
 
 ## Configuration
@@ -61,11 +66,11 @@ No configuration required - validates against hardcoded completeness rules.
 
 ### Input
 
-- **data**: CV dictionary conforming to `cvextract/contracts/cv_schema.json`
+- **UnitOfWork**: input/output paths with JSON output to validate
 
 ### Output
 
-- **VerificationResult**: Object with `ok` (bool), `errors` (list), `warnings` (list)
+- **UnitOfWork**: Step status updated with `errors` and `warnings`
 
 ### Validation Rules
 
@@ -86,11 +91,11 @@ No configuration required - validates against hardcoded completeness rules.
 ### Internal Dependencies
 
 - `cvextract.verifiers.base.CVVerifier` - Base class
-- `cvextract.shared.VerificationResult` - Result type
+- `cvextract.shared.UnitOfWork` - Result container
 
 ### Integration Points
 
-- Used in `cvextract.pipeline_helpers.extract_single()`
+- Used in `cvextract.cli_execute_extract.execute()`
 - Results logged in pipeline
 
 ## Test Coverage
@@ -104,12 +109,12 @@ Tested in:
 The data verifier was part of the initial implementation to ensure extraction quality.
 
 **Key Files**:
-- `cvextract/verifiers/data_verifier.py` - Implementation
+- `cvextract/verifiers/default_expected_cv_data_verifier.py` - Implementation
 - `cvextract/verifiers/base.py` - Base class
 
 ## File Paths
 
-- Implementation: `cvextract/verifiers/data_verifier.py`
+- Implementation: `cvextract/verifiers/default_expected_cv_data_verifier.py`
 - Base Class: `cvextract/verifiers/base.py`
 - Tests: `tests/test_verifiers.py`
 - Documentation: `cvextract/verifiers/README.md`
@@ -118,5 +123,5 @@ The data verifier was part of the initial implementation to ensure extraction qu
 
 - [Verification Architecture](../README.md)
 - [Schema Verifier](../schema-verifier/README.md)
-- [Comparison Verifiers](../comparison-verifiers/README.md)
+- [Roundtrip Verifier](../comparison-verifiers/README.md)
 - Module README: `cvextract/verifiers/README.md`

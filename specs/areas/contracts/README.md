@@ -40,7 +40,8 @@ Company Research → Produces research data conforming to research_schema.json
 - **Extractors**: All extractors must produce data matching `cv_schema.json`
 - **Adjusters**: Input/output must conform to `cv_schema.json`
 - **Renderers**: Templates expect data matching `cv_schema.json`
-- **Verifiers**: `CVSchemaVerifier` and `CompanyProfileVerifier` validate against schemas
+- **Verifiers**: `CVSchemaVerifier` validates CV data against `cv_schema.json`
+- **Company Research**: Research validation is handled by `_validate_research_data` in the company research adjuster
 - **Company Research**: Research cached using `research_schema.json`
 
 ## Dependencies
@@ -53,4 +54,4 @@ Company Research → Produces research data conforming to research_schema.json
 - CV Schema: `cvextract/contracts/cv_schema.json`
 - Research Schema: `cvextract/contracts/research_schema.json`
 - Documentation: `cvextract/contracts/README.md`
-- Verifier: `cvextract/verifiers/schema_verifier.py`
+- Verifier: `cvextract/verifiers/default_cv_schema_verifier.py`

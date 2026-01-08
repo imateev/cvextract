@@ -41,14 +41,23 @@ def mock_template(tmp_path: Path):
 def mock_json(tmp_path: Path):
     """Create a valid CV JSON file."""
     json_file = tmp_path / "test.json"
-    data = {
-        "identity": {"name": "John Doe"},
-        "sidebar": {},
-        "overview": "Test overview",
-        "experiences": [],
-    }
+    data = _valid_cv_payload()
     json_file.write_text(json.dumps(data, indent=2))
     return json_file
+
+
+def _valid_cv_payload() -> dict:
+    return {
+        "identity": {
+            "title": "Engineer",
+            "full_name": "Test User",
+            "first_name": "Test",
+            "last_name": "User",
+        },
+        "sidebar": {"languages": ["English"]},
+        "overview": "Test overview",
+        "experiences": [{"heading": "Role", "description": "Work"}],
+    }
 
 
 def _extract_result(
@@ -56,16 +65,7 @@ def _extract_result(
 ) -> UnitOfWork:
     if work.output:
         work.output.parent.mkdir(parents=True, exist_ok=True)
-        work.output.write_text(
-            json.dumps(
-                {
-                    "identity": {},
-                    "sidebar": {},
-                    "overview": "",
-                    "experiences": [],
-                }
-            )
-        )
+        work.output.write_text(json.dumps(_valid_cv_payload()))
     statuses = dict(work.step_statuses)
     statuses[StepName.Extract] = StepStatus(
         step=StepName.Extract, warnings=warns, errors=errs
@@ -225,10 +225,12 @@ class TestExecutePipelineExtractApply:
     """Tests for execute_pipeline with extract + apply stages."""
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_extract_apply_success(
         self,
         mock_render,
+        mock_verify,
         mock_extract,
         tmp_path: Path,
         mock_docx: Path,
@@ -237,6 +239,7 @@ class TestExecutePipelineExtractApply:
         """Test successful extract + apply."""
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -253,10 +256,12 @@ class TestExecutePipelineExtractApply:
         mock_render.assert_called_once()
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_extract_fails_apply_skipped(
         self,
         mock_render,
+        mock_verify,
         mock_extract,
         tmp_path: Path,
         mock_docx: Path,
@@ -279,12 +284,15 @@ class TestExecutePipelineExtractApply:
         assert exit_code == 1
         mock_extract.assert_called_once()
         mock_render.assert_not_called()
+        mock_verify.assert_not_called()
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_extract_apply_both_warnings_returns_zero(
         self,
         mock_render,
+        mock_verify,
         mock_extract,
         tmp_path: Path,
         mock_docx: Path,
@@ -295,6 +303,7 @@ class TestExecutePipelineExtractApply:
             work, True, [], ["extract warning"]
         )
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -311,12 +320,19 @@ class TestExecutePipelineExtractApply:
 class TestExecutePipelineApplyOnly:
     """Tests for execute_pipeline with apply stage only (from existing JSON)."""
 
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_apply_from_json_success(
-        self, mock_render, tmp_path: Path, mock_json: Path, mock_template: Path
+        self,
+        mock_render,
+        mock_verify,
+        tmp_path: Path,
+        mock_json: Path,
+        mock_template: Path,
     ):
         """Test applying from existing JSON file."""
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         config = UserConfig(
             extract=None,
@@ -330,12 +346,19 @@ class TestExecutePipelineApplyOnly:
         assert exit_code == 0
         mock_render.assert_called_once()
 
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_apply_custom_output(
-        self, mock_render, tmp_path: Path, mock_json: Path, mock_template: Path
+        self,
+        mock_render,
+        mock_verify,
+        tmp_path: Path,
+        mock_json: Path,
+        mock_template: Path,
     ):
         """Test applying with custom output path."""
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         custom_output = tmp_path / "custom_output.docx"
         config = UserConfig(
@@ -359,10 +382,12 @@ class TestExecutePipelineAdjust:
 
     @patch("cvextract.cli_execute_extract.extract_single")
     @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_extract_adjust_apply_success(
         self,
         mock_render,
+        mock_verify,
         mock_get_adjuster,
         mock_extract,
         tmp_path: Path,
@@ -376,7 +401,7 @@ class TestExecutePipelineAdjust:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -386,12 +411,13 @@ class TestExecutePipelineAdjust:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
 
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -436,7 +462,7 @@ class TestExecutePipelineAdjust:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -445,7 +471,7 @@ class TestExecutePipelineAdjust:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -475,10 +501,12 @@ class TestExecutePipelineAdjust:
         mock_adjuster.adjust.assert_called_once()
 
     @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_adjust_from_json(
         self,
         mock_render,
+        mock_verify,
         mock_get_adjuster,
         tmp_path: Path,
         mock_json: Path,
@@ -488,11 +516,12 @@ class TestExecutePipelineAdjust:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
@@ -522,12 +551,12 @@ class TestExecutePipelineAdjust:
         self, mock_get_adjuster, tmp_path: Path, parallel_input_tree
     ):
         """Research cache decision is delegated to the adjuster, not CLI."""
-        payload = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        payload = _valid_cv_payload()
         input_json = parallel_input_tree.json("folder/profile.json", payload)
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -562,10 +591,12 @@ class TestExecutePipelineAdjust:
 
     @patch("cvextract.cli_execute_extract.extract_single")
     @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_adjust_exception_fallback(
         self,
         mock_render,
+        mock_verify,
         mock_get_adjuster,
         mock_extract,
         tmp_path: Path,
@@ -579,7 +610,7 @@ class TestExecutePipelineAdjust:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -591,6 +622,7 @@ class TestExecutePipelineAdjust:
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -630,7 +662,7 @@ class TestExecutePipelineDebugMode:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -715,7 +747,7 @@ class TestFolderStructurePreservation:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -724,7 +756,7 @@ class TestFolderStructurePreservation:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -756,10 +788,12 @@ class TestFolderStructurePreservation:
         mock_adjuster.adjust.assert_called_once()
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render.render_and_verify")
+    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_render.render")
     def test_apply_preserves_folder_structure(
         self,
         mock_render,
+        mock_verify,
         mock_extract,
         tmp_path: Path,
         mock_template: Path,
@@ -773,13 +807,14 @@ class TestFolderStructurePreservation:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
         mock_render.side_effect = lambda work: work
+        mock_verify.side_effect = lambda work, _path: work
 
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),

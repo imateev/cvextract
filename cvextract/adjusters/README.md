@@ -148,5 +148,5 @@ When creating custom adjusters, follow these testing guidelines:
 2. **Validate Parameters**: Use `validate_params()` to check required parameters early
 3. **Log Appropriately**: Use the logging module to inform users of progress and errors
 4. **Preserve Schema**: Never add or remove fields from the CV data structure
-5. **Validate Output**: For ML-based adjusters, validate adjusted CV against CV schema using `get_verifier("cv-schema-verifier")` before returning
+5. **Defer Output Verification**: Return adjusted CV data and let the pipeline run verifiers after the step completes
 6. **Document Parameters**: Clearly document what parameters your adjuster expects

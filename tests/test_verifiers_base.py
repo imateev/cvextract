@@ -5,17 +5,36 @@ Tests that the abstract interface is properly defined and enforces
 correct implementation patterns for concrete verifiers.
 """
 
+import json
 from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
 
-from cvextract.shared import VerificationResult
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers.base import CVVerifier
 
 
 class TestCVVerifierAbstract:
     """Tests for CVVerifier abstract base class."""
+
+    @staticmethod
+    def _make_work(tmp_path, data: Dict[str, Any]) -> UnitOfWork:
+        path = tmp_path / "data.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=path,
+            output=path,
+        )
+        work.current_step = StepName.Extract
+        work.ensure_step_status(StepName.Extract)
+        return work
+
+    @staticmethod
+    def _status(work: UnitOfWork):
+        return work.step_statuses[StepName.Extract]
 
     def test_cannot_instantiate_abstract_class(self):
         """Test that CVVerifier cannot be instantiated directly."""
@@ -34,132 +53,114 @@ class TestCVVerifierAbstract:
         with pytest.raises(TypeError):
             IncompleteVerifier()
 
-    def test_verify_method_can_be_implemented(self):
+    def test_verify_method_can_be_implemented(self, tmp_path):
         """Test that verify() can be properly implemented in concrete class."""
 
         class ConcreteVerifier(CVVerifier):
             """Concrete implementation of CVVerifier."""
 
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], [])
 
         verifier = ConcreteVerifier()
-        result = verifier.verify({})
-        assert isinstance(result, VerificationResult)
-        assert result.ok is True
+        work = self._make_work(tmp_path, {})
+        result = verifier.verify(work)
+        assert isinstance(result, UnitOfWork)
+        assert self._status(result).errors == []
+        assert self._status(result).warnings == []
 
-    def test_verify_method_signature_accepts_data_and_kwargs(self):
-        """Test that verify() accepts data dict and kwargs."""
-
-        class TestVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                assert isinstance(data, dict)
-                return VerificationResult(ok=True, errors=[], warnings=[])
-
-        verifier = TestVerifier()
-        result = verifier.verify({"identity": {}}, strict=True, version="1.0")
-        assert result.ok is True
-
-    def test_verify_method_returns_verification_result(self):
-        """Test that verify() returns a VerificationResult object."""
+    def test_verify_method_signature_accepts_unit_of_work(self, tmp_path):
+        """Test that verify() accepts a UnitOfWork instance."""
 
         class TestVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                assert isinstance(work, UnitOfWork)
+                return self._record(work, [], [])
 
         verifier = TestVerifier()
-        result = verifier.verify({})
+        work = self._make_work(tmp_path, {"identity": {}})
+        result = verifier.verify(work)
+        assert self._status(result).errors == []
 
-        assert isinstance(result, VerificationResult)
-        assert hasattr(result, "ok")
-        assert hasattr(result, "errors")
-        assert hasattr(result, "warnings")
-
-    def test_verify_can_return_failed_result(self):
-        """Test that verify() can return a failed VerificationResult."""
+    def test_verify_can_return_errors(self, tmp_path):
+        """Test that verify() can record errors."""
 
         class FailingVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(
-                    ok=False, errors=["Missing identity"], warnings=[]
-                )
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, ["Missing identity"], [])
 
         verifier = FailingVerifier()
-        result = verifier.verify({})
+        work = self._make_work(tmp_path, {})
+        result = verifier.verify(work)
 
-        assert result.ok is False
-        assert len(result.errors) == 1
-        assert "Missing identity" in result.errors
+        assert "Missing identity" in self._status(result).errors
 
-    def test_verify_can_include_warnings(self):
-        """Test that verify() can return warnings."""
+    def test_verify_can_include_warnings(self, tmp_path):
+        """Test that verify() can record warnings."""
 
         class WarningVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(
-                    ok=True, errors=[], warnings=["No sidebar data"]
-                )
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], ["No sidebar data"])
 
         verifier = WarningVerifier()
-        result = verifier.verify({})
+        work = self._make_work(tmp_path, {})
+        result = verifier.verify(work)
 
-        assert result.ok is True
-        assert len(result.warnings) == 1
-        assert "No sidebar data" in result.warnings
+        assert "No sidebar data" in self._status(result).warnings
 
-    def test_verify_method_can_raise_exception(self):
+    def test_verify_method_can_raise_exception(self, tmp_path):
         """Test that verify() can raise Exception for verification errors."""
 
         class ExceptionVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
                 raise Exception("Verification crashed")
 
         verifier = ExceptionVerifier()
+        work = self._make_work(tmp_path, {})
         with pytest.raises(Exception) as exc_info:
-            verifier.verify({})
+            verifier.verify(work)
         assert "Verification crashed" in str(exc_info.value)
 
-    def test_verify_processes_data_parameter(self):
-        """Test that verify() can inspect and validate data."""
+    def test_verify_processes_unit_of_work(self, tmp_path):
+        """Test that verify() can inspect and validate data from UnitOfWork."""
 
         class DataInspectingVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                with work.output.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
                 errors = []
                 if "identity" not in data:
                     errors.append("Missing identity section")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return self._record(work, errors, [])
 
         verifier = DataInspectingVerifier()
 
         # Test with missing identity
-        result1 = verifier.verify({})
-        assert result1.ok is False
-        assert "Missing identity section" in result1.errors
+        work1 = self._make_work(tmp_path, {})
+        result1 = verifier.verify(work1)
+        assert "Missing identity section" in self._status(result1).errors
 
         # Test with identity
-        result2 = verifier.verify({"identity": {}})
-        assert result2.ok is True
-        assert len(result2.errors) == 0
+        work2 = self._make_work(tmp_path, {"identity": {}})
+        result2 = verifier.verify(work2)
+        assert self._status(result2).errors == []
 
-    def test_verify_with_full_cv_schema(self):
+    def test_verify_with_full_cv_schema(self, tmp_path):
         """Test verify() with complete CV schema structure."""
 
         class SchemaVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                with work.output.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
                 errors = []
 
-                # Check main sections
                 required_sections = ["identity", "sidebar", "overview", "experiences"]
                 for section in required_sections:
                     if section not in data:
                         errors.append(f"Missing {section} section")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return self._record(work, errors, [])
 
         verifier = SchemaVerifier()
 
@@ -182,73 +183,70 @@ class TestCVVerifierAbstract:
             "experiences": [],
         }
 
-        result = verifier.verify(complete_data)
-        assert result.ok is True
+        work = self._make_work(tmp_path, complete_data)
+        result = verifier.verify(work)
+        assert self._status(result).errors == []
 
-    def test_verify_with_kwargs_parameters(self):
-        """Test that verify() handles additional kwargs correctly."""
+    def test_verify_with_multiple_warnings(self, tmp_path):
+        """Test that verify() can record warnings based on data."""
 
-        class KwargsAwareVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                strict = kwargs.get("strict", False)
-                version = kwargs.get("version", "1.0")
+        class WarningVerifier(CVVerifier):
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                with work.output.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
 
-                # Simple verification based on kwargs
                 warnings = []
-                if strict:
-                    warnings.append(f"Strict mode enabled with version {version}")
+                if data.get("strict"):
+                    warnings.append("Strict mode enabled")
 
-                return VerificationResult(ok=True, errors=[], warnings=warnings)
+                return self._record(work, [], warnings)
 
-        verifier = KwargsAwareVerifier()
+        verifier = WarningVerifier()
 
-        # Test with kwargs
-        result = verifier.verify({}, strict=True, version="2.0")
-        assert result.ok is True
-        assert "Strict mode enabled" in result.warnings[0]
+        work = self._make_work(tmp_path, {"strict": True})
+        result = verifier.verify(work)
+        assert "Strict mode enabled" in self._status(result).warnings[0]
 
-    def test_multiple_verifiers_can_coexist(self):
+    def test_multiple_verifiers_can_coexist(self, tmp_path):
         """Test that multiple concrete verifiers can be defined independently."""
 
         class SchemaVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], [])
 
         class CompletenessVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], [])
 
         schema = SchemaVerifier()
         completeness = CompletenessVerifier()
 
-        result1 = schema.verify({})
-        result2 = completeness.verify({})
+        work = self._make_work(tmp_path, {})
+        result1 = schema.verify(work)
+        result2 = completeness.verify(work)
 
-        assert isinstance(result1, VerificationResult)
-        assert isinstance(result2, VerificationResult)
+        assert isinstance(result1, UnitOfWork)
+        assert isinstance(result2, UnitOfWork)
 
-    def test_verify_method_override_works(self):
+    def test_verify_method_override_works(self, tmp_path):
         """Test that verify() method can be properly overridden."""
 
         class BaseVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=["Base"])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], ["Base"])
 
         class DerivedVerifier(BaseVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                base_result = super().verify(data, **kwargs)
-                return VerificationResult(
-                    ok=base_result.ok,
-                    errors=base_result.errors,
-                    warnings=base_result.warnings + ["Derived"],
-                )
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                work = super().verify(work)
+                work.add_warning(StepName.Extract, "Derived")
+                return work
 
         verifier = DerivedVerifier()
-        result = verifier.verify({})
+        work = self._make_work(tmp_path, {})
+        result = verifier.verify(work)
 
-        assert len(result.warnings) == 2
-        assert "Base" in result.warnings
-        assert "Derived" in result.warnings
+        assert "Base" in self._status(result).warnings
+        assert "Derived" in self._status(result).warnings
 
     def test_is_abstract_base_class(self):
         """Test that CVVerifier is an abstract base class."""
@@ -260,35 +258,34 @@ class TestCVVerifierAbstract:
         """Test that verify is marked as abstract."""
         from inspect import isabstract
 
-        # Check that the class is abstract
         assert isabstract(CVVerifier)
-
-        # Check that verify method has abstractmethod marker
         assert hasattr(CVVerifier.verify, "__isabstractmethod__")
         assert CVVerifier.verify.__isabstractmethod__
 
-    def test_verify_with_empty_data(self):
+    def test_verify_with_empty_data(self, tmp_path):
         """Test that verify() can handle empty data dict."""
 
         class TestVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                with work.output.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
                 if not data:
-                    return VerificationResult(
-                        ok=False, errors=["Data is empty"], warnings=[]
-                    )
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                    return self._record(work, ["Data is empty"], [])
+                return self._record(work, [], [])
 
         verifier = TestVerifier()
-        result = verifier.verify({})
+        work = self._make_work(tmp_path, {})
+        result = verifier.verify(work)
 
-        assert result.ok is False
-        assert "Data is empty" in result.errors
+        assert "Data is empty" in self._status(result).errors
 
-    def test_verify_with_multiple_errors(self):
+    def test_verify_with_multiple_errors(self, tmp_path):
         """Test that verify() can accumulate multiple errors."""
 
         class MultiErrorVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                with work.output.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
                 errors = []
 
                 if "field1" not in data:
@@ -298,89 +295,85 @@ class TestCVVerifierAbstract:
                 if "field3" not in data:
                     errors.append("Missing field3")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return self._record(work, errors, [])
 
         verifier = MultiErrorVerifier()
-        result = verifier.verify({})
+        work = self._make_work(tmp_path, {})
+        result = verifier.verify(work)
 
-        assert result.ok is False
-        assert len(result.errors) == 3
+        assert len(self._status(result).errors) == 3
 
-    def test_verify_implementations_are_independent(self):
+    def test_verify_implementations_are_independent(self, tmp_path):
         """Test that different implementations don't interfere."""
 
         class Impl1(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=["V1"])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], ["V1"])
 
         class Impl2(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=["V2"])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], ["V2"])
 
         impl1 = Impl1()
         impl2 = Impl2()
 
-        result1 = impl1.verify({})
-        result2 = impl2.verify({})
+        work1 = self._make_work(tmp_path, {})
+        work2 = self._make_work(tmp_path, {})
+        result1 = impl1.verify(work1)
+        result2 = impl2.verify(work2)
 
-        assert "V1" in result1.warnings
-        assert "V2" in result2.warnings
-        assert "V2" not in result1.warnings
-        assert "V1" not in result2.warnings
+        assert "V1" in self._status(result1).warnings
+        assert "V2" in self._status(result2).warnings
 
-    def test_verify_with_mocked_implementation(self):
+    def test_verify_with_mocked_implementation(self, tmp_path):
         """Test that verify() works correctly when mocked."""
 
         class TestVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                return self._record(work, [], [])
 
         verifier = TestVerifier()
         with patch.object(verifier, "verify") as mock_verify:
-            mock_result = VerificationResult(ok=False, errors=["Mocked"], warnings=[])
-            mock_verify.return_value = mock_result
+            work = self._make_work(tmp_path, {})
+            work.add_error(StepName.Extract, "Mocked")
+            mock_verify.return_value = work
 
-            result = verifier.verify({})
+            result = verifier.verify(work)
 
-            assert result.ok is False
-            assert "Mocked" in result.errors
+            assert "Mocked" in self._status(result).errors
             mock_verify.assert_called_once()
 
-    def test_verify_can_validate_specific_fields(self):
+    def test_verify_can_validate_specific_fields(self, tmp_path):
         """Test that verify() can validate specific CV fields."""
 
         class FieldVerifier(CVVerifier):
-            def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+            def verify(self, work: UnitOfWork) -> UnitOfWork:
+                with work.output.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
                 errors = []
 
-                # Check identity fields
                 identity = data.get("identity", {})
                 if not identity.get("full_name"):
                     errors.append("Name is required")
 
-                # Check sidebar
                 sidebar = data.get("sidebar", {})
                 if not sidebar.get("languages"):
                     errors.append("At least one language is required")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return self._record(work, errors, [])
 
         verifier = FieldVerifier()
 
-        # Test with missing fields
-        result1 = verifier.verify({})
-        assert result1.ok is False
-        assert "Name is required" in result1.errors
+        work1 = self._make_work(tmp_path, {})
+        result1 = verifier.verify(work1)
+        assert "Name is required" in self._status(result1).errors
 
-        # Test with complete data
-        result2 = verifier.verify(
+        work2 = self._make_work(
+            tmp_path,
             {
                 "identity": {"full_name": "John Doe"},
                 "sidebar": {"languages": ["Python"]},
-            }
+            },
         )
-        assert result2.ok is True
+        result2 = verifier.verify(work2)
+        assert self._status(result2).errors == []

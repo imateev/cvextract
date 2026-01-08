@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..shared import VerificationResult
+from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
@@ -43,17 +43,17 @@ class CVSchemaVerifier(CVVerifier):
                 self._schema = json.load(f)
         return self._schema
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
         """
         Verify CV data against the schema.
 
-        Args:
-            data: Dictionary containing CV data to validate
-            **kwargs: Not used for this verifier
-
         Returns:
-            VerificationResult with validation results
+            Updated UnitOfWork with validation results
         """
+        data, errs = self._load_output_json(work)
+        if data is None:
+            return self._record(work, errs, [])
+
         schema = self._load_schema()
         errs: List[str] = []
         warns: List[str] = []
@@ -141,5 +141,20 @@ class CVSchemaVerifier(CVVerifier):
                                 f"experiences[{idx}].environment items must be strings"
                             )
 
-        ok = not errs
-        return VerificationResult(ok=ok, errors=errs, warnings=warns)
+        return self._record(work, errs, warns)
+
+    def _load_output_json(
+        self, work: UnitOfWork
+    ) -> tuple[Dict[str, Any] | None, List[str]]:
+        if work.output is None:
+            return None, ["verification input JSON path is not set"]
+        if not work.output.exists():
+            return None, [f"verification input JSON not found: {work.output}"]
+        try:
+            with work.output.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            return None, [f"verification input JSON unreadable: {type(e).__name__}"]
+        if not isinstance(data, dict):
+            return None, ["verification input JSON must be an object"]
+        return data, []

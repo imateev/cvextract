@@ -23,6 +23,8 @@ class ExtractStage:
     output: Optional[Path] = (
         None  # Output JSON (optional, defaults to target_dir/structured_data/)
     )
+    verifier: Optional[str] = None  # Verifier name (optional)
+    skip_verify: bool = False  # Skip verification for this stage
 
 
 @dataclass
@@ -44,6 +46,8 @@ class AdjustStage:
     data: Optional[Path] = None  # Input JSON (optional if chained after extract)
     output: Optional[Path] = None  # Output JSON (optional, defaults based on source)
     dry_run: bool = False  # If True, only adjust without rendering
+    verifier: Optional[str] = None  # Verifier name (optional)
+    skip_verify: bool = False  # Skip verification for this stage
 
 
 @dataclass
@@ -55,6 +59,8 @@ class RenderStage:
     output: Optional[Path] = (
         None  # Output DOCX (optional, defaults to target_dir/documents/)
     )
+    verifier: Optional[str] = None  # Verifier name (optional)
+    skip_verify: bool = False  # Skip verification for this stage
 
 
 @dataclass
@@ -81,6 +87,7 @@ class UserConfig:
 
     # Execution settings
     verbosity: str = "minimal"  # Output verbosity level: minimal, verbose, debug
+    skip_all_verify: bool = False  # Skip all verification steps (global override)
     debug_external: bool = False  # Capture external provider logs (OpenAI, httpx, etc.)
     log_file: Optional[str] = None
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
@@ -123,7 +130,13 @@ class UserConfig:
     def should_compare(self) -> bool:
         """Whether to run comparison verification."""
         # Only compare if rendering but not adjusting
-        return self.has_render and not self.has_adjust
+        if not self.has_render or self.has_adjust:
+            return False
+        if self.skip_all_verify:
+            return False
+        if self.render and self.render.skip_verify:
+            return False
+        return True
 
 
 @dataclass(frozen=True)

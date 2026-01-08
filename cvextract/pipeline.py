@@ -9,7 +9,7 @@ from .pipeline_helpers import (
     categorize_result,
     extract_single,
     infer_source_root,
-    render_and_verify,
+    render,
     safe_relpath,
 )
 from .shared import UnitOfWork, get_status_icons
@@ -20,7 +20,7 @@ __all__ = [
     "safe_relpath",
     "extract_single",
     "UnitOfWork",
-    "render_and_verify",
+    "render",
     "get_status_icons",
     "categorize_result",
 ]

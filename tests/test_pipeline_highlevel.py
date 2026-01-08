@@ -8,7 +8,7 @@ import pytest
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor
 from cvextract.pipeline_helpers import extract_cv_data, render_cv_data
-from cvextract.shared import UnitOfWork, VerificationResult
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 
 
@@ -18,6 +18,19 @@ class _StubExtractor(CVExtractor):
 
     def extract(self, work: UnitOfWork) -> UnitOfWork:
         return self._write_output_json(work, self._data)
+
+
+def _make_work(tmp_path, data: dict) -> UnitOfWork:
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path),
+        input=path,
+        output=path,
+    )
+    work.current_step = StepName.Extract
+    work.ensure_step_status(StepName.Extract)
+    return work
 
 
 class TestExtractCvData:
@@ -282,7 +295,7 @@ class TestExtractCvDataOutput:
 class TestExtractedDataVerification:
     """Tests for verifying extracted CV data structure."""
 
-    def test_verify_complete_valid_data_returns_ok(self):
+    def test_verify_complete_valid_data_returns_ok(self, tmp_path):
         """When all required fields are present and valid, should return ok=True."""
         data = {
             "identity": {
@@ -309,12 +322,12 @@ class TestExtractedDataVerification:
             ],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
-        assert isinstance(res, VerificationResult)
-        assert res.ok is True
-        assert res.errors == []
+        work = _make_work(tmp_path, data)
+        res = verifier.verify(work)
+        status = res.step_statuses[StepName.Extract]
+        assert status.errors == []
 
-    def test_verify_with_missing_identity_returns_error(self):
+    def test_verify_with_missing_identity_returns_error(self, tmp_path):
         """When identity is missing or empty, should return ok=False with error."""
         data = {
             "identity": {},
@@ -323,11 +336,12 @@ class TestExtractedDataVerification:
             "experiences": [{"heading": "h", "description": "d"}],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
-        assert res.ok is False
-        assert "identity" in res.errors
+        work = _make_work(tmp_path, data)
+        res = verifier.verify(work)
+        status = res.step_statuses[StepName.Extract]
+        assert "identity" in status.errors
 
-    def test_verify_with_all_empty_sidebar_sections_returns_error(self):
+    def test_verify_with_all_empty_sidebar_sections_returns_error(self, tmp_path):
         """When all sidebar sections are empty, should return ok=False with error."""
         data = {
             "identity": {
@@ -347,11 +361,12 @@ class TestExtractedDataVerification:
             "experiences": [{"heading": "h", "description": "d"}],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
-        assert res.ok is False
-        assert "sidebar" in res.errors
+        work = _make_work(tmp_path, data)
+        res = verifier.verify(work)
+        status = res.step_statuses[StepName.Extract]
+        assert "sidebar" in status.errors
 
-    def test_verify_with_some_missing_sidebar_sections_returns_warning(self):
+    def test_verify_with_some_missing_sidebar_sections_returns_warning(self, tmp_path):
         """When some sidebar sections are missing, should return ok=True with warning."""
         data = {
             "identity": {
@@ -365,11 +380,12 @@ class TestExtractedDataVerification:
             "experiences": [{"heading": "h", "description": "d"}],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
-        assert res.ok is True
-        assert any("missing sidebar" in w for w in res.warnings)
+        work = _make_work(tmp_path, data)
+        res = verifier.verify(work)
+        status = res.step_statuses[StepName.Extract]
+        assert any("missing sidebar" in w for w in status.warnings)
 
-    def test_verify_with_invalid_environment_format_returns_warning(self):
+    def test_verify_with_invalid_environment_format_returns_warning(self, tmp_path):
         """When environment is not a list or None, should return ok=True with warning."""
         data = {
             "identity": {
@@ -385,11 +401,12 @@ class TestExtractedDataVerification:
             ],  # should be list or None
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
-        assert res.ok is True
-        assert any("invalid environment format" in w for w in res.warnings)
+        work = _make_work(tmp_path, data)
+        res = verifier.verify(work)
+        status = res.step_statuses[StepName.Extract]
+        assert any("invalid environment format" in w for w in status.warnings)
 
-    def test_verify_with_no_experiences_returns_error(self):
+    def test_verify_with_no_experiences_returns_error(self, tmp_path):
         """When experiences list is empty, should return ok=False with error."""
         data = {
             "identity": {
@@ -403,6 +420,7 @@ class TestExtractedDataVerification:
             "experiences": [],
         }
         verifier = get_verifier("private-internal-verifier")
-        res = verifier.verify(data)
-        assert res.ok is False
-        assert "experiences_empty" in res.errors
+        work = _make_work(tmp_path, data)
+        res = verifier.verify(work)
+        status = res.step_statuses[StepName.Extract]
+        assert "experiences_empty" in status.errors

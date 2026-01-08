@@ -89,9 +89,8 @@ The verification area provides data validation and quality checking capabilities
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
 | [Extracted Data Verifier](areas/verification/extracted-data-verifier/README.md) | Active | Validates completeness and structure of extracted data | `cvextract.verifiers.ExtractedDataVerifier` | N/A |
-| [Roundtrip Verifiers](areas/verification/comparison-verifiers/README.md) | Active | Compares data structures for roundtrip verification | `cvextract.verifiers.{RoundtripVerifier, FileRoundtripVerifier}` | N/A |
+| [Roundtrip Verifier](areas/verification/comparison-verifiers/README.md) | Active | Compares data structures for roundtrip verification | `cvextract.verifiers.RoundtripVerifier` | N/A |
 | [CV Schema Verifier](areas/verification/schema-verifier/README.md) | Active | Validates CV data against JSON schema | `cvextract.verifiers.CVSchemaVerifier` | `schema_path` parameter |
-| [Company Profile Verifier](areas/verification/company-profile-verifier/README.md) | Active | Validates company research data against JSON schema | `cvextract.verifiers.CompanyProfileVerifier` | `schema_path` parameter |
 | [Verifier Registry](areas/verification/verifier-registry/README.md) | Active | Pluggable verifier registration and lookup system | `cvextract.verifiers.{register_verifier, get_verifier, list_verifiers}` | N/A |
 
 ---
@@ -203,7 +202,7 @@ The CI/CD area covers continuous integration, deployment, and release automation
        ├──────> Rendering (DOCX renderer, template system)
        │              │
        │              v
-       └──────> Verification (data, schema, comparison verifiers)
+       └──────> Verification (data, schema, roundtrip verifier)
 
 ┌────────────────────────────────────────────────────────────────┐
 │  CI/CD Pipeline  (automated binary releases)                   │

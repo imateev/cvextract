@@ -11,7 +11,6 @@ Provides utilities for:
 
 from __future__ import annotations
 
-import json
 import os
 import traceback
 from dataclasses import replace
@@ -22,7 +21,7 @@ from .extractors import CVExtractor, DocxCVExtractor, get_extractor
 from .extractors.docx_utils import dump_body_sample
 from .logging_utils import LOG
 from .renderers import get_renderer
-from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
+from .shared import StepName, StepStatus, UnitOfWork
 from .verifiers import get_verifier
 
 
@@ -141,7 +140,7 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
 
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
-    Extract and verify a single file. Returns a UnitOfWork copy with results.
+    Extract a single file. Returns a UnitOfWork copy with results.
 
     Args:
         work: UnitOfWork describing the extraction inputs
@@ -185,14 +184,6 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                 f"extract: output JSON not found: {extract_work.output}",
             )
             return extract_work
-        with extract_work.output.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        verifier = get_verifier("private-internal-verifier")
-        result = verifier.verify(data)
-        for err in result.errors:
-            extract_work.add_error(StepName.Extract, err)
-        for warn in result.warnings:
-            extract_work.add_warning(StepName.Extract, warn)
         return extract_work
     except Exception as e:
         if work.config.debug:
@@ -206,8 +197,8 @@ def _roundtrip_compare(
     render_work: UnitOfWork,
     output_docx: Path,
     roundtrip_dir: Path,
-    original_data: dict,
-) -> VerificationResult:
+    original_cv_path: Path,
+) -> UnitOfWork:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
     roundtrip_work = UnitOfWork(
@@ -221,30 +212,25 @@ def _roundtrip_compare(
         raise FileNotFoundError(
             f"roundtrip JSON not created: {roundtrip_work.output or roundtrip_json}"
         )
-    with roundtrip_work.output.open("r", encoding="utf-8") as f:
-        roundtrip_data = json.load(f)
-    verifier = get_verifier("roundtrip-verifier")
-    return verifier.verify(original_data, target_data=roundtrip_data)
+    verifier_name = "roundtrip-verifier"
+    if render_work.config.render and render_work.config.render.verifier:
+        verifier_name = render_work.config.render.verifier
+    verifier = get_verifier(verifier_name)
+    if not verifier:
+        raise ValueError(f"unknown verifier: {verifier_name}")
+    compare_work = replace(
+        render_work,
+        input=original_cv_path,
+        output=roundtrip_json,
+        current_step=StepName.RoundtripComparer,
+    )
+    return verifier.verify(compare_work)
 
 
 def _verify_roundtrip(
     render_work: UnitOfWork,
     original_cv_path: Path,
 ) -> UnitOfWork:
-    import json
-
-    try:
-        # Load CV data from JSON
-        with original_cv_path.open("r", encoding="utf-8") as f:
-            original_cv_data = json.load(f)
-    except Exception as e:
-        if render_work.config.debug:
-            LOG.error(traceback.format_exc())
-        render_work.add_error(
-            StepName.RoundtripComparer, f"roundtrip comparer: {type(e).__name__}"
-        )
-        return render_work
-
     output_docx = render_work.output
     if output_docx is None:
         return render_work
@@ -254,57 +240,34 @@ def _verify_roundtrip(
     rel_path = _resolve_parent(input_path, source_base)
     roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
     try:
-        compare_result = _roundtrip_compare(
+        _roundtrip_compare(
             render_work,
             output_docx,
             roundtrip_dir,
-            original_cv_data,
+            original_cv_path,
         )
     except Exception as e:
-        message = f"compare: {type(e).__name__}"
+        message = f"roundtrip comparer: {type(e).__name__}"
         LOG.warning("%s", message)
         render_work.add_error(StepName.RoundtripComparer, message)
         return render_work
 
     render_work.ensure_step_status(StepName.RoundtripComparer)
-    for err in compare_result.errors:
-        render_work.add_error(StepName.RoundtripComparer, err)
-    for warn in compare_result.warnings:
-        render_work.add_warning(StepName.RoundtripComparer, warn)
     return render_work
 
 
-def render_and_verify(work: UnitOfWork) -> UnitOfWork:
+def render(work: UnitOfWork) -> UnitOfWork:
     """
-    Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
+    Render a single JSON to DOCX.
 
     Args:
-        work: UnitOfWork with config, output JSON path, and initial input path
+        work: UnitOfWork with render configuration and input/output paths
 
     Returns:
-        UnitOfWork with Render/Verify statuses populated.
+        UnitOfWork with Render status populated.
     """
-    render_work = _render_docx(work)
-    render_status = render_work.step_statuses.get(StepName.Render)
-    if render_status and not render_status.ok:
-        return render_work
+    return _render_docx(work)
 
-    # Skip compare when explicitly requested by caller
-    skip_compare = not work.config.should_compare
-    if work.config.extract and work.config.extract.name == "openai-extractor":
-        skip_compare = True
-
-    if skip_compare:
-        return render_work
-
-    original_cv_path = work.output
-    if original_cv_path is None:
-        render_work.add_error(
-            StepName.RoundtripComparer, "render: input JSON path is not set"
-        )
-        return render_work
-
-    return _verify_roundtrip(render_work, original_cv_path)
 
 
 def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:

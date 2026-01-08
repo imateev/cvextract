@@ -1,10 +1,12 @@
 """Tests for verifier registry functionality."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from cvextract.shared import VerificationResult
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
@@ -16,6 +18,15 @@ from cvextract.verifiers import (
 from cvextract.verifiers.verifier_registry import unregister_verifier
 
 
+def _make_work(tmp_path):
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps({}), encoding="utf-8")
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work.current_step = StepName.Extract
+    work.ensure_step_status(StepName.Extract)
+    return work
+
+
 class TestVerifierRegistry:
     """Tests for the verifier registry system."""
 
@@ -23,8 +34,8 @@ class TestVerifierRegistry:
         """list_verifiers() returns the built-in verifiers."""
         verifiers = list_verifiers()
 
-        # Should have at least 4 verifiers registered
-        assert len(verifiers) >= 4
+        # Should have at least 3 verifiers registered
+        assert len(verifiers) >= 3
 
         # Extract names
         names = [v["name"] for v in verifiers]
@@ -32,7 +43,6 @@ class TestVerifierRegistry:
         # Check for built-in verifiers
         assert "private-internal-verifier" in names
         assert "roundtrip-verifier" in names
-        assert "file-roundtrip-verifier" in names
         assert "cv-schema-verifier" in names
 
         # Each should have a description
@@ -50,16 +60,9 @@ class TestVerifierRegistry:
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
 
-    def test_get_verifier_returns_comparison_verifier(self):
+    def test_get_verifier_returns_roundtrip_verifier(self):
         """get_verifier() returns roundtrip-verifier instance."""
         verifier = get_verifier("roundtrip-verifier")
-
-        assert verifier is not None
-        assert isinstance(verifier, CVVerifier)
-
-    def test_get_verifier_returns_file_comparison_verifier(self):
-        """get_verifier() returns file-roundtrip-verifier instance."""
-        verifier = get_verifier("file-roundtrip-verifier")
 
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
@@ -87,16 +90,14 @@ class TestVerifierRegistry:
         assert hasattr(verifier, "schema_path")
         assert verifier.schema_path == schema_path
 
-    def test_register_custom_verifier(self):
+    def test_register_custom_verifier(self, tmp_path):
         """register_verifier() allows registering custom verifiers."""
 
         class CustomVerifier(CVVerifier):
             """Custom test verifier for testing."""
 
-            def verify(self, data, **kwargs):
-                return VerificationResult(
-                    ok=True, errors=[], warnings=["custom-verifier"]
-                )
+            def verify(self, work: UnitOfWork):
+                return self._record(work, [], ["custom-verifier"])
 
         # Register custom verifier
         register_verifier("custom-test-verifier", CustomVerifier)
@@ -113,9 +114,10 @@ class TestVerifierRegistry:
             assert isinstance(verifier, CustomVerifier)
 
             # Should work
-            result = verifier.verify({})
-            assert result.ok is True
-            assert "custom-verifier" in result.warnings
+            work = _make_work(tmp_path)
+            result = verifier.verify(work)
+            status = result.step_statuses[StepName.Extract]
+            assert "custom-verifier" in status.warnings
         finally:
             # Clean up the custom verifier
             unregister_verifier("custom-test-verifier")

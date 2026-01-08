@@ -7,7 +7,24 @@ from cvextract.extractors.sidebar_parser import (
     extract_all_header_paragraphs,
     split_identity_and_sidebar,
 )
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
+
+
+def _make_roundtrip_work(tmp_path, source, target):
+    source_path = tmp_path / "source.json"
+    target_path = tmp_path / "target.json"
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+    target_path.write_text(json.dumps(target), encoding="utf-8")
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path),
+        input=source_path,
+        output=target_path,
+    )
+    work.current_step = StepName.RoundtripComparer
+    work.ensure_step_status(StepName.RoundtripComparer)
+    return work
 
 
 class TestIsEnvironmentPath:
@@ -85,137 +102,76 @@ class TestNormalizeEnvironmentList:
         assert "python" in result and "java" in result
 
 
-class TestCompareJsonFiles:
-    """Tests for FileRoundtripVerifier."""
-
-    def test_compare_identical_json_files(self, tmp_path):
-        """Test comparing identical JSON files."""
-        data = {
-            "identity": {
-                "title": "Engineer",
-                "full_name": "John Doe",
-                "first_name": "John",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["EN"]},
-            "overview": "Text",
-            "experiences": [],
-        }
-
-        file1 = tmp_path / "file1.json"
-        file2 = tmp_path / "file2.json"
-
-        with file1.open("w") as f:
-            json.dump(data, f)
-        with file2.open("w") as f:
-            json.dump(data, f)
-
-        verifier = get_verifier("file-roundtrip-verifier")
-        result = verifier.verify({}, source_file=file1, target_file=file2)
-        assert result.ok is True
-        assert result.errors == []
-
-    def test_compare_different_json_files(self, tmp_path):
-        """Test comparing different JSON files."""
-        data1 = {
-            "identity": {
-                "title": "Engineer",
-                "full_name": "John Doe",
-                "first_name": "John",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["EN"]},
-            "overview": "Text1",
-            "experiences": [],
-        }
-        data2 = {
-            "identity": {
-                "title": "Manager",
-                "full_name": "Jane Doe",
-                "first_name": "Jane",
-                "last_name": "Doe",
-            },
-            "sidebar": {"languages": ["FR"]},
-            "overview": "Text2",
-            "experiences": [],
-        }
-        file1 = tmp_path / "file1.json"
-        file2 = tmp_path / "file2.json"
-
-        with file1.open("w") as f:
-            json.dump(data1, f)
-        with file2.open("w") as f:
-            json.dump(data2, f)
-
-        verifier = get_verifier("file-roundtrip-verifier")
-        result = verifier.verify({}, source_file=file1, target_file=file2)
-        assert result.ok is False
-        assert len(result.errors) > 0
-
-
 class TestCompareDataStructures:
     """Tests for RoundtripVerifier."""
 
-    def test_compare_primitive_value_mismatch(self):
+    def test_compare_primitive_value_mismatch(self, tmp_path):
         """Test detection of primitive value mismatches."""
         original = {"key": "value1"}
         new = {"key": "value2"}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
-        assert any("value mismatch" in err for err in result.errors)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("value mismatch" in err for err in status.errors)
 
-    def test_compare_type_mismatch(self):
+    def test_compare_type_mismatch(self, tmp_path):
         """Test detection of type mismatches."""
         original = {"key": "value"}
         new = {"key": 123}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
-        assert any("type mismatch" in err for err in result.errors)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("type mismatch" in err for err in status.errors)
 
-    def test_compare_list_length_mismatch(self):
+    def test_compare_list_length_mismatch(self, tmp_path):
         """Test detection of list length mismatches."""
         original = {"items": [1, 2, 3]}
         new = {"items": [1, 2]}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
-        assert any("list length mismatch" in err for err in result.errors)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("list length mismatch" in err for err in status.errors)
 
-    def test_compare_nested_dict_mismatch(self):
+    def test_compare_nested_dict_mismatch(self, tmp_path):
         """Test detection of nested dict mismatches."""
         original = {"a": {"b": {"c": 1}}}
         new = {"a": {"b": {"c": 2}}}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
-        assert any("value mismatch" in err for err in result.errors)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("value mismatch" in err for err in status.errors)
 
-    def test_compare_missing_key(self):
+    def test_compare_missing_key(self, tmp_path):
         """Test detection of missing keys."""
         original = {"a": 1, "b": 2}
         new = {"a": 1}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
-        assert any("missing key" in err for err in result.errors)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("missing key" in err for err in status.errors)
 
-    def test_compare_extra_key(self):
+    def test_compare_extra_key(self, tmp_path):
         """Test detection of extra keys."""
         original = {"a": 1}
         new = {"a": 1, "b": 2}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert status.errors
 
-    def test_compare_environment_field_normalization(self):
+    def test_compare_environment_field_normalization(self, tmp_path):
         """Test environment field normalization in comparison."""
         original = {
             "experiences": [
@@ -237,11 +193,13 @@ class TestCompareDataStructures:
         }
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
         # Should be OK because environment is normalized and equivalent
-        assert result.ok is True
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert status.errors == []
 
-    def test_compare_environment_real_mismatch(self):
+    def test_compare_environment_real_mismatch(self, tmp_path):
         """Test real environment mismatches are detected."""
         original = {
             "experiences": [{"heading": "Job", "environment": ["Python", "Java"]}]
@@ -249,9 +207,10 @@ class TestCompareDataStructures:
         new = {"experiences": [{"heading": "Job", "environment": ["C++", "Rust"]}]}
 
         verifier = get_verifier("roundtrip-verifier")
-        result = verifier.verify(original, target_data=new)
-        assert result.ok is False
-        assert any("environment mismatch" in err for err in result.errors)
+        work = _make_roundtrip_work(tmp_path, original, new)
+        result = verifier.verify(work)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("environment mismatch" in err for err in status.errors)
 
 
 class TestSplitIdentityAndSidebar:

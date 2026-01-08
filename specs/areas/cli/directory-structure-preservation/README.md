@@ -92,7 +92,7 @@ config.input_dir = source_dir
 
 - `cvextract.cli_config.UserConfig.input_dir` - Source base path
 - `cvextract.cli_execute_extract` - JSON output path calculation
-- `cvextract.pipeline_helpers.render_and_verify` - DOCX output path calculation
+- `cvextract.pipeline_helpers.render` - DOCX output path calculation
 
 ### Integration Points
 

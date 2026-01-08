@@ -47,9 +47,7 @@ for v in verifiers:
 
 Example output:
 ```
-company-profile-verifier: Verifier that validates company profile data against research_schema.json.
 cv-schema-verifier: Verifier that validates CV data against cv_schema.json.
-file-roundtrip-verifier: Verifier for comparing two CV data files.
 private-internal-verifier: Verifier for extracted CV data completeness and validity.
 roundtrip-verifier: Verifier for comparing two CV data structures.
 ```
@@ -57,29 +55,37 @@ roundtrip-verifier: Verifier for comparing two CV data structures.
 ### Getting a Verifier Instance
 
 ```python
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
+
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # Get a verifier by name
 verifier = get_verifier('private-internal-verifier')
-result = verifier.verify(cv_data)
+result = verifier.verify(work)
 
 # Pass constructor arguments
 verifier = get_verifier('cv-schema-verifier', schema_path=custom_schema_path)
-result = verifier.verify(cv_data)
+result = verifier.verify(work)
 ```
 
 ### Registering Custom Verifiers
 
 ```python
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import CVVerifier, register_verifier
-from cvextract.shared import VerificationResult
 
 class CustomVerifier(CVVerifier):
     """My custom CV verifier."""
     
-    def verify(self, data, **kwargs):
+    def verify(self, work: UnitOfWork):
         # Custom verification logic
-        return VerificationResult(ok=True, errors=[], warnings=[])
+        return self._record(work, [], [])
 
 # Register the custom verifier
 register_verifier('my-custom-verifier', CustomVerifier)
@@ -96,9 +102,7 @@ The following verifiers are registered by default:
 |------|-------|-------------|
 | `private-internal-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
-| `file-roundtrip-verifier` | `FileRoundtripVerifier` | Compares two CV data JSON files |
 | `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against cv_schema.json |
-| `company-profile-verifier` | `CompanyProfileVerifier` | Validates company research data against research_schema.json |
 
 ## Implementation Details
 
@@ -140,9 +144,7 @@ from .verifier_registry import register_verifier
 # Register built-in verifiers
 register_verifier("private-internal-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
-register_verifier("file-roundtrip-verifier", FileRoundtripVerifier)
 register_verifier("cv-schema-verifier", CVSchemaVerifier)
-register_verifier("company-profile-verifier", CompanyProfileVerifier)
 ```
 
 ### With Public API
@@ -154,7 +156,6 @@ __all__ = [
     "CVVerifier",
     "ExtractedDataVerifier",
     "RoundtripVerifier",
-    "FileRoundtripVerifier",
     "CVSchemaVerifier",
     "register_verifier",
     "get_verifier",
@@ -195,9 +196,8 @@ Tests are provided in `tests/test_verifier_registry.py`:
 ## Related Features
 
 - [Extracted Data Verifier](../extracted-data-verifier/README.md)
-- [Comparison Verifiers](../comparison-verifiers/README.md)
+- [Roundtrip Verifier](../comparison-verifiers/README.md)
 - [Schema Verifier](../schema-verifier/README.md)
-- [Company Profile Verifier](../company-profile-verifier/README.md)
 - [Extractor Registry](../../extraction/extractor-registry/README.md)
 
 ## Design Rationale

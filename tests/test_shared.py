@@ -1,4 +1,8 @@
+import pytest
+
 import cvextract.shared
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
 
 
 class TestTextNormalization:
@@ -129,3 +133,71 @@ class TestPromptLoading:
 
         result = cvextract.shared.load_prompt("test_prompt")
         assert result is None
+
+
+class TestUnitOfWorkHelpers:
+    """Tests for UnitOfWork helper methods."""
+
+    def test_resolve_verification_step_raises_when_ambiguous(self, tmp_path):
+        """resolve_verification_step should raise if no current step is set."""
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.ensure_step_status(StepName.Extract)
+        work.ensure_step_status(StepName.Adjust)
+
+        with pytest.raises(ValueError, match="verification step is not set"):
+            work.resolve_verification_step()
+
+    def test_resolve_verification_step_returns_single_status(self, tmp_path):
+        """resolve_verification_step should return the only status step."""
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        work.ensure_step_status(StepName.Extract)
+
+        assert work.resolve_verification_step() == StepName.Extract
+
+    def test_ensure_path_exists_requires_file(self, tmp_path):
+        """ensure_path_exists should add an error when path is a directory."""
+        path = tmp_path / "folder"
+        path.mkdir()
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=path,
+            output=path,
+        )
+
+        ok = work.ensure_path_exists(
+            StepName.Extract, path, "input file", must_be_file=True
+        )
+
+        assert ok is False
+        status = work.step_statuses[StepName.Extract]
+        assert any("not a file" in err for err in status.errors)
+
+    def test_has_no_warnings_or_errors_with_missing_step(self, tmp_path):
+        """has_no_warnings_or_errors returns True when step status is absent."""
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+
+        assert work.has_no_warnings_or_errors(StepName.Render) is True
+
+    def test_has_no_warnings_or_errors_with_present_step(self, tmp_path):
+        """has_no_warnings_or_errors reflects existing warnings."""
+        work = UnitOfWork(
+            config=UserConfig(target_dir=tmp_path),
+            input=tmp_path / "input.json",
+            output=tmp_path / "output.json",
+        )
+        status = work.ensure_step_status(StepName.Render)
+        status.warnings.append("warn")
+
+        assert work.has_no_warnings_or_errors(StepName.Render) is False

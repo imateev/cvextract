@@ -4,17 +4,16 @@ import json
 from unittest.mock import MagicMock, patch
 
 from cvextract.cli_config import AdjustStage, ExtractStage, RenderStage, UserConfig
+from cvextract.cli_execute_render import execute as execute_render
 from cvextract.pipeline_helpers import (
     categorize_result,
     extract_single,
     infer_source_root,
-    render_and_verify,
 )
 from cvextract.shared import (
     StepName,
     StepStatus,
     UnitOfWork,
-    VerificationResult,
     get_status_icons,
 )
 from cvextract.verifiers import get_verifier
@@ -50,9 +49,7 @@ class TestExtractSingle:
         }
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=[]
-        )
+        mock_verifier.verify.side_effect = lambda work: work
 
         with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
@@ -78,7 +75,7 @@ class TestExtractSingle:
             assert extract_status.warnings == []
 
     def testextract_single_invalid_data(self, tmp_path):
-        """Test verification failure with invalid data."""
+        """Test extract_single does not validate extracted content."""
         docx_path = tmp_path / "test.docx"
         out_json = tmp_path / "out.json"
         docx_path.touch()
@@ -101,10 +98,10 @@ class TestExtractSingle:
             )
             result = extract_single(work)
 
-            # The actual verifier will catch these errors
             extract_status = result.step_statuses[StepName.Extract]
-            # Check that there are errors for missing fields
-            assert len(extract_status.errors) > 0
+            assert extract_status.errors == []
+            assert extract_status.warnings == []
+            assert result.output and result.output.exists()
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -157,7 +154,7 @@ class TestExtractSingle:
             assert extract_status.errors
 
     def testextract_single_with_warnings(self, tmp_path):
-        """Test that warnings are preserved."""
+        """Test extract_single does not generate verification warnings."""
         docx_path = tmp_path / "test.docx"
         out_json = tmp_path / "out.json"
         docx_path.touch()
@@ -175,8 +172,8 @@ class TestExtractSingle:
         }
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=["Warning message"]
+        mock_verifier.verify.side_effect = (
+            lambda work: work.add_warning(StepName.Extract, "Warning message") or work
         )
 
         with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
@@ -199,11 +196,11 @@ class TestExtractSingle:
             result = extract_single(work)
             extract_status = result.step_statuses[StepName.Extract]
 
-            assert "Warning message" in extract_status.warnings
+            assert extract_status.warnings == []
 
 
 class TestRenderAndVerify:
-    """Tests for render_and_verify function."""
+    """Tests for render and roundtrip verification via execute_render."""
 
     def testrender_and_verify_success(self, tmp_path):
         """Test successful render and verify."""
@@ -231,9 +228,7 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=[]
-        )
+        mock_verifier.verify.side_effect = lambda work: work
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
             "cvextract.pipeline_helpers.extract_cv_data"
@@ -261,7 +256,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
             verify_status = result.step_statuses[StepName.RoundtripComparer]
 
@@ -306,7 +301,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
 
             assert render_status.errors == []
@@ -336,9 +331,7 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=[]
-        )
+        mock_verifier.verify.side_effect = lambda work: work
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
             "cvextract.pipeline_helpers.extract_cv_data"
@@ -366,7 +359,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
 
             assert render_status.errors == []
@@ -400,8 +393,11 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=False, errors=["Mismatch detected"], warnings=[]
+        mock_verifier.verify.side_effect = (
+            lambda work: work.add_error(
+                StepName.RoundtripComparer, "Mismatch detected"
+            )
+            or work
         )
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
@@ -436,7 +432,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
             verify_status = result.step_statuses[StepName.RoundtripComparer]
 
@@ -465,7 +461,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
 
             assert render_status.errors == []

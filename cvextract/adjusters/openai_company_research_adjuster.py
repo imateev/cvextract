@@ -18,12 +18,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-import random
 import tempfile
 import time
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, Dict, Optional
 
 try:
     from openai import OpenAI  # type: ignore
@@ -35,60 +33,23 @@ try:
 except Exception:  # pragma: no cover
     requests = None  # type: ignore
 
-try:
-    # Python 3.9+
-    from importlib.resources import as_file, files
-except ModuleNotFoundError:
-    # Python < 3.9 backport
-    from importlib_resources import files, as_file  # type: ignore
-
 from ..shared import UnitOfWork, format_prompt, url_to_cache_filename
-from ..verifiers import get_verifier
 from .base import CVAdjuster
+from .openai_utils import (
+    OpenAIRetry as _OpenAIRetry,
+    RetryConfig as _RetryConfig,
+    extract_json_object as _extract_json_object,
+    get_cached_resource_path,
+    strip_markdown_fences as _strip_markdown_fences,
+)
 
 LOG = logging.getLogger("cvextract")
-
-T = TypeVar("T")
-
 
 # Research schema cache
 _RESEARCH_SCHEMA: Optional[Dict[str, Any]] = None
 
 
-def _get_research_schema_path() -> Optional[Path]:
-    """Get path to research schema, handling bundled executables (PyInstaller)."""
-    try:
-        schema_resource = files("cvextract.contracts").joinpath("research_schema.json")
-
-        # Cache to a stable location so returning Path is safe even after `as_file` closes.
-        cache_dir = Path(tempfile.gettempdir()) / "cvextract"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-        cache_path = cache_dir / "research_schema.json"
-        if cache_path.exists():
-            return cache_path
-
-        with as_file(schema_resource) as p:
-            src = Path(p)
-            if not src.exists():
-                return None
-            cache_path.write_bytes(src.read_bytes())
-
-        return cache_path if cache_path.exists() else None
-    except Exception:
-        return None
-
-
-_SCHEMA_PATH = _get_research_schema_path()
-
-
-@dataclass(frozen=True)
-class _RetryConfig:
-    max_attempts: int = 8
-    base_delay_s: float = 0.75
-    max_delay_s: float = 20.0
-    write_multiplier: float = 1.6
-    deterministic: bool = False
+_SCHEMA_PATH = get_cached_resource_path("research_schema.json")
 
 
 def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
@@ -104,12 +65,22 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     tmp_path.replace(path)
 
 
-def _load_cached_research(cache_path: Path) -> Optional[Dict[str, Any]]:
+def _load_cached_research(
+    cache_path: Path, *, skip_verify: bool = False
+) -> Optional[Dict[str, Any]]:
     if not cache_path.exists():
         return None
     try:
         with cache_path.open("r", encoding="utf-8") as f:
             cached_data = json.load(f)
+        if not isinstance(cached_data, dict):
+            return None
+        if skip_verify:
+            LOG.info(
+                "Using cached company research from %s (verification skipped)",
+                cache_path,
+            )
+            return cached_data
         if _validate_research_data(cached_data):
             LOG.info("Using cached company research from %s", cache_path)
             return cached_data
@@ -163,176 +134,184 @@ def _validate_research_data(data: Any) -> bool:
     """
     Validate that research data conforms to the company profile schema.
 
-    Uses the CompanyProfileVerifier to ensure the data structure
-    matches the research_schema.json requirements.
+    Uses built-in checks against research_schema.json requirements.
     """
     if not isinstance(data, dict):
         return False
 
-    try:
-        verifier = get_verifier("company-profile-verifier")
-        if not verifier:
-            LOG.warning("CompanyProfileVerifier not available")
-            return False
-        result = verifier.verify(data)
-        return bool(result.ok)
-    except Exception as e:
-        LOG.warning("Failed to validate research data with verifier: %s", e)
+    schema = _load_research_schema()
+    if not schema:
+        LOG.warning("Failed to load research schema for validation")
         return False
 
+    errs: list[str] = []
+    required_fields = set(schema.get("required", []))
+    required_fields.update({"name", "domains"})
+    for field in sorted(required_fields):
+        if field not in data:
+            errs.append(f"missing required field: {field}")
 
-def _strip_markdown_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```json"):
-        text = text[len("```json") :]
-    elif text.startswith("```"):
-        text = text[len("```") :]
-    if text.endswith("```"):
-        text = text[: -len("```")]
-    return text.strip()
+    if "name" in data:
+        if not isinstance(data["name"], str):
+            errs.append("name must be a string")
+        elif not data["name"]:
+            errs.append("name must be a non-empty string")
 
+    if "description" in data:
+        if data["description"] is not None and not isinstance(data["description"], str):
+            errs.append("description must be a string or null")
 
-def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
-    """
-    Robustly extract a JSON object from model output.
-
-    Handles:
-    - pure JSON
-    - fenced code blocks
-    - extra commentary around JSON
-
-    Returns:
-        dict if found and parsed, else None
-    """
-    if not isinstance(text, str):
-        return None
-
-    cleaned = _strip_markdown_fences(text)
-
-    # Fast path: exact JSON
-    try:
-        obj = json.loads(cleaned)
-        return obj if isinstance(obj, dict) else None
-    except Exception:
-        pass
-
-    # Try to find a top-level JSON object by scanning for {...}
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-
-    candidate = cleaned[start : end + 1]
-    try:
-        obj = json.loads(candidate)
-        return obj if isinstance(obj, dict) else None
-    except Exception:
-        return None
-
-
-class _OpenAIRetry:
-    def __init__(
-        self,
-        *,
-        retry: _RetryConfig,
-        sleep: Callable[[float], None],
-    ):
-        self._retry = retry
-        self._sleep = sleep
-
-    def _get_status_code(self, exc: Exception) -> Optional[int]:
-        for attr in ("status_code", "status", "http_status"):
-            val = getattr(exc, attr, None)
-            if isinstance(val, int):
-                return val
-        resp = getattr(exc, "response", None)
-        if resp is not None:
-            sc = getattr(resp, "status_code", None)
-            if isinstance(sc, int):
-                return sc
-        return None
-
-    def _get_retry_after_s(self, exc: Exception) -> Optional[float]:
-        headers = getattr(exc, "headers", None)
-        resp = getattr(exc, "response", None)
-        if headers is None and resp is not None:
-            headers = getattr(resp, "headers", None)
-        if not headers:
-            return None
-        try:
-            ra = headers.get("retry-after") or headers.get("Retry-After")
-        except Exception:
-            return None
-        if ra is None:
-            return None
-        try:
-            return float(ra)
-        except Exception:
-            return None
-
-    def _is_transient(self, exc: Exception) -> bool:
-        status = self._get_status_code(exc)
-        if status == 429:
-            return True
-        if status is not None and 500 <= status <= 599:
-            return True
-
-        msg = str(exc).lower()
-        transient_markers = (
-            "timeout",
-            "timed out",
-            "temporarily unavailable",
-            "connection reset",
-            "connection aborted",
-            "connection refused",
-            "remote disconnected",
-            "bad gateway",
-            "service unavailable",
-            "gateway timeout",
-            "tls",
-            "ssl",
-        )
-        return any(m in msg for m in transient_markers)
-
-    def _sleep_with_backoff(
-        self, attempt_idx: int, *, is_write: bool, exc: Exception
-    ) -> None:
-        retry_after = self._get_retry_after_s(exc)
-        if retry_after is not None and retry_after > 0:
-            self._sleep(min(self._retry.max_delay_s, retry_after))
-            return
-
-        mult = self._retry.write_multiplier if is_write else 1.0
-        raw = self._retry.base_delay_s * (2**attempt_idx) * mult
-        capped = min(self._retry.max_delay_s, raw)
-
-        if self._retry.deterministic:
-            delay = capped
+    if "domains" in data:
+        domains = data["domains"]
+        if not isinstance(domains, list):
+            errs.append("domains must be an array")
         else:
-            delay = random.random() * capped  # full jitter
+            if not domains:
+                errs.append("domains must have at least one item")
+            elif not all(isinstance(d, str) for d in domains):
+                errs.append("domains items must be strings")
 
-        delay = max(0.25, delay)
-        self._sleep(delay)
+    if "technology_signals" in data:
+        signals = data["technology_signals"]
+        if not isinstance(signals, list):
+            errs.append("technology_signals must be an array")
+        else:
+            for idx, signal in enumerate(signals):
+                if not isinstance(signal, dict):
+                    errs.append(f"technology_signals[{idx}] must be an object")
+                    continue
 
-    def call(self, fn: Callable[[], T], *, is_write: bool, op_name: str) -> T:
-        last_exc: Optional[Exception] = None
-        for attempt in range(self._retry.max_attempts):
-            try:
-                return fn()
-            except Exception as e:
-                last_exc = e
-                if not self._is_transient(e):
-                    raise RuntimeError(f"{op_name} failed (non-retryable): {e}") from e
-                if attempt >= self._retry.max_attempts - 1:
-                    status = self._get_status_code(e)
-                    raise RuntimeError(
-                        f"{op_name} failed after {self._retry.max_attempts} attempts"
-                        + (f" (HTTP {status})" if status else "")
-                        + f": {e}"
-                    ) from e
-                self._sleep_with_backoff(attempt, is_write=is_write, exc=e)
+                if "technology" not in signal:
+                    errs.append(
+                        f"technology_signals[{idx}] missing required field: technology"
+                    )
+                elif not isinstance(signal["technology"], str):
+                    errs.append(
+                        f"technology_signals[{idx}].technology must be a string"
+                    )
 
-        raise RuntimeError(f"{op_name} failed unexpectedly: {last_exc}")
+                if "category" in signal and signal["category"] is not None:
+                    if not isinstance(signal["category"], str):
+                        errs.append(
+                            f"technology_signals[{idx}].category must be a string or null"
+                        )
+
+                if "interest_level" in signal:
+                    if signal["interest_level"] not in [
+                        None,
+                        "low",
+                        "medium",
+                        "high",
+                    ]:
+                        errs.append(
+                            f"technology_signals[{idx}].interest_level must be 'low', 'medium', 'high', or null"
+                        )
+
+                if "confidence" in signal:
+                    conf = signal["confidence"]
+                    if not isinstance(conf, (int, float)) or conf < 0 or conf > 1:
+                        errs.append(
+                            f"technology_signals[{idx}].confidence must be a number between 0 and 1"
+                        )
+
+                if "signals" in signal:
+                    sigs = signal["signals"]
+                    if not isinstance(sigs, list):
+                        errs.append(
+                            f"technology_signals[{idx}].signals must be an array"
+                        )
+                    elif not all(isinstance(s, str) for s in sigs):
+                        errs.append(
+                            f"technology_signals[{idx}].signals items must be strings"
+                        )
+
+                if "notes" in signal and signal["notes"] is not None:
+                    if not isinstance(signal["notes"], str):
+                        errs.append(
+                            f"technology_signals[{idx}].notes must be a string or null"
+                        )
+
+    if "industry_classification" in data:
+        ic = data["industry_classification"]
+        if ic is not None and not isinstance(ic, dict):
+            errs.append("industry_classification must be an object or null")
+        elif isinstance(ic, dict):
+            if (
+                "naics" in ic
+                and ic["naics"] is not None
+                and not isinstance(ic["naics"], str)
+            ):
+                errs.append("industry_classification.naics must be a string or null")
+            if (
+                "sic" in ic
+                and ic["sic"] is not None
+                and not isinstance(ic["sic"], str)
+            ):
+                errs.append("industry_classification.sic must be a string or null")
+
+    if "founded_year" in data:
+        year = data["founded_year"]
+        if year is not None:
+            if not isinstance(year, int) or year < 1600 or year > 2100:
+                errs.append("founded_year must be an integer between 1600 and 2100")
+
+    if "headquarters" in data:
+        hq = data["headquarters"]
+        if hq is not None and not isinstance(hq, dict):
+            errs.append("headquarters must be an object or null")
+        elif isinstance(hq, dict):
+            if "country" not in hq:
+                errs.append("headquarters missing required field: country")
+            if (
+                "city" in hq
+                and hq["city"] is not None
+                and not isinstance(hq["city"], str)
+            ):
+                errs.append("headquarters.city must be a string or null")
+            if (
+                "state" in hq
+                and hq["state"] is not None
+                and not isinstance(hq["state"], str)
+            ):
+                errs.append("headquarters.state must be a string or null")
+            if (
+                "country" in hq
+                and hq["country"] is not None
+                and not isinstance(hq["country"], str)
+            ):
+                errs.append("headquarters.country must be a string or null")
+
+    if "company_size" in data:
+        size = data["company_size"]
+        if size not in [None, "solo", "small", "medium", "large", "enterprise"]:
+            errs.append(
+                "company_size must be 'solo', 'small', 'medium', 'large', 'enterprise', or null"
+            )
+
+    if "employee_count" in data:
+        count = data["employee_count"]
+        if count is not None:
+            if not isinstance(count, int) or count < 1:
+                errs.append("employee_count must be a positive integer or null")
+
+    if "ownership_type" in data:
+        ot = data["ownership_type"]
+        if ot not in [None, "private", "public", "nonprofit", "government"]:
+            errs.append(
+                "ownership_type must be 'private', 'public', 'nonprofit', 'government', or null"
+            )
+
+    if "website" in data:
+        if data["website"] is not None and not isinstance(data["website"], str):
+            errs.append("website must be a string or null")
+
+    if errs:
+        LOG.warning(
+            "Company research validation failed (%d errors)", len(errs)
+        )
+        return False
+
+    return True
 
 
 def _research_company_profile(
@@ -343,6 +322,7 @@ def _research_company_profile(
     retry: Optional[_RetryConfig] = None,
     sleep: Callable[[float], None] = time.sleep,
     request_timeout_s: float = 60.0,
+    skip_verify: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Research a company profile from its URL using OpenAI.
@@ -410,6 +390,9 @@ def _research_company_profile(
         LOG.warning("Company research: invalid JSON response")
         return None
 
+    if skip_verify:
+        return research_data
+
     if not _validate_research_data(research_data):
         LOG.warning("Company research: response failed schema validation")
         return None
@@ -473,10 +456,14 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             return self._write_output_json(work, cv_data)
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
+        skip_verify = bool(
+            work.config.skip_all_verify
+            or (work.config.adjust and work.config.adjust.skip_verify)
+        )
         cache_dir = work.config.workspace.research_dir
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_path = cache_dir / url_to_cache_filename(customer_url)
-        research_data = _load_cached_research(cache_path)
+        research_data = _load_cached_research(cache_path, skip_verify=skip_verify)
 
         # Step 1: Research company profile (with retries)
         if not research_data:
@@ -488,6 +475,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 retry=self._retry,
                 sleep=self._sleep,
                 request_timeout_s=self._request_timeout_s,
+                skip_verify=skip_verify,
             )
             if research_data:
                 _cache_research_data(cache_path, research_data)
@@ -582,6 +570,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                         },
                     ],
                     temperature=0.2,
+                    timeout=float(self._request_timeout_s),
                 ),
                 is_write=True,
                 op_name="Company research adjust completion",
@@ -619,28 +608,5 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             )
             return self._write_output_json(work, cv_data)
 
-        try:
-            cv_verifier = get_verifier("cv-schema-verifier")
-            if not cv_verifier:
-                LOG.warning(
-                    "Company research adjust: CV schema verifier not available; using original CV."
-                )
-                return self._write_output_json(work, cv_data)
-
-            validation_result = cv_verifier.verify(adjusted)
-            if validation_result.ok:
-                LOG.info("The CV was adjusted to better fit the target company.")
-                return self._write_output_json(work, adjusted)
-
-            LOG.warning(
-                "Company research adjust: adjusted CV failed schema validation (%d errors); using original CV.",
-                len(getattr(validation_result, "errors", []) or []),
-            )
-            return self._write_output_json(work, cv_data)
-
-        except Exception as e:
-            LOG.warning(
-                "Company research adjust: schema validation error (%s); using original CV.",
-                type(e).__name__,
-            )
-            return self._write_output_json(work, cv_data)
+        LOG.info("The CV was adjusted to better fit the target company.")
+        return self._write_output_json(work, adjusted)

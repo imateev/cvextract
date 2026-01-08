@@ -15,7 +15,7 @@ Company research and caching is now an integral part of the `OpenAICompanyResear
 The company research and caching functionality is now built into the company research adjuster. All features including:
 - Automated company website fetching and analysis
 - Structured company information extraction using OpenAI
-- Research data validation using CompanyProfileVerifier
+- Research data validation in the company research adjuster
 - JSON file caching for reuse
 - Cache filename generation from URLs
 
@@ -25,5 +25,4 @@ are documented in the comprehensive [Company Research Adjuster](../company-resea
 
 - [Company Research Adjuster](../company-research-adjuster/README.md) - Current implementation with research and caching
 - [Research Schema](../../contracts/research-schema/README.md) - Research data structure
-- [Company Profile Verifier](../../verification/company-profile-verifier/README.md) - Research validation
-
+- Research validation is documented in the company research adjuster spec

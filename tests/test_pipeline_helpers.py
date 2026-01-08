@@ -9,11 +9,19 @@ from cvextract.shared import (
     StepName,
     StepStatus,
     UnitOfWork,
-    VerificationResult,
     get_status_icons,
 )
 from cvextract.verifiers import get_verifier
-from cvextract.verifiers.comparison_verifier import RoundtripVerifier
+from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
+
+
+def _make_work(tmp_path, data):
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work.current_step = StepName.Extract
+    work.ensure_step_status(StepName.Extract)
+    return work
 
 
 def test_extract_single_success(monkeypatch, tmp_path: Path):
@@ -57,8 +65,8 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     assert len(extract_status.warnings) == 0
 
 
-def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
-    """Test extraction with validation warnings."""
+def test_extract_single_does_not_verify(monkeypatch, tmp_path: Path):
+    """Test extraction does not run verification."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
@@ -93,8 +101,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     result = p.extract_single(work)
     extract_status = result.step_statuses[StepName.Extract]
     assert extract_status.errors == []
-    assert len(extract_status.warnings) > 0
-    assert any("missing sidebar" in w for w in extract_status.warnings)
+    assert extract_status.warnings == []
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
@@ -120,8 +127,38 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     assert extract_status.warnings == []
 
 
+def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
+    """extract_single should not call verifiers."""
+    docx = tmp_path / "test.docx"
+    output = tmp_path / "test.json"
+    docx.write_text("docx")
+
+    def fake_process(work, extractor=None):
+        work.output.write_text('{"identity": {}}', encoding="utf-8")
+        return work
+
+    def fail_if_called(_name):
+        raise AssertionError("verifier should not be called")
+
+    monkeypatch.setattr(p, "extract_cv_data", fake_process)
+    monkeypatch.setattr(p, "get_verifier", fail_if_called)
+
+    work = UnitOfWork(
+        config=UserConfig(
+            target_dir=tmp_path,
+            extract=ExtractStage(source=docx),
+        ),
+        input=docx,
+        output=output,
+    )
+    result = p.extract_single(work)
+    extract_status = result.step_statuses[StepName.Extract]
+    assert extract_status.errors == []
+    assert extract_status.warnings == []
+
+
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):
-    """Test successful render with roundtrip verification."""
+    """Test successful render and roundtrip verification."""
     json_file = tmp_path / "test.json"
     json_file.write_text('{"a": 1}', encoding="utf-8")
     template = tmp_path / "template.docx"
@@ -136,8 +173,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
             work.output.write_text('{"a": 1}', encoding="utf-8")
         return work
 
-    def fake_compare(orig, target_data):
-        return VerificationResult(ok=True, errors=[], warnings=[])
+    def fake_compare(work):
+        return work
 
     # Mock the RoundtripVerifier instance method
     roundtrip_verifier = RoundtripVerifier()
@@ -158,7 +195,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     work = UnitOfWork(
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
-    result = p.render_and_verify(work)
+    render_work = p.render(work)
+    result = p._verify_roundtrip(render_work, json_file)
     render_status = result.step_statuses[StepName.Render]
     verify_status = result.step_statuses[StepName.RoundtripComparer]
     assert render_status.errors == []
@@ -186,7 +224,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     work = UnitOfWork(
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
-    result = p.render_and_verify(work)
+    result = p.render(work)
     render_status = result.step_statuses[StepName.Render]
     assert render_status.errors == []
     assert len(render_status.warnings) == 1
@@ -209,8 +247,9 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         work.output.write_text('{"a": 2}', encoding="utf-8")
         return work
 
-    def fake_compare(orig, target_data):
-        return VerificationResult(ok=False, errors=["value mismatch"], warnings=[])
+    def fake_compare(work):
+        work.add_error(StepName.RoundtripComparer, "value mismatch")
+        return work
 
     # Mock the RoundtripVerifier instance method
     roundtrip_verifier = RoundtripVerifier()
@@ -231,7 +270,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     work = UnitOfWork(
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
-    result = p.render_and_verify(work)
+    render_work = p.render(work)
+    result = p._verify_roundtrip(render_work, json_file)
     render_status = result.step_statuses[StepName.Render]
     verify_status = result.step_statuses[StepName.RoundtripComparer]
     assert render_status.errors == []
@@ -377,7 +417,7 @@ def test_categorize_result_fully_successful():
     assert fail == 0
 
 
-def test_verify_extracted_data_missing_identity():
+def test_verify_extracted_data_missing_identity(tmp_path):
     """Test verification with missing identity fields."""
     data = {
         "identity": {"title": "", "full_name": "", "first_name": "", "last_name": ""},
@@ -385,12 +425,13 @@ def test_verify_extracted_data_missing_identity():
         "experiences": [{"heading": "h", "description": "d"}],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
-    assert result.ok is False
-    assert "identity" in result.errors
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
+    status = result.step_statuses[StepName.Extract]
+    assert "identity" in status.errors
 
 
-def test_verify_extracted_data_empty_sidebar():
+def test_verify_extracted_data_empty_sidebar(tmp_path):
     """Test verification with empty sidebar."""
     data = {
         "identity": {
@@ -403,12 +444,13 @@ def test_verify_extracted_data_empty_sidebar():
         "experiences": [{"heading": "h", "description": "d"}],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
-    assert result.ok is False
-    assert "sidebar" in result.errors
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
+    status = result.step_statuses[StepName.Extract]
+    assert "sidebar" in status.errors
 
 
-def test_verify_extracted_data_no_experiences():
+def test_verify_extracted_data_no_experiences(tmp_path):
     """Test verification with no experiences."""
     data = {
         "identity": {
@@ -421,12 +463,13 @@ def test_verify_extracted_data_no_experiences():
         "experiences": [],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
-    assert result.ok is False
-    assert "experiences_empty" in result.errors
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
+    status = result.step_statuses[StepName.Extract]
+    assert "experiences_empty" in status.errors
 
 
-def test_verify_extracted_data_invalid_environment():
+def test_verify_extracted_data_invalid_environment(tmp_path):
     """Test verification with invalid environment format."""
     data = {
         "identity": {
@@ -452,6 +495,7 @@ def test_verify_extracted_data_invalid_environment():
         ],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data)
-    assert result.ok is True
-    assert any("invalid environment format" in w for w in result.warnings)
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
+    status = result.step_statuses[StepName.Extract]
+    assert any("invalid environment format" in w for w in status.warnings)

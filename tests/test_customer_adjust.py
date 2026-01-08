@@ -315,14 +315,6 @@ class TestResearchCompanyProfile:
             ],
         }
 
-        # Mock verifier to validate research data
-        mock_verifier = Mock()
-        mock_verifier.verify.return_value = Mock(ok=True)
-        monkeypatch.setattr(
-            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
-            Mock(return_value=mock_verifier),
-        )
-
         mock_openai = Mock()
         mock_client = Mock()
         mock_completion = Mock()
@@ -730,53 +722,22 @@ class TestValidateResearchData:
         result = _validate_research_data([1, 2, 3])
         assert result is False
 
-    def test_validate_research_data_verifier_unavailable(self, monkeypatch):
-        """Test validation when verifier is not available."""
+    def test_validate_research_data_missing_required_fields(self):
+        """Validation should fail when required fields are missing."""
         from cvextract.adjusters.openai_company_research_adjuster import (
             _validate_research_data,
         )
 
-        mock_get_verifier = Mock(return_value=None)
-        monkeypatch.setattr(
-            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
-            mock_get_verifier,
-        )
-
-        result = _validate_research_data({"data": "value"})
+        result = _validate_research_data({"name": "Example Corp"})
         assert result is False
 
-    def test_validate_research_data_verifier_exception(self, monkeypatch):
-        """Test validation when verifier raises exception."""
+    def test_validate_research_data_invalid_domains(self):
+        """Validation should fail when domains are invalid."""
         from cvextract.adjusters.openai_company_research_adjuster import (
             _validate_research_data,
         )
 
-        mock_verifier = Mock()
-        mock_verifier.verify.side_effect = Exception("Verifier error")
-        mock_get_verifier = Mock(return_value=mock_verifier)
-        monkeypatch.setattr(
-            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
-            mock_get_verifier,
-        )
-
-        result = _validate_research_data({"data": "value"})
-        assert result is False
-
-    def test_validate_research_data_verifier_returns_not_ok(self, monkeypatch):
-        """Test validation when verifier returns not ok."""
-        from cvextract.adjusters.openai_company_research_adjuster import (
-            _validate_research_data,
-        )
-
-        mock_verifier = Mock()
-        mock_verifier.verify.return_value = Mock(ok=False)
-        mock_get_verifier = Mock(return_value=mock_verifier)
-        monkeypatch.setattr(
-            "cvextract.adjusters.openai_company_research_adjuster.get_verifier",
-            mock_get_verifier,
-        )
-
-        result = _validate_research_data({"data": "value"})
+        result = _validate_research_data({"name": "Example Corp", "domains": []})
         assert result is False
 
 

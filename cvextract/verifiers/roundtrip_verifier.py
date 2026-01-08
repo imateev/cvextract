@@ -1,5 +1,5 @@
 """
-Comparison verifier for CV data structures.
+Roundtrip verifier for CV data structures.
 
 Validates that two CV data structures are equivalent, with special
 handling for certain fields like environment lists.
@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
-from ..shared import VerificationResult
+from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
@@ -24,24 +23,37 @@ class RoundtripVerifier(CVVerifier):
     which may use different separators but contain the same content.
     """
 
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
         """
         Compare two CV data structures.
 
-        Args:
-            data: The original/source CV data dictionary
-            **kwargs: Must contain 'target_data' key with the comparison target
-
         Returns:
-            VerificationResult with ok=True if structures match, errors for differences
+            Updated UnitOfWork with errors for differences
         """
-        target_data = kwargs.get("target_data")
-        if target_data is None:
-            raise ValueError("RoundtripVerifier requires 'target_data' parameter")
+        data, data_errs = self._load_json(work.input, "roundtrip source JSON")
+        target_data, target_errs = self._load_json(
+            work.output, "roundtrip target JSON"
+        )
+        if data is None or target_data is None:
+            return self._record(work, data_errs + target_errs, [])
 
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
-        return VerificationResult(ok=not errs, errors=errs, warnings=[])
+        return self._record(work, errs, [])
+
+    def _load_json(
+        self, path: Any, label: str
+    ) -> tuple[Any | None, List[str]]:
+        if path is None:
+            return None, [f"{label} path is not set"]
+        if not hasattr(path, "exists") or not path.exists():
+            return None, [f"{label} not found: {path}"]
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            return None, [f"{label} unreadable: {type(e).__name__}"]
+        return data, []
 
     def _normalize_environment_list(self, env: List[Any]) -> List[str]:
         """Normalize environment lists by splitting on common separators and lowercasing."""
@@ -102,40 +114,3 @@ class RoundtripVerifier(CVVerifier):
         # Primitive or other immutable
         if a != b:
             errors.append(f"value mismatch at {path or '<root>'}: {a!r} vs {b!r}")
-
-
-class FileRoundtripVerifier(CVVerifier):
-    """
-    Verifier for comparing two CV data files.
-
-    Loads JSON files and delegates to RoundtripVerifier.
-    """
-
-    def __init__(self):
-        self._roundtrip_verifier = RoundtripVerifier()
-
-    def verify(self, data: Dict[str, Any], **kwargs) -> VerificationResult:
-        """
-        Compare two CV data JSON files.
-
-        Args:
-            data: Not used (pass empty dict or any dict)
-            **kwargs: Must contain 'source_file' and 'target_file' Path objects
-
-        Returns:
-            VerificationResult with comparison results
-        """
-        source_file = kwargs.get("source_file")
-        target_file = kwargs.get("target_file")
-
-        if not source_file or not target_file:
-            raise ValueError(
-                "FileRoundtripVerifier requires 'source_file' and 'target_file' parameters"
-            )
-
-        with Path(source_file).open("r", encoding="utf-8") as f:
-            source_data = json.load(f)
-        with Path(target_file).open("r", encoding="utf-8") as f:
-            target_data = json.load(f)
-
-        return self._roundtrip_verifier.verify(source_data, target_data=target_data)

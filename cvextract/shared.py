@@ -21,13 +21,6 @@ from .logging_utils import LOG, fmt_issues
 
 
 # ------------------------- Models -------------------------
-@dataclass(frozen=True)
-class VerificationResult:
-    ok: bool
-    errors: List[str]
-    warnings: List[str]
-
-
 @dataclass
 class UnitOfWork:
     """
@@ -42,6 +35,7 @@ class UnitOfWork:
     output: Path
     initial_input: Optional[Path] = None
     step_statuses: Dict["StepName", "StepStatus"] = field(default_factory=dict)
+    current_step: Optional["StepName"] = None
 
     def __post_init__(self) -> None:
         if self.initial_input is None:
@@ -64,6 +58,13 @@ class UnitOfWork:
     def add_error(self, step: "StepName", message: str) -> None:
         status = self._get_step_status(step)
         status.errors.append(message)
+
+    def resolve_verification_step(self) -> "StepName":
+        if self.current_step is not None:
+            return self.current_step
+        if len(self.step_statuses) == 1:
+            return next(iter(self.step_statuses.keys()))
+        raise ValueError("verification step is not set")
 
     def ensure_path_exists(
         self,

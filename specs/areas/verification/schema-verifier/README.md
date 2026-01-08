@@ -21,16 +21,23 @@ The `CVSchemaVerifier` class:
 ### Programmatic API
 
 ```python
-from cvextract.verifiers import get_verifier
 from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
+from cvextract.verifiers import get_verifier
+
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # Use default schema
 verifier = get_verifier("cv-schema-verifier")
-result = verifier.verify(cv_data)
+result = verifier.verify(work)
 
 # Use custom schema
 verifier = get_verifier("cv-schema-verifier", schema_path=Path("custom_schema.json"))
-result = verifier.verify(cv_data)
+result = verifier.verify(work)
 ```
 
 ### Pipeline Integration
@@ -38,15 +45,23 @@ result = verifier.verify(cv_data)
 Can be used alongside other verifiers:
 
 ```python
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
+
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # First check schema
 schema_verifier = get_verifier("cv-schema-verifier")
-schema_result = schema_verifier.verify(cv_data)
+schema_result = schema_verifier.verify(work)
 
 # Then check completeness
 data_verifier = get_verifier("private-internal-verifier")
-data_result = data_verifier.verify(cv_data)
+data_result = data_verifier.verify(work)
 ```
 
 ## Configuration
@@ -60,11 +75,11 @@ data_result = data_verifier.verify(cv_data)
 
 ### Input
 
-- **data**: CV dictionary to validate
+- **UnitOfWork**: input/output paths with JSON output to validate
 
 ### Output
 
-- **VerificationResult**: Object with `ok`, `errors`, `warnings`
+- **UnitOfWork**: Step status updated with validation errors and warnings
 - Errors contain JSON Schema validation messages
 
 ### Schema Structure
@@ -98,7 +113,7 @@ The CV schema (`cv_schema.json`) defines:
 ### Internal Dependencies
 
 - `cvextract.verifiers.base.CVVerifier` - Base class
-- `cvextract.shared.VerificationResult` - Result type
+- `cvextract.shared.UnitOfWork` - Result container
 - `cvextract/contracts/cv_schema.json` - Schema definition
 
 ### External Dependencies
@@ -122,7 +137,7 @@ Tested in:
 Schema validation was added to provide formal contract enforcement beyond basic completeness checks.
 
 **Key Files**:
-- `cvextract/verifiers/schema_verifier.py` - Implementation
+- `cvextract/verifiers/default_cv_schema_verifier.py` - Implementation
 - `cvextract/contracts/cv_schema.json` - Schema definition
 - `cvextract/verifiers/base.py` - Base class
 
@@ -135,7 +150,7 @@ Schema validation was added to provide formal contract enforcement beyond basic 
 
 ## File Paths
 
-- Implementation: `cvextract/verifiers/schema_verifier.py`
+- Implementation: `cvextract/verifiers/default_cv_schema_verifier.py`
 - Schema: `cvextract/contracts/cv_schema.json`
 - Base Class: `cvextract/verifiers/base.py`
 - Tests: `tests/test_verifiers.py`

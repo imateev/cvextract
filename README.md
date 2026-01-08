@@ -151,6 +151,7 @@ python -m cvextract.cli \
 - Values can contain spaces: `source=/path with spaces/file.docx`
 - Multiple `--adjust` flags can be used to chain adjusters sequentially
 - Boolean flags have no value: `--adjust name=... dry-run`
+- Verifiers are optional per stage: `verifier=<verifier-name>` or `skip-verify` (global override: `--skip-all-verify`)
 
 ### Execution Modes
 
@@ -198,6 +199,8 @@ python -m cvextract.cli \
   - `openai-extractor`: OpenAI-based extraction (supports TXT, DOCX)
   - Use `--list extractors` to see all available extractors
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
+- `verifier=<verifier-name>` - Verifier to run after extraction (optional, defaults to `private-internal-verifier`)
+- `skip-verify` - Skip extraction verification (optional flag)
 
 **`--adjust`**: Adjust CV data using named adjusters (can be specified multiple times for chaining)
 - `name=<adjuster-name>` - Name of the adjuster to use (required, see `--list adjusters` for available adjusters)
@@ -211,6 +214,8 @@ python -m cvextract.cli \
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
 - `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
 - `dry-run` - Only adjust without rendering (optional flag, prevents render stage execution)
+- `verifier=<verifier-name>` - Verifier to run after adjustment (optional, defaults to `cv-schema-verifier`)
+- `skip-verify` - Skip adjustment verification (optional flag)
 - **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
 
 **`--render`**: Render CV data to DOCX template
@@ -220,6 +225,8 @@ python -m cvextract.cli \
   - Single file: renders one template
   - Directory: renders all matching JSON files
 - `output=<path>` - Output DOCX path (optional, defaults to `{target}/documents/`)
+- `verifier=<verifier-name>` - Verifier for roundtrip comparison (optional, defaults to `roundtrip-verifier`)
+- `skip-verify` - Skip roundtrip verification (optional flag)
 
 **`--parallel`**: Batch processing mode (alternative to single-file stages)
 - `source=<dir>` - Input directory containing files (required)
@@ -244,6 +251,7 @@ python -m cvextract.cli \
   - Only affects parallel mode; has no effect in single-file mode
   - Recommended for troubleshooting API interactions and HTTP requests
 - `--log-file <path>` - Optional log file path for persistent logging
+- `--skip-all-verify` - Skip verification across all stages (global override)
 
 ### Listing Available Components
 
@@ -273,6 +281,40 @@ python -m cvextract.cli --list extractors
 #     CV extractor for Microsoft Word .docx files.
 #   openai-extractor
 #     CV extractor using OpenAI API for intelligent extraction.
+```
+
+#### Verification Options
+
+```bash
+# Use a custom verifier for extraction
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx name=private-internal-extractor verifier=private-internal-verifier \
+  --target /output
+```
+
+```bash
+# Use a custom verifier for adjustment
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-company-research verifier=cv-schema-verifier customer-url=https://example.com \
+  --target /output
+```
+
+```bash
+# Use a custom verifier for roundtrip comparison during rendering
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --render template=/path/to/template.docx verifier=roundtrip-verifier \
+  --target /output
+```
+
+```bash
+# Skip verification across all stages
+python -m cvextract.cli \
+  --skip-all-verify \
+  --extract source=/path/to/cv.docx \
+  --render template=/path/to/template.docx \
+  --target /output
 ```
 
 #### Single-File Extraction

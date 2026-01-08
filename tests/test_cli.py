@@ -194,6 +194,36 @@ class TestStageBasedParsing:
         )
         assert config.should_compare is False
 
+    def test_stage_should_not_compare_when_skip_all_verify(self):
+        """When global skip-all-verify is set, should_compare should be False."""
+        config = cli.gather_user_requirements(
+            [
+                "--extract",
+                "source=/path/to/cvs",
+                "--render",
+                "template=/path/to/template.docx",
+                "--skip-all-verify",
+                "--target",
+                "/path/to/output",
+            ]
+        )
+        assert config.should_compare is False
+
+    def test_stage_should_not_compare_when_render_skip_verify(self):
+        """When render skip-verify is set, should_compare should be False."""
+        config = cli.gather_user_requirements(
+            [
+                "--extract",
+                "source=/path/to/cvs",
+                "--render",
+                "template=/path/to/template.docx",
+                "skip-verify",
+                "--target",
+                "/path/to/output",
+            ]
+        )
+        assert config.should_compare is False
+
     def test_empty_parameter_key_raises_error(self):
         """Parameter with empty key should raise error."""
         with pytest.raises(ValueError, match="Empty parameter key"):
