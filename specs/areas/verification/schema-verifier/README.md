@@ -23,11 +23,13 @@ The `CVSchemaVerifier` class:
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # Use default schema
 verifier = get_verifier("cv-schema-verifier")
@@ -45,11 +47,13 @@ Can be used alongside other verifiers:
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # First check schema
 schema_verifier = get_verifier("cv-schema-verifier")
@@ -75,7 +79,7 @@ data_result = data_verifier.verify(work)
 
 ### Output
 
-- **VerificationResult**: Object with `ok`, `errors`, `warnings`
+- **UnitOfWork**: Step status updated with validation errors and warnings
 - Errors contain JSON Schema validation messages
 
 ### Schema Structure
@@ -109,7 +113,7 @@ The CV schema (`cv_schema.json`) defines:
 ### Internal Dependencies
 
 - `cvextract.verifiers.base.CVVerifier` - Base class
-- `cvextract.shared.VerificationResult` - Result type
+- `cvextract.shared.UnitOfWork` - Result container
 - `cvextract/contracts/cv_schema.json` - Schema definition
 
 ### External Dependencies

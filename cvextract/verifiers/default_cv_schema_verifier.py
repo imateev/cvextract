@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..shared import UnitOfWork, VerificationResult
+from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
@@ -43,16 +43,16 @@ class CVSchemaVerifier(CVVerifier):
                 self._schema = json.load(f)
         return self._schema
 
-    def verify(self, work: UnitOfWork) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
         """
         Verify CV data against the schema.
 
         Returns:
-            VerificationResult with validation results
+            Updated UnitOfWork with validation results
         """
         data, errs = self._load_output_json(work)
         if data is None:
-            return VerificationResult(errors=errs, warnings=[])
+            return self._record(work, errs, [])
 
         schema = self._load_schema()
         errs: List[str] = []
@@ -141,7 +141,7 @@ class CVSchemaVerifier(CVVerifier):
                                 f"experiences[{idx}].environment items must be strings"
                             )
 
-        return VerificationResult(errors=errs, warnings=warns)
+        return self._record(work, errs, warns)
 
     def _load_output_json(
         self, work: UnitOfWork

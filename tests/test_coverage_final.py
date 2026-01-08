@@ -8,7 +8,7 @@ from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
 )
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 
 
@@ -17,11 +17,14 @@ def _make_roundtrip_work(tmp_path, source, target):
     target_path = tmp_path / "target.json"
     source_path.write_text(json.dumps(source), encoding="utf-8")
     target_path.write_text(json.dumps(target), encoding="utf-8")
-    return UnitOfWork(
+    work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path),
         input=source_path,
         output=target_path,
     )
+    work.current_step = StepName.RoundtripComparer
+    work.ensure_step_status(StepName.RoundtripComparer)
+    return work
 
 
 class TestIsEnvironmentPath:
@@ -110,8 +113,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
-        assert any("value mismatch" in err for err in result.errors)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("value mismatch" in err for err in status.errors)
 
     def test_compare_type_mismatch(self, tmp_path):
         """Test detection of type mismatches."""
@@ -121,8 +124,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
-        assert any("type mismatch" in err for err in result.errors)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("type mismatch" in err for err in status.errors)
 
     def test_compare_list_length_mismatch(self, tmp_path):
         """Test detection of list length mismatches."""
@@ -132,8 +135,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
-        assert any("list length mismatch" in err for err in result.errors)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("list length mismatch" in err for err in status.errors)
 
     def test_compare_nested_dict_mismatch(self, tmp_path):
         """Test detection of nested dict mismatches."""
@@ -143,8 +146,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
-        assert any("value mismatch" in err for err in result.errors)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("value mismatch" in err for err in status.errors)
 
     def test_compare_missing_key(self, tmp_path):
         """Test detection of missing keys."""
@@ -154,8 +157,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
-        assert any("missing key" in err for err in result.errors)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("missing key" in err for err in status.errors)
 
     def test_compare_extra_key(self, tmp_path):
         """Test detection of extra keys."""
@@ -165,7 +168,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert status.errors
 
     def test_compare_environment_field_normalization(self, tmp_path):
         """Test environment field normalization in comparison."""
@@ -192,7 +196,8 @@ class TestCompareDataStructures:
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
         # Should be OK because environment is normalized and equivalent
-        assert result.ok is True
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert status.errors == []
 
     def test_compare_environment_real_mismatch(self, tmp_path):
         """Test real environment mismatches are detected."""
@@ -204,8 +209,8 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        assert result.ok is False
-        assert any("environment mismatch" in err for err in result.errors)
+        status = result.step_statuses[StepName.RoundtripComparer]
+        assert any("environment mismatch" in err for err in status.errors)
 
 
 class TestSplitIdentityAndSidebar:

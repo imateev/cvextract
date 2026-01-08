@@ -64,16 +64,13 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         return replace(work, input=work.output)
 
     work.ensure_step_status(StepName.Extract)
+    work.current_step = StepName.Extract
     try:
-        result = verifier.verify(work)
+        work = verifier.verify(work)
     except Exception as e:
         work.add_error(
             StepName.Extract, f"extract: verify failed ({type(e).__name__})"
         )
         return replace(work, input=work.output)
-    for err in result.errors:
-        work.add_error(StepName.Extract, err)
-    for warn in result.warnings:
-        work.add_warning(StepName.Extract, warn)
 
     return replace(work, input=work.output)

@@ -14,7 +14,6 @@ from cvextract.shared import (
     StepName,
     StepStatus,
     UnitOfWork,
-    VerificationResult,
     get_status_icons,
 )
 from cvextract.verifiers import get_verifier
@@ -50,7 +49,7 @@ class TestExtractSingle:
         }
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(errors=[], warnings=[])
+        mock_verifier.verify.side_effect = lambda work: work
 
         with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
@@ -173,8 +172,8 @@ class TestExtractSingle:
         }
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            errors=[], warnings=["Warning message"]
+        mock_verifier.verify.side_effect = (
+            lambda work: work.add_warning(StepName.Extract, "Warning message") or work
         )
 
         with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
@@ -229,7 +228,7 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(errors=[], warnings=[])
+        mock_verifier.verify.side_effect = lambda work: work
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
             "cvextract.pipeline_helpers.extract_cv_data"
@@ -332,7 +331,7 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(errors=[], warnings=[])
+        mock_verifier.verify.side_effect = lambda work: work
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
             "cvextract.pipeline_helpers.extract_cv_data"
@@ -394,8 +393,11 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            errors=["Mismatch detected"], warnings=[]
+        mock_verifier.verify.side_effect = (
+            lambda work: work.add_error(
+                StepName.RoundtripComparer, "Mismatch detected"
+            )
+            or work
         )
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(

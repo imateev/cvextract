@@ -122,17 +122,14 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             return adjust_work
 
         adjust_work.ensure_step_status(StepName.Adjust)
+        adjust_work.current_step = StepName.Adjust
         try:
-            result = verifier.verify(adjust_work)
+            adjust_work = verifier.verify(adjust_work)
         except Exception as e:
             adjust_work.add_error(
                 StepName.Adjust, f"adjust: verify failed ({type(e).__name__})"
             )
             return adjust_work
-        for err in result.errors:
-            adjust_work.add_error(StepName.Adjust, err)
-        for warn in result.warnings:
-            adjust_work.add_warning(StepName.Adjust, warn)
 
         return adjust_work
     except Exception:

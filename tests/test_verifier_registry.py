@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork, VerificationResult
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
@@ -21,7 +21,10 @@ from cvextract.verifiers.verifier_registry import unregister_verifier
 def _make_work(tmp_path):
     path = tmp_path / "data.json"
     path.write_text(json.dumps({}), encoding="utf-8")
-    return UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work.current_step = StepName.Extract
+    work.ensure_step_status(StepName.Extract)
+    return work
 
 
 class TestVerifierRegistry:
@@ -94,7 +97,7 @@ class TestVerifierRegistry:
             """Custom test verifier for testing."""
 
             def verify(self, work: UnitOfWork):
-                return VerificationResult(errors=[], warnings=["custom-verifier"])
+                return self._record(work, [], ["custom-verifier"])
 
         # Register custom verifier
         register_verifier("custom-test-verifier", CustomVerifier)
@@ -113,8 +116,8 @@ class TestVerifierRegistry:
             # Should work
             work = _make_work(tmp_path)
             result = verifier.verify(work)
-            assert result.ok is True
-            assert "custom-verifier" in result.warnings
+            status = result.step_statuses[StepName.Extract]
+            assert "custom-verifier" in status.warnings
         finally:
             # Clean up the custom verifier
             unregister_verifier("custom-test-verifier")

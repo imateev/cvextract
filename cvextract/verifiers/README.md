@@ -22,18 +22,18 @@ Verifiers read inputs from the `UnitOfWork` (typically `work.output` for single-
 ```python
 import json
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork, VerificationResult
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import CVVerifier
 
 class CustomVerifier(CVVerifier):
-    def verify(self, work: UnitOfWork) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
         with work.output.open("r", encoding="utf-8") as f:
             data = json.load(f)
         # Your verification logic here
         errors = []
         warnings = []
         # ... validate data ...
-        return VerificationResult(errors=errors, warnings=warnings)
+        return self._record(work, errors, warnings)
 ```
 
 ### Available Verifiers
@@ -45,18 +45,23 @@ Validates completeness and basic structure of extracted CV data:
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import ExtractedDataVerifier
 
 verifier = ExtractedDataVerifier()
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 result = verifier.verify(work)
-if result.ok:
+status = result.step_statuses[StepName.Extract]
+if not status.errors:
     print("Data is valid!")
 else:
-    print(f"Errors: {result.errors}")
-    print(f"Warnings: {result.warnings}")
+    print(f"Errors: {status.errors}")
+    print(f"Warnings: {status.warnings}")
 ```
 
 #### CVSchemaVerifier
@@ -67,7 +72,7 @@ Validates CV data against the JSON schema defined in `cv_schema.json`:
 from cvextract.verifiers import CVSchemaVerifier
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 # Use default schema location (cv_schema.json in contracts/ directory)
 verifier = CVSchemaVerifier()
@@ -77,6 +82,8 @@ verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 result = verifier.verify(work)
 ```
 
@@ -87,15 +94,18 @@ Compares two CV data structures for equivalence:
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
-from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
+from cvextract.shared import StepName, UnitOfWork
+from cvextract.verifiers import get_verifier
 
 verifier = get_verifier("roundtrip-verifier")
 source_path = Path("source.json")
 target_path = Path("roundtrip.json")
 work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+work.current_step = StepName.RoundtripComparer
+work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
-if result.ok:
+status = result.step_statuses[StepName.RoundtripComparer]
+if not status.errors:
     print("Data structures match!")
 ```
 
@@ -117,13 +127,13 @@ To create a custom verifier:
 1. Import the base class:
    ```python
    from cvextract.verifiers import CVVerifier
-   from cvextract.shared import VerificationResult
+   from cvextract.shared import StepName, UnitOfWork
    ```
 
 2. Create your implementation:
    ```python
    class EmailVerifier(CVVerifier):
-       def verify(self, work: UnitOfWork) -> VerificationResult:
+       def verify(self, work: UnitOfWork) -> UnitOfWork:
            with work.output.open("r", encoding="utf-8") as f:
                data = json.load(f)
            errors = []
@@ -131,18 +141,20 @@ To create a custom verifier:
            identity = data.get("identity", {})
            if "email" not in identity:
                errors.append("identity missing email field")
-           return VerificationResult(errors=errors, warnings=[])
+           return self._record(work, errors, [])
    ```
 
 3. Use your verifier:
    ```python
    from pathlib import Path
    from cvextract.cli_config import UserConfig
-   from cvextract.shared import UnitOfWork
+   from cvextract.shared import StepName, UnitOfWork
 
    verifier = EmailVerifier()
    cv_path = Path("cv.json")
    work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+   work.current_step = StepName.Extract
+   work.ensure_step_status(StepName.Extract)
    result = verifier.verify(work)
    ```
 
@@ -156,12 +168,14 @@ The verifier architecture uses `UnitOfWork` paths for input and output:
 import json
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import ExtractedDataVerifier
 
 # Verify the externally sourced data
 cv_path = Path("external_cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 verifier = ExtractedDataVerifier()
 result = verifier.verify(work)
 ```
@@ -171,14 +185,16 @@ result = verifier.verify(work)
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
-from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
+from cvextract.shared import StepName, UnitOfWork
+from cvextract.verifiers import get_verifier
 
 # Compare them
 verifier = get_verifier("roundtrip-verifier")
 source_path = Path("source_cv.json")
 target_path = Path("target_cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+work.current_step = StepName.RoundtripComparer
+work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
 ```
 
@@ -190,11 +206,13 @@ The verifiers are now used directly throughout the codebase:
 # Use verifiers directly from cvextract.verifiers
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
-from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
+from cvextract.shared import StepName, UnitOfWork
+from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier, get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # Verify extracted CV data
 data_result = get_verifier("private-internal-verifier").verify(work)
@@ -203,6 +221,8 @@ data_result = get_verifier("private-internal-verifier").verify(work)
 source_path = Path("source_cv.json")
 target_path = Path("target_cv.json")
 compare_work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+compare_work.current_step = StepName.RoundtripComparer
+compare_work.ensure_step_status(StepName.RoundtripComparer)
 result = get_verifier("roundtrip-verifier").verify(compare_work)
 ```
 
@@ -214,23 +234,27 @@ result = get_verifier("roundtrip-verifier").verify(compare_work)
 from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 # First verify against schema
 schema_verifier = CVSchemaVerifier()
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 schema_result = schema_verifier.verify(work)
 
-if schema_result.ok:
+schema_status = schema_result.step_statuses[StepName.Extract]
+if not schema_status.errors:
     # Then check for completeness
     data_verifier = ExtractedDataVerifier()
     data_result = data_verifier.verify(work)
     
-    if data_result.ok:
+    data_status = data_result.step_statuses[StepName.Extract]
+    if not data_status.errors:
         print("Data is valid and complete!")
     else:
-        print(f"Completeness issues: {data_result.warnings}")
+        print(f"Completeness issues: {data_status.warnings}")
 ```
 
 ### Roundtrip Verification
@@ -239,7 +263,7 @@ if schema_result.ok:
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.extractors import DocxCVExtractor
 from cvextract.renderers import DocxCVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 from pathlib import Path
 
@@ -281,9 +305,12 @@ compare_work = UnitOfWork(
     input=json_path,
     output=roundtrip_json,
 )
+compare_work.current_step = StepName.RoundtripComparer
+compare_work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(compare_work)
+status = result.step_statuses[StepName.RoundtripComparer]
 
-if result.ok:
+if not status.errors:
     print("Roundtrip successful!")
 else:
     print(f"Differences found: {result.errors}")
@@ -295,17 +322,18 @@ else:
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.verifiers import CVVerifier
-from cvextract.shared import UnitOfWork, VerificationResult
+from cvextract.shared import StepName, UnitOfWork
 
 class AlwaysPassVerifier(CVVerifier):
-    def verify(self, work: UnitOfWork) -> VerificationResult:
-        return VerificationResult(errors=[], warnings=[])
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
+        return self._record(work, [], [])
 
 class AlwaysFailVerifier(CVVerifier):
-    def verify(self, work: UnitOfWork) -> VerificationResult:
-        return VerificationResult(
-            errors=["test error"],
-            warnings=["test warning"],
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
+        return self._record(
+            work,
+            ["test error"],
+            ["test warning"],
         )
 
 # Use in tests
@@ -315,10 +343,13 @@ work = UnitOfWork(
     input=Path("input.json"),
     output=Path("output.json"),
 )
-assert pass_verifier.verify(work).ok is True
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
+assert pass_verifier.verify(work).step_statuses[StepName.Extract].errors == []
 
 fail_verifier = AlwaysFailVerifier()
-assert fail_verifier.verify(work).ok is False
+status = fail_verifier.verify(work).step_statuses[StepName.Extract]
+assert "test error" in status.errors
 ```
 
 ## Module Organization

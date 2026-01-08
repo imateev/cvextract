@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from ..shared import UnitOfWork, VerificationResult
+from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
@@ -21,16 +21,16 @@ class ExtractedDataVerifier(CVVerifier):
     and warns about missing optional sections.
     """
 
-    def verify(self, work: UnitOfWork) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
         """
         Verify extracted CV data for completeness and validity.
 
         Returns:
-            VerificationResult with errors for critical issues and warnings for optional issues
+            Updated UnitOfWork with errors for critical issues and warnings for optional issues
         """
         data, errs = self._load_output_json(work)
         if data is None:
-            return VerificationResult(errors=errs, warnings=[])
+            return self._record(work, errs, [])
 
         errs: List[str] = []
         warns: List[str] = []
@@ -93,7 +93,7 @@ class ExtractedDataVerifier(CVVerifier):
         if issue_set:
             warns.append("incomplete: " + "; ".join(sorted(issue_set)))
 
-        return VerificationResult(errors=errs, warnings=warns)
+        return self._record(work, errs, warns)
 
     def _load_output_json(
         self, work: UnitOfWork

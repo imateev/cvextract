@@ -16,14 +16,14 @@ The verification area provides data validation and quality checking capabilities
 ### Design Principles
 
 1. **Pluggable Architecture**: All verifiers implement the `CVVerifier` abstract base class
-2. **Result Objects**: Verifiers return `VerificationResult` with ok/errors/warnings
+2. **UnitOfWork Updates**: Verifiers record errors/warnings on the appropriate step status in the `UnitOfWork`
 3. **Composable**: Multiple verifiers can be applied to the same data
 4. **Fail-Safe**: Verifiers never modify data, only report issues
 
 ### Key Components
 
 - **Base Interface**: `cvextract/verifiers/base.py` - `CVVerifier` abstract base class
-- **Result Type**: `cvextract/shared.py` - `VerificationResult` dataclass
+- **UnitOfWork**: `cvextract/shared.py` - step statuses carry verification results
 - **Implementations**:
   - `cvextract/verifiers/default_expected_cv_data_verifier.py` - Completeness validation (registered as `private-internal-verifier`)
   - `cvextract/verifiers/default_cv_schema_verifier.py` - CV JSON schema validation (registered as `cv-schema-verifier`)
@@ -38,7 +38,7 @@ CV JSON Data
 [Verifier.verify(work)]
     │
     v
-VerificationResult(ok, errors, warnings)
+UnitOfWork (step status updated with errors/warnings)
 ```
 
 ### Integration Points
@@ -48,7 +48,7 @@ VerificationResult(ok, errors, warnings)
 
 ## Dependencies
 
-- **Internal**: `cvextract.shared` (VerificationResult), `cvextract.contracts` (schemas)
+- **Internal**: `cvextract.shared` (UnitOfWork), `cvextract.contracts` (schemas)
 - **External**: `jsonschema` (schema validation)
 
 ## File References

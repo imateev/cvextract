@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from cvextract.cli_config import ExtractStage, UserConfig
 from cvextract.cli_execute_extract import execute
-from cvextract.shared import StepName, UnitOfWork, VerificationResult
+from cvextract.shared import StepName, UnitOfWork
 
 
 def _write_output(work: UnitOfWork, payload: dict) -> UnitOfWork:
@@ -24,8 +24,10 @@ def test_execute_verifies_extracted_output(tmp_path: Path):
     work = UnitOfWork(config=config, input=source, output=None)
 
     verifier = MagicMock()
-    verifier.verify.return_value = VerificationResult(
-        errors=["bad data"], warnings=["warn data"]
+    verifier.verify.side_effect = (
+        lambda w: w.add_error(StepName.Extract, "bad data")
+        or w.add_warning(StepName.Extract, "warn data")
+        or w
     )
 
     with patch(

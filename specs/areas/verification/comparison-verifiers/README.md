@@ -26,19 +26,22 @@ It checks:
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 
 verifier = get_verifier("roundtrip-verifier")
 source_path = Path("source.json")
 target_path = Path("roundtrip.json")
 work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+work.current_step = StepName.RoundtripComparer
+work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
 
-if result.ok:
+status = result.step_statuses[StepName.RoundtripComparer]
+if not status.errors:
     print("Data structures match!")
 else:
-    print(f"Differences: {result.errors}")
+    print(f"Differences: {status.errors}")
 ```
 
 ### Pipeline Integration
@@ -65,7 +68,7 @@ result = execute_render(work)
 
 ### Output
 
-- **VerificationResult**: Object with `ok`, `errors`, `warnings`
+- **UnitOfWork**: Step status updated with comparison errors and warnings
 - Errors list specific fields that differ
 
 ### Comparison Logic
@@ -80,7 +83,7 @@ result = execute_render(work)
 ### Internal Dependencies
 
 - `cvextract.verifiers.base.CVVerifier` - Base class
-- `cvextract.shared.VerificationResult` - Result type
+- `cvextract.shared.UnitOfWork` - Result container
 
 ### Integration Points
 

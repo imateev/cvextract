@@ -70,7 +70,7 @@ No configuration required - validates against hardcoded completeness rules.
 
 ### Output
 
-- **VerificationResult**: Object with `ok` (bool), `errors` (list), `warnings` (list)
+- **UnitOfWork**: Step status updated with `errors` and `warnings`
 
 ### Validation Rules
 
@@ -91,7 +91,7 @@ No configuration required - validates against hardcoded completeness rules.
 ### Internal Dependencies
 
 - `cvextract.verifiers.base.CVVerifier` - Base class
-- `cvextract.shared.VerificationResult` - Result type
+- `cvextract.shared.UnitOfWork` - Result container
 
 ### Integration Points
 

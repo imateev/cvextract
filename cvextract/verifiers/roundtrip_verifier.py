@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any, List
 
-from ..shared import UnitOfWork, VerificationResult
+from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
@@ -23,23 +23,23 @@ class RoundtripVerifier(CVVerifier):
     which may use different separators but contain the same content.
     """
 
-    def verify(self, work: UnitOfWork) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> UnitOfWork:
         """
         Compare two CV data structures.
 
         Returns:
-            VerificationResult with errors for differences (ok is derived from errors)
+            Updated UnitOfWork with errors for differences
         """
         data, data_errs = self._load_json(work.input, "roundtrip source JSON")
         target_data, target_errs = self._load_json(
             work.output, "roundtrip target JSON"
         )
         if data is None or target_data is None:
-            return VerificationResult(errors=data_errs + target_errs, warnings=[])
+            return self._record(work, data_errs + target_errs, [])
 
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
-        return VerificationResult(errors=errs, warnings=[])
+        return self._record(work, errs, [])
 
     def _load_json(
         self, path: Any, label: str

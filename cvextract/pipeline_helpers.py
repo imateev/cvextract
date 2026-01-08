@@ -21,7 +21,7 @@ from .extractors import CVExtractor, DocxCVExtractor, get_extractor
 from .extractors.docx_utils import dump_body_sample
 from .logging_utils import LOG
 from .renderers import get_renderer
-from .shared import StepName, StepStatus, UnitOfWork, VerificationResult
+from .shared import StepName, StepStatus, UnitOfWork
 from .verifiers import get_verifier
 
 
@@ -198,7 +198,7 @@ def _roundtrip_compare(
     output_docx: Path,
     roundtrip_dir: Path,
     original_cv_path: Path,
-) -> VerificationResult:
+) -> UnitOfWork:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
     roundtrip_work = UnitOfWork(
@@ -218,11 +218,11 @@ def _roundtrip_compare(
     verifier = get_verifier(verifier_name)
     if not verifier:
         raise ValueError(f"unknown verifier: {verifier_name}")
-    compare_work = UnitOfWork(
-        config=render_work.config,
+    compare_work = replace(
+        render_work,
         input=original_cv_path,
         output=roundtrip_json,
-        initial_input=render_work.initial_input,
+        current_step=StepName.RoundtripComparer,
     )
     return verifier.verify(compare_work)
 
@@ -240,7 +240,7 @@ def _verify_roundtrip(
     rel_path = _resolve_parent(input_path, source_base)
     roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
     try:
-        compare_result = _roundtrip_compare(
+        _roundtrip_compare(
             render_work,
             output_docx,
             roundtrip_dir,
@@ -253,10 +253,6 @@ def _verify_roundtrip(
         return render_work
 
     render_work.ensure_step_status(StepName.RoundtripComparer)
-    for err in compare_result.errors:
-        render_work.add_error(StepName.RoundtripComparer, err)
-    for warn in compare_result.warnings:
-        render_work.add_warning(StepName.RoundtripComparer, warn)
     return render_work
 
 

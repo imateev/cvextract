@@ -57,11 +57,13 @@ roundtrip-verifier: Verifier for comparing two CV data structures.
 ```python
 from pathlib import Path
 from cvextract.cli_config import UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work.current_step = StepName.Extract
+work.ensure_step_status(StepName.Extract)
 
 # Get a verifier by name
 verifier = get_verifier('private-internal-verifier')
@@ -75,7 +77,7 @@ result = verifier.verify(work)
 ### Registering Custom Verifiers
 
 ```python
-from cvextract.shared import UnitOfWork, VerificationResult
+from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import CVVerifier, register_verifier
 
 class CustomVerifier(CVVerifier):
@@ -83,7 +85,7 @@ class CustomVerifier(CVVerifier):
     
     def verify(self, work: UnitOfWork):
         # Custom verification logic
-        return VerificationResult(errors=[], warnings=[])
+        return self._record(work, [], [])
 
 # Register the custom verifier
 register_verifier('my-custom-verifier', CustomVerifier)

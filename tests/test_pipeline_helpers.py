@@ -9,7 +9,6 @@ from cvextract.shared import (
     StepName,
     StepStatus,
     UnitOfWork,
-    VerificationResult,
     get_status_icons,
 )
 from cvextract.verifiers import get_verifier
@@ -19,7 +18,10 @@ from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 def _make_work(tmp_path, data):
     path = tmp_path / "data.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    return UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work.current_step = StepName.Extract
+    work.ensure_step_status(StepName.Extract)
+    return work
 
 
 def test_extract_single_success(monkeypatch, tmp_path: Path):
@@ -171,8 +173,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
             work.output.write_text('{"a": 1}', encoding="utf-8")
         return work
 
-    def fake_compare(_work):
-        return VerificationResult(errors=[], warnings=[])
+    def fake_compare(work):
+        return work
 
     # Mock the RoundtripVerifier instance method
     roundtrip_verifier = RoundtripVerifier()
@@ -245,8 +247,9 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         work.output.write_text('{"a": 2}', encoding="utf-8")
         return work
 
-    def fake_compare(_work):
-        return VerificationResult(errors=["value mismatch"], warnings=[])
+    def fake_compare(work):
+        work.add_error(StepName.RoundtripComparer, "value mismatch")
+        return work
 
     # Mock the RoundtripVerifier instance method
     roundtrip_verifier = RoundtripVerifier()
@@ -424,8 +427,8 @@ def test_verify_extracted_data_missing_identity(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    assert result.ok is False
-    assert "identity" in result.errors
+    status = result.step_statuses[StepName.Extract]
+    assert "identity" in status.errors
 
 
 def test_verify_extracted_data_empty_sidebar(tmp_path):
@@ -443,8 +446,8 @@ def test_verify_extracted_data_empty_sidebar(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    assert result.ok is False
-    assert "sidebar" in result.errors
+    status = result.step_statuses[StepName.Extract]
+    assert "sidebar" in status.errors
 
 
 def test_verify_extracted_data_no_experiences(tmp_path):
@@ -462,8 +465,8 @@ def test_verify_extracted_data_no_experiences(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    assert result.ok is False
-    assert "experiences_empty" in result.errors
+    status = result.step_statuses[StepName.Extract]
+    assert "experiences_empty" in status.errors
 
 
 def test_verify_extracted_data_invalid_environment(tmp_path):
@@ -494,5 +497,5 @@ def test_verify_extracted_data_invalid_environment(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    assert result.ok is True
-    assert any("invalid environment format" in w for w in result.warnings)
+    status = result.step_statuses[StepName.Extract]
+    assert any("invalid environment format" in w for w in status.warnings)
