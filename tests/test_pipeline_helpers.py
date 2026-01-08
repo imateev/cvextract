@@ -120,6 +120,39 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     assert extract_status.warnings == []
 
 
+def test_extract_single_skips_verification_when_global_skip_all_verify(
+    monkeypatch, tmp_path: Path
+):
+    """Global skip_all_verify should bypass verification."""
+    docx = tmp_path / "test.docx"
+    output = tmp_path / "test.json"
+    docx.write_text("docx")
+
+    def fake_process(work, extractor=None):
+        work.output.write_text('{"identity": {}}', encoding="utf-8")
+        return work
+
+    def fail_if_called(_name):
+        raise AssertionError("verifier should not be called")
+
+    monkeypatch.setattr(p, "extract_cv_data", fake_process)
+    monkeypatch.setattr(p, "get_verifier", fail_if_called)
+
+    work = UnitOfWork(
+        config=UserConfig(
+            target_dir=tmp_path,
+            extract=ExtractStage(source=docx),
+            skip_all_verify=True,
+        ),
+        input=docx,
+        output=output,
+    )
+    result = p.extract_single(work)
+    extract_status = result.step_statuses[StepName.Extract]
+    assert extract_status.errors == []
+    assert extract_status.warnings == []
+
+
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     """Test successful render with roundtrip verification."""
     json_file = tmp_path / "test.json"

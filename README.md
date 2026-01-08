@@ -151,7 +151,7 @@ python -m cvextract.cli \
 - Values can contain spaces: `source=/path with spaces/file.docx`
 - Multiple `--adjust` flags can be used to chain adjusters sequentially
 - Boolean flags have no value: `--adjust name=... dry-run`
-- Verifiers are optional per stage: `verifier=<verifier-name>` or `skip-verify`
+- Verifiers are optional per stage: `verifier=<verifier-name>` or `skip-verify` (global override: `--skip-all-verify`)
 
 ### Execution Modes
 
