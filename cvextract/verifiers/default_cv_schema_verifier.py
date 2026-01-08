@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..shared import VerificationResult
+from ..shared import UnitOfWork, VerificationResult
 from .base import CVVerifier
 
 
@@ -43,19 +43,17 @@ class CVSchemaVerifier(CVVerifier):
                 self._schema = json.load(f)
         return self._schema
 
-    def verify(self, **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> VerificationResult:
         """
         Verify CV data against the schema.
-
-        Args:
-            **kwargs: Must contain 'data' (Dict[str, Any]) with CV data to validate
 
         Returns:
             VerificationResult with validation results
         """
-        data = kwargs.get("data")
+        data, errs = self._load_output_json(work)
         if data is None:
-            raise ValueError("CVSchemaVerifier requires 'data' parameter")
+            return VerificationResult(errors=errs, warnings=[])
+
         schema = self._load_schema()
         errs: List[str] = []
         warns: List[str] = []
@@ -144,3 +142,19 @@ class CVSchemaVerifier(CVVerifier):
                             )
 
         return VerificationResult(errors=errs, warnings=warns)
+
+    def _load_output_json(
+        self, work: UnitOfWork
+    ) -> tuple[Dict[str, Any] | None, List[str]]:
+        if work.output is None:
+            return None, ["verification input JSON path is not set"]
+        if not work.output.exists():
+            return None, [f"verification input JSON not found: {work.output}"]
+        try:
+            with work.output.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            return None, [f"verification input JSON unreadable: {type(e).__name__}"]
+        if not isinstance(data, dict):
+            return None, ["verification input JSON must be an object"]
+        return data, []

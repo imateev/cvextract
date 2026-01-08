@@ -16,6 +16,12 @@ from cvextract.verifiers import get_verifier
 from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
 
+def _make_work(tmp_path, data):
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+
+
 def test_extract_single_success(monkeypatch, tmp_path: Path):
     """Test successful extraction and verification."""
     docx = tmp_path / "test.docx"
@@ -169,7 +175,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
             work.output.write_text('{"a": 1}', encoding="utf-8")
         return work
 
-    def fake_compare(data=None, target_data=None):
+    def fake_compare(_work):
         return VerificationResult(errors=[], warnings=[])
 
     # Mock the RoundtripVerifier instance method
@@ -242,7 +248,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         work.output.write_text('{"a": 2}', encoding="utf-8")
         return work
 
-    def fake_compare(data=None, target_data=None):
+    def fake_compare(_work):
         return VerificationResult(errors=["value mismatch"], warnings=[])
 
     # Mock the RoundtripVerifier instance method
@@ -410,7 +416,7 @@ def test_categorize_result_fully_successful():
     assert fail == 0
 
 
-def test_verify_extracted_data_missing_identity():
+def test_verify_extracted_data_missing_identity(tmp_path):
     """Test verification with missing identity fields."""
     data = {
         "identity": {"title": "", "full_name": "", "first_name": "", "last_name": ""},
@@ -418,12 +424,13 @@ def test_verify_extracted_data_missing_identity():
         "experiences": [{"heading": "h", "description": "d"}],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data=data)
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
     assert result.ok is False
     assert "identity" in result.errors
 
 
-def test_verify_extracted_data_empty_sidebar():
+def test_verify_extracted_data_empty_sidebar(tmp_path):
     """Test verification with empty sidebar."""
     data = {
         "identity": {
@@ -436,12 +443,13 @@ def test_verify_extracted_data_empty_sidebar():
         "experiences": [{"heading": "h", "description": "d"}],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data=data)
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
     assert result.ok is False
     assert "sidebar" in result.errors
 
 
-def test_verify_extracted_data_no_experiences():
+def test_verify_extracted_data_no_experiences(tmp_path):
     """Test verification with no experiences."""
     data = {
         "identity": {
@@ -454,12 +462,13 @@ def test_verify_extracted_data_no_experiences():
         "experiences": [],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data=data)
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
     assert result.ok is False
     assert "experiences_empty" in result.errors
 
 
-def test_verify_extracted_data_invalid_environment():
+def test_verify_extracted_data_invalid_environment(tmp_path):
     """Test verification with invalid environment format."""
     data = {
         "identity": {
@@ -485,6 +494,7 @@ def test_verify_extracted_data_invalid_environment():
         ],
     }
     verifier = get_verifier("private-internal-verifier")
-    result = verifier.verify(data=data)
+    work = _make_work(tmp_path, data)
+    result = verifier.verify(work)
     assert result.ok is True
     assert any("invalid environment format" in w for w in result.warnings)

@@ -4,7 +4,6 @@ Step 2: Adjust stage execution.
 
 from __future__ import annotations
 
-import json
 import time
 import traceback
 from dataclasses import replace
@@ -122,17 +121,14 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             )
             return adjust_work
 
+        adjust_work.ensure_step_status(StepName.Adjust)
         try:
-            with adjust_work.output.open("r", encoding="utf-8") as f:
-                adjusted_data = json.load(f)
+            result = verifier.verify(adjust_work)
         except Exception as e:
             adjust_work.add_error(
                 StepName.Adjust, f"adjust: verify failed ({type(e).__name__})"
             )
             return adjust_work
-
-        adjust_work.ensure_step_status(StepName.Adjust)
-        result = verifier.verify(data=adjusted_data)
         for err in result.errors:
             adjust_work.add_error(StepName.Adjust, err)
         for warn in result.warnings:

@@ -8,7 +8,6 @@ from .base import CVVerifier
 from .default_expected_cv_data_verifier import ExtractedDataVerifier
 from .roundtrip_verifier import RoundtripVerifier
 from .default_cv_schema_verifier import CVSchemaVerifier
-from .default_company_research_verifier import CompanyProfileVerifier
 from .verifier_registry import (
     register_verifier,
     get_verifier,
@@ -20,7 +19,6 @@ from .verifier_registry import (
 register_verifier("private-internal-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("cv-schema-verifier", CVSchemaVerifier)
-register_verifier("company-profile-verifier", CompanyProfileVerifier)
 
 
 __all__ = [

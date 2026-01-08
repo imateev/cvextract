@@ -6,9 +6,10 @@ Validates completeness and basic structure of extracted CV data.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List
 
-from ..shared import VerificationResult
+from ..shared import UnitOfWork, VerificationResult
 from .base import CVVerifier
 
 
@@ -20,19 +21,17 @@ class ExtractedDataVerifier(CVVerifier):
     and warns about missing optional sections.
     """
 
-    def verify(self, **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> VerificationResult:
         """
         Verify extracted CV data for completeness and validity.
-
-        Args:
-            **kwargs: Must contain 'data' (Dict[str, Any]) with extracted CV data
 
         Returns:
             VerificationResult with errors for critical issues and warnings for optional issues
         """
-        data = kwargs.get("data")
+        data, errs = self._load_output_json(work)
         if data is None:
-            raise ValueError("ExtractedDataVerifier requires 'data' parameter")
+            return VerificationResult(errors=errs, warnings=[])
+
         errs: List[str] = []
         warns: List[str] = []
 
@@ -95,3 +94,19 @@ class ExtractedDataVerifier(CVVerifier):
             warns.append("incomplete: " + "; ".join(sorted(issue_set)))
 
         return VerificationResult(errors=errs, warnings=warns)
+
+    def _load_output_json(
+        self, work: UnitOfWork
+    ) -> tuple[Dict[str, Any] | None, List[str]]:
+        if work.output is None:
+            return None, ["verification input JSON path is not set"]
+        if not work.output.exists():
+            return None, [f"verification input JSON not found: {work.output}"]
+        try:
+            with work.output.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            return None, [f"verification input JSON unreadable: {type(e).__name__}"]
+        if not isinstance(data, dict):
+            return None, ["verification input JSON must be an object"]
+        return data, []

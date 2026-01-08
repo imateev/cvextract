@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ..shared import VerificationResult
+from ..shared import UnitOfWork, VerificationResult
 
 
 class CVVerifier(ABC):
@@ -21,12 +21,12 @@ class CVVerifier(ABC):
     """
 
     @abstractmethod
-    def verify(self, **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> VerificationResult:
         """
         Verify CV data and return a verification result.
 
         Args:
-            **kwargs: Verification-specific parameters (e.g., data: Dict[str, Any])
+            work: UnitOfWork containing the current pipeline state and paths
 
         Returns:
             VerificationResult with errors and warnings (ok is derived from errors)

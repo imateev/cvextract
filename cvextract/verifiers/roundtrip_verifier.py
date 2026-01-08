@@ -7,10 +7,11 @@ handling for certain fields like environment lists.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, List
 
-from ..shared import VerificationResult
+from ..shared import UnitOfWork, VerificationResult
 from .base import CVVerifier
 
 
@@ -22,26 +23,37 @@ class RoundtripVerifier(CVVerifier):
     which may use different separators but contain the same content.
     """
 
-    def verify(self, **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> VerificationResult:
         """
         Compare two CV data structures.
-
-        Args:
-            **kwargs: Must contain 'data' and 'target_data' (Dict[str, Any]) for comparison
 
         Returns:
             VerificationResult with errors for differences (ok is derived from errors)
         """
-        data = kwargs.get("data")
-        target_data = kwargs.get("target_data")
+        data, data_errs = self._load_json(work.input, "roundtrip source JSON")
+        target_data, target_errs = self._load_json(
+            work.output, "roundtrip target JSON"
+        )
         if data is None or target_data is None:
-            raise ValueError(
-                "RoundtripVerifier requires 'data' and 'target_data' parameters"
-            )
+            return VerificationResult(errors=data_errs + target_errs, warnings=[])
 
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
         return VerificationResult(errors=errs, warnings=[])
+
+    def _load_json(
+        self, path: Any, label: str
+    ) -> tuple[Any | None, List[str]]:
+        if path is None:
+            return None, [f"{label} path is not set"]
+        if not hasattr(path, "exists") or not path.exists():
+            return None, [f"{label} not found: {path}"]
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            return None, [f"{label} unreadable: {type(e).__name__}"]
+        return data, []
 
     def _normalize_environment_list(self, env: List[Any]) -> List[str]:
         """Normalize environment lists by splitting on common separators and lowercasing."""

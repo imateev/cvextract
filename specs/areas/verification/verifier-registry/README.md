@@ -47,7 +47,6 @@ for v in verifiers:
 
 Example output:
 ```
-company-profile-verifier: Verifier that validates company profile data against research_schema.json.
 cv-schema-verifier: Verifier that validates CV data against cv_schema.json.
 private-internal-verifier: Verifier for extracted CV data completeness and validity.
 roundtrip-verifier: Verifier for comparing two CV data structures.
@@ -56,30 +55,33 @@ roundtrip-verifier: Verifier for comparing two CV data structures.
 ### Getting a Verifier Instance
 
 ```python
-from typing import Any, Dict
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 
-cv_data: Dict[str, Any] = {...}
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 
 # Get a verifier by name
 verifier = get_verifier('private-internal-verifier')
-result = verifier.verify(data=cv_data)
+result = verifier.verify(work)
 
 # Pass constructor arguments
 verifier = get_verifier('cv-schema-verifier', schema_path=custom_schema_path)
-result = verifier.verify(data=cv_data)
+result = verifier.verify(work)
 ```
 
 ### Registering Custom Verifiers
 
 ```python
+from cvextract.shared import UnitOfWork, VerificationResult
 from cvextract.verifiers import CVVerifier, register_verifier
-from cvextract.shared import VerificationResult
 
 class CustomVerifier(CVVerifier):
     """My custom CV verifier."""
     
-    def verify(self, **kwargs):
+    def verify(self, work: UnitOfWork):
         # Custom verification logic
         return VerificationResult(errors=[], warnings=[])
 
@@ -99,7 +101,6 @@ The following verifiers are registered by default:
 | `private-internal-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
 | `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against cv_schema.json |
-| `company-profile-verifier` | `CompanyProfileVerifier` | Validates company research data against research_schema.json |
 
 ## Implementation Details
 
@@ -142,7 +143,6 @@ from .verifier_registry import register_verifier
 register_verifier("private-internal-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("cv-schema-verifier", CVSchemaVerifier)
-register_verifier("company-profile-verifier", CompanyProfileVerifier)
 ```
 
 ### With Public API
@@ -196,7 +196,6 @@ Tests are provided in `tests/test_verifier_registry.py`:
 - [Extracted Data Verifier](../extracted-data-verifier/README.md)
 - [Roundtrip Verifier](../comparison-verifiers/README.md)
 - [Schema Verifier](../schema-verifier/README.md)
-- [Company Profile Verifier](../company-profile-verifier/README.md)
 - [Extractor Registry](../../extraction/extractor-registry/README.md)
 
 ## Design Rationale

@@ -1,10 +1,12 @@
 """Tests for verifier registry functionality."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from cvextract.shared import VerificationResult
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork, VerificationResult
 from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
@@ -16,6 +18,12 @@ from cvextract.verifiers import (
 from cvextract.verifiers.verifier_registry import unregister_verifier
 
 
+def _make_work(tmp_path):
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps({}), encoding="utf-8")
+    return UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+
+
 class TestVerifierRegistry:
     """Tests for the verifier registry system."""
 
@@ -23,8 +31,8 @@ class TestVerifierRegistry:
         """list_verifiers() returns the built-in verifiers."""
         verifiers = list_verifiers()
 
-        # Should have at least 4 verifiers registered
-        assert len(verifiers) >= 4
+        # Should have at least 3 verifiers registered
+        assert len(verifiers) >= 3
 
         # Extract names
         names = [v["name"] for v in verifiers]
@@ -79,13 +87,13 @@ class TestVerifierRegistry:
         assert hasattr(verifier, "schema_path")
         assert verifier.schema_path == schema_path
 
-    def test_register_custom_verifier(self):
+    def test_register_custom_verifier(self, tmp_path):
         """register_verifier() allows registering custom verifiers."""
 
         class CustomVerifier(CVVerifier):
             """Custom test verifier for testing."""
 
-            def verify(self, **kwargs):
+            def verify(self, work: UnitOfWork):
                 return VerificationResult(errors=[], warnings=["custom-verifier"])
 
         # Register custom verifier
@@ -103,7 +111,8 @@ class TestVerifierRegistry:
             assert isinstance(verifier, CustomVerifier)
 
             # Should work
-            result = verifier.verify(data={})
+            work = _make_work(tmp_path)
+            result = verifier.verify(work)
             assert result.ok is True
             assert "custom-verifier" in result.warnings
         finally:

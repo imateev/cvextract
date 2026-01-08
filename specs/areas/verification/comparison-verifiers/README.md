@@ -11,7 +11,7 @@ The roundtrip verifier checks equivalence between two CV data structures, primar
 ## Description
 
 Implementation:
-1. **`RoundtripVerifier`**: Compares in-memory data structures
+1. **`RoundtripVerifier`**: Compares JSON files referenced by a `UnitOfWork`
 
 It checks:
 - Structural equivalence
@@ -21,16 +21,19 @@ It checks:
 
 ## Entry Points
 
-### RoundtripVerifier (In-Memory)
+### RoundtripVerifier (File-Based)
 
 ```python
-from typing import Any, Dict
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 
 verifier = get_verifier("roundtrip-verifier")
-original_data: Dict[str, Any] = {...}
-roundtrip_data: Dict[str, Any] = {...}
-result = verifier.verify(data=original_data, target_data=roundtrip_data)
+source_path = Path("source.json")
+target_path = Path("roundtrip.json")
+work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+result = verifier.verify(work)
 
 if result.ok:
     print("Data structures match!")
@@ -52,13 +55,13 @@ result = render_and_verify(work)
 
 ### Parameters
 
-- **RoundtripVerifier**: `verify(data=..., target_data=...)`
+- **RoundtripVerifier**: `verify(work)`
 
 ## Interfaces
 
 ### Input
 
-- Two CV data structures (in-memory or file paths)
+- **UnitOfWork**: input/output paths for the original and roundtrip JSON
 
 ### Output
 

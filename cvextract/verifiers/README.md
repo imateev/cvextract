@@ -16,18 +16,19 @@ The verifier architecture allows for interchangeable implementations of CV verif
 
 ### CVVerifier Interface
 
-The `CVVerifier` abstract base class defines the contract that all verifiers must implement:
+The `CVVerifier` abstract base class defines the contract that all verifiers must implement.
+Verifiers read inputs from the `UnitOfWork` (typically `work.output` for single-input verifiers, and `work.input` + `work.output` for roundtrip comparisons):
 
 ```python
+import json
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork, VerificationResult
 from cvextract.verifiers import CVVerifier
-from cvextract.shared import VerificationResult
-from typing import Dict, Any
 
 class CustomVerifier(CVVerifier):
-    def verify(self, **kwargs) -> VerificationResult:
-        data = kwargs.get("data")
-        if data is None:
-            raise ValueError("CustomVerifier requires a 'data' parameter.")
+    def verify(self, work: UnitOfWork) -> VerificationResult:
+        with work.output.open("r", encoding="utf-8") as f:
+            data = json.load(f)
         # Your verification logic here
         errors = []
         warnings = []
@@ -42,17 +43,15 @@ class CustomVerifier(CVVerifier):
 Validates completeness and basic structure of extracted CV data:
 
 ```python
-from typing import Any, Dict
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import ExtractedDataVerifier
 
 verifier = ExtractedDataVerifier()
-cv_data: Dict[str, Any] = {
-    "identity": {"title": "...", "full_name": "...", ...},
-    "sidebar": {...},
-    "overview": "...",
-    "experiences": [...]
-}
-result = verifier.verify(data=cv_data)
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+result = verifier.verify(work)
 if result.ok:
     print("Data is valid!")
 else:
@@ -65,9 +64,10 @@ else:
 Validates CV data against the JSON schema defined in `cv_schema.json`:
 
 ```python
-from typing import Any, Dict
-from cvextract.verifiers import get_verifier
+from cvextract.verifiers import CVSchemaVerifier
 from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 
 # Use default schema location (cv_schema.json in contracts/ directory)
 verifier = CVSchemaVerifier()
@@ -75,8 +75,9 @@ verifier = CVSchemaVerifier()
 # Or specify custom schema path
 verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
 
-cv_data: Dict[str, Any] = {...}
-result = verifier.verify(data=cv_data)
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+result = verifier.verify(work)
 ```
 
 #### RoundtripVerifier
@@ -84,14 +85,16 @@ result = verifier.verify(data=cv_data)
 Compares two CV data structures for equivalence:
 
 ```python
-from typing import Any, Dict
-from cvextract.verifiers import get_verifier
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
+from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
 
 verifier = get_verifier("roundtrip-verifier")
-original_data: Dict[str, Any] = {...}
-roundtrip_data: Dict[str, Any] = {...}
-
-result = verifier.verify(data=original_data, target_data=roundtrip_data)
+source_path = Path("source.json")
+target_path = Path("roundtrip.json")
+work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+result = verifier.verify(work)
 if result.ok:
     print("Data structures match!")
 ```
@@ -120,10 +123,9 @@ To create a custom verifier:
 2. Create your implementation:
    ```python
    class EmailVerifier(CVVerifier):
-       def verify(self, **kwargs) -> VerificationResult:
-           data = kwargs.get("data")
-           if data is None:
-               raise ValueError("EmailVerifier requires a 'data' parameter.")
+       def verify(self, work: UnitOfWork) -> VerificationResult:
+           with work.output.open("r", encoding="utf-8") as f:
+               data = json.load(f)
            errors = []
            # Check for email in identity
            identity = data.get("identity", {})
@@ -134,51 +136,50 @@ To create a custom verifier:
 
 3. Use your verifier:
    ```python
-   from typing import Any, Dict
+   from pathlib import Path
+   from cvextract.cli_config import UserConfig
+   from cvextract.shared import UnitOfWork
 
    verifier = EmailVerifier()
-   cv_data: Dict[str, Any] = {...}
-   result = verifier.verify(data=cv_data)
+   cv_path = Path("cv.json")
+   work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+   result = verifier.verify(work)
    ```
 
 ## Passing Data from External Sources
 
-The verifier architecture supports passing both source and target data as parameters:
+The verifier architecture uses `UnitOfWork` paths for input and output:
 
 ### Example: Verifying External Data
 
 ```python
-from typing import Any, Dict
-from cvextract.verifiers import ExtractedDataVerifier
 import json
 from pathlib import Path
-
-# Load CV data from external source
-with open("external_cv.json", "r") as f:
-    cv_data: Dict[str, Any] = json.load(f)
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
+from cvextract.verifiers import ExtractedDataVerifier
 
 # Verify the externally sourced data
+cv_path = Path("external_cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 verifier = ExtractedDataVerifier()
-result = verifier.verify(data=cv_data)
+result = verifier.verify(work)
 ```
 
 ### Example: Comparing External Data Sources
 
 ```python
-from typing import Any, Dict
-from cvextract.verifiers import get_verifier
-import json
-
-# Load data from different sources
-with open("source_cv.json", "r") as f:
-    source_data: Dict[str, Any] = json.load(f)
-
-with open("target_cv.json", "r") as f:
-    target_data: Dict[str, Any] = json.load(f)
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
+from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
 
 # Compare them
 verifier = get_verifier("roundtrip-verifier")
-result = verifier.verify(data=source_data, target_data=target_data)
+source_path = Path("source_cv.json")
+target_path = Path("target_cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+result = verifier.verify(work)
 ```
 
 ## Integration with Existing Pipeline
@@ -187,16 +188,22 @@ The verifiers are now used directly throughout the codebase:
 
 ```python
 # Use verifiers directly from cvextract.verifiers
-from typing import Any, Dict
-from cvextract.verifiers import ExtractedDataVerifier, get_verifier
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
+from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
 
-cv_data: Dict[str, Any] = {...}
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 
 # Verify extracted CV data
-data_result = get_verifier("private-internal-verifier").verify(data=cv_data)
+data_result = get_verifier("private-internal-verifier").verify(work)
 
 # Compare two CV data structures
-result = get_verifier("roundtrip-verifier").verify(data=original_data, target_data=roundtrip_data)
+source_path = Path("source_cv.json")
+target_path = Path("target_cv.json")
+compare_work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+result = get_verifier("roundtrip-verifier").verify(compare_work)
 ```
 
 ## Examples
@@ -204,19 +211,21 @@ result = get_verifier("roundtrip-verifier").verify(data=original_data, target_da
 ### Using Multiple Verifiers
 
 ```python
-from typing import Any, Dict
-from cvextract.verifiers import get_verifier
-
-cv_data: Dict[str, Any] = {...}
+from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 
 # First verify against schema
 schema_verifier = CVSchemaVerifier()
-schema_result = schema_verifier.verify(data=cv_data)
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+schema_result = schema_verifier.verify(work)
 
 if schema_result.ok:
     # Then check for completeness
     data_verifier = ExtractedDataVerifier()
-    data_result = data_verifier.verify(data=cv_data)
+    data_result = data_verifier.verify(work)
     
     if data_result.ok:
         print("Data is valid and complete!")
@@ -227,14 +236,12 @@ if schema_result.ok:
 ### Roundtrip Verification
 
 ```python
-from typing import Any, Dict
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.extractors import DocxCVExtractor
 from cvextract.renderers import DocxCVRenderer
 from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 from pathlib import Path
-import json
 
 # Extract original data
 extractor = DocxCVExtractor()
@@ -245,7 +252,6 @@ extract_work = UnitOfWork(
     output=json_path,
 )
 extractor.extract(extract_work)
-original_data: Dict[str, Any] = json.loads(json_path.read_text(encoding="utf-8"))
 
 # Render to new document
 output_path = Path("output.docx")
@@ -267,11 +273,15 @@ roundtrip_work = UnitOfWork(
     output=roundtrip_json,
 )
 extractor.extract(roundtrip_work)
-roundtrip_data: Dict[str, Any] = json.loads(roundtrip_json.read_text(encoding="utf-8"))
 
 # Verify they match
 verifier = get_verifier("roundtrip-verifier")
-result = verifier.verify(data=original_data, target_data=roundtrip_data)
+compare_work = UnitOfWork(
+    config=UserConfig(target_dir=Path(".")),
+    input=json_path,
+    output=roundtrip_json,
+)
+result = verifier.verify(compare_work)
 
 if result.ok:
     print("Roundtrip successful!")
@@ -282,16 +292,17 @@ else:
 ### Creating a Mock Verifier for Testing
 
 ```python
-from typing import Any, Dict
+from pathlib import Path
+from cvextract.cli_config import UserConfig
 from cvextract.verifiers import CVVerifier
-from cvextract.shared import VerificationResult
+from cvextract.shared import UnitOfWork, VerificationResult
 
 class AlwaysPassVerifier(CVVerifier):
-    def verify(self, **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> VerificationResult:
         return VerificationResult(errors=[], warnings=[])
 
 class AlwaysFailVerifier(CVVerifier):
-    def verify(self, **kwargs) -> VerificationResult:
+    def verify(self, work: UnitOfWork) -> VerificationResult:
         return VerificationResult(
             errors=["test error"],
             warnings=["test warning"],
@@ -299,10 +310,15 @@ class AlwaysFailVerifier(CVVerifier):
 
 # Use in tests
 pass_verifier = AlwaysPassVerifier()
-assert pass_verifier.verify(data={}).ok is True
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path(".")),
+    input=Path("input.json"),
+    output=Path("output.json"),
+)
+assert pass_verifier.verify(work).ok is True
 
 fail_verifier = AlwaysFailVerifier()
-assert fail_verifier.verify(data={}).ok is False
+assert fail_verifier.verify(work).ok is False
 ```
 
 ## Module Organization

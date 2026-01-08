@@ -22,12 +22,15 @@ The `ExtractedDataVerifier` class checks:
 ### Programmatic API
 
 ```python
-from typing import Any, Dict
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 
-cv_data: Dict[str, Any] = {...}
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 verifier = get_verifier("private-internal-verifier")
-result = verifier.verify(data=cv_data)
+result = verifier.verify(work)
 
 if result.ok:
     print("Data is valid!")
@@ -63,7 +66,7 @@ No configuration required - validates against hardcoded completeness rules.
 
 ### Input
 
-- **data**: CV dictionary conforming to `cvextract/contracts/cv_schema.json`
+- **UnitOfWork**: input/output paths with JSON output to validate
 
 ### Output
 

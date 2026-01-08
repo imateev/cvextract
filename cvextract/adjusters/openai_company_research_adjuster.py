@@ -43,7 +43,6 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from ..shared import UnitOfWork, format_prompt, url_to_cache_filename
-from ..verifiers import get_verifier
 from .base import CVAdjuster
 
 LOG = logging.getLogger("cvextract")
@@ -173,22 +172,184 @@ def _validate_research_data(data: Any) -> bool:
     """
     Validate that research data conforms to the company profile schema.
 
-    Uses the CompanyProfileVerifier to ensure the data structure
-    matches the research_schema.json requirements.
+    Uses built-in checks against research_schema.json requirements.
     """
     if not isinstance(data, dict):
         return False
 
-    try:
-        verifier = get_verifier("company-profile-verifier")
-        if not verifier:
-            LOG.warning("CompanyProfileVerifier not available")
-            return False
-        result = verifier.verify(data=data)
-        return bool(result.ok)
-    except Exception as e:
-        LOG.warning("Failed to validate research data with verifier: %s", e)
+    schema = _load_research_schema()
+    if not schema:
+        LOG.warning("Failed to load research schema for validation")
         return False
+
+    errs: list[str] = []
+    required_fields = set(schema.get("required", []))
+    required_fields.update({"name", "domains"})
+    for field in sorted(required_fields):
+        if field not in data:
+            errs.append(f"missing required field: {field}")
+
+    if "name" in data:
+        if not isinstance(data["name"], str):
+            errs.append("name must be a string")
+        elif not data["name"]:
+            errs.append("name must be a non-empty string")
+
+    if "description" in data:
+        if data["description"] is not None and not isinstance(data["description"], str):
+            errs.append("description must be a string or null")
+
+    if "domains" in data:
+        domains = data["domains"]
+        if not isinstance(domains, list):
+            errs.append("domains must be an array")
+        else:
+            if not domains:
+                errs.append("domains must have at least one item")
+            elif not all(isinstance(d, str) for d in domains):
+                errs.append("domains items must be strings")
+
+    if "technology_signals" in data:
+        signals = data["technology_signals"]
+        if not isinstance(signals, list):
+            errs.append("technology_signals must be an array")
+        else:
+            for idx, signal in enumerate(signals):
+                if not isinstance(signal, dict):
+                    errs.append(f"technology_signals[{idx}] must be an object")
+                    continue
+
+                if "technology" not in signal:
+                    errs.append(
+                        f"technology_signals[{idx}] missing required field: technology"
+                    )
+                elif not isinstance(signal["technology"], str):
+                    errs.append(
+                        f"technology_signals[{idx}].technology must be a string"
+                    )
+
+                if "category" in signal and signal["category"] is not None:
+                    if not isinstance(signal["category"], str):
+                        errs.append(
+                            f"technology_signals[{idx}].category must be a string or null"
+                        )
+
+                if "interest_level" in signal:
+                    if signal["interest_level"] not in [
+                        None,
+                        "low",
+                        "medium",
+                        "high",
+                    ]:
+                        errs.append(
+                            f"technology_signals[{idx}].interest_level must be 'low', 'medium', 'high', or null"
+                        )
+
+                if "confidence" in signal:
+                    conf = signal["confidence"]
+                    if not isinstance(conf, (int, float)) or conf < 0 or conf > 1:
+                        errs.append(
+                            f"technology_signals[{idx}].confidence must be a number between 0 and 1"
+                        )
+
+                if "signals" in signal:
+                    sigs = signal["signals"]
+                    if not isinstance(sigs, list):
+                        errs.append(
+                            f"technology_signals[{idx}].signals must be an array"
+                        )
+                    elif not all(isinstance(s, str) for s in sigs):
+                        errs.append(
+                            f"technology_signals[{idx}].signals items must be strings"
+                        )
+
+                if "notes" in signal and signal["notes"] is not None:
+                    if not isinstance(signal["notes"], str):
+                        errs.append(
+                            f"technology_signals[{idx}].notes must be a string or null"
+                        )
+
+    if "industry_classification" in data:
+        ic = data["industry_classification"]
+        if ic is not None and not isinstance(ic, dict):
+            errs.append("industry_classification must be an object or null")
+        elif isinstance(ic, dict):
+            if (
+                "naics" in ic
+                and ic["naics"] is not None
+                and not isinstance(ic["naics"], str)
+            ):
+                errs.append("industry_classification.naics must be a string or null")
+            if (
+                "sic" in ic
+                and ic["sic"] is not None
+                and not isinstance(ic["sic"], str)
+            ):
+                errs.append("industry_classification.sic must be a string or null")
+
+    if "founded_year" in data:
+        year = data["founded_year"]
+        if year is not None:
+            if not isinstance(year, int) or year < 1600 or year > 2100:
+                errs.append("founded_year must be an integer between 1600 and 2100")
+
+    if "headquarters" in data:
+        hq = data["headquarters"]
+        if hq is not None and not isinstance(hq, dict):
+            errs.append("headquarters must be an object or null")
+        elif isinstance(hq, dict):
+            if "country" not in hq:
+                errs.append("headquarters missing required field: country")
+            if (
+                "city" in hq
+                and hq["city"] is not None
+                and not isinstance(hq["city"], str)
+            ):
+                errs.append("headquarters.city must be a string or null")
+            if (
+                "state" in hq
+                and hq["state"] is not None
+                and not isinstance(hq["state"], str)
+            ):
+                errs.append("headquarters.state must be a string or null")
+            if (
+                "country" in hq
+                and hq["country"] is not None
+                and not isinstance(hq["country"], str)
+            ):
+                errs.append("headquarters.country must be a string or null")
+
+    if "company_size" in data:
+        size = data["company_size"]
+        if size not in [None, "solo", "small", "medium", "large", "enterprise"]:
+            errs.append(
+                "company_size must be 'solo', 'small', 'medium', 'large', 'enterprise', or null"
+            )
+
+    if "employee_count" in data:
+        count = data["employee_count"]
+        if count is not None:
+            if not isinstance(count, int) or count < 1:
+                errs.append("employee_count must be a positive integer or null")
+
+    if "ownership_type" in data:
+        ot = data["ownership_type"]
+        if ot not in [None, "private", "public", "nonprofit", "government"]:
+            errs.append(
+                "ownership_type must be 'private', 'public', 'nonprofit', 'government', or null"
+            )
+
+    if "website" in data:
+        if data["website"] is not None and not isinstance(data["website"], str):
+            errs.append("website must be a string or null")
+
+    if errs:
+        LOG.warning(
+            "Company research validation failed (%d errors)", len(errs)
+        )
+        return False
+
+    return True
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -638,36 +799,5 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             )
             return self._write_output_json(work, cv_data)
 
-        if skip_verify:
-            LOG.info("Company research adjust: verification skipped.")
-            return self._write_output_json(work, adjusted)
-
-        try:
-            verifier_name = "cv-schema-verifier"
-            if work.config.adjust and work.config.adjust.verifier:
-                verifier_name = work.config.adjust.verifier
-            cv_verifier = get_verifier(verifier_name)
-            if not cv_verifier:
-                LOG.warning(
-                    "Company research adjust: verifier '%s' not available; using original CV.",
-                    verifier_name,
-                )
-                return self._write_output_json(work, cv_data)
-
-            validation_result = cv_verifier.verify(data=adjusted)
-            if validation_result.ok:
-                LOG.info("The CV was adjusted to better fit the target company.")
-                return self._write_output_json(work, adjusted)
-
-            LOG.warning(
-                "Company research adjust: adjusted CV failed schema validation (%d errors); using original CV.",
-                len(getattr(validation_result, "errors", []) or []),
-            )
-            return self._write_output_json(work, cv_data)
-
-        except Exception as e:
-            LOG.warning(
-                "Company research adjust: schema validation error (%s); using original CV.",
-                type(e).__name__,
-            )
-            return self._write_output_json(work, cv_data)
+        LOG.info("The CV was adjusted to better fit the target company.")
+        return self._write_output_json(work, adjusted)

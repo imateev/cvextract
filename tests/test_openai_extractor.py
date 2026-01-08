@@ -218,14 +218,8 @@ class TestExtractFileValidation:
                 '```\n{"identity": {}}\n```',
                 '{"identity": {}}',
             ]:
-                with patch(
-                    "cvextract.extractors.openai_extractor.get_verifier"
-                ) as mock_get_verifier:
-                    mock_verifier = MagicMock()
-                    mock_verifier.verify.return_value = MagicMock(ok=True)
-                    mock_get_verifier.return_value = mock_verifier
-                    result = extractor._parse_and_validate(text, schema)
-                    assert result == {"identity": {}}
+                result = extractor._parse_and_validate(text, schema)
+                assert result == {"identity": {}}
 
     def test_extract_accepts_any_file_type(self, tmp_path):
         """extract() accepts any file type."""
@@ -577,15 +571,8 @@ class TestParseAndValidate:
                 }
             )
 
-            with patch(
-                "cvextract.extractors.openai_extractor.get_verifier"
-            ) as mock_get_verifier:
-                mock_verifier = MagicMock()
-                mock_verifier.verify.return_value = MagicMock(ok=True)
-                mock_get_verifier.return_value = mock_verifier
-
-                result = extractor._parse_and_validate(response, schema)
-                assert result["identity"]["full_name"] == "John Doe"
+            result = extractor._parse_and_validate(response, schema)
+            assert result["identity"]["full_name"] == "John Doe"
 
     def test_parse_json_with_code_fence_json(self):
         """_parse_and_validate() strips ```json code fence."""
@@ -598,15 +585,8 @@ class TestParseAndValidate:
 "sidebar": {}, "overview": "Test", "experiences": []}
 ```"""
 
-            with patch(
-                "cvextract.extractors.openai_extractor.get_verifier"
-            ) as mock_get_verifier:
-                mock_verifier = MagicMock()
-                mock_verifier.verify.return_value = MagicMock(ok=True)
-                mock_get_verifier.return_value = mock_verifier
-
-                result = extractor._parse_and_validate(response, schema)
-                assert result["identity"]["full_name"] == "John"
+            result = extractor._parse_and_validate(response, schema)
+            assert result["identity"]["full_name"] == "John"
 
     def test_parse_json_with_plain_code_fence(self):
         """_parse_and_validate() strips plain ``` code fence."""
@@ -619,15 +599,8 @@ class TestParseAndValidate:
 "sidebar": {}, "overview": "Test", "experiences": []}
 ```"""
 
-            with patch(
-                "cvextract.extractors.openai_extractor.get_verifier"
-            ) as mock_get_verifier:
-                mock_verifier = MagicMock()
-                mock_verifier.verify.return_value = MagicMock(ok=True)
-                mock_get_verifier.return_value = mock_verifier
-
-                result = extractor._parse_and_validate(response, schema)
-                assert result["identity"]["full_name"] == "Jane"
+            result = extractor._parse_and_validate(response, schema)
+            assert result["identity"]["full_name"] == "Jane"
 
     def test_parse_invalid_json_raises_error(self):
         """_parse_and_validate() raises ValueError for invalid JSON."""
@@ -640,8 +613,8 @@ class TestParseAndValidate:
             with pytest.raises(ValueError, match="Failed to parse response as JSON"):
                 extractor._parse_and_validate(response, schema)
 
-    def test_parse_schema_validation_failure(self):
-        """_parse_and_validate() raises ValueError on schema validation failure."""
+    def test_parse_schema_validation_is_deferred(self):
+        """_parse_and_validate() does not perform schema validation."""
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
             extractor = OpenAICVExtractor()
             schema = extractor._load_cv_schema()
@@ -650,17 +623,8 @@ class TestParseAndValidate:
                 {"identity": {"title": "missing_required"}}
             )  # Missing fields
 
-            with patch(
-                "cvextract.extractors.openai_extractor.get_verifier"
-            ) as mock_get_verifier:
-                mock_verifier = MagicMock()
-                mock_verifier.verify.return_value = MagicMock(
-                    ok=False, errors=["missing full_name"]
-                )
-                mock_get_verifier.return_value = mock_verifier
-
-                with pytest.raises(ValueError, match="Response does not match schema"):
-                    extractor._parse_and_validate(response, schema)
+            result = extractor._parse_and_validate(response, schema)
+            assert result == {"identity": {"title": "missing_required"}}
 
 
 class TestLoadCVSchema:
@@ -722,24 +686,17 @@ class TestFullExtractionFlow:
                     extractor._delete_assistant = MagicMock()
                     extractor._delete_file = MagicMock()
 
-                    with patch(
-                        "cvextract.extractors.openai_extractor.get_verifier"
-                    ) as mock_get_verifier:
-                        mock_verifier = MagicMock()
-                        mock_verifier.verify.return_value = MagicMock(ok=True)
-                        mock_get_verifier.return_value = mock_verifier
+                    result = extractor._extract_with_openai(test_file, schema)
 
-                        result = extractor._extract_with_openai(test_file, schema)
-
-                        assert result
-                        extractor._upload_file.assert_called_once()
-                        extractor._create_assistant.assert_called_once()
-                        extractor._create_thread.assert_called_once()
-                        extractor._create_message.assert_called_once()
-                        extractor._create_run.assert_called_once()
-                        extractor._wait_for_run.assert_called_once()
-                        extractor._delete_assistant.assert_called_once()
-                        extractor._delete_file.assert_called_once()
+                    assert result
+                    extractor._upload_file.assert_called_once()
+                    extractor._create_assistant.assert_called_once()
+                    extractor._create_thread.assert_called_once()
+                    extractor._create_message.assert_called_once()
+                    extractor._create_run.assert_called_once()
+                    extractor._wait_for_run.assert_called_once()
+                    extractor._delete_assistant.assert_called_once()
+                    extractor._delete_file.assert_called_once()
 
     def test_extract_with_openai_cleanup_on_upload_failure(self, tmp_path):
         """_extract_with_openai() cleans up even when upload fails."""

@@ -14,10 +14,10 @@ This adjuster implements a complete company research and CV adjustment pipeline:
 
 1. **Company Research**: Fetches and analyzes target company website content
 2. **Structured Extraction**: Extracts company profile using OpenAI (name, description, domains, technologies, etc.)
-3. **Schema Validation**: Validates research data against `research_schema.json` using `CompanyProfileVerifier`
+3. **Schema Validation**: Validates research data against `research_schema.json` using internal validation
 4. **Caching**: Stores research results as JSON files for reuse
 5. **CV Adjustment**: Uses research to tailor CV content (reorder bullets, emphasize technologies, adjust descriptions)
-6. **Output Validation**: Validates adjusted CV against `cv_schema.json` before returning
+6. **Output Validation**: CV schema verification is handled by pipeline verifiers after adjustment
 
 ## Entry Points
 
@@ -125,8 +125,7 @@ Adjusted CV JSON with:
 - Emphasized technologies matching company profile
 - Adjusted descriptions for target company context
 - Same schema structure (no new fields)
-- Validated against CV schema before returning
-- Falls back to original CV if validation fails
+- Verified in the pipeline after adjustment
 
 ### Research Data Schema
 
@@ -154,7 +153,6 @@ Defined in `cvextract/contracts/research_schema.json`:
 
 - `cvextract.adjusters.base.CVAdjuster` - Abstract base class
 - `cvextract.shared.{load_prompt, format_prompt}` - Prompt management
-- `cvextract.verifiers.get_verifier` - Schema validation (CV and research)
 - `cvextract.contracts.research_schema.json` - Research data schema
 - `cvextract.contracts.cv_schema.json` - CV data schema
 
@@ -189,31 +187,19 @@ def url_to_cache_filename(url: str) -> str:
 
 ### Research Validation
 
-Research data is validated using `CompanyProfileVerifier` before caching:
+Research data is validated by the adjuster before caching:
 
 ```python
-from typing import Any, Dict
+from cvextract.adjusters.openai_company_research_adjuster import _validate_research_data
 
-research_data: Dict[str, Any] = {...}
-verifier = get_verifier("company-profile-verifier")
-is_valid, _ = verifier.verify(data=research_data)
-if is_valid:
+research_data = {...}
+if _validate_research_data(research_data):
     cache_research(research_data)
 ```
 
 ### CV Validation
 
-Adjusted CV is validated using `CVSchemaVerifier` before returning:
-
-```python
-from typing import Any, Dict
-
-adjusted_cv: Dict[str, Any] = {...}
-verifier = get_verifier("cv-schema-verifier")
-is_valid, _ = verifier.verify(data=adjusted_cv)
-if not is_valid:
-    return original_cv  # Fallback
-```
+Adjusted CV validation is performed in the pipeline after the adjuster runs.
 
 ## Performance Characteristics
 
@@ -260,5 +246,5 @@ if not is_valid:
 - [Job-Specific Adjuster](../job-specific-adjuster/README.md) - Alternative adjustment strategy
 - [Named Adjusters](../named-adjusters/README.md) - Registry system
 - [Adjuster Chaining](../adjuster-chaining/README.md) - Sequential application
-- [Company Profile Verifier](../../verification/company-profile-verifier/README.md) - Research validation
+- Research validation is handled internally by the adjuster
 - Module README: `cvextract/adjusters/README.md`

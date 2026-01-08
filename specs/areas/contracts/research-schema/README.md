@@ -169,14 +169,15 @@ Importance scale: 1 (low) to 5 (critical)
 
 ### Validation
 
-Research data is validated using `CompanyProfileVerifier` before caching to ensure schema conformance.
+Research data is validated in `cvextract.adjusters.openai_company_research_adjuster._validate_research_data`
+before caching to ensure schema conformance.
 
 ## Dependencies
 
 ### Internal Dependencies
 
 - Produced by `cvextract.adjusters.OpenAICompanyResearchAdjuster`
-- Validated by `cvextract.verifiers.CompanyProfileVerifier`
+- Validated by `cvextract.adjusters.openai_company_research_adjuster._validate_research_data`
 - Consumed by CV adjustment logic
 - Cached in research_data directories
 
@@ -188,7 +189,7 @@ Research data is validated using `CompanyProfileVerifier` before caching to ensu
 
 - Used in company research adjuster
 - Cached for reuse across multiple CVs
-- Validated before caching using CompanyProfileVerifier
+- Validated before caching using `_validate_research_data`
 
 ## Test Coverage
 
@@ -204,7 +205,7 @@ The research schema was created alongside the company research adjuster to ensur
 **Key Files**:
 - `cvextract/contracts/research_schema.json` - Schema definition
 - `cvextract/adjusters/openai_company_research_adjuster.py` - Research producer/consumer
-- `cvextract/verifiers/default_company_research_verifier.py` - Research validator
+- `cvextract/adjusters/openai_company_research_adjuster.py` - Research validator
 
 ## Example Valid Data
 
@@ -247,8 +248,8 @@ The research schema was created alongside the company research adjuster to ensur
 
 - Schema: `cvextract/contracts/research_schema.json`
 - Producer: `cvextract/adjusters/openai_company_research_adjuster.py`
-- Validator: `cvextract/verifiers/default_company_research_verifier.py`
-- Tests: `tests/test_adjusters.py`, `tests/test_verifiers.py`
+- Validator: `cvextract/adjusters/openai_company_research_adjuster.py` (`_validate_research_data`)
+- Tests: `tests/test_adjusters.py`
 - Documentation: `cvextract/contracts/README.md`
 
 ## Related Documentation
@@ -256,5 +257,4 @@ The research schema was created alongside the company research adjuster to ensur
 - [Contracts Architecture](../README.md)
 - [CV Schema](../cv-schema/README.md)
 - [Company Research Adjuster](../../adjustment/company-research-adjuster/README.md)
-- [Company Profile Verifier](../../verification/company-profile-verifier/README.md)
 - Module README: `cvextract/contracts/README.md`

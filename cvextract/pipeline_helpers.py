@@ -11,7 +11,6 @@ Provides utilities for:
 
 from __future__ import annotations
 
-import json
 import os
 import traceback
 from dataclasses import replace
@@ -185,8 +184,6 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                 f"extract: output JSON not found: {extract_work.output}",
             )
             return extract_work
-        with extract_work.output.open("r", encoding="utf-8") as f:
-            data = json.load(f)
         skip_verify = bool(
             work.config.skip_all_verify
             or (work.config.extract and work.config.extract.skip_verify)
@@ -203,7 +200,13 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                     StepName.Extract, f"unknown verifier: {verifier_name}"
                 )
                 return extract_work
-            result = verifier.verify(data=data)
+            try:
+                result = verifier.verify(extract_work)
+            except Exception as e:
+                extract_work.add_error(
+                    StepName.Extract, f"verify failed: {type(e).__name__}"
+                )
+                return extract_work
             for err in result.errors:
                 extract_work.add_error(StepName.Extract, err)
             for warn in result.warnings:
@@ -221,7 +224,7 @@ def _roundtrip_compare(
     render_work: UnitOfWork,
     output_docx: Path,
     roundtrip_dir: Path,
-    original_data: dict,
+    original_cv_path: Path,
 ) -> VerificationResult:
     roundtrip_dir.mkdir(parents=True, exist_ok=True)
     roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
@@ -236,35 +239,25 @@ def _roundtrip_compare(
         raise FileNotFoundError(
             f"roundtrip JSON not created: {roundtrip_work.output or roundtrip_json}"
         )
-    with roundtrip_work.output.open("r", encoding="utf-8") as f:
-        roundtrip_data = json.load(f)
     verifier_name = "roundtrip-verifier"
     if render_work.config.render and render_work.config.render.verifier:
         verifier_name = render_work.config.render.verifier
     verifier = get_verifier(verifier_name)
     if not verifier:
         raise ValueError(f"unknown verifier: {verifier_name}")
-    return verifier.verify(data=original_data, target_data=roundtrip_data)
+    compare_work = UnitOfWork(
+        config=render_work.config,
+        input=original_cv_path,
+        output=roundtrip_json,
+        initial_input=render_work.initial_input,
+    )
+    return verifier.verify(compare_work)
 
 
 def _verify_roundtrip(
     render_work: UnitOfWork,
     original_cv_path: Path,
 ) -> UnitOfWork:
-    import json
-
-    try:
-        # Load CV data from JSON
-        with original_cv_path.open("r", encoding="utf-8") as f:
-            original_cv_data = json.load(f)
-    except Exception as e:
-        if render_work.config.debug:
-            LOG.error(traceback.format_exc())
-        render_work.add_error(
-            StepName.RoundtripComparer, f"roundtrip comparer: {type(e).__name__}"
-        )
-        return render_work
-
     output_docx = render_work.output
     if output_docx is None:
         return render_work
@@ -278,10 +271,10 @@ def _verify_roundtrip(
             render_work,
             output_docx,
             roundtrip_dir,
-            original_cv_data,
+            original_cv_path,
         )
     except Exception as e:
-        message = f"compare: {type(e).__name__}"
+        message = f"roundtrip comparer: {type(e).__name__}"
         LOG.warning("%s", message)
         render_work.add_error(StepName.RoundtripComparer, message)
         return render_work

@@ -21,19 +21,21 @@ The `CVSchemaVerifier` class:
 ### Programmatic API
 
 ```python
-from typing import Any, Dict
-from cvextract.verifiers import get_verifier
 from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
+from cvextract.verifiers import get_verifier
 
-cv_data: Dict[str, Any] = {...}
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 
 # Use default schema
 verifier = get_verifier("cv-schema-verifier")
-result = verifier.verify(data=cv_data)
+result = verifier.verify(work)
 
 # Use custom schema
 verifier = get_verifier("cv-schema-verifier", schema_path=Path("custom_schema.json"))
-result = verifier.verify(data=cv_data)
+result = verifier.verify(work)
 ```
 
 ### Pipeline Integration
@@ -41,18 +43,21 @@ result = verifier.verify(data=cv_data)
 Can be used alongside other verifiers:
 
 ```python
-from typing import Any, Dict
+from pathlib import Path
+from cvextract.cli_config import UserConfig
+from cvextract.shared import UnitOfWork
 from cvextract.verifiers import get_verifier
 
-cv_data: Dict[str, Any] = {...}
+cv_path = Path("cv.json")
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 
 # First check schema
 schema_verifier = get_verifier("cv-schema-verifier")
-schema_result = schema_verifier.verify(data=cv_data)
+schema_result = schema_verifier.verify(work)
 
 # Then check completeness
 data_verifier = get_verifier("private-internal-verifier")
-data_result = data_verifier.verify(data=cv_data)
+data_result = data_verifier.verify(work)
 ```
 
 ## Configuration
@@ -66,7 +71,7 @@ data_result = data_verifier.verify(data=cv_data)
 
 ### Input
 
-- **data**: CV dictionary to validate
+- **UnitOfWork**: input/output paths with JSON output to validate
 
 ### Output
 

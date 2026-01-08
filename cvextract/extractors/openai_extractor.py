@@ -35,7 +35,6 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from ..shared import UnitOfWork, format_prompt, load_prompt
-from ..verifiers import get_verifier
 from .base import CVExtractor
 
 T = TypeVar("T")
@@ -131,19 +130,9 @@ class OpenAICVExtractor(CVExtractor):
 
         cv_schema = self._load_cv_schema()
         response_text = self._extract_with_openai(file_path, cv_schema)
-        verifier_name = None
-        skip_verify = False
-        if work.config.extract and work.config.extract.verifier:
-            verifier_name = work.config.extract.verifier
-        if work.config.skip_all_verify or (
-            work.config.extract and work.config.extract.skip_verify
-        ):
-            skip_verify = True
         data = self._parse_and_validate(
             response_text,
             cv_schema,
-            verifier_name=verifier_name,
-            skip_verify=skip_verify,
         )
         return self._write_output_json(work, data)
 
@@ -596,9 +585,6 @@ class OpenAICVExtractor(CVExtractor):
         self,
         response_text: str,
         cv_schema: dict[str, Any],
-        *,
-        verifier_name: Optional[str] = None,
-        skip_verify: bool = False,
     ) -> dict[str, Any]:
         """
         Parse the response and validate against the schema.
@@ -625,18 +611,5 @@ class OpenAICVExtractor(CVExtractor):
 
         if not isinstance(data, dict):
             raise ValueError("Response must be a JSON object")
-
-        if skip_verify:
-            return data
-
-        # Validate using the verifier
-        verifier_name = verifier_name or "cv-schema-verifier"
-        verifier = get_verifier(verifier_name)
-        if not verifier:
-            raise RuntimeError(f"CV schema verifier not available: {verifier_name}")
-
-        result = verifier.verify(data=data)
-        if not result.ok:
-            raise ValueError(f"Response does not match schema: {result.errors}")
 
         return data

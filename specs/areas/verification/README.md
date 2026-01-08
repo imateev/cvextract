@@ -9,7 +9,6 @@ The verification area provides data validation and quality checking capabilities
 - [Extracted Data Verifier](extracted-data-verifier/README.md) - Validates completeness and structure of extracted data
 - [Roundtrip Verifier](comparison-verifiers/README.md) - Compares data structures for roundtrip verification
 - [Schema Verifier](schema-verifier/README.md) - Validates CV data against JSON schema
-- [Company Profile Verifier](company-profile-verifier/README.md) - Validates company research data against JSON schema
 - [Verifier Registry](verifier-registry/README.md) - Pluggable verifier registration and lookup system
 
 ## Architectural Notes
@@ -28,7 +27,6 @@ The verification area provides data validation and quality checking capabilities
 - **Implementations**:
   - `cvextract/verifiers/default_expected_cv_data_verifier.py` - Completeness validation (registered as `private-internal-verifier`)
   - `cvextract/verifiers/default_cv_schema_verifier.py` - CV JSON schema validation (registered as `cv-schema-verifier`)
-  - `cvextract/verifiers/default_company_research_verifier.py` - Company profile schema validation (registered as `company-profile-verifier`)
   - `cvextract/verifiers/roundtrip_verifier.py` - Data comparison (registered as `roundtrip-verifier`)
 
 ### Data Flow
@@ -37,7 +35,7 @@ The verification area provides data validation and quality checking capabilities
 CV JSON Data
     │
     v
-[Verifier.verify(data=data, **kwargs)]
+[Verifier.verify(work)]
     │
     v
 VerificationResult(ok, errors, warnings)
