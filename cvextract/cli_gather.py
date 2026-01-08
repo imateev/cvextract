@@ -234,6 +234,14 @@ Examples:
         action="store_true",
         help="Skip verification across all stages in the pipeline (global override).",
     )
+    parser.add_argument(
+        "--log-failed",
+        help="Write failed file paths to this file (one per line).",
+    )
+    parser.add_argument(
+        "--rerun-failed",
+        help="Re-run a list of failed file paths from a file (one per line).",
+    )
 
     args = parser.parse_args(argv)
 
@@ -271,7 +279,7 @@ Examples:
 
     if args.parallel is not None:
         params = _parse_stage_params(args.parallel if args.parallel else [])
-        if "source" not in params:
+        if "source" not in params and not args.rerun_failed:
             raise ValueError("--parallel requires 'source' parameter")
 
         n_workers = 1
@@ -288,8 +296,9 @@ Examples:
         # Get file type pattern (default to *.docx)
         file_type = params.get("file-type", "*.docx")
 
+        parallel_source = Path(params["source"]) if "source" in params else Path(".")
         parallel_stage = ParallelStage(
-            source=Path(params["source"]),
+            source=parallel_source,
             n=n_workers,
             file_type=file_type,
         )
@@ -421,4 +430,6 @@ Examples:
         skip_all_verify=args.skip_all_verify,
         debug_external=args.debug_external,
         log_file=args.log_file,
+        log_failed=Path(args.log_failed) if args.log_failed else None,
+        rerun_failed=Path(args.rerun_failed) if args.rerun_failed else None,
     )

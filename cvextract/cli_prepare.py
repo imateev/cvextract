@@ -69,7 +69,7 @@ def prepare_execution_environment(config: UserConfig) -> UserConfig:
             LOG.error("Template not found or not a .docx: %s", config.render.template)
             raise ValueError(f"Invalid template: {config.render.template}")
 
-    if not config.parallel:
+    if not config.parallel and not config.rerun_failed:
         if config.extract:
             source = config.extract.source
             is_extraction = True
