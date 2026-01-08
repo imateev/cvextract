@@ -72,7 +72,7 @@ class ParallelStage:
     file_type: str = "*.docx"  # File pattern to match (default=*.docx)
 
 
-@dataclass
+@dataclass(frozen=True)
 class UserConfig:
     """Configuration gathered from user input."""
 

@@ -27,7 +27,7 @@ def test_execute_single_skips_render_when_adjust_fails(tmp_path):
     extracted = UnitOfWork(
         config=config, initial_input=source, input=source, output=tmp_path / "out.json"
     )
-    extracted.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    extracted.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
 
     adjusted = UnitOfWork(
         config=config,
@@ -35,7 +35,7 @@ def test_execute_single_skips_render_when_adjust_fails(tmp_path):
         input=extracted.output,
         output=extracted.output,
     )
-    adjusted.step_statuses[StepName.Adjust] = StepStatus(
+    adjusted.step_states[StepName.Adjust] = StepStatus(
         step=StepName.Adjust, errors=["adjust failed"]
     )
 

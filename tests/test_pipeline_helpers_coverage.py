@@ -141,7 +141,7 @@ class TestPipelineHelpersCoverage:
 
         result = p._render_docx(work)
 
-        render_status = result.step_statuses.get(StepName.Render)
+        render_status = result.step_states.get(StepName.Render)
         assert render_status is not None
         assert len(render_status.errors) > 0
         assert "missing render configuration" in render_status.errors[0]
@@ -156,7 +156,7 @@ class TestPipelineHelpersCoverage:
 
         result = p._render_docx(work)
 
-        render_status = result.step_statuses.get(StepName.Render)
+        render_status = result.step_states.get(StepName.Render)
         assert render_status is not None
         assert len(render_status.errors) > 0
         assert "input JSON path is not set" in render_status.errors[0]
@@ -188,7 +188,7 @@ class TestPipelineHelpersCoverage:
 
             result = p._render_docx(work)
 
-            render_status = result.step_statuses.get(StepName.Render)
+            render_status = result.step_states.get(StepName.Render)
             assert render_status is not None
             assert len(render_status.warnings) > 0
             assert "RuntimeError" in render_status.warnings[0]
@@ -207,7 +207,7 @@ class TestPipelineHelpersCoverage:
 
         result = p.extract_single(work)
 
-        extract_status = result.step_statuses.get(StepName.Extract)
+        extract_status = result.step_states.get(StepName.Extract)
         assert extract_status is not None
         assert len(extract_status.errors) > 0
         assert "unknown extractor" in extract_status.errors[0]
@@ -226,7 +226,7 @@ class TestPipelineHelpersCoverage:
 
         result = p.extract_single(work)
 
-        extract_status = result.step_statuses.get(StepName.Extract)
+        extract_status = result.step_states.get(StepName.Extract)
         assert extract_status is not None
         assert any("input file not found" in e for e in extract_status.errors)
 
@@ -243,7 +243,7 @@ class TestPipelineHelpersCoverage:
 
         result = p.extract_single(work)
 
-        extract_status = result.step_statuses.get(StepName.Extract)
+        extract_status = result.step_states.get(StepName.Extract)
         assert extract_status is not None
         assert "output JSON path is not set" in extract_status.errors[0]
 
@@ -267,7 +267,7 @@ class TestPipelineHelpersCoverage:
 
         result = p.extract_single(work)
 
-        extract_status = result.step_statuses.get(StepName.Extract)
+        extract_status = result.step_states.get(StepName.Extract)
         assert extract_status is not None
         assert "output JSON path is not set" in extract_status.errors[0]
 
@@ -290,7 +290,7 @@ class TestPipelineHelpersCoverage:
 
         result = p.extract_single(work)
 
-        extract_status = result.step_statuses.get(StepName.Extract)
+        extract_status = result.step_states.get(StepName.Extract)
         assert extract_status is not None
         assert "output JSON not found" in extract_status.errors[0]
 
@@ -316,7 +316,7 @@ class TestPipelineHelpersCoverage:
 
             # Should have dumped body sample
             mock_dump.assert_called_once()
-            extract_status = result.step_statuses.get(StepName.Extract)
+            extract_status = result.step_states.get(StepName.Extract)
             assert len(extract_status.errors) > 0
 
     def test_verify_roundtrip_json_load_error(self, tmp_path):
@@ -336,7 +336,7 @@ class TestPipelineHelpersCoverage:
 
         result = p._verify_roundtrip(work, json_file)
 
-        comparer_status = result.step_statuses.get(StepName.RoundtripComparer)
+        comparer_status = result.step_states.get(StepName.RoundtripComparer)
         assert comparer_status is not None
         assert len(comparer_status.errors) > 0
         assert "roundtrip comparer" in comparer_status.errors[0]
@@ -362,7 +362,7 @@ class TestPipelineHelpersCoverage:
 
         result = p._verify_roundtrip(work, json_file)
 
-        comparer_status = result.step_statuses.get(StepName.RoundtripComparer)
+        comparer_status = result.step_states.get(StepName.RoundtripComparer)
         assert comparer_status is not None
         assert len(comparer_status.errors) > 0
 
@@ -423,7 +423,7 @@ class TestPipelineHelpersCoverage:
 
             result = p._verify_roundtrip(work, json_file)
 
-            comparer_status = result.step_statuses.get(StepName.RoundtripComparer)
+            comparer_status = result.step_states.get(StepName.RoundtripComparer)
             assert comparer_status is not None
             assert len(comparer_status.errors) > 0
             assert "RuntimeError" in comparer_status.errors[0]
@@ -546,7 +546,7 @@ class TestPipelineHelpersCoverage:
             result = execute_render(work)
 
             # Should not have RoundtripComparer status
-            assert StepName.RoundtripComparer not in result.step_statuses
+            assert StepName.RoundtripComparer not in result.step_states
             mock_verify.assert_not_called()
 
     def test_render_and_verify_skips_compare_should_compare_false(self, tmp_path):
@@ -587,7 +587,7 @@ class TestPipelineHelpersCoverage:
             result = execute_render(work)
 
             # Should not have RoundtripComparer status
-            assert StepName.RoundtripComparer not in result.step_statuses
+            assert StepName.RoundtripComparer not in result.step_states
             mock_verify.assert_not_called()
 
     def test_render_and_verify_output_none_error(self, tmp_path):
@@ -614,7 +614,7 @@ class TestPipelineHelpersCoverage:
 
         result = execute_render(work)
 
-        render_status = result.step_statuses.get(StepName.Render)
+        render_status = result.step_states.get(StepName.Render)
         assert render_status is not None
         assert len(render_status.errors) > 0
         assert "render input JSON is not set" in render_status.errors[0]

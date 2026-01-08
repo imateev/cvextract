@@ -148,9 +148,9 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
     Returns:
         UnitOfWork copy with extract StepStatus populated
     """
-    statuses = dict(work.step_statuses)
+    statuses = dict(work.step_states)
     statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-    work = replace(work, step_statuses=statuses)
+    work = replace(work, step_states=statuses)
     if not work.ensure_path_exists(
         StepName.Extract, work.input, "input file", must_be_file=True
     ):
@@ -167,7 +167,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                 work.add_error(
                     StepName.Extract, f"unknown extractor: {work.config.extract.name}"
                 )
-                extract_status = work.step_statuses.get(StepName.Extract)
+                extract_status = work.step_states.get(StepName.Extract)
                 if extract_status:
                     extract_status.ConfiguredExecutorAvailable = False
                 return work

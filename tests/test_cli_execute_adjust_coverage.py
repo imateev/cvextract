@@ -238,7 +238,7 @@ class TestCliExecuteAdjustCoverage:
 
         result = execute(work)
 
-        adjust_status = result.step_statuses.get(StepName.Adjust)
+        adjust_status = result.step_states.get(StepName.Adjust)
         assert adjust_status is not None
         assert any("not a file" in e for e in adjust_status.errors)
 
@@ -292,7 +292,7 @@ class TestCliExecuteAdjustCoverage:
         ):
             result = execute(work)
 
-        adjust_status = result.step_statuses.get(StepName.Adjust)
+        adjust_status = result.step_states.get(StepName.Adjust)
         assert adjust_status is not None
         assert any("unknown verifier" in e for e in adjust_status.errors)
 
@@ -322,7 +322,7 @@ class TestCliExecuteAdjustCoverage:
         ):
             result = execute(work)
 
-        adjust_status = result.step_statuses.get(StepName.Adjust)
+        adjust_status = result.step_states.get(StepName.Adjust)
         assert adjust_status is not None
         assert any("verify failed" in e for e in adjust_status.errors)
 

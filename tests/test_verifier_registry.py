@@ -116,7 +116,7 @@ class TestVerifierRegistry:
             # Should work
             work = _make_work(tmp_path)
             result = verifier.verify(work)
-            status = result.step_statuses[StepName.Extract]
+            status = result.step_states[StepName.Extract]
             assert "custom-verifier" in status.warnings
         finally:
             # Clean up the custom verifier

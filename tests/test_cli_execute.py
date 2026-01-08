@@ -66,11 +66,11 @@ def _extract_result(
     if work.output:
         work.output.parent.mkdir(parents=True, exist_ok=True)
         work.output.write_text(json.dumps(_valid_cv_payload()))
-    statuses = dict(work.step_statuses)
+    statuses = dict(work.step_states)
     statuses[StepName.Extract] = StepStatus(
         step=StepName.Extract, warnings=warns, errors=errs
     )
-    return replace(work, step_statuses=statuses)
+    return replace(work, step_states=statuses)
 
 
 def _adjust_result(work: UnitOfWork, payload: dict) -> UnitOfWork:

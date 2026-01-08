@@ -67,7 +67,7 @@ def _make_work(tmp_path: Path, warnings: list[str] | None = None) -> UnitOfWork:
         output=Path("output"),
     )
     if warnings:
-        work.step_statuses[StepName.Render] = StepStatus(
+        work.step_states[StepName.Render] = StepStatus(
             step=StepName.Render,
             warnings=warnings,
         )

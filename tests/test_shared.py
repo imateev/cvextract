@@ -177,7 +177,7 @@ class TestUnitOfWorkHelpers:
         )
 
         assert ok is False
-        status = work.step_statuses[StepName.Extract]
+        status = work.step_states[StepName.Extract]
         assert any("not a file" in err for err in status.errors)
 
     def test_has_no_warnings_or_errors_with_missing_step(self, tmp_path):

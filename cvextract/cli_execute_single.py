@@ -44,7 +44,7 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     if config.extract:
         work = execute_extract(work)
 
-        extract_status = work.step_statuses.get(StepName.Extract)
+        extract_status = work.step_states.get(StepName.Extract)
         if extract_status and not extract_status.ConfiguredExecutorAvailable:
             LOG.error("Unknown extractor: %s", config.extract.name)
             LOG.error("Use --list extractors to see available extractors")

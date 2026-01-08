@@ -39,7 +39,7 @@ def test_execute_verifies_extracted_output(tmp_path: Path):
     ):
         result = execute(work)
 
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert "bad data" in extract_status.errors
     assert "warn data" in extract_status.warnings
     verifier.verify.assert_called_once()
@@ -69,7 +69,7 @@ def test_execute_skips_verification_when_global_skip_all_verify(tmp_path: Path):
     ):
         result = execute(work)
 
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
     assert extract_status.warnings == []
 
@@ -94,7 +94,7 @@ def test_execute_unknown_verifier_adds_error(tmp_path: Path):
     ):
         result = execute(work)
 
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert any("unknown verifier" in e for e in extract_status.errors)
 
 
@@ -125,7 +125,7 @@ def test_execute_reports_missing_output_for_verification(tmp_path: Path):
     ):
         result = execute(work)
 
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert any("output JSON not found for verification" in e for e in extract_status.errors)
 
 
@@ -149,5 +149,5 @@ def test_execute_handles_verifier_exception(tmp_path: Path):
     ):
         result = execute(work)
 
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert any("verify failed" in e for e in extract_status.errors)

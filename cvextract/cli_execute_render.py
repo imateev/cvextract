@@ -29,7 +29,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         return work
 
     render_work = render(work)
-    render_status = render_work.step_statuses.get(StepName.Render)
+    render_status = render_work.step_states.get(StepName.Render)
     if render_status and not render_status.ok:
         return render_work
 

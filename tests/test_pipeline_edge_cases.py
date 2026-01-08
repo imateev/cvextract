@@ -121,9 +121,9 @@ class TestPipelineEdgeCases:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer
         )
         icons = get_status_icons(work)
@@ -138,15 +138,15 @@ class TestPipelineEdgeCases:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             errors=["extract error"],
         )
-        work.step_statuses[StepName.Render] = StepStatus(
+        work.step_states[StepName.Render] = StepStatus(
             step=StepName.Render,
             errors=["render error"],
         )
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer,
             errors=["verify error"],
         )
@@ -162,7 +162,7 @@ class TestPipelineEdgeCases:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             warnings=["warn"],
         )
@@ -178,7 +178,7 @@ class TestPipelineEdgeCases:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "🟢"
         assert icons[StepName.Render] == "➖"

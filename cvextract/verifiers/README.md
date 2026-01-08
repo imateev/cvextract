@@ -56,7 +56,7 @@ work.ensure_step_status(StepName.Extract)
 work.current_step = StepName.Extract
 work.ensure_step_status(StepName.Extract)
 result = verifier.verify(work)
-status = result.step_statuses[StepName.Extract]
+status = result.step_states[StepName.Extract]
 if not status.errors:
     print("Data is valid!")
 else:
@@ -104,7 +104,7 @@ work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source
 work.current_step = StepName.RoundtripComparer
 work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
-status = result.step_statuses[StepName.RoundtripComparer]
+status = result.step_states[StepName.RoundtripComparer]
 if not status.errors:
     print("Data structures match!")
 ```
@@ -244,13 +244,13 @@ work.current_step = StepName.Extract
 work.ensure_step_status(StepName.Extract)
 schema_result = schema_verifier.verify(work)
 
-schema_status = schema_result.step_statuses[StepName.Extract]
+schema_status = schema_result.step_states[StepName.Extract]
 if not schema_status.errors:
     # Then check for completeness
     data_verifier = ExtractedDataVerifier()
     data_result = data_verifier.verify(work)
     
-    data_status = data_result.step_statuses[StepName.Extract]
+    data_status = data_result.step_states[StepName.Extract]
     if not data_status.errors:
         print("Data is valid and complete!")
     else:
@@ -308,7 +308,7 @@ compare_work = UnitOfWork(
 compare_work.current_step = StepName.RoundtripComparer
 compare_work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(compare_work)
-status = result.step_statuses[StepName.RoundtripComparer]
+status = result.step_states[StepName.RoundtripComparer]
 
 if not status.errors:
     print("Roundtrip successful!")
@@ -345,10 +345,10 @@ work = UnitOfWork(
 )
 work.current_step = StepName.Extract
 work.ensure_step_status(StepName.Extract)
-assert pass_verifier.verify(work).step_statuses[StepName.Extract].errors == []
+assert pass_verifier.verify(work).step_states[StepName.Extract].errors == []
 
 fail_verifier = AlwaysFailVerifier()
-status = fail_verifier.verify(work).step_statuses[StepName.Extract]
+status = fail_verifier.verify(work).step_states[StepName.Extract]
 assert "test error" in status.errors
 ```
 
