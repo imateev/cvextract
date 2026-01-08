@@ -32,7 +32,7 @@ class CustomVerifier(CVVerifier):
         errors = []
         warnings = []
         # ... validate data ...
-        return VerificationResult(ok=not errors, errors=errors, warnings=warnings)
+        return VerificationResult(errors=errors, warnings=warnings)
 ```
 
 ### Available Verifiers
@@ -129,7 +129,7 @@ To create a custom verifier:
            identity = data.get("identity", {})
            if "email" not in identity:
                errors.append("identity missing email field")
-           return VerificationResult(ok=not errors, errors=errors, warnings=[])
+           return VerificationResult(errors=errors, warnings=[])
    ```
 
 3. Use your verifier:
@@ -288,14 +288,13 @@ from cvextract.shared import VerificationResult
 
 class AlwaysPassVerifier(CVVerifier):
     def verify(self, **kwargs) -> VerificationResult:
-        return VerificationResult(ok=True, errors=[], warnings=[])
+        return VerificationResult(errors=[], warnings=[])
 
 class AlwaysFailVerifier(CVVerifier):
     def verify(self, **kwargs) -> VerificationResult:
         return VerificationResult(
-            ok=False,
             errors=["test error"],
-            warnings=["test warning"]
+            warnings=["test warning"],
         )
 
 # Use in tests

@@ -94,5 +94,4 @@ class ExtractedDataVerifier(CVVerifier):
         if issue_set:
             warns.append("incomplete: " + "; ".join(sorted(issue_set)))
 
-        ok = not errs
-        return VerificationResult(ok=ok, errors=errs, warnings=warns)
+        return VerificationResult(errors=errs, warnings=warns)

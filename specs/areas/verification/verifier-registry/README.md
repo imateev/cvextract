@@ -81,7 +81,7 @@ class CustomVerifier(CVVerifier):
     
     def verify(self, **kwargs):
         # Custom verification logic
-        return VerificationResult(ok=True, errors=[], warnings=[])
+        return VerificationResult(errors=[], warnings=[])
 
 # Register the custom verifier
 register_verifier('my-custom-verifier', CustomVerifier)

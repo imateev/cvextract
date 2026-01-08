@@ -23,9 +23,12 @@ from .logging_utils import LOG, fmt_issues
 # ------------------------- Models -------------------------
 @dataclass(frozen=True)
 class VerificationResult:
-    ok: bool
     errors: List[str]
     warnings: List[str]
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
 
 
 @dataclass

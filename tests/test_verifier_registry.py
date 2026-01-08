@@ -86,9 +86,7 @@ class TestVerifierRegistry:
             """Custom test verifier for testing."""
 
             def verify(self, **kwargs):
-                return VerificationResult(
-                    ok=True, errors=[], warnings=["custom-verifier"]
-                )
+                return VerificationResult(errors=[], warnings=["custom-verifier"])
 
         # Register custom verifier
         register_verifier("custom-test-verifier", CustomVerifier)

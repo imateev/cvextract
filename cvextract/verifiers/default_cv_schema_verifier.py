@@ -143,5 +143,4 @@ class CVSchemaVerifier(CVVerifier):
                                 f"experiences[{idx}].environment items must be strings"
                             )
 
-        ok = not errs
-        return VerificationResult(ok=ok, errors=errs, warnings=warns)
+        return VerificationResult(errors=errs, warnings=warns)

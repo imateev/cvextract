@@ -41,7 +41,7 @@ class TestCVVerifierAbstract:
             """Concrete implementation of CVVerifier."""
 
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         verifier = ConcreteVerifier()
         result = verifier.verify(data={})
@@ -55,7 +55,7 @@ class TestCVVerifierAbstract:
             def verify(self, **kwargs) -> VerificationResult:
                 data = kwargs.get("data")
                 assert isinstance(data, dict)
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         verifier = TestVerifier()
         result = verifier.verify(data={"identity": {}}, strict=True, version="1.0")
@@ -66,7 +66,7 @@ class TestCVVerifierAbstract:
 
         class TestVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         verifier = TestVerifier()
         result = verifier.verify(data={})
@@ -81,9 +81,7 @@ class TestCVVerifierAbstract:
 
         class FailingVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(
-                    ok=False, errors=["Missing identity"], warnings=[]
-                )
+                return VerificationResult(errors=["Missing identity"], warnings=[])
 
         verifier = FailingVerifier()
         result = verifier.verify(data={})
@@ -97,9 +95,7 @@ class TestCVVerifierAbstract:
 
         class WarningVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(
-                    ok=True, errors=[], warnings=["No sidebar data"]
-                )
+                return VerificationResult(errors=[], warnings=["No sidebar data"])
 
         verifier = WarningVerifier()
         result = verifier.verify(data={})
@@ -130,9 +126,7 @@ class TestCVVerifierAbstract:
                 if "identity" not in data:
                     errors.append("Missing identity section")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return VerificationResult(errors=errors, warnings=[])
 
         verifier = DataInspectingVerifier()
 
@@ -160,9 +154,7 @@ class TestCVVerifierAbstract:
                     if section not in data:
                         errors.append(f"Missing {section} section")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return VerificationResult(errors=errors, warnings=[])
 
         verifier = SchemaVerifier()
 
@@ -201,7 +193,7 @@ class TestCVVerifierAbstract:
                 if strict:
                     warnings.append(f"Strict mode enabled with version {version}")
 
-                return VerificationResult(ok=True, errors=[], warnings=warnings)
+                return VerificationResult(errors=[], warnings=warnings)
 
         verifier = KwargsAwareVerifier()
 
@@ -215,11 +207,11 @@ class TestCVVerifierAbstract:
 
         class SchemaVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         class CompletenessVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         schema = SchemaVerifier()
         completeness = CompletenessVerifier()
@@ -235,13 +227,12 @@ class TestCVVerifierAbstract:
 
         class BaseVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=["Base"])
+                return VerificationResult(errors=[], warnings=["Base"])
 
         class DerivedVerifier(BaseVerifier):
             def verify(self, **kwargs) -> VerificationResult:
                 base_result = super().verify(**kwargs)
                 return VerificationResult(
-                    ok=base_result.ok,
                     errors=base_result.errors,
                     warnings=base_result.warnings + ["Derived"],
                 )
@@ -277,10 +268,8 @@ class TestCVVerifierAbstract:
             def verify(self, **kwargs) -> VerificationResult:
                 data = kwargs.get("data") or {}
                 if not data:
-                    return VerificationResult(
-                        ok=False, errors=["Data is empty"], warnings=[]
-                    )
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                    return VerificationResult(errors=["Data is empty"], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         verifier = TestVerifier()
         result = verifier.verify(data={})
@@ -303,9 +292,7 @@ class TestCVVerifierAbstract:
                 if "field3" not in data:
                     errors.append("Missing field3")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return VerificationResult(errors=errors, warnings=[])
 
         verifier = MultiErrorVerifier()
         result = verifier.verify(data={})
@@ -318,11 +305,11 @@ class TestCVVerifierAbstract:
 
         class Impl1(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=["V1"])
+                return VerificationResult(errors=[], warnings=["V1"])
 
         class Impl2(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=["V2"])
+                return VerificationResult(errors=[], warnings=["V2"])
 
         impl1 = Impl1()
         impl2 = Impl2()
@@ -340,11 +327,11 @@ class TestCVVerifierAbstract:
 
         class TestVerifier(CVVerifier):
             def verify(self, **kwargs) -> VerificationResult:
-                return VerificationResult(ok=True, errors=[], warnings=[])
+                return VerificationResult(errors=[], warnings=[])
 
         verifier = TestVerifier()
         with patch.object(verifier, "verify") as mock_verify:
-            mock_result = VerificationResult(ok=False, errors=["Mocked"], warnings=[])
+            mock_result = VerificationResult(errors=["Mocked"], warnings=[])
             mock_verify.return_value = mock_result
 
             result = verifier.verify(data={})
@@ -371,9 +358,7 @@ class TestCVVerifierAbstract:
                 if not sidebar.get("languages"):
                     errors.append("At least one language is required")
 
-                return VerificationResult(
-                    ok=len(errors) == 0, errors=errors, warnings=[]
-                )
+                return VerificationResult(errors=errors, warnings=[])
 
         verifier = FieldVerifier()
 
@@ -383,7 +368,8 @@ class TestCVVerifierAbstract:
         assert "Name is required" in result1.errors
 
         # Test with complete data
-        result2 = verifier.verify(data={
+        result2 = verifier.verify(
+            data={
                 "identity": {"full_name": "John Doe"},
                 "sidebar": {"languages": ["Python"]},
             }

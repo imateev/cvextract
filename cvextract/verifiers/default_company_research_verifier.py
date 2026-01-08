@@ -239,5 +239,4 @@ class CompanyProfileVerifier(CVVerifier):
             if data["website"] is not None and not isinstance(data["website"], str):
                 errs.append("website must be a string or null")
 
-        ok = not errs
-        return VerificationResult(ok=ok, errors=errs, warnings=warns)
+        return VerificationResult(errors=errs, warnings=warns)

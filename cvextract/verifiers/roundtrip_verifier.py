@@ -30,7 +30,7 @@ class RoundtripVerifier(CVVerifier):
             **kwargs: Must contain 'data' and 'target_data' (Dict[str, Any]) for comparison
 
         Returns:
-            VerificationResult with ok=True if structures match, errors for differences
+            VerificationResult with errors for differences (ok is derived from errors)
         """
         data = kwargs.get("data")
         target_data = kwargs.get("target_data")
@@ -41,7 +41,7 @@ class RoundtripVerifier(CVVerifier):
 
         errs: List[str] = []
         self._diff(data, target_data, "", errs)
-        return VerificationResult(ok=not errs, errors=errs, warnings=[])
+        return VerificationResult(errors=errs, warnings=[])
 
     def _normalize_environment_list(self, env: List[Any]) -> List[str]:
         """Normalize environment lists by splitting on common separators and lowercasing."""

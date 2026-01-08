@@ -29,7 +29,7 @@ class CVVerifier(ABC):
             **kwargs: Verification-specific parameters (e.g., data: Dict[str, Any])
 
         Returns:
-            VerificationResult with ok status, errors, and warnings
+            VerificationResult with errors and warnings (ok is derived from errors)
 
         Raises:
             Exception: For verification-specific errors

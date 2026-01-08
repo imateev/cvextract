@@ -50,9 +50,7 @@ class TestExtractSingle:
         }
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=[]
-        )
+        mock_verifier.verify.return_value = VerificationResult(errors=[], warnings=[])
 
         with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
             "cvextract.pipeline_helpers.get_verifier"
@@ -176,7 +174,7 @@ class TestExtractSingle:
 
         mock_verifier = MagicMock()
         mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=["Warning message"]
+            errors=[], warnings=["Warning message"]
         )
 
         with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
@@ -231,9 +229,7 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=[]
-        )
+        mock_verifier.verify.return_value = VerificationResult(errors=[], warnings=[])
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
             "cvextract.pipeline_helpers.extract_cv_data"
@@ -336,9 +332,7 @@ class TestRenderAndVerify:
         rendered_docx = out_dir / "test_NEW.docx"
 
         mock_verifier = MagicMock()
-        mock_verifier.verify.return_value = VerificationResult(
-            ok=True, errors=[], warnings=[]
-        )
+        mock_verifier.verify.return_value = VerificationResult(errors=[], warnings=[])
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
             "cvextract.pipeline_helpers.extract_cv_data"
@@ -401,7 +395,7 @@ class TestRenderAndVerify:
 
         mock_verifier = MagicMock()
         mock_verifier.verify.return_value = VerificationResult(
-            ok=False, errors=["Mismatch detected"], warnings=[]
+            errors=["Mismatch detected"], warnings=[]
         )
 
         with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(

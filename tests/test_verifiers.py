@@ -551,10 +551,8 @@ class TestVerifierInterface:
                     raise ValueError("CustomVerifier requires a 'data' parameter.")
                 # Simple custom verification
                 if "custom_field" in data:
-                    return VerificationResult(ok=True, errors=[], warnings=[])
-                return VerificationResult(
-                    ok=False, errors=["missing custom_field"], warnings=[]
-                )
+                    return VerificationResult(errors=[], warnings=[])
+                return VerificationResult(errors=["missing custom_field"], warnings=[])
 
         verifier = CustomVerifier()
 
