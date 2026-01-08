@@ -488,7 +488,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
         skip_verify = bool(
-            work.config.skip_verify
+            work.config.skip_all_verify
             or (work.config.adjust and work.config.adjust.skip_verify)
         )
         cache_dir = work.config.workspace.research_dir

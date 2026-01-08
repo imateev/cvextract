@@ -135,7 +135,7 @@ class OpenAICVExtractor(CVExtractor):
         skip_verify = False
         if work.config.extract and work.config.extract.verifier:
             verifier_name = work.config.extract.verifier
-        if work.config.skip_verify or (
+        if work.config.skip_all_verify or (
             work.config.extract and work.config.extract.skip_verify
         ):
             skip_verify = True

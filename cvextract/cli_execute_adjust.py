@@ -100,7 +100,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             adjust_work = replace(adjust_work, input=adjust_work.output)
 
         skip_verify = bool(
-            config.skip_verify
+            config.skip_all_verify
             or (config.adjust and config.adjust.skip_verify)
         )
         if skip_verify:

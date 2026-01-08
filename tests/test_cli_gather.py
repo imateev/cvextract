@@ -401,19 +401,19 @@ class TestGatherUserRequirements:
 
         assert config.log_file == "/tmp/app.log"
 
-    def test_global_skip_verify(self):
-        """--skip-verify is stored on the user config."""
+    def test_global_skip_all_verify(self):
+        """--skip-all-verify is stored on the user config."""
         config = cli_gather.gather_user_requirements(
             [
                 "--extract",
                 "source=cv.docx",
                 "--target",
                 "/output",
-                "--skip-verify",
+                "--skip-all-verify",
             ]
         )
 
-        assert config.skip_verify is True
+        assert config.skip_all_verify is True
 
     def test_full_pipeline(self):
         """Full pipeline with extract, adjust, and apply."""

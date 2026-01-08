@@ -87,7 +87,7 @@ class UserConfig:
 
     # Execution settings
     verbosity: str = "minimal"  # Output verbosity level: minimal, verbose, debug
-    skip_verify: bool = False  # Skip all verification steps
+    skip_all_verify: bool = False  # Skip all verification steps (global override)
     debug_external: bool = False  # Capture external provider logs (OpenAI, httpx, etc.)
     log_file: Optional[str] = None
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)
@@ -132,7 +132,7 @@ class UserConfig:
         # Only compare if rendering but not adjusting
         if not self.has_render or self.has_adjust:
             return False
-        if self.skip_verify:
+        if self.skip_all_verify:
             return False
         if self.render and self.render.skip_verify:
             return False

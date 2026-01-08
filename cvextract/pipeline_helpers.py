@@ -188,7 +188,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         with extract_work.output.open("r", encoding="utf-8") as f:
             data = json.load(f)
         skip_verify = bool(
-            work.config.skip_verify
+            work.config.skip_all_verify
             or (work.config.extract and work.config.extract.skip_verify)
         )
         if not skip_verify:

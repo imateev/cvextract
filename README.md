@@ -251,7 +251,7 @@ python -m cvextract.cli \
   - Only affects parallel mode; has no effect in single-file mode
   - Recommended for troubleshooting API interactions and HTTP requests
 - `--log-file <path>` - Optional log file path for persistent logging
-- `--skip-verify` - Skip verification across all stages
+- `--skip-all-verify` - Skip verification across all stages (global override)
 
 ### Listing Available Components
 
@@ -311,7 +311,7 @@ python -m cvextract.cli \
 ```bash
 # Skip verification across all stages
 python -m cvextract.cli \
-  --skip-verify \
+  --skip-all-verify \
   --extract source=/path/to/cv.docx \
   --render template=/path/to/template.docx \
   --target /output

@@ -457,7 +457,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             return self._write_output_json(work, cv_data)
 
         skip_verify = bool(
-            work.config.skip_verify
+            work.config.skip_all_verify
             or (work.config.adjust and work.config.adjust.skip_verify)
         )
         if skip_verify:

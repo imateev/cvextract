@@ -230,9 +230,9 @@ Examples:
         help="Optional path to a log file. If set, all output is also written there.",
     )
     parser.add_argument(
-        "--skip-verify",
+        "--skip-all-verify",
         action="store_true",
-        help="Skip all verification steps in the pipeline.",
+        help="Skip verification across all stages in the pipeline (global override).",
     )
 
     args = parser.parse_args(argv)
@@ -418,7 +418,7 @@ Examples:
         parallel=parallel_stage,
         target_dir=Path(args.target),
         verbosity=args.verbosity,
-        skip_verify=args.skip_verify,
+        skip_all_verify=args.skip_all_verify,
         debug_external=args.debug_external,
         log_file=args.log_file,
     )

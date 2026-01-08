@@ -71,7 +71,7 @@ python -m cvextract.cli \
   - `verbose`: Grouped per-file output blocks with warnings and major steps
   - `debug`: Full per-file output including application logs and stack traces
 - **`--log-file <path>`**: Log file path
-- **`--skip-verify`**: Skip verification across all stages
+- **`--skip-all-verify`**: Skip verification across all stages (global override)
 
 ## Interfaces
 
