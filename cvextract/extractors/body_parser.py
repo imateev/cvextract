@@ -17,12 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..shared import (
-    clean_text,
-)
-from .docx_utils import (
-    iter_document_paragraphs,
-)
+from ..shared import clean_text
+from .docx_utils import iter_document_paragraphs
 
 # ------------------------- Models -------------------------
 
@@ -50,12 +46,11 @@ MONTH_NAME = (
     r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
     r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
 )
-YEAR = r"(?:19|20)\d{2}"
-START_DATE = rf"(?:{MONTH_NAME}\s+\d{{4}}|{YEAR})"
-END_DATE = rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}}|{YEAR})"
 
 HEADING_PATTERN = re.compile(
-    rf"{START_DATE}\s*(?:--|[-–—])\s*{END_DATE}",
+    rf"{MONTH_NAME}\s+\d{{4}}\s*"
+    r"(?:--|[-–—])\s*"
+    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})",
     re.IGNORECASE,
 )
 
@@ -109,22 +104,7 @@ def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]
         if in_experience:
             # Heading detection: either matches date range OR is a heading style
             is_heading_style = style.lower().startswith("heading") and not is_bullet
-            is_pipe_heading = (
-                "|" in line
-                and not is_bullet
-                and ENVIRONMENT_PATTERN.match(line) is None
-            )
-            is_heading_fallback = (
-                current_exp is None
-                and not is_bullet
-                and ENVIRONMENT_PATTERN.match(line) is None
-            )
-            if (
-                HEADING_PATTERN.search(line)
-                or is_heading_style
-                or is_pipe_heading
-                or is_heading_fallback
-            ):
+            if HEADING_PATTERN.search(line) or is_heading_style:
                 flush_current()
                 current_exp = ExperienceBuilder(heading=clean_text(line))
                 continue
