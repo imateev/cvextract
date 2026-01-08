@@ -570,6 +570,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                         },
                     ],
                     temperature=0.2,
+                    timeout=float(self._request_timeout_s),
                 ),
                 is_write=True,
                 op_name="Company research adjust completion",
