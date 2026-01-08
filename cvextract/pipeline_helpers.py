@@ -300,10 +300,6 @@ def render(work: UnitOfWork) -> UnitOfWork:
     return _render_docx(work)
 
 
-def render_and_verify(work: UnitOfWork) -> UnitOfWork:
-    """Backward-compatible alias for render()."""
-    return render(work)
-
 
 def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:
     if work.config.render and work.config.render.output:
