@@ -45,7 +45,7 @@ def _verify_data(verifier, tmp_path, data):
 
 
 def _status(work, step: StepName):
-    return work.step_statuses[step]
+    return work.step_states[step]
 
 
 class TestExtractedDataVerifier:

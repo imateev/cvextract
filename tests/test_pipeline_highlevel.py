@@ -324,7 +324,7 @@ class TestExtractedDataVerification:
         verifier = get_verifier("private-internal-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
-        status = res.step_statuses[StepName.Extract]
+        status = res.step_states[StepName.Extract]
         assert status.errors == []
 
     def test_verify_with_missing_identity_returns_error(self, tmp_path):
@@ -338,7 +338,7 @@ class TestExtractedDataVerification:
         verifier = get_verifier("private-internal-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
-        status = res.step_statuses[StepName.Extract]
+        status = res.step_states[StepName.Extract]
         assert "identity" in status.errors
 
     def test_verify_with_all_empty_sidebar_sections_returns_error(self, tmp_path):
@@ -363,7 +363,7 @@ class TestExtractedDataVerification:
         verifier = get_verifier("private-internal-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
-        status = res.step_statuses[StepName.Extract]
+        status = res.step_states[StepName.Extract]
         assert "sidebar" in status.errors
 
     def test_verify_with_some_missing_sidebar_sections_returns_warning(self, tmp_path):
@@ -382,7 +382,7 @@ class TestExtractedDataVerification:
         verifier = get_verifier("private-internal-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
-        status = res.step_statuses[StepName.Extract]
+        status = res.step_states[StepName.Extract]
         assert any("missing sidebar" in w for w in status.warnings)
 
     def test_verify_with_invalid_environment_format_returns_warning(self, tmp_path):
@@ -403,7 +403,7 @@ class TestExtractedDataVerification:
         verifier = get_verifier("private-internal-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
-        status = res.step_statuses[StepName.Extract]
+        status = res.step_states[StepName.Extract]
         assert any("invalid environment format" in w for w in status.warnings)
 
     def test_verify_with_no_experiences_returns_error(self, tmp_path):
@@ -422,5 +422,5 @@ class TestExtractedDataVerification:
         verifier = get_verifier("private-internal-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
-        status = res.step_statuses[StepName.Extract]
+        status = res.step_states[StepName.Extract]
         assert "experiences_empty" in status.errors

@@ -43,7 +43,7 @@ def fmt_issues(work: "UnitOfWork", step: "StepName") -> str:
     """
     Compact error/warning string for the one-line-per-file log.
     """
-    status = work.step_statuses.get(step)
+    status = work.step_states.get(step)
     if status is None:
         return "-"
     errors = status.errors

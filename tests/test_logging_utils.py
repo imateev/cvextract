@@ -28,7 +28,7 @@ class TestIssueFormatting:
             input=Path("input.json"),
             output=Path("output.json"),
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             errors=["error1", "error2"],
         )
@@ -43,7 +43,7 @@ class TestIssueFormatting:
             input=Path("input.json"),
             output=Path("output.json"),
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             warnings=["warn1", "warn2"],
         )
@@ -58,7 +58,7 @@ class TestIssueFormatting:
             input=Path("input.json"),
             output=Path("output.json"),
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             errors=["error1"],
             warnings=["warn1"],

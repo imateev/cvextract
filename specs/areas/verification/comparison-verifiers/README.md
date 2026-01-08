@@ -37,7 +37,7 @@ work.current_step = StepName.RoundtripComparer
 work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
 
-status = result.step_statuses[StepName.RoundtripComparer]
+status = result.step_states[StepName.RoundtripComparer]
 if not status.errors:
     print("Data structures match!")
 else:

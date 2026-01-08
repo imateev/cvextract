@@ -69,7 +69,7 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            extract_status = result.step_statuses[StepName.Extract]
+            extract_status = result.step_states[StepName.Extract]
 
             assert extract_status.errors == []
             assert extract_status.warnings == []
@@ -98,7 +98,7 @@ class TestExtractSingle:
             )
             result = extract_single(work)
 
-            extract_status = result.step_statuses[StepName.Extract]
+            extract_status = result.step_states[StepName.Extract]
             assert extract_status.errors == []
             assert extract_status.warnings == []
             assert result.output and result.output.exists()
@@ -120,7 +120,7 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            extract_status = result.step_statuses[StepName.Extract]
+            extract_status = result.step_states[StepName.Extract]
 
             assert any(
                 "exception" in e.lower() or "ValueError" in e
@@ -149,7 +149,7 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            extract_status = result.step_statuses[StepName.Extract]
+            extract_status = result.step_states[StepName.Extract]
 
             assert extract_status.errors
 
@@ -194,7 +194,7 @@ class TestExtractSingle:
                 output=out_json,
             )
             result = extract_single(work)
-            extract_status = result.step_statuses[StepName.Extract]
+            extract_status = result.step_states[StepName.Extract]
 
             assert extract_status.warnings == []
 
@@ -257,8 +257,8 @@ class TestRenderAndVerify:
                 initial_input=json_path,
             )
             result = execute_render(work)
-            render_status = result.step_statuses[StepName.Render]
-            verify_status = result.step_statuses[StepName.RoundtripComparer]
+            render_status = result.step_states[StepName.Render]
+            verify_status = result.step_states[StepName.RoundtripComparer]
 
             assert render_status.errors == []
             assert render_status.warnings == []
@@ -302,11 +302,11 @@ class TestRenderAndVerify:
                 initial_input=json_path,
             )
             result = execute_render(work)
-            render_status = result.step_statuses[StepName.Render]
+            render_status = result.step_states[StepName.Render]
 
             assert render_status.errors == []
             assert (
-                StepName.RoundtripComparer not in result.step_statuses
+                StepName.RoundtripComparer not in result.step_states
             )  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
@@ -360,7 +360,7 @@ class TestRenderAndVerify:
                 initial_input=json_path,
             )
             result = execute_render(work)
-            render_status = result.step_statuses[StepName.Render]
+            render_status = result.step_states[StepName.Render]
 
             assert render_status.errors == []
             # Verify roundtrip_dir was created
@@ -433,8 +433,8 @@ class TestRenderAndVerify:
                 initial_input=json_path,
             )
             result = execute_render(work)
-            render_status = result.step_statuses[StepName.Render]
-            verify_status = result.step_statuses[StepName.RoundtripComparer]
+            render_status = result.step_states[StepName.Render]
+            verify_status = result.step_states[StepName.RoundtripComparer]
 
             assert render_status.errors == []
             assert "Mismatch detected" in verify_status.errors
@@ -462,11 +462,11 @@ class TestRenderAndVerify:
                 initial_input=json_path,
             )
             result = execute_render(work)
-            render_status = result.step_statuses[StepName.Render]
+            render_status = result.step_states[StepName.Render]
 
             assert render_status.errors == []
             assert any("RuntimeError" in w for w in render_status.warnings)
-            assert StepName.RoundtripComparer not in result.step_statuses
+            assert StepName.RoundtripComparer not in result.step_states
 
 
 class TestCategorizeResult:
@@ -518,12 +518,12 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             warnings=["warning"],
         )
-        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer
         )
         icons = get_status_icons(work)
@@ -536,9 +536,9 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer
         )
         icons = get_status_icons(work)
@@ -551,15 +551,15 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             errors=["error"],
         )
-        work.step_statuses[StepName.Render] = StepStatus(
+        work.step_states[StepName.Render] = StepStatus(
             step=StepName.Render,
             errors=["render error"],
         )
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer,
             errors=["compare error"],
         )
@@ -573,7 +573,7 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         icons = get_status_icons(work)
         assert "➖" in icons[StepName.Render]  # Neutral icon for apply
 
@@ -584,9 +584,9 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer
         )
         icons = get_status_icons(work)
@@ -602,9 +602,9 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_states[StepName.RoundtripComparer] = StepStatus(
             step=StepName.RoundtripComparer,
             errors=["compare mismatch"],
         )
@@ -618,8 +618,8 @@ class TestGetStatusIcons:
             input=tmp_path / "input.json",
             output=tmp_path / "output.json",
         )
-        work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-        work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
+        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         icons = get_status_icons(work)
         assert "➖" in icons[StepName.RoundtripComparer]
 

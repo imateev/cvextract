@@ -34,7 +34,7 @@ class UnitOfWork:
     input: Path
     output: Path
     initial_input: Optional[Path] = None
-    step_statuses: Dict["StepName", "StepStatus"] = field(default_factory=dict)
+    step_states: Dict["StepName", "StepStatus"] = field(default_factory=dict)
     current_step: Optional["StepName"] = None
 
     def __post_init__(self) -> None:
@@ -42,10 +42,10 @@ class UnitOfWork:
             self.initial_input = self.input
 
     def _get_step_status(self, step: "StepName") -> "StepStatus":
-        status = self.step_statuses.get(step)
+        status = self.step_states.get(step)
         if status is None:
             status = StepStatus(step=step)
-            self.step_statuses[step] = status
+            self.step_states[step] = status
         return status
 
     def ensure_step_status(self, step: "StepName") -> "StepStatus":
@@ -62,8 +62,8 @@ class UnitOfWork:
     def resolve_verification_step(self) -> "StepName":
         if self.current_step is not None:
             return self.current_step
-        if len(self.step_statuses) == 1:
-            return next(iter(self.step_statuses.keys()))
+        if len(self.step_states) == 1:
+            return next(iter(self.step_states.keys()))
         raise ValueError("verification step is not set")
 
     def ensure_path_exists(
@@ -86,17 +86,17 @@ class UnitOfWork:
 
     def has_no_errors(self, step: Optional["StepName"] = None) -> bool:
         if step is None:
-            return all(not status.errors for status in self.step_statuses.values())
-        status = self.step_statuses.get(step)
+            return all(not status.errors for status in self.step_states.values())
+        status = self.step_states.get(step)
         return not status.errors if status else True
 
     def has_no_warnings_or_errors(self, step: Optional["StepName"] = None) -> bool:
         if step is None:
             return all(
                 (not status.errors and not status.warnings)
-                for status in self.step_statuses.values()
+                for status in self.step_states.values()
             )
-        status = self.step_statuses.get(step)
+        status = self.step_states.get(step)
         if status is None:
             return True
         return not status.errors and not status.warnings
@@ -126,7 +126,7 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
     """Generate status icons for pipeline steps based on UnitOfWork statuses."""
 
     def icon_for(step_name: StepName) -> str:
-        status = work.step_statuses.get(step_name)
+        status = work.step_states.get(step_name)
 
         if status is None:
             return "➖"
@@ -150,7 +150,7 @@ def select_issue_step(work: "UnitOfWork") -> "StepName":
         StepName.Adjust,
         StepName.Extract,
     ):
-        status = work.step_statuses.get(candidate)
+        status = work.step_states.get(candidate)
         if status and (status.errors or status.warnings):
             return candidate
     return StepName.Extract

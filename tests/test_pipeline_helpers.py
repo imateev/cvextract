@@ -60,7 +60,7 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
     assert len(extract_status.warnings) == 0
 
@@ -99,7 +99,7 @@ def test_extract_single_does_not_verify(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
     assert extract_status.warnings == []
 
@@ -121,7 +121,7 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert len(extract_status.errors) == 1
     assert "exception: RuntimeError" in extract_status.errors[0]
     assert extract_status.warnings == []
@@ -152,7 +152,7 @@ def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
         output=output,
     )
     result = p.extract_single(work)
-    extract_status = result.step_statuses[StepName.Extract]
+    extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
     assert extract_status.warnings == []
 
@@ -197,8 +197,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     )
     render_work = p.render(work)
     result = p._verify_roundtrip(render_work, json_file)
-    render_status = result.step_statuses[StepName.Render]
-    verify_status = result.step_statuses[StepName.RoundtripComparer]
+    render_status = result.step_states[StepName.Render]
+    verify_status = result.step_states[StepName.RoundtripComparer]
     assert render_status.errors == []
     assert render_status.warnings == []
     assert verify_status.errors == []
@@ -225,11 +225,11 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
     result = p.render(work)
-    render_status = result.step_statuses[StepName.Render]
+    render_status = result.step_states[StepName.Render]
     assert render_status.errors == []
     assert len(render_status.warnings) == 1
     assert "render: ValueError" in render_status.warnings[0]
-    assert StepName.RoundtripComparer not in result.step_statuses
+    assert StepName.RoundtripComparer not in result.step_states
 
 
 def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
@@ -272,8 +272,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     )
     render_work = p.render(work)
     result = p._verify_roundtrip(render_work, json_file)
-    render_status = result.step_statuses[StepName.Render]
-    verify_status = result.step_statuses[StepName.RoundtripComparer]
+    render_status = result.step_states[StepName.Render]
+    verify_status = result.step_states[StepName.RoundtripComparer]
     assert render_status.errors == []
     assert "value mismatch" in verify_status.errors[0]
     assert verify_status.warnings == []
@@ -286,7 +286,7 @@ def test_get_status_icons_extract_success_no_warnings():
         input=Path("input.json"),
         output=Path("output.json"),
     )
-    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "➖"
@@ -300,7 +300,7 @@ def test_get_status_icons_extract_success_with_warnings():
         input=Path("input.json"),
         output=Path("output.json"),
     )
-    work.step_statuses[StepName.Extract] = StepStatus(
+    work.step_states[StepName.Extract] = StepStatus(
         step=StepName.Extract,
         warnings=["warning"],
     )
@@ -317,7 +317,7 @@ def test_get_status_icons_extract_failed():
         input=Path("input.json"),
         output=Path("output.json"),
     )
-    work.step_statuses[StepName.Extract] = StepStatus(
+    work.step_states[StepName.Extract] = StepStatus(
         step=StepName.Extract,
         errors=["error"],
     )
@@ -334,9 +334,9 @@ def test_get_status_icons_apply_success():
         input=Path("input.json"),
         output=Path("output.json"),
     )
-    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-    work.step_statuses[StepName.Render] = StepStatus(step=StepName.Render)
-    work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+    work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
+    work.step_states[StepName.RoundtripComparer] = StepStatus(
         step=StepName.RoundtripComparer
     )
     icons = get_status_icons(work)
@@ -352,12 +352,12 @@ def test_get_status_icons_apply_failed():
         input=Path("input.json"),
         output=Path("output.json"),
     )
-    work.step_statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
-    work.step_statuses[StepName.Render] = StepStatus(
+    work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+    work.step_states[StepName.Render] = StepStatus(
         step=StepName.Render,
         errors=["render failed"],
     )
-    work.step_statuses[StepName.RoundtripComparer] = StepStatus(
+    work.step_states[StepName.RoundtripComparer] = StepStatus(
         step=StepName.RoundtripComparer,
         errors=["compare failed"],
     )
@@ -427,7 +427,7 @@ def test_verify_extracted_data_missing_identity(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    status = result.step_statuses[StepName.Extract]
+    status = result.step_states[StepName.Extract]
     assert "identity" in status.errors
 
 
@@ -446,7 +446,7 @@ def test_verify_extracted_data_empty_sidebar(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    status = result.step_statuses[StepName.Extract]
+    status = result.step_states[StepName.Extract]
     assert "sidebar" in status.errors
 
 
@@ -465,7 +465,7 @@ def test_verify_extracted_data_no_experiences(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    status = result.step_statuses[StepName.Extract]
+    status = result.step_states[StepName.Extract]
     assert "experiences_empty" in status.errors
 
 
@@ -497,5 +497,5 @@ def test_verify_extracted_data_invalid_environment(tmp_path):
     verifier = get_verifier("private-internal-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
-    status = result.step_statuses[StepName.Extract]
+    status = result.step_states[StepName.Extract]
     assert any("invalid environment format" in w for w in status.warnings)

@@ -34,7 +34,7 @@ class TestCVVerifierAbstract:
 
     @staticmethod
     def _status(work: UnitOfWork):
-        return work.step_statuses[StepName.Extract]
+        return work.step_states[StepName.Extract]
 
     def test_cannot_instantiate_abstract_class(self):
         """Test that CVVerifier cannot be instantiated directly."""
