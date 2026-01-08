@@ -4,6 +4,7 @@ Step 2: Adjust stage execution.
 
 from __future__ import annotations
 
+import json
 import time
 import traceback
 from dataclasses import replace
@@ -12,6 +13,7 @@ from pathlib import Path
 from .adjusters import get_adjuster
 from .logging_utils import LOG
 from .shared import StepName, UnitOfWork
+from .verifiers import get_verifier
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
@@ -96,6 +98,45 @@ def execute(work: UnitOfWork) -> UnitOfWork:
 
             adjust_work = adjuster.adjust(adjust_work, **adjuster_params)
             adjust_work = replace(adjust_work, input=adjust_work.output)
+
+        skip_verify = bool(
+            config.skip_verify
+            or (config.adjust and config.adjust.skip_verify)
+        )
+        if skip_verify:
+            return adjust_work
+
+        if not adjust_work.output or not adjust_work.output.exists():
+            adjust_work.add_error(
+                StepName.Adjust, "adjust: output JSON not found for verification"
+            )
+            return adjust_work
+
+        verifier_name = "cv-schema-verifier"
+        if config.adjust and config.adjust.verifier:
+            verifier_name = config.adjust.verifier
+        verifier = get_verifier(verifier_name)
+        if not verifier:
+            adjust_work.add_error(
+                StepName.Adjust, f"unknown verifier: {verifier_name}"
+            )
+            return adjust_work
+
+        try:
+            with adjust_work.output.open("r", encoding="utf-8") as f:
+                adjusted_data = json.load(f)
+        except Exception as e:
+            adjust_work.add_error(
+                StepName.Adjust, f"adjust: verify failed ({type(e).__name__})"
+            )
+            return adjust_work
+
+        adjust_work.ensure_step_status(StepName.Adjust)
+        result = verifier.verify(data=adjusted_data)
+        for err in result.errors:
+            adjust_work.add_error(StepName.Adjust, err)
+        for warn in result.warnings:
+            adjust_work.add_warning(StepName.Adjust, warn)
 
         return adjust_work
     except Exception:

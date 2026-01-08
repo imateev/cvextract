@@ -137,6 +137,22 @@ class TestGatherUserRequirements:
 
         assert config.extract.output == Path("/output/data.json")
 
+    def test_extract_with_verifier_and_skip_verify(self):
+        """--extract verifier and skip-verify parameters are stored."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--extract",
+                "source=cv.docx",
+                "verifier=custom-verifier",
+                "skip-verify",
+                "--target",
+                "/output",
+            ]
+        )
+
+        assert config.extract.verifier == "custom-verifier"
+        assert config.extract.skip_verify is True
+
     def test_adjust_requires_name(self):
         """--adjust requires 'name' parameter."""
         with pytest.raises(ValueError, match="requires 'name' parameter"):
@@ -245,6 +261,25 @@ class TestGatherUserRequirements:
 
         assert config.adjust.dry_run is True
 
+    def test_adjust_with_verifier_and_skip_verify(self):
+        """--adjust verifier and skip-verify parameters are stored."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--extract",
+                "source=cv.docx",
+                "--adjust",
+                "name=openai-company-research",
+                "customer-url=https://example.com",
+                "verifier=cv-schema-verifier",
+                "skip-verify",
+                "--target",
+                "/output",
+            ]
+        )
+
+        assert config.adjust.verifier == "cv-schema-verifier"
+        assert config.adjust.skip_verify is True
+
     def test_apply_requires_template(self):
         """--render requires 'template' parameter."""
         with pytest.raises(ValueError, match="--render requires 'template'"):
@@ -272,6 +307,22 @@ class TestGatherUserRequirements:
         )
 
         assert config.render.data == Path("extracted.json")
+
+    def test_render_with_verifier_and_skip_verify(self):
+        """--render verifier and skip-verify parameters are stored."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--render",
+                "template=template.docx",
+                "verifier=roundtrip-verifier",
+                "skip-verify",
+                "--target",
+                "/output",
+            ]
+        )
+
+        assert config.render.verifier == "roundtrip-verifier"
+        assert config.render.skip_verify is True
 
     def test_parallel_requires_source(self):
         """--parallel requires 'source' parameter."""
@@ -349,6 +400,20 @@ class TestGatherUserRequirements:
         )
 
         assert config.log_file == "/tmp/app.log"
+
+    def test_global_skip_verify(self):
+        """--skip-verify is stored on the user config."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--extract",
+                "source=cv.docx",
+                "--target",
+                "/output",
+                "--skip-verify",
+            ]
+        )
+
+        assert config.skip_verify is True
 
     def test_full_pipeline(self):
         """Full pipeline with extract, adjust, and apply."""

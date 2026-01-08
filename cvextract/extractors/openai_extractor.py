@@ -131,7 +131,20 @@ class OpenAICVExtractor(CVExtractor):
 
         cv_schema = self._load_cv_schema()
         response_text = self._extract_with_openai(file_path, cv_schema)
-        data = self._parse_and_validate(response_text, cv_schema)
+        verifier_name = None
+        skip_verify = False
+        if work.config.extract and work.config.extract.verifier:
+            verifier_name = work.config.extract.verifier
+        if work.config.skip_verify or (
+            work.config.extract and work.config.extract.skip_verify
+        ):
+            skip_verify = True
+        data = self._parse_and_validate(
+            response_text,
+            cv_schema,
+            verifier_name=verifier_name,
+            skip_verify=skip_verify,
+        )
         return self._write_output_json(work, data)
 
     def _load_cv_schema(self) -> dict[str, Any]:
@@ -580,7 +593,12 @@ class OpenAICVExtractor(CVExtractor):
     # --------------------------
 
     def _parse_and_validate(
-        self, response_text: str, cv_schema: dict[str, Any]
+        self,
+        response_text: str,
+        cv_schema: dict[str, Any],
+        *,
+        verifier_name: Optional[str] = None,
+        skip_verify: bool = False,
     ) -> dict[str, Any]:
         """
         Parse the response and validate against the schema.
@@ -605,10 +623,17 @@ class OpenAICVExtractor(CVExtractor):
                 f"Failed to parse response as JSON: {e}\nResponse was: {text[:500]}"
             ) from e
 
+        if not isinstance(data, dict):
+            raise ValueError("Response must be a JSON object")
+
+        if skip_verify:
+            return data
+
         # Validate using the verifier
-        verifier = get_verifier("cv-schema-verifier")
+        verifier_name = verifier_name or "cv-schema-verifier"
+        verifier = get_verifier(verifier_name)
         if not verifier:
-            raise RuntimeError("CV schema verifier not available")
+            raise RuntimeError(f"CV schema verifier not available: {verifier_name}")
 
         result = verifier.verify(data=data)
         if not result.ok:

@@ -456,12 +456,24 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             )
             return self._write_output_json(work, cv_data)
 
+        skip_verify = bool(
+            work.config.skip_verify
+            or (work.config.adjust and work.config.adjust.skip_verify)
+        )
+        if skip_verify:
+            LOG.info("Job-specific adjust: verification skipped.")
+            return self._write_output_json(work, adjusted)
+
         # Validate adjusted CV against schema
         _ = _load_cv_schema()
-        cv_verifier = get_verifier("cv-schema-verifier")
+        verifier_name = "cv-schema-verifier"
+        if work.config.adjust and work.config.adjust.verifier:
+            verifier_name = work.config.adjust.verifier
+        cv_verifier = get_verifier(verifier_name)
         if not cv_verifier:
             LOG.warning(
-                "Job-specific adjust: CV schema verifier not available; using original JSON."
+                "Job-specific adjust: verifier '%s' not available; using original JSON.",
+                verifier_name,
             )
             return self._write_output_json(work, cv_data)
 

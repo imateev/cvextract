@@ -104,12 +104,22 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     tmp_path.replace(path)
 
 
-def _load_cached_research(cache_path: Path) -> Optional[Dict[str, Any]]:
+def _load_cached_research(
+    cache_path: Path, *, skip_verify: bool = False
+) -> Optional[Dict[str, Any]]:
     if not cache_path.exists():
         return None
     try:
         with cache_path.open("r", encoding="utf-8") as f:
             cached_data = json.load(f)
+        if not isinstance(cached_data, dict):
+            return None
+        if skip_verify:
+            LOG.info(
+                "Using cached company research from %s (verification skipped)",
+                cache_path,
+            )
+            return cached_data
         if _validate_research_data(cached_data):
             LOG.info("Using cached company research from %s", cache_path)
             return cached_data
@@ -343,6 +353,7 @@ def _research_company_profile(
     retry: Optional[_RetryConfig] = None,
     sleep: Callable[[float], None] = time.sleep,
     request_timeout_s: float = 60.0,
+    skip_verify: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Research a company profile from its URL using OpenAI.
@@ -410,6 +421,9 @@ def _research_company_profile(
         LOG.warning("Company research: invalid JSON response")
         return None
 
+    if skip_verify:
+        return research_data
+
     if not _validate_research_data(research_data):
         LOG.warning("Company research: response failed schema validation")
         return None
@@ -473,10 +487,14 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             return self._write_output_json(work, cv_data)
 
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
+        skip_verify = bool(
+            work.config.skip_verify
+            or (work.config.adjust and work.config.adjust.skip_verify)
+        )
         cache_dir = work.config.workspace.research_dir
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_path = cache_dir / url_to_cache_filename(customer_url)
-        research_data = _load_cached_research(cache_path)
+        research_data = _load_cached_research(cache_path, skip_verify=skip_verify)
 
         # Step 1: Research company profile (with retries)
         if not research_data:
@@ -488,6 +506,7 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 retry=self._retry,
                 sleep=self._sleep,
                 request_timeout_s=self._request_timeout_s,
+                skip_verify=skip_verify,
             )
             if research_data:
                 _cache_research_data(cache_path, research_data)
@@ -619,11 +638,19 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             )
             return self._write_output_json(work, cv_data)
 
+        if skip_verify:
+            LOG.info("Company research adjust: verification skipped.")
+            return self._write_output_json(work, adjusted)
+
         try:
-            cv_verifier = get_verifier("cv-schema-verifier")
+            verifier_name = "cv-schema-verifier"
+            if work.config.adjust and work.config.adjust.verifier:
+                verifier_name = work.config.adjust.verifier
+            cv_verifier = get_verifier(verifier_name)
             if not cv_verifier:
                 LOG.warning(
-                    "Company research adjust: CV schema verifier not available; using original CV."
+                    "Company research adjust: verifier '%s' not available; using original CV.",
+                    verifier_name,
                 )
                 return self._write_output_json(work, cv_data)
 

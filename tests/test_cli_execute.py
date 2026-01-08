@@ -41,14 +41,23 @@ def mock_template(tmp_path: Path):
 def mock_json(tmp_path: Path):
     """Create a valid CV JSON file."""
     json_file = tmp_path / "test.json"
-    data = {
-        "identity": {"name": "John Doe"},
-        "sidebar": {},
-        "overview": "Test overview",
-        "experiences": [],
-    }
+    data = _valid_cv_payload()
     json_file.write_text(json.dumps(data, indent=2))
     return json_file
+
+
+def _valid_cv_payload() -> dict:
+    return {
+        "identity": {
+            "title": "Engineer",
+            "full_name": "Test User",
+            "first_name": "Test",
+            "last_name": "User",
+        },
+        "sidebar": {},
+        "overview": "Test overview",
+        "experiences": [{"heading": "Role", "description": "Work"}],
+    }
 
 
 def _extract_result(
@@ -56,16 +65,7 @@ def _extract_result(
 ) -> UnitOfWork:
     if work.output:
         work.output.parent.mkdir(parents=True, exist_ok=True)
-        work.output.write_text(
-            json.dumps(
-                {
-                    "identity": {},
-                    "sidebar": {},
-                    "overview": "",
-                    "experiences": [],
-                }
-            )
-        )
+        work.output.write_text(json.dumps(_valid_cv_payload()))
     statuses = dict(work.step_statuses)
     statuses[StepName.Extract] = StepStatus(
         step=StepName.Extract, warnings=warns, errors=errs
@@ -376,7 +376,7 @@ class TestExecutePipelineAdjust:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -386,7 +386,7 @@ class TestExecutePipelineAdjust:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -436,7 +436,7 @@ class TestExecutePipelineAdjust:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -445,7 +445,7 @@ class TestExecutePipelineAdjust:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -488,7 +488,7 @@ class TestExecutePipelineAdjust:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -522,12 +522,12 @@ class TestExecutePipelineAdjust:
         self, mock_get_adjuster, tmp_path: Path, parallel_input_tree
     ):
         """Research cache decision is delegated to the adjuster, not CLI."""
-        payload = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        payload = _valid_cv_payload()
         input_json = parallel_input_tree.json("folder/profile.json", payload)
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -579,7 +579,7 @@ class TestExecutePipelineAdjust:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -630,7 +630,7 @@ class TestExecutePipelineDebugMode:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -715,7 +715,7 @@ class TestFolderStructurePreservation:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])
@@ -724,7 +724,7 @@ class TestFolderStructurePreservation:
         # Mock adjuster
         mock_adjuster = MagicMock()
         mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+            work, _valid_cv_payload()
         )
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
@@ -773,7 +773,7 @@ class TestFolderStructurePreservation:
             work.output.parent.mkdir(parents=True, exist_ok=True)
             work.output.write_text(
                 json.dumps(
-                    {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+                    _valid_cv_payload()
                 )
             )
             return _extract_result(work, True, [], [])

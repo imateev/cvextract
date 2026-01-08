@@ -187,12 +187,27 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
             return extract_work
         with extract_work.output.open("r", encoding="utf-8") as f:
             data = json.load(f)
-        verifier = get_verifier("private-internal-verifier")
-        result = verifier.verify(data=data)
-        for err in result.errors:
-            extract_work.add_error(StepName.Extract, err)
-        for warn in result.warnings:
-            extract_work.add_warning(StepName.Extract, warn)
+        skip_verify = bool(
+            work.config.skip_verify
+            or (work.config.extract and work.config.extract.skip_verify)
+        )
+        if not skip_verify:
+            verifier_name = (
+                work.config.extract.verifier
+                if work.config.extract and work.config.extract.verifier
+                else "private-internal-verifier"
+            )
+            verifier = get_verifier(verifier_name)
+            if not verifier:
+                extract_work.add_error(
+                    StepName.Extract, f"unknown verifier: {verifier_name}"
+                )
+                return extract_work
+            result = verifier.verify(data=data)
+            for err in result.errors:
+                extract_work.add_error(StepName.Extract, err)
+            for warn in result.warnings:
+                extract_work.add_warning(StepName.Extract, warn)
         return extract_work
     except Exception as e:
         if work.config.debug:
@@ -223,7 +238,12 @@ def _roundtrip_compare(
         )
     with roundtrip_work.output.open("r", encoding="utf-8") as f:
         roundtrip_data = json.load(f)
-    verifier = get_verifier("roundtrip-verifier")
+    verifier_name = "roundtrip-verifier"
+    if render_work.config.render and render_work.config.render.verifier:
+        verifier_name = render_work.config.render.verifier
+    verifier = get_verifier(verifier_name)
+    if not verifier:
+        raise ValueError(f"unknown verifier: {verifier_name}")
     return verifier.verify(data=original_data, target_data=roundtrip_data)
 
 

@@ -174,7 +174,8 @@ Examples:
         nargs="*",
         metavar="PARAM",
         help="Extract stage: Extract CV data from source file to JSON. "
-        "Parameters: source=<file> (required) [name=<extractor-name>] [output=<path>]. "
+        "Parameters: source=<file> (required) [name=<extractor-name>] [output=<path>] "
+        "[verifier=<verifier-name>] [skip-verify]. "
         "Use --list extractors to see available extractors.",
     )
     parser.add_argument(
@@ -183,7 +184,8 @@ Examples:
         metavar="PARAM",
         action="append",
         help="Adjust stage: Adjust CV data using named adjusters (can be specified multiple times for chaining). "
-        "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] [output=<path>] [openai-model=<model>] [dry-run]. "
+        "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] "
+        "[output=<path>] [openai-model=<model>] [verifier=<verifier-name>] [skip-verify] [dry-run]. "
         "Use --list adjusters to see available adjusters.",
     )
     parser.add_argument(
@@ -191,7 +193,8 @@ Examples:
         nargs="*",
         metavar="PARAM",
         help="Render stage: Render CV data to DOCX template. "
-        "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>]",
+        "Parameters: template=<path> [data=<file>] (single JSON file) [output=<path>] "
+        "[verifier=<verifier-name>] [skip-verify]",
     )
     parser.add_argument(
         "--parallel",
@@ -225,6 +228,11 @@ Examples:
     parser.add_argument(
         "--log-file",
         help="Optional path to a log file. If set, all output is also written there.",
+    )
+    parser.add_argument(
+        "--skip-verify",
+        action="store_true",
+        help="Skip all verification steps in the pipeline.",
     )
 
     args = parser.parse_args(argv)
@@ -305,6 +313,8 @@ Examples:
                 if "output" in params
                 else None
             ),
+            verifier=params.get("verifier"),
+            skip_verify="skip-verify" in params,
         )
 
     if args.adjust is not None:
@@ -314,6 +324,9 @@ Examples:
         data_path = None
         output_path = None
         dry_run = False
+
+        adjust_verifier: Optional[str] = None
+        skip_verify = False
 
         for adjust_params_list in args.adjust:
             params = _parse_stage_params(
@@ -328,6 +341,10 @@ Examples:
                     output_path = _resolve_output_path(
                         params["output"], Path(args.target)
                     )
+                if "verifier" in params:
+                    adjust_verifier = params["verifier"]
+                if "skip-verify" in params:
+                    skip_verify = True
                 if "dry-run" in params:
                     dry_run = True
 
@@ -345,7 +362,16 @@ Examples:
             adjuster_params = {
                 k: v
                 for k, v in params.items()
-                if k not in ("name", "data", "output", "dry-run", "openai-model")
+                if k
+                not in (
+                    "name",
+                    "data",
+                    "output",
+                    "dry-run",
+                    "openai-model",
+                    "verifier",
+                    "skip-verify",
+                )
             }
 
             adjuster_configs.append(
@@ -364,6 +390,8 @@ Examples:
             data=data_path,
             output=output_path,
             dry_run=dry_run,
+            verifier=adjust_verifier,
+            skip_verify=skip_verify,
         )
 
     if args.render is not None:
@@ -379,6 +407,8 @@ Examples:
                 if "output" in params
                 else None
             ),
+            verifier=params.get("verifier"),
+            skip_verify="skip-verify" in params,
         )
 
     return UserConfig(
@@ -388,6 +418,7 @@ Examples:
         parallel=parallel_stage,
         target_dir=Path(args.target),
         verbosity=args.verbosity,
+        skip_verify=args.skip_verify,
         debug_external=args.debug_external,
         log_file=args.log_file,
     )
