@@ -4,7 +4,7 @@ Step 3: Render/Verify stage execution.
 
 from __future__ import annotations
 
-from .pipeline_helpers import render_and_verify
+from .pipeline_helpers import _verify_roundtrip, render
 from .shared import StepName, UnitOfWork
 
 
@@ -28,4 +28,23 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     ):
         return work
 
-    return render_and_verify(work)
+    render_work = render(work)
+    render_status = render_work.step_statuses.get(StepName.Render)
+    if render_status and not render_status.ok:
+        return render_work
+
+    skip_compare = not config.should_compare
+    if config.extract and config.extract.name == "openai-extractor":
+        skip_compare = True
+
+    if skip_compare:
+        return render_work
+
+    original_cv_path = work.output
+    if original_cv_path is None:
+        render_work.add_error(
+            StepName.RoundtripComparer, "render: input JSON path is not set"
+        )
+        return render_work
+
+    return _verify_roundtrip(render_work, original_cv_path)

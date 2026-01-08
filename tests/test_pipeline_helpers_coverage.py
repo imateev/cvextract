@@ -18,6 +18,7 @@ from cvextract.cli_config import (
     RenderStage,
     UserConfig,
 )
+from cvextract.cli_execute_render import execute as execute_render
 from cvextract.shared import StepName, UnitOfWork
 
 
@@ -347,7 +348,7 @@ class TestPipelineHelpersCoverage:
             assert "RuntimeError" in comparer_status.errors[0]
 
     def test_render_and_verify_skips_compare_openai_extractor(self, tmp_path):
-        """Test render_and_verify skips comparison for openai-extractor."""
+        """Test execute_render skips comparison for openai-extractor."""
         json_file = tmp_path / "test.json"
         cv_data = {
             "identity": {
@@ -375,16 +376,19 @@ class TestPipelineHelpersCoverage:
         )
         work = UnitOfWork(config=config, input=json_file, output=json_file)
 
-        with patch("cvextract.pipeline_helpers._render_docx") as mock_render:
+        with patch("cvextract.cli_execute_render.render") as mock_render, patch(
+            "cvextract.cli_execute_render._verify_roundtrip"
+        ) as mock_verify:
             mock_render.return_value = work
 
-            result = p.render_and_verify(work)
+            result = execute_render(work)
 
             # Should not have RoundtripComparer status
             assert StepName.RoundtripComparer not in result.step_statuses
+            mock_verify.assert_not_called()
 
     def test_render_and_verify_skips_compare_should_compare_false(self, tmp_path):
-        """Test render_and_verify skips comparison when has_adjust is True (should_compare property)."""
+        """Test execute_render skips comparison when should_compare is False."""
         json_file = tmp_path / "test.json"
         cv_data = {
             "identity": {
@@ -413,16 +417,19 @@ class TestPipelineHelpersCoverage:
         )
         work = UnitOfWork(config=config, input=json_file, output=json_file)
 
-        with patch("cvextract.pipeline_helpers._render_docx") as mock_render:
+        with patch("cvextract.cli_execute_render.render") as mock_render, patch(
+            "cvextract.cli_execute_render._verify_roundtrip"
+        ) as mock_verify:
             mock_render.return_value = work
 
-            result = p.render_and_verify(work)
+            result = execute_render(work)
 
             # Should not have RoundtripComparer status
             assert StepName.RoundtripComparer not in result.step_statuses
+            mock_verify.assert_not_called()
 
     def test_render_and_verify_output_none_error(self, tmp_path):
-        """Test render_and_verify handles output None when compare is needed."""
+        """Test execute_render fails early when input JSON is missing."""
         json_file = tmp_path / "test.json"
         cv_data = {
             "identity": {
@@ -441,28 +448,11 @@ class TestPipelineHelpersCoverage:
         template.touch()
 
         config = UserConfig(target_dir=tmp_path, render=RenderStage(template=template))
-        work = UnitOfWork(config=config, input=json_file, output=json_file)
+        work = UnitOfWork(config=config, input=json_file, output=None)
 
-        with patch("cvextract.pipeline_helpers._render_docx") as mock_render:
-            # Mock _render_docx to return work successfully
-            from cvextract.shared import StepStatus
+        result = execute_render(work)
 
-            rendered_work = work
-            statuses = dict(work.step_statuses)
-            statuses[StepName.Render] = StepStatus(step=StepName.Render)
-            from dataclasses import replace
-
-            rendered_work = replace(work, step_statuses=statuses)
-            mock_render.return_value = rendered_work
-
-            # Mock work.output to be None after comparison check
-            original_output = work.output
-            work.output = None
-
-            result = p.render_and_verify(work)
-
-            # Should have added error about missing JSON path
-            comparer_status = result.step_statuses.get(StepName.RoundtripComparer)
-            assert comparer_status is not None
-            assert len(comparer_status.errors) > 0
-            assert "input JSON path is not set" in comparer_status.errors[0]
+        render_status = result.step_statuses.get(StepName.Render)
+        assert render_status is not None
+        assert len(render_status.errors) > 0
+        assert "render input JSON is not set" in render_status.errors[0]

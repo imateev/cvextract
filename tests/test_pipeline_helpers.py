@@ -160,7 +160,7 @@ def test_extract_single_skips_verification_when_global_skip_all_verify(
 
 
 def test_render_and_verify_success(monkeypatch, tmp_path: Path):
-    """Test successful render with roundtrip verification."""
+    """Test successful render and roundtrip verification."""
     json_file = tmp_path / "test.json"
     json_file.write_text('{"a": 1}', encoding="utf-8")
     template = tmp_path / "template.docx"
@@ -197,7 +197,8 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
     work = UnitOfWork(
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
-    result = p.render_and_verify(work)
+    render_work = p.render(work)
+    result = p._verify_roundtrip(render_work, json_file)
     render_status = result.step_statuses[StepName.Render]
     verify_status = result.step_statuses[StepName.RoundtripComparer]
     assert render_status.errors == []
@@ -225,7 +226,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     work = UnitOfWork(
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
-    result = p.render_and_verify(work)
+    result = p.render(work)
     render_status = result.step_statuses[StepName.Render]
     assert render_status.errors == []
     assert len(render_status.warnings) == 1
@@ -270,7 +271,8 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
     work = UnitOfWork(
         config=config, input=json_file, output=json_file, initial_input=json_file
     )
-    result = p.render_and_verify(work)
+    render_work = p.render(work)
+    result = p._verify_roundtrip(render_work, json_file)
     render_status = result.step_statuses[StepName.Render]
     verify_status = result.step_statuses[StepName.RoundtripComparer]
     assert render_status.errors == []

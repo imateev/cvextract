@@ -4,11 +4,11 @@ import json
 from unittest.mock import MagicMock, patch
 
 from cvextract.cli_config import AdjustStage, ExtractStage, RenderStage, UserConfig
+from cvextract.cli_execute_render import execute as execute_render
 from cvextract.pipeline_helpers import (
     categorize_result,
     extract_single,
     infer_source_root,
-    render_and_verify,
 )
 from cvextract.shared import (
     StepName,
@@ -201,7 +201,7 @@ class TestExtractSingle:
 
 
 class TestRenderAndVerify:
-    """Tests for render_and_verify function."""
+    """Tests for render and roundtrip verification via execute_render."""
 
     def testrender_and_verify_success(self, tmp_path):
         """Test successful render and verify."""
@@ -257,7 +257,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
             verify_status = result.step_statuses[StepName.RoundtripComparer]
 
@@ -302,7 +302,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
 
             assert render_status.errors == []
@@ -360,7 +360,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
 
             assert render_status.errors == []
@@ -430,7 +430,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
             verify_status = result.step_statuses[StepName.RoundtripComparer]
 
@@ -459,7 +459,7 @@ class TestRenderAndVerify:
                 output=json_path,
                 initial_input=json_path,
             )
-            result = render_and_verify(work)
+            result = execute_render(work)
             render_status = result.step_statuses[StepName.Render]
 
             assert render_status.errors == []

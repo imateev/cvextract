@@ -47,7 +47,7 @@ Used in roundtrip verification:
 
 ```python
 # In pipeline
-result = render_and_verify(work)
+result = execute_render(work)
 # Internally uses RoundtripVerifier for roundtrip check
 ```
 
@@ -84,7 +84,7 @@ result = render_and_verify(work)
 
 ### Integration Points
 
-- Used in `cvextract.pipeline_helpers.render_and_verify()`
+- Used in `cvextract.cli_execute_render.execute()`
 - Results affect roundtrip verification icon in logs
 - Skip roundtrip when adjustment is used
 

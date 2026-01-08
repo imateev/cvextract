@@ -287,37 +287,22 @@ def _verify_roundtrip(
     return render_work
 
 
-def render_and_verify(work: UnitOfWork) -> UnitOfWork:
+def render(work: UnitOfWork) -> UnitOfWork:
     """
-    Render a single JSON to DOCX, extract round-trip JSON, and compare structures.
+    Render a single JSON to DOCX.
 
     Args:
-        work: UnitOfWork with config, output JSON path, and initial input path
+        work: UnitOfWork with render configuration and input/output paths
 
     Returns:
-        UnitOfWork with Render/Verify statuses populated.
+        UnitOfWork with Render status populated.
     """
-    render_work = _render_docx(work)
-    render_status = render_work.step_statuses.get(StepName.Render)
-    if render_status and not render_status.ok:
-        return render_work
+    return _render_docx(work)
 
-    # Skip compare when explicitly requested by caller
-    skip_compare = not work.config.should_compare
-    if work.config.extract and work.config.extract.name == "openai-extractor":
-        skip_compare = True
 
-    if skip_compare:
-        return render_work
-
-    original_cv_path = work.output
-    if original_cv_path is None:
-        render_work.add_error(
-            StepName.RoundtripComparer, "render: input JSON path is not set"
-        )
-        return render_work
-
-    return _verify_roundtrip(render_work, original_cv_path)
+def render_and_verify(work: UnitOfWork) -> UnitOfWork:
+    """Backward-compatible alias for render()."""
+    return render(work)
 
 
 def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:
