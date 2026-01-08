@@ -73,3 +73,66 @@ class TestCVBodyParsing:
         overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
         assert overview == "Some overview text"
         assert len(exps) == 1
+
+    def test_parse_heading_without_date_pattern(self, monkeypatch):
+        """When no date pattern matches, first experience line should be heading."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("2024 – Present | Data Engineer", False, ""),
+            ("Did things", False, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 1
+        assert exps[0]["heading"] == "2024 – Present | Data Engineer"
+
+    def test_parse_year_only_ranges_as_headings(self, monkeypatch):
+        """Year-only ranges should be recognized as headings."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("2024 – Present | Data Engineer", False, ""),
+            ("Did things", False, ""),
+            ("2022 – 2024 | Inhouse Consultant", False, ""),
+            ("Did more things", False, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"] == "2024 – Present | Data Engineer"
+        assert exps[1]["heading"] == "2022 – 2024 | Inhouse Consultant"
+
+    def test_parse_single_year_pipe_heading(self, monkeypatch):
+        """Single-year headings with a pipe should start a new experience."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("Jan 2020 - Present | Company", False, "Heading1"),
+            ("Did things", False, ""),
+            ("2021 | Student Consultant Data Strategy", False, ""),
+            ("Did more things", False, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"] == "Jan 2020 - Present | Company"
+        assert exps[1]["heading"] == "2021 | Student Consultant Data Strategy"

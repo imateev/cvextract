@@ -305,8 +305,8 @@ Examples:
 
     if args.extract is not None:
         params = _parse_stage_params(args.extract if args.extract else [])
-        # When parallel is specified, source is optional (will be injected per-file)
-        if "source" not in params and not parallel_stage:
+        # When parallel or rerun-failed is specified, source is optional (injected per-file)
+        if "source" not in params and not parallel_stage and not args.rerun_failed:
             raise ValueError("--extract requires 'source' parameter")
 
         # Get extractor name (default to private-internal-extractor)
@@ -315,7 +315,7 @@ Examples:
         extract_stage = ExtractStage(
             source=(
                 Path(params["source"]) if "source" in params else Path(".")
-            ),  # Placeholder when parallel
+            ),  # Placeholder when parallel or rerun-failed
             name=extractor_name,
             output=(
                 _resolve_output_path(params["output"], Path(args.target))
