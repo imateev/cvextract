@@ -3226,6 +3226,56 @@ class TestOpenAIJobSpecificAdjusterEdgeCases:
         # Should use first choice
         assert read_output(result) == adjusted_cv
 
+    @patch("cvextract.adjusters.openai_job_specific_adjuster.OpenAI")
+    @patch("cvextract.adjusters.openai_job_specific_adjuster.format_prompt")
+    def test_adjust_completion_choices_access_error(
+        self, mock_format, mock_openai_class, tmp_path: Path
+    ):
+        """adjust should return original CV when completion access fails."""
+        mock_format.return_value = "System prompt"
+
+        class BadCompletion:
+            @property
+            def choices(self):
+                raise RuntimeError("boom")
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = BadCompletion()
+        mock_openai_class.return_value = mock_client
+
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+
+        work = make_work(tmp_path, cv_data)
+        result = adjuster.adjust(work, job_description="Test job")
+        assert read_output(result) == cv_data
+
+    @patch("cvextract.adjusters.openai_job_specific_adjuster.OpenAI")
+    @patch("cvextract.adjusters.openai_job_specific_adjuster.format_prompt")
+    def test_adjust_completion_non_stop_finish_reason(
+        self, mock_format, mock_openai_class, tmp_path: Path
+    ):
+        """adjust should return original CV when finish_reason is non-stop."""
+        mock_format.return_value = "System prompt"
+
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "length"
+        mock_choice.message = MagicMock(content='{"identity": {}}')
+
+        mock_completion = MagicMock()
+        mock_completion.choices = [mock_choice]
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_class.return_value = mock_client
+
+        adjuster = OpenAIJobSpecificAdjuster(api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+
+        work = make_work(tmp_path, cv_data)
+        result = adjuster.adjust(work, job_description="Test job")
+        assert read_output(result) == cv_data
+
     def test_get_retry_after_from_headers_job_specific(self):
         """Test extracting retry-after from exception headers (job-specific adjuster)."""
         from cvextract.adjusters.openai_job_specific_adjuster import (
@@ -3320,6 +3370,41 @@ class TestJobSpecificSchemaLoading:
             job_module._SCHEMA_PATH = None
             job_module._CV_SCHEMA = None
             assert job_module._load_cv_schema() is None
+        finally:
+            job_module._SCHEMA_PATH = original_schema_path
+            job_module._CV_SCHEMA = original_cache
+
+    def test_load_cv_schema_returns_cached_value(self, tmp_path):
+        """_load_cv_schema() returns cached schema when available."""
+        import cvextract.adjusters.openai_job_specific_adjuster as job_module
+
+        original_schema_path = job_module._SCHEMA_PATH
+        original_cache = job_module._CV_SCHEMA
+        try:
+            job_module._SCHEMA_PATH = None
+            job_module._CV_SCHEMA = {"cached": True}
+            assert job_module._load_cv_schema() == {"cached": True}
+        finally:
+            job_module._SCHEMA_PATH = original_schema_path
+            job_module._CV_SCHEMA = original_cache
+
+    def test_load_cv_schema_handles_open_failure(self, tmp_path):
+        """_load_cv_schema() returns None when open fails."""
+        import cvextract.adjusters.openai_job_specific_adjuster as job_module
+
+        schema_path = tmp_path / "schema.json"
+        schema_path.write_text("{bad json", encoding="utf-8")
+
+        original_schema_path = job_module._SCHEMA_PATH
+        original_cache = job_module._CV_SCHEMA
+        try:
+            job_module._SCHEMA_PATH = schema_path
+            job_module._CV_SCHEMA = None
+            with patch(
+                "cvextract.adjusters.openai_job_specific_adjuster.open",
+                side_effect=OSError("nope"),
+            ):
+                assert job_module._load_cv_schema() is None
         finally:
             job_module._SCHEMA_PATH = original_schema_path
             job_module._CV_SCHEMA = original_cache
