@@ -45,7 +45,7 @@ Used automatically in `cvextract.pipeline` after extraction:
 
 ```python
 from pathlib import Path
-from cvextract.pipeline_helpers import extract_single
+from cvextract.cli_execute_extract import execute as execute_extract
 from cvextract.shared import UnitOfWork
 from cvextract.cli_config import UserConfig, ExtractStage
 
@@ -53,9 +53,9 @@ from cvextract.cli_config import UserConfig, ExtractStage
 work = UnitOfWork(
     config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=source_path)),
     input=source_path,
-    output=json_output,
+    output=None,
 )
-result = extract_single(work)
+result = execute_extract(work)
 ```
 
 ## Configuration
@@ -95,7 +95,7 @@ No configuration required - validates against hardcoded completeness rules.
 
 ### Integration Points
 
-- Used in `cvextract.pipeline_helpers.extract_single()`
+- Used in `cvextract.cli_execute_extract.execute()`
 - Results logged in pipeline
 
 ## Test Coverage

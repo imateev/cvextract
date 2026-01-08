@@ -63,8 +63,8 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     assert len(extract_status.warnings) == 0
 
 
-def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
-    """Test extraction with validation warnings."""
+def test_extract_single_does_not_verify(monkeypatch, tmp_path: Path):
+    """Test extraction does not run verification."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
@@ -99,8 +99,7 @@ def test_extract_single_with_warnings(monkeypatch, tmp_path: Path):
     result = p.extract_single(work)
     extract_status = result.step_statuses[StepName.Extract]
     assert extract_status.errors == []
-    assert len(extract_status.warnings) > 0
-    assert any("missing sidebar" in w for w in extract_status.warnings)
+    assert extract_status.warnings == []
 
 
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
@@ -126,10 +125,8 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     assert extract_status.warnings == []
 
 
-def test_extract_single_skips_verification_when_global_skip_all_verify(
-    monkeypatch, tmp_path: Path
-):
-    """Global skip_all_verify should bypass verification."""
+def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
+    """extract_single should not call verifiers."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
@@ -148,7 +145,6 @@ def test_extract_single_skips_verification_when_global_skip_all_verify(
         config=UserConfig(
             target_dir=tmp_path,
             extract=ExtractStage(source=docx),
-            skip_all_verify=True,
         ),
         input=docx,
         output=output,

@@ -140,7 +140,7 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
 
 def extract_single(work: UnitOfWork) -> UnitOfWork:
     """
-    Extract and verify a single file. Returns a UnitOfWork copy with results.
+    Extract a single file. Returns a UnitOfWork copy with results.
 
     Args:
         work: UnitOfWork describing the extraction inputs
@@ -184,33 +184,6 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                 f"extract: output JSON not found: {extract_work.output}",
             )
             return extract_work
-        skip_verify = bool(
-            work.config.skip_all_verify
-            or (work.config.extract and work.config.extract.skip_verify)
-        )
-        if not skip_verify:
-            verifier_name = (
-                work.config.extract.verifier
-                if work.config.extract and work.config.extract.verifier
-                else "private-internal-verifier"
-            )
-            verifier = get_verifier(verifier_name)
-            if not verifier:
-                extract_work.add_error(
-                    StepName.Extract, f"unknown verifier: {verifier_name}"
-                )
-                return extract_work
-            try:
-                result = verifier.verify(extract_work)
-            except Exception as e:
-                extract_work.add_error(
-                    StepName.Extract, f"verify failed: {type(e).__name__}"
-                )
-                return extract_work
-            for err in result.errors:
-                extract_work.add_error(StepName.Extract, err)
-            for warn in result.warnings:
-                extract_work.add_warning(StepName.Extract, warn)
         return extract_work
     except Exception as e:
         if work.config.debug:

@@ -76,7 +76,7 @@ class TestExtractSingle:
             assert extract_status.warnings == []
 
     def testextract_single_invalid_data(self, tmp_path):
-        """Test verification failure with invalid data."""
+        """Test extract_single does not validate extracted content."""
         docx_path = tmp_path / "test.docx"
         out_json = tmp_path / "out.json"
         docx_path.touch()
@@ -99,10 +99,10 @@ class TestExtractSingle:
             )
             result = extract_single(work)
 
-            # The actual verifier will catch these errors
             extract_status = result.step_statuses[StepName.Extract]
-            # Check that there are errors for missing fields
-            assert len(extract_status.errors) > 0
+            assert extract_status.errors == []
+            assert extract_status.warnings == []
+            assert result.output and result.output.exists()
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -155,7 +155,7 @@ class TestExtractSingle:
             assert extract_status.errors
 
     def testextract_single_with_warnings(self, tmp_path):
-        """Test that warnings are preserved."""
+        """Test extract_single does not generate verification warnings."""
         docx_path = tmp_path / "test.docx"
         out_json = tmp_path / "out.json"
         docx_path.touch()
@@ -197,7 +197,7 @@ class TestExtractSingle:
             result = extract_single(work)
             extract_status = result.step_statuses[StepName.Extract]
 
-            assert "Warning message" in extract_status.warnings
+            assert extract_status.warnings == []
 
 
 class TestRenderAndVerify:

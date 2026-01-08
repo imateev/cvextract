@@ -8,7 +8,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from .pipeline_helpers import extract_single
-from .shared import UnitOfWork
+from .shared import StepName, UnitOfWork
+from .verifiers import get_verifier
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
@@ -38,4 +39,41 @@ def execute(work: UnitOfWork) -> UnitOfWork:
 
     work = replace(work, output=output_path)
     work = extract_single(work)
+    if not work.has_no_errors(StepName.Extract):
+        return replace(work, input=work.output)
+
+    skip_verify = bool(
+        config.skip_all_verify
+        or (config.extract and config.extract.skip_verify)
+    )
+    if skip_verify:
+        return replace(work, input=work.output)
+
+    if not work.output or not work.output.exists():
+        work.add_error(
+            StepName.Extract, "extract: output JSON not found for verification"
+        )
+        return replace(work, input=work.output)
+
+    verifier_name = "private-internal-verifier"
+    if config.extract and config.extract.verifier:
+        verifier_name = config.extract.verifier
+    verifier = get_verifier(verifier_name)
+    if not verifier:
+        work.add_error(StepName.Extract, f"unknown verifier: {verifier_name}")
+        return replace(work, input=work.output)
+
+    work.ensure_step_status(StepName.Extract)
+    try:
+        result = verifier.verify(work)
+    except Exception as e:
+        work.add_error(
+            StepName.Extract, f"extract: verify failed ({type(e).__name__})"
+        )
+        return replace(work, input=work.output)
+    for err in result.errors:
+        work.add_error(StepName.Extract, err)
+    for warn in result.warnings:
+        work.add_warning(StepName.Extract, warn)
+
     return replace(work, input=work.output)

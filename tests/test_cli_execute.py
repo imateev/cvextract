@@ -54,7 +54,7 @@ def _valid_cv_payload() -> dict:
             "first_name": "Test",
             "last_name": "User",
         },
-        "sidebar": {},
+        "sidebar": {"languages": ["English"]},
         "overview": "Test overview",
         "experiences": [{"heading": "Role", "description": "Work"}],
     }
