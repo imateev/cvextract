@@ -2319,7 +2319,7 @@ class TestCompanyResearchRetryHelpers:
         exc = Exception("Rate limited")
         exc.status_code = 429
 
-        with patch("cvextract.adjusters.openai_company_research_adjuster.random.random", return_value=0.5):
+        with patch("cvextract.adjusters.openai_utils.random.random", return_value=0.5):
             retryer._sleep_with_backoff(0, is_write=False, exc=exc)
 
         mock_sleep.assert_called_once_with(0.5)
