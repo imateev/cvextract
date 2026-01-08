@@ -2185,6 +2185,237 @@ class TestOpenAICompanyResearchHelpers:
         result = _validate_research_data({"name": "Test Corp"})
         assert result is False
 
+    def test_validate_research_data_rejects_when_schema_missing(self):
+        """_validate_research_data() returns False when schema is unavailable."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value=None,
+        ):
+            result = _validate_research_data({"name": "Test Corp", "domains": ["x"]})
+        assert result is False
+
+    def test_validate_research_data_rejects_invalid_name(self):
+        """_validate_research_data() rejects invalid name values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            assert (
+                _validate_research_data({"name": 123, "domains": ["x"]}) is False
+            )
+            assert (
+                _validate_research_data({"name": "", "domains": ["x"]}) is False
+            )
+
+    def test_validate_research_data_rejects_invalid_description(self):
+        """_validate_research_data() rejects invalid description values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            result = _validate_research_data(
+                {"name": "Test", "domains": ["x"], "description": 123}
+            )
+        assert result is False
+
+    def test_validate_research_data_rejects_invalid_domains(self):
+        """_validate_research_data() rejects invalid domains values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            assert (
+                _validate_research_data({"name": "Test", "domains": "bad"}) is False
+            )
+            assert _validate_research_data({"name": "Test", "domains": []}) is False
+            assert (
+                _validate_research_data({"name": "Test", "domains": [1]}) is False
+            )
+
+    def test_validate_research_data_rejects_invalid_technology_signals(self):
+        """_validate_research_data() rejects invalid technology_signals values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            assert (
+                _validate_research_data(
+                    {"name": "Test", "domains": ["x"], "technology_signals": "bad"}
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {"name": "Test", "domains": ["x"], "technology_signals": ["bad"]}
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "technology_signals": [{}],
+                    }
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "technology_signals": [{"technology": 1}],
+                    }
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "technology_signals": [
+                            {
+                                "technology": "X",
+                                "category": 1,
+                                "interest_level": "extreme",
+                                "confidence": 2,
+                                "signals": "bad",
+                                "notes": 1,
+                            }
+                        ],
+                    }
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "technology_signals": [
+                            {"technology": "X", "signals": [1]}
+                        ],
+                    }
+                )
+                is False
+            )
+
+    def test_validate_research_data_rejects_invalid_industry_classification(self):
+        """_validate_research_data() rejects invalid industry classification."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "industry_classification": "bad",
+                    }
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "industry_classification": {"naics": 1, "sic": 2},
+                    }
+                )
+                is False
+            )
+
+    def test_validate_research_data_rejects_invalid_founded_year(self):
+        """_validate_research_data() rejects founded_year out of range."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            result = _validate_research_data(
+                {"name": "Test", "domains": ["x"], "founded_year": 1500}
+            )
+        assert result is False
+
+    def test_validate_research_data_rejects_invalid_headquarters(self):
+        """_validate_research_data() rejects invalid headquarters values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            assert (
+                _validate_research_data(
+                    {"name": "Test", "domains": ["x"], "headquarters": "bad"}
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {"name": "Test", "domains": ["x"], "headquarters": {}}
+                )
+                is False
+            )
+            assert (
+                _validate_research_data(
+                    {
+                        "name": "Test",
+                        "domains": ["x"],
+                        "headquarters": {"city": 1, "state": 2, "country": 3},
+                    }
+                )
+                is False
+            )
+
+    def test_validate_research_data_rejects_invalid_company_size(self):
+        """_validate_research_data() rejects invalid company_size values."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _validate_research_data,
+        )
+
+        with patch(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            return_value={"required": []},
+        ):
+            result = _validate_research_data(
+                {"name": "Test", "domains": ["x"], "company_size": "gigantic"}
+            )
+        assert result is False
+
     def test_validate_research_data_rejects_invalid_employee_count(self):
         """_validate_research_data() rejects invalid employee_count values."""
         from cvextract.adjusters.openai_company_research_adjuster import (
