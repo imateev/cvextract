@@ -22,7 +22,6 @@ from .extractors.docx_utils import dump_body_sample
 from .logging_utils import LOG
 from .renderers import get_renderer
 from .shared import StepName, StepStatus, UnitOfWork
-from .verifiers import get_verifier
 
 
 def infer_source_root(inputs: List[Path]) -> Path:
