@@ -234,7 +234,9 @@ class TestCliExecuteAdjustCoverage:
                 adjusters=[AdjusterConfig(name="test-adjuster", params={})],
             ),
         )
-        work = UnitOfWork(config=config, input=tmp_path / "input.json", output=output_dir)
+        work = UnitOfWork(
+            config=config, input=tmp_path / "input.json", output=output_dir
+        )
 
         result = execute(work)
 
@@ -261,8 +263,11 @@ class TestCliExecuteAdjustCoverage:
         mock_adjuster.validate_params = MagicMock()
         mock_adjuster.adjust = MagicMock(return_value=work)
 
-        with patch("cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster), patch(
-            "cvextract.cli_execute_adjust.get_verifier", side_effect=AssertionError("should not verify")
+        with patch(
+            "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
+        ), patch(
+            "cvextract.cli_execute_adjust.get_verifier",
+            side_effect=AssertionError("should not verify"),
         ):
             result = execute(work)
 
@@ -287,9 +292,9 @@ class TestCliExecuteAdjustCoverage:
         mock_adjuster.validate_params = MagicMock()
         mock_adjuster.adjust = MagicMock(return_value=work)
 
-        with patch("cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster), patch(
-            "cvextract.cli_execute_adjust.get_verifier", return_value=None
-        ):
+        with patch(
+            "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
+        ), patch("cvextract.cli_execute_adjust.get_verifier", return_value=None):
             result = execute(work)
 
         adjust_status = result.step_states.get(StepName.Adjust)
@@ -317,9 +322,9 @@ class TestCliExecuteAdjustCoverage:
         verifier = MagicMock()
         verifier.verify.side_effect = RuntimeError("boom")
 
-        with patch("cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster), patch(
-            "cvextract.cli_execute_adjust.get_verifier", return_value=verifier
-        ):
+        with patch(
+            "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
+        ), patch("cvextract.cli_execute_adjust.get_verifier", return_value=verifier):
             result = execute(work)
 
         adjust_status = result.step_states.get(StepName.Adjust)

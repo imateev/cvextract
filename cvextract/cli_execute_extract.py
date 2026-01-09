@@ -49,8 +49,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         return work
 
     skip_verify = bool(
-        config.skip_all_verify
-        or (config.extract and config.extract.skip_verify)
+        config.skip_all_verify or (config.extract and config.extract.skip_verify)
     )
     if skip_verify:
         return work
@@ -75,9 +74,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     try:
         work = verifier.verify(work)
     except Exception as e:
-        work.add_error(
-            StepName.Extract, f"extract: verify failed ({type(e).__name__})"
-        )
+        work.add_error(StepName.Extract, f"extract: verify failed ({type(e).__name__})")
         return work
 
     return work

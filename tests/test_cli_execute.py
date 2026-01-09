@@ -400,11 +400,7 @@ class TestExecutePipelineAdjust:
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            work.output.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -461,11 +457,7 @@ class TestExecutePipelineAdjust:
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            work.output.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -609,11 +601,7 @@ class TestExecutePipelineAdjust:
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            work.output.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -661,11 +649,7 @@ class TestExecutePipelineDebugMode:
 
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            work.output.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -746,11 +730,7 @@ class TestFolderStructurePreservation:
 
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            work.output.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -806,11 +786,7 @@ class TestFolderStructurePreservation:
 
         def fake_extract(work: UnitOfWork):
             work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            work.output.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract

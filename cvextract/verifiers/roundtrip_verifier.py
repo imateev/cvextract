@@ -33,9 +33,9 @@ class RoundtripVerifier(CVVerifier):
         extracted = work.ensure_step_status(StepName.Extract)
         data, data_errs = self._load_json(extracted.output, "roundtrip source JSON")
 
-        rendered = work.ensure_step_status(StepName.Render)
+        roundtrip_comparer = work.ensure_step_status(StepName.RoundtripComparer)
         target_data, target_errs = self._load_json(
-            rendered.output, "roundtrip target JSON"
+            roundtrip_comparer.output, "roundtrip target JSON"
         )
         if data is None or target_data is None:
             return self._record(work, data_errs + target_errs, [])
@@ -44,9 +44,7 @@ class RoundtripVerifier(CVVerifier):
         self._diff(data, target_data, "", errs)
         return self._record(work, errs, [])
 
-    def _load_json(
-        self, path: Any, label: str
-    ) -> tuple[Any | None, List[str]]:
+    def _load_json(self, path: Any, label: str) -> tuple[Any | None, List[str]]:
         if path is None:
             return None, [f"{label} path is not set"]
         if not hasattr(path, "exists") or not path.exists():

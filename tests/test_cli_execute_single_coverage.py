@@ -2,7 +2,13 @@
 
 from unittest.mock import patch
 
-from cvextract.cli_config import AdjustStage, AdjusterConfig, ExtractStage, RenderStage, UserConfig
+from cvextract.cli_config import (
+    AdjusterConfig,
+    AdjustStage,
+    ExtractStage,
+    RenderStage,
+    UserConfig,
+)
 from cvextract.cli_execute_single import execute_single
 from cvextract.shared import StepName, StepStatus, UnitOfWork
 

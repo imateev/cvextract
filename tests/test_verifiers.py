@@ -10,9 +10,9 @@ from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
 )
-from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
-from cvextract.verifiers.default_expected_cv_data_verifier import ExtractedDataVerifier
 from cvextract.verifiers.default_cv_schema_verifier import CVSchemaVerifier
+from cvextract.verifiers.default_expected_cv_data_verifier import ExtractedDataVerifier
+from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
 
 def _make_work(tmp_path, data):
@@ -129,7 +129,9 @@ class TestExtractedDataVerifier:
         verifier = ExtractedDataVerifier()
         output_path = tmp_path / "missing.json"
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
+        work.set_step_paths(
+            StepName.Extract, input_path=output_path, output_path=output_path
+        )
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -141,7 +143,9 @@ class TestExtractedDataVerifier:
         output_path = tmp_path / "bad.json"
         output_path.write_text("{invalid", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
+        work.set_step_paths(
+            StepName.Extract, input_path=output_path, output_path=output_path
+        )
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -153,7 +157,9 @@ class TestExtractedDataVerifier:
         output_path = tmp_path / "list.json"
         output_path.write_text("[1, 2, 3]", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
+        work.set_step_paths(
+            StepName.Extract, input_path=output_path, output_path=output_path
+        )
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -330,7 +336,9 @@ class TestCVSchemaVerifier:
         verifier = CVSchemaVerifier()
         output_path = tmp_path / "missing.json"
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
+        work.set_step_paths(
+            StepName.Extract, input_path=output_path, output_path=output_path
+        )
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -342,7 +350,9 @@ class TestCVSchemaVerifier:
         output_path = tmp_path / "bad.json"
         output_path.write_text("{invalid", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
+        work.set_step_paths(
+            StepName.Extract, input_path=output_path, output_path=output_path
+        )
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)
@@ -354,7 +364,9 @@ class TestCVSchemaVerifier:
         output_path = tmp_path / "list.json"
         output_path.write_text("[1, 2, 3]", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(StepName.Extract, input_path=output_path, output_path=output_path)
+        work.set_step_paths(
+            StepName.Extract, input_path=output_path, output_path=output_path
+        )
         work.current_step = StepName.Extract
         result = verifier.verify(work)
         status = _status(result, StepName.Extract)

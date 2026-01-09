@@ -195,9 +195,7 @@ class TestRendererWithExternalParameters:
         result = renderer.render(work)
 
         # Verify output contains the external data
-        rendered_data = json.loads(
-            result.get_step_output(StepName.Render).read_text()
-        )
+        rendered_data = json.loads(result.get_step_output(StepName.Render).read_text())
         assert rendered_data["identity"]["full_name"] == "Jane Doe"
         assert "Python" in rendered_data["sidebar"]["languages"]
 
@@ -232,9 +230,10 @@ class TestRendererWithExternalParameters:
         work = make_render_work(cv_data, custom_template, tmp_path / "output.docx")
         result = renderer.render(work)
 
-        assert "custom_template.docx" in result.get_step_output(
-            StepName.Render
-        ).read_text()
+        assert (
+            "custom_template.docx"
+            in result.get_step_output(StepName.Render).read_text()
+        )
 
 
 class TestDocxCVRendererFullRendering:

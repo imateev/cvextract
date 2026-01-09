@@ -209,6 +209,7 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
         return work
 
+
 def render(work: UnitOfWork) -> UnitOfWork:
     """
     Render a single JSON to DOCX.
@@ -220,7 +221,6 @@ def render(work: UnitOfWork) -> UnitOfWork:
         UnitOfWork with Render status populated.
     """
     return _render_docx(work)
-
 
 
 def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:

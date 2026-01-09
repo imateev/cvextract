@@ -35,13 +35,13 @@ except Exception:  # pragma: no cover
 
 from ..shared import UnitOfWork, format_prompt, url_to_cache_filename
 from .base import CVAdjuster
+from .openai_utils import OpenAIRetry as _OpenAIRetry
+from .openai_utils import RetryConfig as _RetryConfig
+from .openai_utils import extract_json_object as _extract_json_object
 from .openai_utils import (
-    OpenAIRetry as _OpenAIRetry,
-    RetryConfig as _RetryConfig,
-    extract_json_object as _extract_json_object,
     get_cached_resource_path,
-    strip_markdown_fences as _strip_markdown_fences,
 )
+from .openai_utils import strip_markdown_fences as _strip_markdown_fences
 
 LOG = logging.getLogger("cvextract")
 
@@ -242,11 +242,7 @@ def _validate_research_data(data: Any) -> bool:
                 and not isinstance(ic["naics"], str)
             ):
                 errs.append("industry_classification.naics must be a string or null")
-            if (
-                "sic" in ic
-                and ic["sic"] is not None
-                and not isinstance(ic["sic"], str)
-            ):
+            if "sic" in ic and ic["sic"] is not None and not isinstance(ic["sic"], str):
                 errs.append("industry_classification.sic must be a string or null")
 
     if "founded_year" in data:
@@ -306,9 +302,7 @@ def _validate_research_data(data: Any) -> bool:
             errs.append("website must be a string or null")
 
     if errs:
-        LOG.warning(
-            "Company research validation failed (%d errors)", len(errs)
-        )
+        LOG.warning("Company research validation failed (%d errors)", len(errs))
         return False
 
     return True

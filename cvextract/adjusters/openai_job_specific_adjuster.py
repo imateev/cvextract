@@ -34,13 +34,13 @@ except Exception:  # pragma: no cover
 
 from ..shared import UnitOfWork, format_prompt
 from .base import CVAdjuster
+from .openai_utils import OpenAIRetry as _OpenAIRetry
+from .openai_utils import RetryConfig as _RetryConfig
+from .openai_utils import extract_json_object as _extract_json_object
 from .openai_utils import (
-    OpenAIRetry as _OpenAIRetry,
-    RetryConfig as _RetryConfig,
-    extract_json_object as _extract_json_object,
     get_cached_resource_path,
-    strip_markdown_fences as _strip_markdown_fences,
 )
+from .openai_utils import strip_markdown_fences as _strip_markdown_fences
 
 LOG = logging.getLogger("cvextract")
 
@@ -66,6 +66,7 @@ def _load_cv_schema() -> Optional[Dict[str, Any]]:
     except Exception as e:
         LOG.warning("Failed to load CV schema: %s", e)
         return None
+
 
 def _fetch_job_description(url: str) -> str:
     """

@@ -305,9 +305,7 @@ class TestRenderAndVerify:
             render_status = result.step_states[StepName.Render]
 
             assert render_status.errors == []
-            assert (
-                StepName.RoundtripComparer not in result.step_states
-            )  # Not executed
+            assert StepName.RoundtripComparer not in result.step_states  # Not executed
 
     def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
         """Test roundtrip verification directory is created."""
@@ -394,9 +392,7 @@ class TestRenderAndVerify:
 
         mock_verifier = MagicMock()
         mock_verifier.verify.side_effect = (
-            lambda work: work.add_error(
-                StepName.RoundtripComparer, "Mismatch detected"
-            )
+            lambda work: work.add_error(StepName.RoundtripComparer, "Mismatch detected")
             or work
         )
 

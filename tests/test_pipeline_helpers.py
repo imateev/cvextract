@@ -198,9 +198,7 @@ def test_render_and_verify_success(monkeypatch, tmp_path: Path):
         render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Render, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Render, input_path=json_file, output_path=json_file)
     render_work = p.render(work)
     result = p._verify_roundtrip(render_work, json_file)
     render_status = result.step_states[StepName.Render]
@@ -228,9 +226,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
         render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Render, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Render, input_path=json_file, output_path=json_file)
     result = p.render(work)
     render_status = result.step_states[StepName.Render]
     assert render_status.errors == []
@@ -276,9 +272,7 @@ def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
         render=RenderStage(template=template, data=json_file),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Render, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Render, input_path=json_file, output_path=json_file)
     render_work = p.render(work)
     result = p._verify_roundtrip(render_work, json_file)
     render_status = result.step_states[StepName.Render]

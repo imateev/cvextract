@@ -446,7 +446,10 @@ class TestPipelineHelpersCoverage:
             render=RenderStage(template=tmp_path / "template.docx"),
         )
         render_work = UnitOfWork(
-            config=config, input=original_cv, output=output_docx, initial_input=original_cv
+            config=config,
+            input=original_cv,
+            output=output_docx,
+            initial_input=original_cv,
         )
 
         with pytest.raises(FileNotFoundError, match="roundtrip JSON not created"):
@@ -476,7 +479,10 @@ class TestPipelineHelpersCoverage:
             render=RenderStage(template=tmp_path / "template.docx", verifier="custom"),
         )
         render_work = UnitOfWork(
-            config=config, input=original_cv, output=output_docx, initial_input=original_cv
+            config=config,
+            input=original_cv,
+            output=output_docx,
+            initial_input=original_cv,
         )
 
         p._roundtrip_compare(render_work, output_docx, roundtrip_dir, original_cv)
@@ -503,7 +509,10 @@ class TestPipelineHelpersCoverage:
             render=RenderStage(template=tmp_path / "template.docx"),
         )
         render_work = UnitOfWork(
-            config=config, input=original_cv, output=output_docx, initial_input=original_cv
+            config=config,
+            input=original_cv,
+            output=output_docx,
+            initial_input=original_cv,
         )
 
         with pytest.raises(ValueError, match="unknown verifier"):

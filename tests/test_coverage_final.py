@@ -3,11 +3,11 @@
 import json
 from zipfile import ZipFile
 
+from cvextract.cli_config import UserConfig
 from cvextract.extractors.sidebar_parser import (
     extract_all_header_paragraphs,
     split_identity_and_sidebar,
 )
-from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import get_verifier
 

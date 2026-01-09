@@ -28,9 +28,7 @@ def make_work(tmp_path: Path, cv_data: dict) -> UnitOfWork:
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=input_path)),
         initial_input=input_path,
     )
-    work.set_step_paths(
-        StepName.Adjust, input_path=input_path, output_path=output_path
-    )
+    work.set_step_paths(StepName.Adjust, input_path=input_path, output_path=output_path)
     return work
 
 
@@ -2210,12 +2208,8 @@ class TestOpenAICompanyResearchHelpers:
             "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
             return_value={"required": []},
         ):
-            assert (
-                _validate_research_data({"name": 123, "domains": ["x"]}) is False
-            )
-            assert (
-                _validate_research_data({"name": "", "domains": ["x"]}) is False
-            )
+            assert _validate_research_data({"name": 123, "domains": ["x"]}) is False
+            assert _validate_research_data({"name": "", "domains": ["x"]}) is False
 
     def test_validate_research_data_rejects_invalid_description(self):
         """_validate_research_data() rejects invalid description values."""
@@ -2242,13 +2236,9 @@ class TestOpenAICompanyResearchHelpers:
             "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
             return_value={"required": []},
         ):
-            assert (
-                _validate_research_data({"name": "Test", "domains": "bad"}) is False
-            )
+            assert _validate_research_data({"name": "Test", "domains": "bad"}) is False
             assert _validate_research_data({"name": "Test", "domains": []}) is False
-            assert (
-                _validate_research_data({"name": "Test", "domains": [1]}) is False
-            )
+            assert _validate_research_data({"name": "Test", "domains": [1]}) is False
 
     def test_validate_research_data_rejects_invalid_technology_signals(self):
         """_validate_research_data() rejects invalid technology_signals values."""
@@ -2316,9 +2306,7 @@ class TestOpenAICompanyResearchHelpers:
                     {
                         "name": "Test",
                         "domains": ["x"],
-                        "technology_signals": [
-                            {"technology": "X", "signals": [1]}
-                        ],
+                        "technology_signals": [{"technology": "X", "signals": [1]}],
                     }
                 )
                 is False

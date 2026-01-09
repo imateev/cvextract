@@ -4,11 +4,11 @@ import builtins
 import json
 import tempfile
 import time
+from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from importlib.metadata import PackageNotFoundError
 
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, OpenAICVExtractor
@@ -119,12 +119,9 @@ class TestExtractFileValidation:
                     )
                     result = extractor.extract(work)
                     assert result == work
-                    assert (
-                        json.loads(
-                            work.get_step_output(StepName.Extract).read_text()
-                        )
-                        == {"identity": {}}
-                    )
+                    assert json.loads(
+                        work.get_step_output(StepName.Extract).read_text()
+                    ) == {"identity": {}}
 
     def test_resource_cache_created_and_used(self, tmp_path, monkeypatch):
         """Test that resource cache is created and reused."""
@@ -278,9 +275,7 @@ class TestExtractFileValidation:
                 )
                 result = extractor.extract(work)
                 assert result == work
-                data = json.loads(
-                    work.get_step_output(StepName.Extract).read_text()
-                )
+                data = json.loads(work.get_step_output(StepName.Extract).read_text())
                 assert data["identity"]["full_name"] == "User"
 
 

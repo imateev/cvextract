@@ -132,7 +132,9 @@ def test_execute_reports_missing_output_for_verification(tmp_path: Path):
         result = execute(work)
 
     extract_status = result.step_states[StepName.Extract]
-    assert any("output JSON not found for verification" in e for e in extract_status.errors)
+    assert any(
+        "output JSON not found for verification" in e for e in extract_status.errors
+    )
 
 
 def test_execute_handles_verifier_exception(tmp_path: Path):

@@ -35,9 +35,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         return base_work
     try:
         base_input = (
-            work.initial_input
-            or work.get_step_input(StepName.Extract)
-            or input_path
+            work.initial_input or work.get_step_input(StepName.Extract) or input_path
         )
         if config.input_dir:
             source_base = config.input_dir.resolve()
@@ -108,8 +106,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
                 adjust_work.set_step_paths(StepName.Adjust, input_path=output_path)
 
         skip_verify = bool(
-            config.skip_all_verify
-            or (config.adjust and config.adjust.skip_verify)
+            config.skip_all_verify or (config.adjust and config.adjust.skip_verify)
         )
         if skip_verify:
             return adjust_work
@@ -126,9 +123,7 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             verifier_name = config.adjust.verifier
         verifier = get_verifier(verifier_name)
         if not verifier:
-            adjust_work.add_error(
-                StepName.Adjust, f"unknown verifier: {verifier_name}"
-            )
+            adjust_work.add_error(StepName.Adjust, f"unknown verifier: {verifier_name}")
             return adjust_work
 
         adjust_work.ensure_step_status(StepName.Adjust)
