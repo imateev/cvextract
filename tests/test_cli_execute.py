@@ -346,8 +346,8 @@ class TestExecutePipelineApplyOnly:
         )
 
         exit_code = execute_pipeline(config)
-        assert exit_code == 0
-        mock_render.assert_called_once()
+        assert exit_code == 1
+        mock_render.assert_not_called()
 
     @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
