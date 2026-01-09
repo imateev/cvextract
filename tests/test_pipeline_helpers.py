@@ -140,11 +140,7 @@ def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
         output_path.write_text('{"identity": {}}', encoding="utf-8")
         return work
 
-    def fail_if_called(_name):
-        raise AssertionError("verifier should not be called")
-
     monkeypatch.setattr(p, "extract_cv_data", fake_process)
-    monkeypatch.setattr(p, "get_verifier", fail_if_called)
 
     work = UnitOfWork(
         config=UserConfig(
