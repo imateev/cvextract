@@ -1,7 +1,7 @@
 """Tests for improved coverage of pipeline module critical paths."""
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from cvextract.cli_config import ExtractStage, UserConfig
 from cvextract.pipeline_helpers import (
@@ -47,19 +47,12 @@ class TestExtractSingle:
             ],
         }
 
-        mock_verifier = MagicMock()
-        mock_verifier.verify.side_effect = lambda work: work
-
-        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
-            "cvextract.pipeline_helpers.get_verifier"
-        ) as mock_get_verifier:
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract:
 
             def _process(work, extractor=None):
                 return _write_output(work, mock_data)
 
             mock_extract.side_effect = _process
-            mock_get_verifier.return_value = mock_verifier
-
             work = UnitOfWork(
                 config=UserConfig(
                     target_dir=tmp_path, extract=ExtractStage(source=docx_path)
@@ -179,21 +172,12 @@ class TestExtractSingle:
             "experiences": [],
         }
 
-        mock_verifier = MagicMock()
-        mock_verifier.verify.side_effect = (
-            lambda work: work.add_warning(StepName.Extract, "Warning message") or work
-        )
-
-        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract, patch(
-            "cvextract.pipeline_helpers.get_verifier"
-        ) as mock_get_verifier:
+        with patch("cvextract.pipeline_helpers.extract_cv_data") as mock_extract:
 
             def _process(work, extractor=None):
                 return _write_output(work, mock_data)
 
             mock_extract.side_effect = _process
-            mock_get_verifier.return_value = mock_verifier
-
             work = UnitOfWork(
                 config=UserConfig(
                     target_dir=tmp_path, extract=ExtractStage(source=docx_path)
