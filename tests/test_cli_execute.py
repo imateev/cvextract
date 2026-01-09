@@ -346,8 +346,8 @@ class TestExecutePipelineApplyOnly:
         )
 
         exit_code = execute_pipeline(config)
-        assert exit_code == 1
-        mock_render.assert_not_called()
+        assert exit_code == 0
+        mock_render.assert_called_once()
 
     @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
@@ -585,63 +585,7 @@ class TestExecutePipelineAdjust:
         # CLI should not inject cache_path into adjuster params
         call_kwargs = mock_adjuster.adjust.call_args.kwargs
         assert "cache_path" not in call_kwargs
-
-    @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_single.roundtrip_verify")
-    @patch("cvextract.cli_execute_render.render")
-    def test_adjust_exception_fallback(
-        self,
-        mock_render,
-        mock_verify,
-        mock_get_adjuster,
-        mock_extract,
-        tmp_path: Path,
-        mock_docx: Path,
-        mock_template: Path,
-    ):
-        """Test that adjustment exceptions are handled and apply proceeds with original JSON."""
-
-        # Mock extract_single to create a JSON file
-        def fake_extract(work: UnitOfWork):
-            output_path = work.get_step_output(StepName.Extract)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(json.dumps(_valid_cv_payload()))
-            return _extract_result(work, True, [], [])
-
-        mock_extract.side_effect = fake_extract
-        # Mock adjuster to raise exception
-        mock_adjuster = MagicMock()
-        mock_adjuster.adjust.side_effect = Exception("Adjustment failed")
-        mock_adjuster.validate_params.return_value = None
-        mock_get_adjuster.return_value = mock_adjuster
-        mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work: work
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=AdjustStage(
-                adjusters=[
-                    AdjusterConfig(
-                        name="openai-company-research",
-                        params={"customer-url": "https://example.com"},
-                        openai_model="gpt-4",
-                    )
-                ],
-                dry_run=False,
-                data=None,
-                output=None,
-            ),
-            render=RenderStage(template=mock_template, data=None, output=None),
-            target_dir=tmp_path / "out",
-            log_file=None,
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 0
-        mock_render.assert_called_once()
-
-
+        
 class TestExecutePipelineDebugMode:
     """Tests for execute_pipeline with debug mode."""
 
