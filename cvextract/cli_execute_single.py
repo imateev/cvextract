@@ -7,12 +7,15 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from cvextract.pipeline_helpers import _resolve_parent, extract_cv_data
+
 from .cli_config import UserConfig
 from .cli_execute_adjust import execute as execute_adjust
 from .cli_execute_extract import execute as execute_extract
 from .cli_execute_render import execute as execute_render
 from .logging_utils import LOG
 from .shared import StepName, UnitOfWork, emit_summary, emit_work_status
+from .verifiers import get_verifier
 
 
 def _resolve_input_source(config: UserConfig) -> Path | None:
@@ -76,6 +79,29 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     # Step 3: Render (if configured and not dry-run)
     if config.render:
         work = execute_render(work)
+
+        if config.should_compare:
+            render_status = work.step_states.get(StepName.Render)
+            roundtrip_work = UnitOfWork(
+                config=work.config
+            )
+            rendered_json = "/tmp/out/rendered.json"
+            roundtrip_work.set_step_paths(
+                StepName.Extract, input_path=render_status.output, output_path=rendered_json
+            )
+            roundtrip_work = extract_cv_data(roundtrip_work)
+            
+            verifier_name = "roundtrip-verifier"
+            if work.config.render and work.config.render.verifier:
+                verifier_name = work.config.render.verifier
+                verifier = get_verifier(verifier_name)
+            if not verifier:
+                raise ValueError(f"unknown verifier: {verifier_name}")
+            render_status = roundtrip_work.step_states.get(StepName.Extract)
+            roundtrip_work.set_step_paths(
+                StepName.RoundtripComparer, input_path=render_status.output, output_path=None
+            )
+            work = verifier().verify(work)
 
     # Log result (unless suppressed for parallel mode)
     if not config.suppress_file_logging:

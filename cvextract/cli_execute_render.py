@@ -4,7 +4,7 @@ Step 3: Render/Verify stage execution.
 
 from __future__ import annotations
 
-from .pipeline_helpers import _verify_roundtrip, render
+from .pipeline_helpers import render
 from .shared import StepName, UnitOfWork
 
 
@@ -37,16 +37,4 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     ):
         return work
 
-    render_work = render(work)
-    render_status = render_work.step_states.get(StepName.Render)
-    if render_status and not render_status.ok:
-        return render_work
-
-    skip_compare = not config.should_compare
-    if config.extract and config.extract.name == "openai-extractor":
-        skip_compare = True
-
-    if skip_compare:
-        return render_work
-
-    return _verify_roundtrip(render_work, input_path)
+    return render(work)

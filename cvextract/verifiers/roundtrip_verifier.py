@@ -30,10 +30,12 @@ class RoundtripVerifier(CVVerifier):
         Returns:
             Updated UnitOfWork with errors for differences
         """
-        step = work.ensure_step_status(StepName.Extract)
-        data, data_errs = self._load_json(step.output, "roundtrip source JSON")
+        extracted = work.ensure_step_status(StepName.Extract)
+        data, data_errs = self._load_json(extracted.output, "roundtrip source JSON")
+
+        rendered = work.ensure_step_status(StepName.Render)
         target_data, target_errs = self._load_json(
-            work.output, "roundtrip target JSON"
+            rendered.output, "roundtrip target JSON"
         )
         if data is None or target_data is None:
             return self._record(work, data_errs + target_errs, [])
