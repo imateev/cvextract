@@ -37,15 +37,17 @@ The `CVRenderer` abstract base class defines the contract that all renderers mus
 
 ```python
 from cvextract.renderers import CVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 
 class CustomRenderer(CVRenderer):
     def render(self, work: UnitOfWork) -> UnitOfWork:
+        input_path = work.get_step_input(StepName.Render)
+        output_path = work.get_step_output(StepName.Render)
         # Your rendering logic here
-        # Read CV data from work.input
+        # Read CV data from input_path
         # Use work.config.render.template for the template
-        # Save to work.output
+        # Save to output_path
         return work
 ```
 
@@ -56,7 +58,7 @@ The `DocxCVRenderer` is the default implementation (registered as `"private-inte
 ```python
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import get_renderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 
 template_path = Path("template.docx")
@@ -67,11 +69,16 @@ config = UserConfig(
     target_dir=Path("output"),
     render=RenderStage(template=template_path, data=json_path, output=output_path),
 )
-work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
+work = UnitOfWork(config=config, initial_input=json_path)
+work.set_step_paths(
+    StepName.Render,
+    input_path=json_path,
+    output_path=output_path,
+)
 
 renderer = get_renderer("private-internal-renderer")
 result = renderer.render(work)
-output = result.output
+output = result.get_step_output(StepName.Render)
 ```
 
 ## CV Data Schema
@@ -92,7 +99,7 @@ To create a custom renderer:
 1. Import the base class:
    ```python
    from cvextract.renderers import CVRenderer, register_renderer
-   from cvextract.shared import UnitOfWork
+   from cvextract.shared import StepName, UnitOfWork
    from pathlib import Path
    ```
 
@@ -100,9 +107,11 @@ To create a custom renderer:
    ```python
    class MyCustomRenderer(CVRenderer):
        def render(self, work: UnitOfWork) -> UnitOfWork:
+           input_path = work.get_step_input(StepName.Render)
+           output_path = work.get_step_output(StepName.Render)
            # Load template
-           # Process work.input JSON with the template
-           # Write output to work.output
+           # Process input_path JSON with the template
+           # Write output to output_path
            return work
    ```
 
@@ -123,7 +132,7 @@ To create a custom renderer:
 ```python
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import get_renderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 
 json_path = Path("cv_data.json")
@@ -134,12 +143,17 @@ config = UserConfig(
     target_dir=Path("output"),
     render=RenderStage(template=template_path, data=json_path, output=output_path),
 )
-work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
+work = UnitOfWork(config=config, initial_input=json_path)
+work.set_step_paths(
+    StepName.Render,
+    input_path=json_path,
+    output_path=output_path,
+)
 
 renderer = get_renderer("private-internal-renderer")
 result = renderer.render(work)
 
-print(f"Rendered CV saved to: {result.output}")
+print(f"Rendered CV saved to: {result.get_step_output(StepName.Render)}")
 ```
 
 ### Creating a Mock Renderer for Testing
@@ -147,7 +161,7 @@ print(f"Rendered CV saved to: {result.output}")
 ```python
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import CVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
@@ -156,16 +170,18 @@ class MockCVRenderer(CVRenderer):
         self.last_rendered = None
     
     def render(self, work: UnitOfWork) -> UnitOfWork:
-        with work.input.open("r", encoding="utf-8") as f:
+        input_path = work.get_step_input(StepName.Render)
+        output_path = work.get_step_output(StepName.Render)
+        with input_path.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
         self.last_rendered = {
             "cv_data": cv_data,
             "template": work.config.render.template,
-            "output": work.output
+            "output": output_path
         }
         # Simulate file creation
-        work.output.parent.mkdir(parents=True, exist_ok=True)
-        work.output.write_text("Mock rendered content")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("Mock rendered content")
         return work
 
 # Use in tests
@@ -179,9 +195,12 @@ work = UnitOfWork(
             output=Path("test_output.docx"),
         ),
     ),
-    input=Path("test_data.json"),
-    output=Path("test_output.docx"),
     initial_input=Path("test_data.json"),
+)
+work.set_step_paths(
+    StepName.Render,
+    input_path=Path("test_data.json"),
+    output_path=Path("test_output.docx"),
 )
 result = renderer.render(work)
 ```
@@ -193,7 +212,7 @@ The renderer architecture allows you to pass both template and data as parameter
 ```python
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import get_renderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 
 def render_cv_with_custom_template(json_file: Path, template_file: Path, output_file: Path):
@@ -204,9 +223,12 @@ def render_cv_with_custom_template(json_file: Path, template_file: Path, output_
     )
     work = UnitOfWork(
         config=config,
-        input=json_file,
-        output=output_file,
         initial_input=json_file,
+    )
+    work.set_step_paths(
+        StepName.Render,
+        input_path=json_file,
+        output_path=output_file,
     )
     renderer = get_renderer("private-internal-renderer")
     return renderer.render(work)

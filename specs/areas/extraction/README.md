@@ -36,7 +36,7 @@ Source File (.docx, .txt)
 [Extractor.extract(work: UnitOfWork)]
     │
     v
-Structured JSON Data (work.output)
+Structured JSON Data (Extract step output)
     │
     v
 {

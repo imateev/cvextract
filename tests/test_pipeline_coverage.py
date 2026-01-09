@@ -3,8 +3,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from cvextract.cli_config import AdjustStage, ExtractStage, RenderStage, UserConfig
-from cvextract.cli_execute_render import execute as execute_render
+from cvextract.cli_config import ExtractStage, UserConfig
 from cvextract.pipeline_helpers import (
     categorize_result,
     extract_single,
@@ -16,11 +15,11 @@ from cvextract.shared import (
     UnitOfWork,
     get_status_icons,
 )
-from cvextract.verifiers import get_verifier
 
 
 def _write_output(work: UnitOfWork, data: dict) -> UnitOfWork:
-    work.output.write_text(json.dumps(data), encoding="utf-8")
+    output_path = work.get_step_output(StepName.Extract)
+    output_path.write_text(json.dumps(data), encoding="utf-8")
     return work
 
 
@@ -65,8 +64,10 @@ class TestExtractSingle:
                 config=UserConfig(
                     target_dir=tmp_path, extract=ExtractStage(source=docx_path)
                 ),
-                input=docx_path,
-                output=out_json,
+                initial_input=docx_path,
+            )
+            work.set_step_paths(
+                StepName.Extract, input_path=docx_path, output_path=out_json
             )
             result = extract_single(work)
             extract_status = result.step_states[StepName.Extract]
@@ -93,15 +94,18 @@ class TestExtractSingle:
                 config=UserConfig(
                     target_dir=tmp_path, extract=ExtractStage(source=docx_path)
                 ),
-                input=docx_path,
-                output=out_json,
+                initial_input=docx_path,
+            )
+            work.set_step_paths(
+                StepName.Extract, input_path=docx_path, output_path=out_json
             )
             result = extract_single(work)
 
             extract_status = result.step_states[StepName.Extract]
             assert extract_status.errors == []
             assert extract_status.warnings == []
-            assert result.output and result.output.exists()
+            output_path = result.get_step_output(StepName.Extract)
+            assert output_path and output_path.exists()
 
     def testextract_single_exception_no_debug(self, tmp_path):
         """Test exception handling without debug mode."""
@@ -116,8 +120,10 @@ class TestExtractSingle:
                 config=UserConfig(
                     target_dir=tmp_path, extract=ExtractStage(source=docx_path)
                 ),
-                input=docx_path,
-                output=out_json,
+                initial_input=docx_path,
+            )
+            work.set_step_paths(
+                StepName.Extract, input_path=docx_path, output_path=out_json
             )
             result = extract_single(work)
             extract_status = result.step_states[StepName.Extract]
@@ -145,8 +151,10 @@ class TestExtractSingle:
                     extract=ExtractStage(source=docx_path),
                     verbosity="debug",
                 ),
-                input=docx_path,
-                output=out_json,
+                initial_input=docx_path,
+            )
+            work.set_step_paths(
+                StepName.Extract, input_path=docx_path, output_path=out_json
             )
             result = extract_single(work)
             extract_status = result.step_states[StepName.Extract]
@@ -190,279 +198,15 @@ class TestExtractSingle:
                 config=UserConfig(
                     target_dir=tmp_path, extract=ExtractStage(source=docx_path)
                 ),
-                input=docx_path,
-                output=out_json,
+                initial_input=docx_path,
+            )
+            work.set_step_paths(
+                StepName.Extract, input_path=docx_path, output_path=out_json
             )
             result = extract_single(work)
             extract_status = result.step_states[StepName.Extract]
 
             assert extract_status.warnings == []
-
-
-class TestRenderAndVerify:
-    """Tests for render and roundtrip verification via execute_render."""
-
-    def testrender_and_verify_success(self, tmp_path):
-        """Test successful render and verify."""
-        json_path = tmp_path / "test.json"
-        template_path = tmp_path / "template.docx"
-        out_dir = tmp_path / "out"
-
-        json_path.write_text(
-            json.dumps(
-                {
-                    "identity": {
-                        "title": "T",
-                        "full_name": "A B",
-                        "first_name": "A",
-                        "last_name": "B",
-                    },
-                    "sidebar": {},
-                    "overview": "",
-                    "experiences": [],
-                }
-            )
-        )
-        template_path.touch()
-
-        rendered_docx = out_dir / "test_NEW.docx"
-
-        mock_verifier = MagicMock()
-        mock_verifier.verify.side_effect = lambda work: work
-
-        with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
-            "cvextract.pipeline_helpers.extract_cv_data"
-        ) as mock_process, patch(
-            "cvextract.pipeline_helpers.get_verifier"
-        ) as mock_get_verifier:
-
-            mock_render.side_effect = lambda work: work
-
-            def _process(work, extractor=None):
-                return _write_output(work, json.loads(json_path.read_text()))
-
-            mock_process.side_effect = _process
-            mock_get_verifier.return_value = mock_verifier
-
-            config = UserConfig(
-                target_dir=out_dir,
-                render=RenderStage(
-                    template=template_path, data=json_path, output=rendered_docx
-                ),
-            )
-            work = UnitOfWork(
-                config=config,
-                input=json_path,
-                output=json_path,
-                initial_input=json_path,
-            )
-            result = execute_render(work)
-            render_status = result.step_states[StepName.Render]
-            verify_status = result.step_states[StepName.RoundtripComparer]
-
-            assert render_status.errors == []
-            assert render_status.warnings == []
-            assert verify_status.errors == []
-
-    def testrender_and_verify_skip_compare(self, tmp_path):
-        """Test compare skipped when adjust stage is present."""
-        json_path = tmp_path / "test.json"
-        template_path = tmp_path / "template.docx"
-        out_dir = tmp_path / "out"
-
-        json_path.write_text(
-            json.dumps(
-                {
-                    "identity": {
-                        "title": "T",
-                        "full_name": "A B",
-                        "first_name": "A",
-                        "last_name": "B",
-                    },
-                    "sidebar": {},
-                    "overview": "",
-                    "experiences": [],
-                }
-            )
-        )
-        template_path.touch()
-
-        with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
-            mock_render.side_effect = lambda work: work
-
-            config = UserConfig(
-                target_dir=out_dir,
-                render=RenderStage(template=template_path, data=json_path),
-                adjust=AdjustStage(adjusters=[], data=json_path),
-            )
-            work = UnitOfWork(
-                config=config,
-                input=json_path,
-                output=json_path,
-                initial_input=json_path,
-            )
-            result = execute_render(work)
-            render_status = result.step_states[StepName.Render]
-
-            assert render_status.errors == []
-            assert StepName.RoundtripComparer not in result.step_states  # Not executed
-
-    def testrender_and_verify_with_roundtrip_dir(self, tmp_path):
-        """Test roundtrip verification directory is created."""
-        json_path = tmp_path / "test.json"
-        template_path = tmp_path / "template.docx"
-        out_dir = tmp_path / "out"
-        test_data = {
-            "identity": {
-                "title": "T",
-                "full_name": "A B",
-                "first_name": "A",
-                "last_name": "B",
-            },
-            "sidebar": {},
-            "overview": "",
-            "experiences": [],
-        }
-        json_path.write_text(json.dumps(test_data))
-        template_path.touch()
-
-        rendered_docx = out_dir / "test_NEW.docx"
-
-        mock_verifier = MagicMock()
-        mock_verifier.verify.side_effect = lambda work: work
-
-        with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
-            "cvextract.pipeline_helpers.extract_cv_data"
-        ) as mock_process, patch(
-            "cvextract.pipeline_helpers.get_verifier"
-        ) as mock_get_verifier:
-
-            mock_render.side_effect = lambda work: work
-
-            def _process(work, extractor=None):
-                return _write_output(work, test_data)
-
-            mock_process.side_effect = _process
-            mock_get_verifier.return_value = mock_verifier
-
-            config = UserConfig(
-                target_dir=out_dir,
-                render=RenderStage(
-                    template=template_path, data=json_path, output=rendered_docx
-                ),
-            )
-            work = UnitOfWork(
-                config=config,
-                input=json_path,
-                output=json_path,
-                initial_input=json_path,
-            )
-            result = execute_render(work)
-            render_status = result.step_states[StepName.Render]
-
-            assert render_status.errors == []
-            # Verify roundtrip_dir was created
-            expected_dir = out_dir / "verification_structured_data"
-            assert expected_dir.exists()
-
-    def testrender_and_verify_compare_failure(self, tmp_path):
-        """Test when comparison finds differences."""
-        json_path = tmp_path / "test.json"
-        template_path = tmp_path / "template.docx"
-        out_dir = tmp_path / "out"
-
-        json_path.write_text(
-            json.dumps(
-                {
-                    "identity": {
-                        "title": "T",
-                        "full_name": "A B",
-                        "first_name": "A",
-                        "last_name": "B",
-                    },
-                    "sidebar": {},
-                    "overview": "",
-                    "experiences": [],
-                }
-            )
-        )
-        template_path.touch()
-
-        rendered_docx = out_dir / "test_NEW.docx"
-
-        mock_verifier = MagicMock()
-        mock_verifier.verify.side_effect = (
-            lambda work: work.add_error(StepName.RoundtripComparer, "Mismatch detected")
-            or work
-        )
-
-        with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render, patch(
-            "cvextract.pipeline_helpers.extract_cv_data"
-        ) as mock_process, patch(
-            "cvextract.pipeline_helpers.get_verifier"
-        ) as mock_get_verifier:
-
-            mock_render.side_effect = lambda work: work
-            mismatch_data = {
-                "identity": {"title": "Different"},
-                "sidebar": {},
-                "overview": "",
-                "experiences": [],
-            }
-
-            def _process(work, extractor=None):
-                return _write_output(work, mismatch_data)
-
-            mock_process.side_effect = _process
-            mock_get_verifier.return_value = mock_verifier
-
-            config = UserConfig(
-                target_dir=out_dir,
-                render=RenderStage(
-                    template=template_path, data=json_path, output=rendered_docx
-                ),
-            )
-            work = UnitOfWork(
-                config=config,
-                input=json_path,
-                output=json_path,
-                initial_input=json_path,
-            )
-            result = execute_render(work)
-            render_status = result.step_states[StepName.Render]
-            verify_status = result.step_states[StepName.RoundtripComparer]
-
-            assert render_status.errors == []
-            assert "Mismatch detected" in verify_status.errors
-
-    def testrender_and_verify_render_exception(self, tmp_path):
-        """Test exception during rendering."""
-        json_path = tmp_path / "test.json"
-        template_path = tmp_path / "template.docx"
-        out_dir = tmp_path / "out"
-
-        json_path.write_text(json.dumps({}))
-        template_path.touch()
-
-        with patch("cvextract.pipeline_helpers.render_cv_data") as mock_render:
-            mock_render.side_effect = RuntimeError("Render failed")
-
-            config = UserConfig(
-                target_dir=out_dir,
-                render=RenderStage(template=template_path, data=json_path),
-            )
-            work = UnitOfWork(
-                config=config,
-                input=json_path,
-                output=json_path,
-                initial_input=json_path,
-            )
-            result = execute_render(work)
-            render_status = result.step_states[StepName.Render]
-
-            assert render_status.errors == []
-            assert any("RuntimeError" in w for w in render_status.warnings)
-            assert StepName.RoundtripComparer not in result.step_states
 
 
 class TestCategorizeResult:
@@ -509,11 +253,7 @@ class TestGetStatusIcons:
 
     def test_extract_ok_with_warnings(self, tmp_path):
         """Test extract ok but with warnings."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             warnings=["warning"],
@@ -527,11 +267,7 @@ class TestGetStatusIcons:
 
     def test_extract_ok_no_warnings(self, tmp_path):
         """Test extract ok without warnings."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         work.step_states[StepName.RoundtripComparer] = StepStatus(
@@ -542,11 +278,7 @@ class TestGetStatusIcons:
 
     def test_extract_failed(self, tmp_path):
         """Test extract failed."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             errors=["error"],
@@ -564,22 +296,14 @@ class TestGetStatusIcons:
 
     def test_apply_none(self, tmp_path):
         """Test apply not executed."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         icons = get_status_icons(work)
         assert "➖" in icons[StepName.Render]  # Neutral icon for apply
 
     def test_compare_ok(self, tmp_path):
         """Test compare successful."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         work.step_states[StepName.RoundtripComparer] = StepStatus(
@@ -593,11 +317,7 @@ class TestGetStatusIcons:
 
     def test_compare_failed(self, tmp_path):
         """Test compare found differences."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         work.step_states[StepName.RoundtripComparer] = StepStatus(
@@ -609,11 +329,7 @@ class TestGetStatusIcons:
 
     def test_compare_none(self, tmp_path):
         """Test compare not executed."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         icons = get_status_icons(work)

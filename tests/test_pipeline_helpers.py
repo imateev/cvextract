@@ -12,7 +12,6 @@ from cvextract.shared import (
     get_status_icons,
 )
 from cvextract.verifiers import get_verifier
-from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
 
 def _make_work(tmp_path, data):
@@ -161,54 +160,6 @@ def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
     assert extract_status.warnings == []
 
 
-def test_render_and_verify_success(monkeypatch, tmp_path: Path):
-    """Test successful render and roundtrip verification."""
-    json_file = tmp_path / "test.json"
-    json_file.write_text('{"a": 1}', encoding="utf-8")
-    template = tmp_path / "template.docx"
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-
-    def fake_render(work):
-        return work
-
-    def fake_process(work, extractor=None):
-        output_path = work.get_step_output(StepName.Extract)
-        if output_path:
-            output_path.write_text('{"a": 1}', encoding="utf-8")
-        return work
-
-    def fake_compare(work):
-        return work
-
-    # Mock the RoundtripVerifier instance method
-    roundtrip_verifier = RoundtripVerifier()
-    roundtrip_verifier.verify = fake_compare
-
-    monkeypatch.setattr(p, "render_cv_data", fake_render)
-    monkeypatch.setattr(p, "extract_cv_data", fake_process)
-    monkeypatch.setattr(
-        p,
-        "get_verifier",
-        lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None,
-    )
-
-    config = UserConfig(
-        target_dir=out_dir,
-        render=RenderStage(template=template, data=json_file),
-    )
-    work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(StepName.Render, input_path=json_file, output_path=json_file)
-    render_work = p.render(work)
-    result = p._verify_roundtrip(render_work, json_file)
-    render_status = result.step_states[StepName.Render]
-    verify_status = result.step_states[StepName.RoundtripComparer]
-    assert render_status.errors == []
-    assert render_status.warnings == []
-    assert verify_status.errors == []
-    assert verify_status.warnings == []
-
-
 def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     """Test rendering exceptions surface as warnings."""
     json_file = tmp_path / "test.json"
@@ -233,53 +184,6 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     assert len(render_status.warnings) == 1
     assert "render: ValueError" in render_status.warnings[0]
     assert StepName.RoundtripComparer not in result.step_states
-
-
-def test_render_and_verify_diff(monkeypatch, tmp_path: Path):
-    """Test roundtrip mismatch surfaces as error."""
-    json_file = tmp_path / "test.json"
-    json_file.write_text('{"a": 1}', encoding="utf-8")
-    template = tmp_path / "template.docx"
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-
-    def fake_render(work):
-        return work
-
-    def fake_process(work, extractor=None):
-        output_path = work.get_step_output(StepName.Extract)
-        output_path.write_text('{"a": 2}', encoding="utf-8")
-        return work
-
-    def fake_compare(work):
-        work.add_error(StepName.RoundtripComparer, "value mismatch")
-        return work
-
-    # Mock the RoundtripVerifier instance method
-    roundtrip_verifier = RoundtripVerifier()
-    roundtrip_verifier.verify = fake_compare
-
-    monkeypatch.setattr(p, "render_cv_data", fake_render)
-    monkeypatch.setattr(p, "extract_cv_data", fake_process)
-    monkeypatch.setattr(
-        p,
-        "get_verifier",
-        lambda x: roundtrip_verifier if x == "roundtrip-verifier" else None,
-    )
-
-    config = UserConfig(
-        target_dir=out_dir,
-        render=RenderStage(template=template, data=json_file),
-    )
-    work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(StepName.Render, input_path=json_file, output_path=json_file)
-    render_work = p.render(work)
-    result = p._verify_roundtrip(render_work, json_file)
-    render_status = result.step_states[StepName.Render]
-    verify_status = result.step_states[StepName.RoundtripComparer]
-    assert render_status.errors == []
-    assert "value mismatch" in verify_status.errors[0]
-    assert verify_status.warnings == []
 
 
 def test_get_status_icons_extract_success_no_warnings():

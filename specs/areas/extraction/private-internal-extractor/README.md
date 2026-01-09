@@ -27,18 +27,20 @@ The extractor is optimized for DOCX files with a specific, predefined structure 
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
 extractor = DocxCVExtractor()
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("cv.docx"),
-    output=Path("outputs/cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("cv.docx"),
+    output_path=Path("outputs/cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ```
 
 ### CLI Usage
@@ -58,18 +60,20 @@ python -m cvextract.cli \
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import get_extractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
 extractor = get_extractor("private-internal-extractor")
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("cv.docx"),
-    output=Path("outputs/cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("cv.docx"),
+    output_path=Path("outputs/cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ```
 
 ## Configuration

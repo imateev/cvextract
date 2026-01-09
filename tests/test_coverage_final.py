@@ -17,10 +17,12 @@ def _make_roundtrip_work(tmp_path, source, target):
     target_path = tmp_path / "target.json"
     source_path.write_text(json.dumps(source), encoding="utf-8")
     target_path.write_text(json.dumps(target), encoding="utf-8")
-    work = UnitOfWork(
-        config=UserConfig(target_dir=tmp_path),
-        input=source_path,
-        output=target_path,
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(
+        StepName.Extract, input_path=source_path, output_path=source_path
+    )
+    work.set_step_paths(
+        StepName.RoundtripComparer, input_path=source_path, output_path=target_path
     )
     work.current_step = StepName.RoundtripComparer
     work.ensure_step_status(StepName.RoundtripComparer)

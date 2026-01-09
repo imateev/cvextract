@@ -31,9 +31,8 @@ def _make_roundtrip_work(tmp_path, source, target):
     source_path.write_text(json.dumps(source), encoding="utf-8")
     target_path.write_text(json.dumps(target), encoding="utf-8")
     work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-    work.set_step_paths(
-        StepName.RoundtripComparer, input_path=source_path, output_path=target_path
-    )
+    work.set_step_paths(StepName.Extract, output_path=source_path)
+    work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
     work.current_step = StepName.RoundtripComparer
     work.ensure_step_status(StepName.RoundtripComparer)
     return work
@@ -246,8 +245,7 @@ class TestRoundtripVerifier:
         source_path = tmp_path / "source.json"
         source_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        status = work.ensure_step_status(StepName.RoundtripComparer)
-        status.input = source_path
+        work.set_step_paths(StepName.Extract, output_path=source_path)
         work.current_step = StepName.RoundtripComparer
         work.ensure_step_status(StepName.RoundtripComparer)
         result = verifier.verify(work)
@@ -263,8 +261,9 @@ class TestRoundtripVerifier:
 
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.set_step_paths(
-            StepName.RoundtripComparer, input_path=source_path, output_path=target_path
+            StepName.Extract, output_path=source_path
         )
+        work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
         work.current_step = StepName.RoundtripComparer
         work.ensure_step_status(StepName.RoundtripComparer)
         result = verifier.verify(work)
@@ -281,8 +280,9 @@ class TestRoundtripVerifier:
 
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.set_step_paths(
-            StepName.RoundtripComparer, input_path=source_path, output_path=target_path
+            StepName.Extract, output_path=source_path
         )
+        work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
         work.current_step = StepName.RoundtripComparer
         work.ensure_step_status(StepName.RoundtripComparer)
         result = verifier.verify(work)

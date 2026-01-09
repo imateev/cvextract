@@ -63,8 +63,12 @@ def test_directory(tmp_path: Path):
 def _make_work(tmp_path: Path, warnings: list[str] | None = None) -> UnitOfWork:
     work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path),
-        input=Path("input"),
-        output=Path("output"),
+        initial_input=Path("input"),
+    )
+    work.set_step_paths(
+        StepName.Extract,
+        input_path=Path("input"),
+        output_path=Path("output"),
     )
     if warnings:
         work.step_states[StepName.Render] = StepStatus(

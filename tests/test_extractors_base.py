@@ -252,7 +252,8 @@ class TestCVExtractorAbstract:
         extractor = DerivedExtractor()
         work = _make_work(tmp_path)
         extractor.extract(work)
-        data = json.loads(work.output.read_text(encoding="utf-8"))
+        output_path = work.get_step_output(StepName.Extract)
+        data = json.loads(output_path.read_text(encoding="utf-8"))
         assert data["version"] == 2
 
     def test_is_abstract_base_class(self):
@@ -277,12 +278,16 @@ class TestCVExtractorAbstract:
 
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"filename": work.input.name})
+                return self._write_output_json(
+                    work,
+                    {"filename": work.get_step_input(StepName.Extract).name},
+                )
 
         extractor = TestExtractor()
         work = _make_work(tmp_path, input_name="My CV File.docx")
         extractor.extract(work)
-        data = json.loads(work.output.read_text(encoding="utf-8"))
+        output_path = work.get_step_output(StepName.Extract)
+        data = json.loads(output_path.read_text(encoding="utf-8"))
         assert data["filename"] == "My CV File.docx"
 
     def test_concrete_implementations_are_independent(self, tmp_path):
@@ -305,9 +310,24 @@ class TestCVExtractorAbstract:
         impl1.extract(work1)
         impl2.extract(work2)
 
-        assert json.loads(work1.output.read_text(encoding="utf-8"))["impl"] == 1
-        assert json.loads(work2.output.read_text(encoding="utf-8"))["impl"] == 2
-        assert json.loads(work1.output.read_text(encoding="utf-8"))["impl"] == 1
+        assert (
+            json.loads(
+                work1.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+            )["impl"]
+            == 1
+        )
+        assert (
+            json.loads(
+                work2.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+            )["impl"]
+            == 2
+        )
+        assert (
+            json.loads(
+                work1.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+            )["impl"]
+            == 1
+        )
 
     def test_extract_with_mocked_implementation(self, tmp_path):
         """Test that extract() works correctly when mocked."""

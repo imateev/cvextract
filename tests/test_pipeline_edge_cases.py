@@ -116,11 +116,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_all_success(self, tmp_path):
         """Test status icons for complete success."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         work.step_states[StepName.RoundtripComparer] = StepStatus(
@@ -133,11 +129,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_all_failures(self, tmp_path):
         """Test status icons for complete failure."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             errors=["extract error"],
@@ -157,11 +149,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_extract_warn(self, tmp_path):
         """Test status icons when extract has warning."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(
             step=StepName.Extract,
             warnings=["warn"],
@@ -173,11 +161,7 @@ class TestPipelineEdgeCases:
 
     def test_get_status_icons_none_values(self, tmp_path):
         """Test status icons with None values for apply/compare."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         icons = get_status_icons(work)
         assert icons[StepName.Extract] == "🟢"

@@ -15,7 +15,7 @@ from cvextract.extractors.sidebar_parser import (
     split_identity_and_sidebar,
 )
 from cvextract.pipeline_helpers import extract_cv_data
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 # -------------------------
 # Helpers to build minimal DOCX-like zips
@@ -294,10 +294,11 @@ def test_extract_cv_data_end_to_end(tmp_path: Path):
     _write_docx_zip(docx_path, doc_xml, headers={"word/header1.xml": hdr_xml})
 
     output_path = tmp_path / "e2e.json"
-    work = UnitOfWork(
-        config=UserConfig(target_dir=tmp_path),
-        input=docx_path,
-        output=output_path,
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(
+        StepName.Extract,
+        input_path=docx_path,
+        output_path=output_path,
     )
     extract_cv_data(work)
     data = json.loads(output_path.read_text(encoding="utf-8"))

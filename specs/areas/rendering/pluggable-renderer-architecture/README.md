@@ -39,7 +39,7 @@ renderers = list_renderers()
 
 ```python
 from cvextract.renderers import CVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 class CustomRenderer(CVRenderer):
     def render(self, work: UnitOfWork) -> UnitOfWork:
@@ -68,7 +68,7 @@ class CVRenderer(ABC):
         Render CV data to output file using template.
         
         Args:
-            work: UnitOfWork containing input/output paths and render config
+            work: UnitOfWork containing Render step input/output paths and render config
             
         Returns:
             UnitOfWork with rendered output populated
@@ -80,14 +80,14 @@ class CVRenderer(ABC):
 
 ### Input Contract
 
-- **work.input**: JSON file conforming to `cvextract/contracts/cv_schema.json`
+- **Render step input**: JSON file conforming to `cvextract/contracts/cv_schema.json`
 - **work.config.render.template**: Path to format-specific template file
-- **work.output**: Path where rendered file should be written
+- **Render step output**: Path where rendered file should be written
 
 ### Output Contract
 
 - Returns: UnitOfWork with rendered output populated
-- Side Effect: Creates rendered file at work.output
+- Side Effect: Creates rendered file at the Render step output
 
 ## Dependencies
 
@@ -160,17 +160,19 @@ class HtmlCVRenderer(CVRenderer):
     """HTML renderer using Jinja2 templates."""
     
     def render(self, work: UnitOfWork) -> UnitOfWork:
+        input_path = work.get_step_input(StepName.Render)
+        output_path = work.get_step_output(StepName.Render)
         # Load Jinja2 HTML template
         with open(work.config.render.template) as f:
             template = jinja2.Template(f.read())
         
         # Render
-        with work.input.open("r", encoding="utf-8") as f:
+        with input_path.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
         html = template.render(**cv_data)
         
         # Save
-        work.output.write_text(html)
+        output_path.write_text(html)
         return work
 
 # Register the renderer
@@ -181,7 +183,7 @@ register_renderer("html-renderer", HtmlCVRenderer)
 
 ```python
 from cvextract.renderers import CVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 import json
 
 class MockCVRenderer(CVRenderer):
@@ -189,15 +191,17 @@ class MockCVRenderer(CVRenderer):
         self.last_rendered = None
     
     def render(self, work: UnitOfWork) -> UnitOfWork:
-        with work.input.open("r", encoding="utf-8") as f:
+        input_path = work.get_step_input(StepName.Render)
+        output_path = work.get_step_output(StepName.Render)
+        with input_path.open("r", encoding="utf-8") as f:
             cv_data = json.load(f)
         self.last_rendered = {
             "cv_data": cv_data,
             "template": work.config.render.template,
-            "output": work.output
+            "output": output_path
         }
         # Create mock output
-        work.output.write_text("Mock rendered content")
+        output_path.write_text("Mock rendered content")
         return work
 
 # Use in tests

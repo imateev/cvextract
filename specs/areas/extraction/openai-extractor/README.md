@@ -47,18 +47,20 @@ The extractor is format-agnostic and can extract from any text-based source, mak
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import OpenAICVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
 extractor = OpenAICVExtractor()
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("cv.txt"),
-    output=Path("outputs/cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("cv.txt"),
+    output_path=Path("outputs/cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ```
 
 ### CLI Usage
@@ -81,18 +83,20 @@ python -m cvextract.cli \
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import get_extractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
 extractor = get_extractor("openai-extractor")
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("cv.txt"),
-    output=Path("outputs/cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("cv.txt"),
+    output_path=Path("outputs/cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ```
 
 ## Configuration
@@ -114,19 +118,21 @@ cv_data = json.loads(work.output.read_text(encoding="utf-8"))
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import OpenAICVExtractor
 from cvextract.extractors.openai_extractor import _RetryConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
 # Default configuration
 extractor = OpenAICVExtractor()
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("cv.txt"),
-    output=Path("outputs/cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("cv.txt"),
+    output_path=Path("outputs/cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 
 # Custom model and timeout
 extractor = OpenAICVExtractor(

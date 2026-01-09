@@ -23,13 +23,9 @@ class _StubExtractor(CVExtractor):
 def _make_work(tmp_path, data: dict) -> UnitOfWork:
     path = tmp_path / "data.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    work = UnitOfWork(
-        config=UserConfig(target_dir=tmp_path),
-        input=path,
-        output=path,
-    )
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(StepName.Extract, input_path=path, output_path=path)
     work.current_step = StepName.Extract
-    work.ensure_step_status(StepName.Extract)
     return work
 
 
@@ -46,8 +42,11 @@ class TestExtractCvData:
         ) as mock_extractor_class:
             work = UnitOfWork(
                 config=UserConfig(target_dir=tmp_path),
-                input=mock_docx,
-                output=tmp_path / "output.json",
+            )
+            work.set_step_paths(
+                StepName.Extract,
+                input_path=mock_docx,
+                output_path=tmp_path / "output.json",
             )
             mock_extractor = Mock()
             mock_extractor.extract.return_value = work
@@ -149,9 +148,8 @@ class TestExtractCvDataOutput:
         mock_docx = tmp_path / "test.docx"
         mock_docx.touch()
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path), input=mock_docx, output=None
-        )
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(StepName.Extract, input_path=mock_docx)
         extractor = _StubExtractor({"identity": {}})
         with pytest.raises(ValueError, match="output path is not set"):
             extract_cv_data(work, extractor)
@@ -174,10 +172,9 @@ class TestExtractCvDataOutput:
             "experiences": [{"heading": "2020-Present", "description": "Senior role"}],
         }
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=mock_docx,
-            output=output_file,
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.Extract, input_path=mock_docx, output_path=output_file
         )
         extractor = _StubExtractor(mock_data)
         result = extract_cv_data(work, extractor)
@@ -210,10 +207,9 @@ class TestExtractCvDataOutput:
             "experiences": [],
         }
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=mock_docx,
-            output=deep_output,
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.Extract, input_path=mock_docx, output_path=deep_output
         )
         extractor = _StubExtractor(mock_data)
         result = extract_cv_data(work, extractor)
@@ -240,10 +236,9 @@ class TestExtractCvDataOutput:
             "experiences": [{"heading": "2020-Present", "description": "Ðoing çöðé"}],
         }
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=mock_docx,
-            output=output_file,
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.Extract, input_path=mock_docx, output_path=output_file
         )
         extractor = _StubExtractor(mock_data)
         result = extract_cv_data(work, extractor)
@@ -276,10 +271,9 @@ class TestExtractCvDataOutput:
             "experiences": [{"heading": "2020-Now", "description": "Work"}],
         }
 
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=mock_docx,
-            output=output_file,
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.Extract, input_path=mock_docx, output_path=output_file
         )
         extractor = _StubExtractor(mock_data)
         extract_cv_data(work, extractor)

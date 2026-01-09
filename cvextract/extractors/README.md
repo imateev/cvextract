@@ -19,7 +19,7 @@ The `CVExtractor` abstract base class defines the contract that all extractors m
 
 ```python
 from cvextract.extractors import CVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 class CustomExtractor(CVExtractor):
     def extract(self, work: UnitOfWork) -> UnitOfWork:
@@ -40,18 +40,20 @@ The `DocxCVExtractor` is the default implementation that extracts CV data from M
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
 extractor = DocxCVExtractor()
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("path/to/cv.docx"),
-    output=Path("outputs/cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("path/to/cv.docx"),
+    output_path=Path("outputs/cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ```
 
 ## CV Data Schema
@@ -93,13 +95,15 @@ To create a custom extractor:
 3. Use your extractor:
    ```python
    from cvextract.cli_config import UserConfig
+   from cvextract.shared import StepName, UnitOfWork
    from pathlib import Path
 
    extractor = MyCustomExtractor()
-   work = UnitOfWork(
-       config=UserConfig(target_dir=Path("outputs")),
-       input=Path("path/to/source"),
-       output=Path("outputs/source.json"),
+   work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+   work.set_step_paths(
+       StepName.Extract,
+       input_path=Path("path/to/source"),
+       output_path=Path("outputs/source.json"),
    )
    extractor.extract(work)
    ```
@@ -111,7 +115,7 @@ To create a custom extractor:
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
@@ -119,13 +123,15 @@ import json
 extractor = DocxCVExtractor()
 
 # Extract CV data
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("consultant_cv.docx"),
-    output=Path("outputs/consultant_cv.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("consultant_cv.docx"),
+    output_path=Path("outputs/consultant_cv.json"),
 )
 extractor.extract(work)
-cv_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 
 # Work with the extracted data
 print(cv_data["identity"]["full_name"])
@@ -141,7 +147,7 @@ with open("output.json", "w") as f:
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
@@ -175,13 +181,15 @@ class MockCVExtractor(CVExtractor):
 
 # Use in tests
 extractor = MockCVExtractor()
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path("outputs")),
-    input=Path("any/path"),
-    output=Path("outputs/mock.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("any/path"),
+    output_path=Path("outputs/mock.json"),
 )
 extractor.extract(work)
-test_data = json.loads(work.output.read_text(encoding="utf-8"))
+output_path = work.get_step_output(StepName.Extract)
+test_data = json.loads(output_path.read_text(encoding="utf-8"))
 ```
 
 ## Integration with Existing Pipeline

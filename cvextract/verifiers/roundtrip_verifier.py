@@ -35,7 +35,7 @@ class RoundtripVerifier(CVVerifier):
 
         roundtrip_comparer = work.ensure_step_status(StepName.RoundtripComparer)
         target_data, target_errs = self._load_json(
-            roundtrip_comparer.output, "roundtrip target JSON"
+            roundtrip_comparer.input, "roundtrip target JSON"
         )
         if data is None or target_data is None:
             return self._record(work, data_errs + target_errs, [])

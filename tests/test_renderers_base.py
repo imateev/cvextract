@@ -143,7 +143,7 @@ class TestCVRendererAbstract:
     def test_concrete_implementation_processes_cv_data(
         self, tmp_path, make_render_work
     ):
-        """Test concrete implementation can process CV data from work.input."""
+        """Test concrete implementation can process CV data from render input."""
 
         class DataAwareRenderer(CVRenderer):
             def render(self, work: UnitOfWork) -> UnitOfWork:

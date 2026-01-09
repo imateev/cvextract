@@ -27,18 +27,14 @@ class TestCliExecuteAdjustCoverage:
     def test_execute_returns_work_when_adjust_missing(self, tmp_path):
         """Test execute returns work unchanged when config.adjust is None."""
         config = UserConfig(target_dir=tmp_path)
-        work = UnitOfWork(
-            config=config,
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
+        work = UnitOfWork(config=config)
 
         result = execute(work)
 
         assert result == work
 
     def test_execute_returns_work_when_output_missing(self, tmp_path):
-        """Test execute returns work when work.output is None."""
+        """Test execute returns work when adjust output is not set."""
         config = UserConfig(
             target_dir=tmp_path,
             adjust=AdjustStage(
@@ -46,7 +42,7 @@ class TestCliExecuteAdjustCoverage:
                 adjusters=[AdjusterConfig(name="test", params={})],
             ),
         )
-        work = UnitOfWork(config=config, input=tmp_path / "input.json", output=None)
+        work = UnitOfWork(config=config)
 
         result = execute(work)
 
@@ -82,8 +78,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -123,8 +120,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -167,8 +165,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -207,8 +206,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -234,8 +234,9 @@ class TestCliExecuteAdjustCoverage:
                 adjusters=[AdjusterConfig(name="test-adjuster", params={})],
             ),
         )
-        work = UnitOfWork(
-            config=config, input=tmp_path / "input.json", output=output_dir
+        work = UnitOfWork(config=config, initial_input=tmp_path / "input.json")
+        work.set_step_paths(
+            StepName.Adjust, input_path=output_dir, output_path=output_dir
         )
 
         result = execute(work)
@@ -257,7 +258,10 @@ class TestCliExecuteAdjustCoverage:
                 adjusters=[AdjusterConfig(name="test-adjuster", params={})],
             ),
         )
-        work = UnitOfWork(config=config, input=json_file, output=json_file)
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
+        )
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
@@ -286,7 +290,10 @@ class TestCliExecuteAdjustCoverage:
                 adjusters=[AdjusterConfig(name="test-adjuster", params={})],
             ),
         )
-        work = UnitOfWork(config=config, input=json_file, output=json_file)
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
+        )
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
@@ -313,7 +320,10 @@ class TestCliExecuteAdjustCoverage:
                 adjusters=[AdjusterConfig(name="test-adjuster", params={})],
             ),
         )
-        work = UnitOfWork(config=config, input=json_file, output=json_file)
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
+        )
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
@@ -362,8 +372,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -404,8 +415,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get, patch(
@@ -447,8 +459,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -485,8 +498,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:
@@ -527,8 +541,9 @@ class TestCliExecuteAdjustCoverage:
             ),
         )
 
-        work = UnitOfWork(
-            config=config, initial_input=json_file, input=json_file, output=json_file
+        work = UnitOfWork(config=config, initial_input=json_file)
+        work.set_step_paths(
+            StepName.Adjust, input_path=json_file, output_path=json_file
         )
 
         with patch("cvextract.cli_execute_adjust.get_adjuster") as mock_get:

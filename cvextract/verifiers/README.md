@@ -17,7 +17,7 @@ The verifier architecture allows for interchangeable implementations of CV verif
 ### CVVerifier Interface
 
 The `CVVerifier` abstract base class defines the contract that all verifiers must implement.
-Verifiers read inputs from the `UnitOfWork` (typically `work.output` for single-input verifiers, and `work.input` + `work.output` for roundtrip comparisons):
+Verifiers read inputs from the `UnitOfWork` step paths (typically the current step output, and for roundtrip comparisons the Extract output plus the RoundtripComparer output):
 
 ```python
 import json
@@ -27,7 +27,9 @@ from cvextract.verifiers import CVVerifier
 
 class CustomVerifier(CVVerifier):
     def verify(self, work: UnitOfWork) -> UnitOfWork:
-        with work.output.open("r", encoding="utf-8") as f:
+        step = work.resolve_verification_step()
+        output_path = work.get_step_output(step)
+        with output_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
         # Your verification logic here
         errors = []
@@ -50,11 +52,9 @@ from cvextract.verifiers import ExtractedDataVerifier
 
 verifier = ExtractedDataVerifier()
 cv_path = Path("cv.json")
-work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
+work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
-work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
 result = verifier.verify(work)
 status = result.step_states[StepName.Extract]
 if not status.errors:
@@ -81,9 +81,9 @@ verifier = CVSchemaVerifier()
 verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
 
 cv_path = Path("cv.json")
-work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
+work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
 result = verifier.verify(work)
 ```
 
@@ -100,9 +100,10 @@ from cvextract.verifiers import get_verifier
 verifier = get_verifier("roundtrip-verifier")
 source_path = Path("source.json")
 target_path = Path("roundtrip.json")
-work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+work = UnitOfWork(config=UserConfig(target_dir=source_path.parent))
+work.set_step_paths(StepName.Extract, output_path=source_path)
+work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
 work.current_step = StepName.RoundtripComparer
-work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
 status = result.step_states[StepName.RoundtripComparer]
 if not status.errors:
@@ -134,7 +135,8 @@ To create a custom verifier:
    ```python
    class EmailVerifier(CVVerifier):
        def verify(self, work: UnitOfWork) -> UnitOfWork:
-           with work.output.open("r", encoding="utf-8") as f:
+           output_path = work.get_step_output(work.resolve_verification_step())
+           with output_path.open("r", encoding="utf-8") as f:
                data = json.load(f)
            errors = []
            # Check for email in identity
@@ -152,15 +154,15 @@ To create a custom verifier:
 
    verifier = EmailVerifier()
    cv_path = Path("cv.json")
-   work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+   work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
+   work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
    work.current_step = StepName.Extract
-   work.ensure_step_status(StepName.Extract)
    result = verifier.verify(work)
    ```
 
 ## Passing Data from External Sources
 
-The verifier architecture uses `UnitOfWork` paths for input and output:
+The verifier architecture uses `UnitOfWork` step paths for input and output:
 
 ### Example: Verifying External Data
 
@@ -173,9 +175,9 @@ from cvextract.verifiers import ExtractedDataVerifier
 
 # Verify the externally sourced data
 cv_path = Path("external_cv.json")
-work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
+work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
 verifier = ExtractedDataVerifier()
 result = verifier.verify(work)
 ```
@@ -192,9 +194,10 @@ from cvextract.verifiers import get_verifier
 verifier = get_verifier("roundtrip-verifier")
 source_path = Path("source_cv.json")
 target_path = Path("target_cv.json")
-work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+work = UnitOfWork(config=UserConfig(target_dir=source_path.parent))
+work.set_step_paths(StepName.Extract, output_path=source_path)
+work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
 work.current_step = StepName.RoundtripComparer
-work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(work)
 ```
 
@@ -210,9 +213,9 @@ from cvextract.shared import StepName, UnitOfWork
 from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier, get_verifier
 
 cv_path = Path("cv.json")
-work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
+work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
 
 # Verify extracted CV data
 data_result = get_verifier("private-internal-verifier").verify(work)
@@ -220,9 +223,10 @@ data_result = get_verifier("private-internal-verifier").verify(work)
 # Compare two CV data structures
 source_path = Path("source_cv.json")
 target_path = Path("target_cv.json")
-compare_work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
+compare_work = UnitOfWork(config=UserConfig(target_dir=source_path.parent))
+compare_work.set_step_paths(StepName.Extract, output_path=source_path)
+compare_work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
 compare_work.current_step = StepName.RoundtripComparer
-compare_work.ensure_step_status(StepName.RoundtripComparer)
 result = get_verifier("roundtrip-verifier").verify(compare_work)
 ```
 
@@ -239,9 +243,9 @@ from cvextract.shared import StepName, UnitOfWork
 # First verify against schema
 schema_verifier = CVSchemaVerifier()
 cv_path = Path("cv.json")
-work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
+work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
+work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
 schema_result = schema_verifier.verify(work)
 
 schema_status = schema_result.step_states[StepName.Extract]
@@ -270,10 +274,11 @@ from pathlib import Path
 # Extract original data
 extractor = DocxCVExtractor()
 json_path = Path("roundtrip.json")
-extract_work = UnitOfWork(
-    config=UserConfig(target_dir=Path(".")),
-    input=Path("cv.docx"),
-    output=json_path,
+extract_work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
+extract_work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("cv.docx"),
+    output_path=json_path,
 )
 extractor.extract(extract_work)
 
@@ -284,36 +289,39 @@ config = UserConfig(
     target_dir=Path("."),
     render=RenderStage(template=Path("template.docx"), data=json_path, output=output_path),
 )
-work = UnitOfWork(config=config, input=json_path, output=output_path, initial_input=json_path)
+work = UnitOfWork(config=config, initial_input=json_path)
+work.set_step_paths(
+    StepName.Render,
+    input_path=json_path,
+    output_path=output_path,
+)
 
 renderer = DocxCVRenderer()
 renderer.render(work)
 
 # Extract from rendered document
 roundtrip_json = Path("roundtrip_rendered.json")
-roundtrip_work = UnitOfWork(
-    config=UserConfig(target_dir=Path(".")),
-    input=output_path,
-    output=roundtrip_json,
+roundtrip_work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
+roundtrip_work.set_step_paths(
+    StepName.Extract,
+    input_path=output_path,
+    output_path=roundtrip_json,
 )
 extractor.extract(roundtrip_work)
 
 # Verify they match
 verifier = get_verifier("roundtrip-verifier")
-compare_work = UnitOfWork(
-    config=UserConfig(target_dir=Path(".")),
-    input=json_path,
-    output=roundtrip_json,
-)
+compare_work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
+compare_work.set_step_paths(StepName.Extract, output_path=json_path)
+compare_work.set_step_paths(StepName.RoundtripComparer, output_path=roundtrip_json)
 compare_work.current_step = StepName.RoundtripComparer
-compare_work.ensure_step_status(StepName.RoundtripComparer)
 result = verifier.verify(compare_work)
 status = result.step_states[StepName.RoundtripComparer]
 
 if not status.errors:
     print("Roundtrip successful!")
 else:
-    print(f"Differences found: {result.errors}")
+    print(f"Differences found: {status.errors}")
 ```
 
 ### Creating a Mock Verifier for Testing
@@ -338,13 +346,13 @@ class AlwaysFailVerifier(CVVerifier):
 
 # Use in tests
 pass_verifier = AlwaysPassVerifier()
-work = UnitOfWork(
-    config=UserConfig(target_dir=Path(".")),
-    input=Path("input.json"),
-    output=Path("output.json"),
+work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
+work.set_step_paths(
+    StepName.Extract,
+    input_path=Path("input.json"),
+    output_path=Path("output.json"),
 )
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
 assert pass_verifier.verify(work).step_states[StepName.Extract].errors == []
 
 fail_verifier = AlwaysFailVerifier()

@@ -83,8 +83,7 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
 
     work.set_step_paths(
         StepName.RoundtripComparer,
-        input_path=extract_status.output,
-        output_path=roundtrip_output,
+        input_path=roundtrip_output
     )
     work.current_step = StepName.RoundtripComparer
     return verifier.verify(work)
