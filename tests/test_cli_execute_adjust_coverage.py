@@ -265,7 +265,13 @@ class TestCliExecuteAdjustCoverage:
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
-        mock_adjuster.adjust = MagicMock(return_value=work)
+        def fake_adjust(work, **_kwargs):
+            output_path = work.get_step_output(StepName.Adjust)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("{}", encoding="utf-8")
+            return work
+
+        mock_adjuster.adjust = MagicMock(side_effect=fake_adjust)
 
         with patch(
             "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
@@ -297,7 +303,13 @@ class TestCliExecuteAdjustCoverage:
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
-        mock_adjuster.adjust = MagicMock(return_value=work)
+        def fake_adjust(work, **_kwargs):
+            output_path = work.get_step_output(StepName.Adjust)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("{}", encoding="utf-8")
+            return work
+
+        mock_adjuster.adjust = MagicMock(side_effect=fake_adjust)
 
         with patch(
             "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
