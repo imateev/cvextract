@@ -48,6 +48,8 @@ def test_execute_single_skips_render_when_adjust_fails(tmp_path):
     with patch(
         "cvextract.cli_execute_single.execute_extract", return_value=extracted
     ), patch(
+        "cvextract.cli_execute_single.extract_verify", side_effect=lambda w: w
+    ), patch(
         "cvextract.cli_execute_single.execute_adjust", return_value=adjusted
     ), patch(
         "cvextract.cli_execute_single.execute_render"

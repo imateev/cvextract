@@ -9,7 +9,6 @@ from pathlib import Path
 
 from .pipeline_helpers import extract_single
 from .shared import StepName, UnitOfWork
-from .verifiers import get_verifier
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
@@ -46,35 +45,6 @@ def execute(work: UnitOfWork) -> UnitOfWork:
     work.set_step_paths(StepName.Extract, output_path=output_path)
     work = extract_single(work)
     if not work.has_no_errors(StepName.Extract):
-        return work
-
-    skip_verify = bool(
-        config.skip_all_verify or (config.extract and config.extract.skip_verify)
-    )
-    if skip_verify:
-        return work
-
-    output_path = work.get_step_output(StepName.Extract)
-    if not output_path or not output_path.exists():
-        work.add_error(
-            StepName.Extract, "extract: output JSON not found for verification"
-        )
-        return work
-
-    verifier_name = "private-internal-verifier"
-    if config.extract and config.extract.verifier:
-        verifier_name = config.extract.verifier
-    verifier = get_verifier(verifier_name)
-    if not verifier:
-        work.add_error(StepName.Extract, f"unknown verifier: {verifier_name}")
-        return work
-
-    work.ensure_step_status(StepName.Extract)
-    work.current_step = StepName.Extract
-    try:
-        work = verifier.verify(work)
-    except Exception as e:
-        work.add_error(StepName.Extract, f"extract: verify failed ({type(e).__name__})")
         return work
 
     return work

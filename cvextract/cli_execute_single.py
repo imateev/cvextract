@@ -89,6 +89,43 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
     return verifier.verify(work)
 
 
+def extract_verify(work: UnitOfWork) -> UnitOfWork:
+    config = work.config
+    if not config.extract:
+        return work
+
+    skip_verify = bool(
+        config.skip_all_verify or (config.extract and config.extract.skip_verify)
+    )
+    if skip_verify:
+        return work
+
+    output_path = work.get_step_output(StepName.Extract)
+    if not output_path or not output_path.exists():
+        work.add_error(
+            StepName.Extract, "extract: output JSON not found for verification"
+        )
+        return work
+
+    verifier_name = "private-internal-verifier"
+    if config.extract and config.extract.verifier:
+        verifier_name = config.extract.verifier
+    verifier = get_verifier(verifier_name)
+    if not verifier:
+        work.add_error(StepName.Extract, f"unknown verifier: {verifier_name}")
+        return work
+
+    work.ensure_step_status(StepName.Extract)
+    work.current_step = StepName.Extract
+    try:
+        work = verifier.verify(work)
+    except Exception as e:
+        work.add_error(StepName.Extract, f"extract: verify failed ({type(e).__name__})")
+        return work
+
+    return work
+
+
 def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     source = _resolve_input_source(config)
     if source is None:
@@ -118,6 +155,9 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
             LOG.error("Unknown extractor: %s", config.extract.name)
             LOG.error("Use --list extractors to see available extractors")
             return 1, work
+
+        if work.has_no_errors(StepName.Extract):
+            work = extract_verify(work)
 
         if not work.has_no_errors(StepName.Extract):
             if config.adjust or config.render:

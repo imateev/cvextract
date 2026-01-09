@@ -1,8 +1,8 @@
-"""Tests for cli_execute_extract verification behavior."""
+"""Tests for cli_execute_extract behavior."""
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from cvextract.cli_config import ExtractStage, UserConfig
 from cvextract.cli_execute_extract import execute
@@ -16,8 +16,8 @@ def _write_output(work: UnitOfWork, payload: dict) -> UnitOfWork:
     return work
 
 
-def test_execute_verifies_extracted_output(tmp_path: Path):
-    """execute should verify extracted output after extraction."""
+def test_execute_runs_extract_without_verification(tmp_path: Path):
+    """execute should run extract and skip verification here."""
     source = tmp_path / "input.docx"
     source.touch()
 
@@ -25,30 +25,19 @@ def test_execute_verifies_extracted_output(tmp_path: Path):
     work = UnitOfWork(config=config, initial_input=source)
     work.set_step_paths(StepName.Extract, input_path=source)
 
-    verifier = MagicMock()
-    verifier.verify.side_effect = (
-        lambda w: w.add_error(StepName.Extract, "bad data")
-        or w.add_warning(StepName.Extract, "warn data")
-        or w
-    )
-
     with patch(
         "cvextract.cli_execute_extract.extract_single",
         side_effect=lambda w: _write_output(w, {"identity": {}}),
-    ), patch(
-        "cvextract.cli_execute_extract.get_verifier",
-        return_value=verifier,
     ):
         result = execute(work)
 
     extract_status = result.step_states[StepName.Extract]
-    assert "bad data" in extract_status.errors
-    assert "warn data" in extract_status.warnings
-    verifier.verify.assert_called_once()
+    assert extract_status.errors == []
+    assert extract_status.warnings == []
 
 
-def test_execute_skips_verification_when_global_skip_all_verify(tmp_path: Path):
-    """execute should skip verification when skip_all_verify is set."""
+def test_execute_ignores_skip_all_verify_flag(tmp_path: Path):
+    """execute should ignore skip_all_verify here; verification happens later."""
     source = tmp_path / "input.docx"
     source.touch()
 
@@ -60,15 +49,9 @@ def test_execute_skips_verification_when_global_skip_all_verify(tmp_path: Path):
     work = UnitOfWork(config=config, initial_input=source)
     work.set_step_paths(StepName.Extract, input_path=source)
 
-    def fail_if_called(_name):
-        raise AssertionError("verifier should not be called")
-
     with patch(
         "cvextract.cli_execute_extract.extract_single",
         side_effect=lambda w: _write_output(w, {"identity": {}}),
-    ), patch(
-        "cvextract.cli_execute_extract.get_verifier",
-        side_effect=fail_if_called,
     ):
         result = execute(work)
 
@@ -77,8 +60,8 @@ def test_execute_skips_verification_when_global_skip_all_verify(tmp_path: Path):
     assert extract_status.warnings == []
 
 
-def test_execute_unknown_verifier_adds_error(tmp_path: Path):
-    """execute should add an error for unknown verifiers."""
+def test_execute_ignores_verifier_config(tmp_path: Path):
+    """execute should ignore verifier config; verification happens later."""
     source = tmp_path / "input.docx"
     source.touch()
 
@@ -92,14 +75,11 @@ def test_execute_unknown_verifier_adds_error(tmp_path: Path):
     with patch(
         "cvextract.cli_execute_extract.extract_single",
         side_effect=lambda w: _write_output(w, {"identity": {}}),
-    ), patch(
-        "cvextract.cli_execute_extract.get_verifier",
-        return_value=None,
     ):
         result = execute(work)
 
     extract_status = result.step_states[StepName.Extract]
-    assert any("unknown verifier" in e for e in extract_status.errors)
+    assert extract_status.errors == []
 
 
 def test_execute_returns_work_when_extract_missing(tmp_path: Path):
@@ -116,8 +96,8 @@ def test_execute_returns_work_when_extract_missing(tmp_path: Path):
     assert result is work
 
 
-def test_execute_reports_missing_output_for_verification(tmp_path: Path):
-    """execute should add an error when output JSON is missing for verification."""
+def test_execute_does_not_require_output_for_verification(tmp_path: Path):
+    """execute should not verify output here; missing output should not error."""
     source = tmp_path / "input.docx"
     source.touch()
 
@@ -132,13 +112,11 @@ def test_execute_reports_missing_output_for_verification(tmp_path: Path):
         result = execute(work)
 
     extract_status = result.step_states[StepName.Extract]
-    assert any(
-        "output JSON not found for verification" in e for e in extract_status.errors
-    )
+    assert extract_status.errors == []
 
 
-def test_execute_handles_verifier_exception(tmp_path: Path):
-    """execute should surface verifier exceptions as errors."""
+def test_execute_does_not_handle_verifier_exception(tmp_path: Path):
+    """execute does not verify, so verifier exceptions are not raised here."""
     source = tmp_path / "input.docx"
     source.touch()
 
@@ -146,17 +124,11 @@ def test_execute_handles_verifier_exception(tmp_path: Path):
     work = UnitOfWork(config=config, initial_input=source)
     work.set_step_paths(StepName.Extract, input_path=source)
 
-    verifier = MagicMock()
-    verifier.verify.side_effect = ValueError("boom")
-
     with patch(
         "cvextract.cli_execute_extract.extract_single",
         side_effect=lambda w: _write_output(w, {"identity": {}}),
-    ), patch(
-        "cvextract.cli_execute_extract.get_verifier",
-        return_value=verifier,
     ):
         result = execute(work)
 
     extract_status = result.step_states[StepName.Extract]
-    assert any("verify failed" in e for e in extract_status.errors)
+    assert extract_status.errors == []
