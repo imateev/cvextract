@@ -15,7 +15,7 @@ from cvextract.cli_config import (
     RenderStage,
     UserConfig,
 )
-from cvextract.cli_execute_pipeline import execute_pipeline
+from cvextract.cli_execute_pipeline import _build_rerun_config, execute_pipeline
 from cvextract.shared import StepName, UnitOfWork
 
 
@@ -855,6 +855,37 @@ class TestFolderStructurePreservation:
         logged = config.log_failed.read_text(encoding="utf-8").strip().splitlines()
         assert logged == [str(doc_b)]
 
+    def test_rerun_failed_missing_list_returns_error(self, tmp_path: Path):
+        """execute_pipeline() returns error if rerun list cannot be read."""
+        missing_list = tmp_path / "missing.txt"
+
+        config = UserConfig(
+            target_dir=tmp_path / "output",
+            rerun_failed=missing_list,
+        )
+
+        with patch("cvextract.cli_execute_pipeline.execute_single") as mock_execute:
+            exit_code = execute_pipeline(config)
+
+        assert exit_code == 1
+        mock_execute.assert_not_called()
+
+    def test_rerun_failed_empty_list_returns_error(self, tmp_path: Path):
+        """execute_pipeline() returns error when rerun list is empty."""
+        failed_list = tmp_path / "failed.txt"
+        failed_list.write_text("# comment\n\n", encoding="utf-8")
+
+        config = UserConfig(
+            target_dir=tmp_path / "output",
+            rerun_failed=failed_list,
+        )
+
+        with patch("cvextract.cli_execute_pipeline.execute_single") as mock_execute:
+            exit_code = execute_pipeline(config)
+
+        assert exit_code == 1
+        mock_execute.assert_not_called()
+
     def test_rerun_failed_parallel_uses_failed_list(self, tmp_path: Path):
         """execute_pipeline() uses rerun list for parallel reruns."""
         failed_list = tmp_path / "failed.txt"
@@ -879,6 +910,49 @@ class TestFolderStructurePreservation:
         assert exit_code == 0
         args, _kwargs = mock_parallel.call_args
         assert [str(p) for p in args[0]] == [str(doc_a), str(doc_b)]
+
+    def test_build_rerun_config_updates_render_data(self, tmp_path: Path):
+        """_build_rerun_config should replace render data with file path."""
+        template = tmp_path / "template.docx"
+        template.touch()
+        original = tmp_path / "original.json"
+        rerun_path = tmp_path / "rerun.json"
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            render=RenderStage(template=template, data=original),
+            parallel=ParallelStage(source=tmp_path, n=1),
+            input_dir=tmp_path / "input",
+        )
+
+        rerun_config = _build_rerun_config(config, rerun_path)
+
+        assert rerun_config.render is not None
+        assert rerun_config.render.data == rerun_path
+        assert rerun_config.parallel is None
+        assert rerun_config.input_dir is None
+
+    def test_build_rerun_config_updates_adjust_data(self, tmp_path: Path):
+        """_build_rerun_config should replace adjust data with file path."""
+        original = tmp_path / "original.json"
+        rerun_path = tmp_path / "rerun.json"
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            adjust=AdjustStage(
+                adjusters=[AdjusterConfig(name="noop", params={})],
+                data=original,
+            ),
+            parallel=ParallelStage(source=tmp_path, n=1),
+            input_dir=tmp_path / "input",
+        )
+
+        rerun_config = _build_rerun_config(config, rerun_path)
+
+        assert rerun_config.adjust is not None
+        assert rerun_config.adjust.data == rerun_path
+        assert rerun_config.parallel is None
+        assert rerun_config.input_dir is None
 
     @patch("cvextract.cli_execute_extract.extract_single")
     def test_relative_path_calculation_with_value_error_fallback(

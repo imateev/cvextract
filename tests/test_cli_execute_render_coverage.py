@@ -32,6 +32,18 @@ class TestCliExecuteRenderCoverage:
 
         assert result == work
 
+    def test_execute_returns_work_when_input_missing(self, tmp_path):
+        """Test execute returns work when no render input is available."""
+        template = tmp_path / "template.docx"
+        template.touch()
+
+        config = UserConfig(target_dir=tmp_path, render=RenderStage(template=template))
+        work = UnitOfWork(config=config)
+
+        result = execute(work)
+
+        assert result == work
+
     def test_execute_returns_work_when_adjust_dry_run(self, tmp_path):
         """Test execute returns work when adjust.dry_run is True."""
         from cvextract.cli_config import AdjusterConfig, AdjustStage

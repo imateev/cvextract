@@ -1,13 +1,29 @@
 """Tests for cli_execute_parallel module - parallel directory processing."""
 
+from concurrent.futures import Future
+from contextlib import contextmanager
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from cvextract.cli_config import ExtractStage, ParallelStage, UserConfig
+from cvextract.cli_config import (
+    AdjusterConfig,
+    AdjustStage,
+    ExtractStage,
+    ParallelStage,
+    RenderStage,
+    UserConfig,
+)
 from cvextract.cli_execute_parallel import (
+    _WorkStatus,
+    _build_file_config,
+    _emit_parallel_summary,
+    _execute_file,
+    _load_failed_list,
+    _process_future_result,
+    _write_failed_list,
     execute_parallel_pipeline,
     scan_directory_for_files,
 )
@@ -555,3 +571,233 @@ class TestProgressIndicator:
         # With 4 files: [1/4 | 25%], [2/4 | 50%], [3/4 | 75%], [4/4 | 100%]
         assert "[1/4 |  25%]" in progress_indicators
         assert "[4/4 | 100%]" in progress_indicators
+
+
+class TestParallelHelperFunctions:
+    """Tests for helper functions used in parallel execution."""
+
+    def test_load_failed_list_parses_entries(self, tmp_path: Path):
+        """_load_failed_list should ignore comments and prefixes."""
+        failed_list = tmp_path / "failed.txt"
+        doc_a = tmp_path / "a.docx"
+        doc_b = tmp_path / "b.docx"
+        failed_list.write_text(
+            f"# comment\n\n- {doc_a}\n{doc_b}\n", encoding="utf-8"
+        )
+
+        files = _load_failed_list(failed_list)
+
+        assert files == [doc_a, doc_b]
+
+    def test_write_failed_list_writes_newline(self, tmp_path: Path):
+        """_write_failed_list should write one entry per line."""
+        output = tmp_path / "failed.txt"
+
+        _write_failed_list(output, ["a", "b"])
+
+        assert output.read_text(encoding="utf-8") == "a\nb\n"
+
+    def test_build_file_config_updates_extract_source(self, tmp_path: Path):
+        """_build_file_config should replace extract source and set flags."""
+        source_dir = tmp_path / "input"
+        config = UserConfig(
+            extract=ExtractStage(source=Path("old.docx")),
+            parallel=ParallelStage(source=source_dir, n=1),
+            target_dir=tmp_path,
+        )
+        file_path = tmp_path / "new.docx"
+
+        result = _build_file_config(config, file_path)
+
+        assert result.extract is not None
+        assert result.extract.source == file_path
+        assert result.parallel is None
+        assert result.suppress_summary is True
+        assert result.suppress_file_logging is True
+        assert result.input_dir == source_dir
+
+    def test_build_file_config_updates_render_data(self, tmp_path: Path):
+        """_build_file_config should replace render data when no extract."""
+        template = tmp_path / "template.docx"
+        template.touch()
+        source_dir = tmp_path / "input"
+        config = UserConfig(
+            render=RenderStage(template=template, data=tmp_path / "old.json"),
+            parallel=ParallelStage(source=source_dir, n=1),
+            target_dir=tmp_path,
+        )
+        new_data = tmp_path / "new.json"
+
+        result = _build_file_config(config, new_data)
+
+        assert result.render is not None
+        assert result.render.data == new_data
+        assert result.parallel is None
+        assert result.input_dir == source_dir
+
+    def test_build_file_config_updates_adjust_data(self, tmp_path: Path):
+        """_build_file_config should replace adjust data when no extract/render."""
+        source_dir = tmp_path / "input"
+        config = UserConfig(
+            adjust=AdjustStage(
+                adjusters=[AdjusterConfig(name="noop", params={})],
+                data=tmp_path / "old.json",
+            ),
+            parallel=ParallelStage(source=source_dir, n=1),
+            target_dir=tmp_path,
+        )
+        new_data = tmp_path / "new.json"
+
+        result = _build_file_config(config, new_data)
+
+        assert result.adjust is not None
+        assert result.adjust.data == new_data
+        assert result.parallel is None
+        assert result.input_dir == source_dir
+
+    def test_execute_file_uses_file_context(self, tmp_path: Path):
+        """_execute_file should run execute_single inside file context."""
+        file_path = tmp_path / "input.docx"
+        file_path.touch()
+
+        config = UserConfig(
+            extract=ExtractStage(source=Path("old.docx")),
+            parallel=ParallelStage(source=tmp_path, n=1),
+            target_dir=tmp_path,
+        )
+        work = UnitOfWork(config=config, initial_input=file_path)
+
+        class DummyController:
+            def __init__(self) -> None:
+                self.seen: list[Path] = []
+
+            @contextmanager
+            def file_context(self, path: Path):
+                self.seen.append(path)
+                yield
+
+        controller = DummyController()
+
+        with patch(
+            "cvextract.cli_execute_parallel.get_output_controller",
+            return_value=controller,
+        ), patch(
+            "cvextract.cli_execute_parallel.execute_single",
+            return_value=(0, work),
+        ) as mock_execute:
+            result = _execute_file(file_path, config)
+
+        assert result == (0, work)
+        assert controller.seen == [file_path]
+        passed_config = mock_execute.call_args[0][0]
+        assert passed_config.extract is not None
+        assert passed_config.extract.source == file_path
+
+    def test_process_future_result_success_trims_summary(self, tmp_path: Path):
+        """_process_future_result should drop empty issue placeholder."""
+        file_path = tmp_path / "input.docx"
+        config = UserConfig(target_dir=tmp_path)
+        work = UnitOfWork(config=config, initial_input=file_path)
+
+        future = Future()
+        future.set_result((0, work))
+
+        class DummyController:
+            def __init__(self) -> None:
+                self.summary_line = ""
+
+            def flush_file(self, _path: Path, summary_line: str) -> None:
+                self.summary_line = summary_line
+
+        controller = DummyController()
+        status, failed_file = _process_future_result(
+            future,
+            file_path,
+            "[1/1 | 100%]",
+            controller,
+            config,
+        )
+
+        assert status == _WorkStatus.FULL
+        assert failed_file is None
+        assert controller.summary_line
+        assert not controller.summary_line.endswith(" | -")
+
+    def test_process_future_result_exception_marks_failed(self, tmp_path: Path):
+        """_process_future_result should mark failures on exceptions."""
+        file_path = tmp_path / "input.docx"
+        config = UserConfig(target_dir=tmp_path, verbosity="debug")
+
+        future = Future()
+        future.set_exception(RuntimeError("boom"))
+
+        class DummyController:
+            def __init__(self) -> None:
+                self.summary_line = ""
+
+            def flush_file(self, _path: Path, summary_line: str) -> None:
+                self.summary_line = summary_line
+
+        controller = DummyController()
+        status, failed_file = _process_future_result(
+            future,
+            file_path,
+            "[1/1 | 100%]",
+            controller,
+            config,
+        )
+
+        assert status == _WorkStatus.FAILED
+        assert failed_file == str(file_path)
+        assert "Unexpected error:" in controller.summary_line
+
+    def test_emit_parallel_summary_writes_failed_list(self, tmp_path: Path):
+        """_emit_parallel_summary should write failed list when configured."""
+        output = tmp_path / "failed.txt"
+        config = UserConfig(
+            target_dir=tmp_path,
+            parallel=ParallelStage(source=tmp_path, n=1),
+            log_failed=output,
+            verbosity="debug",
+        )
+
+        class DummyController:
+            def direct_print(self, _line: str) -> None:
+                return None
+
+        with patch("cvextract.cli_execute_parallel._write_failed_list") as mock_write:
+            _emit_parallel_summary(
+                total_files=3,
+                full_success_count=1,
+                partial_success_count=1,
+                failed_count=1,
+                failed_files=["a.docx"],
+                config=config,
+                controller=DummyController(),
+            )
+
+        mock_write.assert_called_once_with(output, ["a.docx"])
+
+
+def test_execute_parallel_pipeline_rerun_failed_uses_list(tmp_path: Path):
+    """execute_parallel_pipeline should honor rerun_failed list."""
+    failed_list = tmp_path / "failed.txt"
+    doc_a = tmp_path / "a.docx"
+    doc_b = tmp_path / "b.docx"
+    failed_list.write_text(f"{doc_a}\n{doc_b}\n", encoding="utf-8")
+
+    config = UserConfig(
+        extract=ExtractStage(source=doc_a, output=None),
+        parallel=ParallelStage(source=tmp_path, n=1),
+        rerun_failed=failed_list,
+        target_dir=tmp_path,
+    )
+
+    with patch(
+        "cvextract.cli_execute_parallel._execute_parallel_pipeline", return_value=0
+    ) as mock_parallel:
+        exit_code = execute_parallel_pipeline(config)
+
+    assert exit_code == 0
+    args, _kwargs = mock_parallel.call_args
+    assert [str(p) for p in args[0]] == [str(doc_a), str(doc_b)]
