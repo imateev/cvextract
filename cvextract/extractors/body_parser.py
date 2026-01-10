@@ -48,9 +48,14 @@ MONTH_NAME = (
 )
 
 HEADING_PATTERN = re.compile(
-    rf"{MONTH_NAME}\s+\d{{4}}\s*"
-    r"(?:--|[-–—])\s*"
-    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})",
+    rf"^(?:"
+    rf"{MONTH_NAME}\s+\d{{4}}\s*(?:--|[-–—])\s*"
+    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})"
+    r"|"
+    r"\d{4}\s*(?:--|[-–—])\s*(?:\d{4}|Present|Now|Current)"
+    r"|"
+    r"\d{4}\s*\|"
+    r")",
     re.IGNORECASE,
 )
 
