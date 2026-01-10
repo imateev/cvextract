@@ -132,7 +132,7 @@ class StepName(str, Enum):
     Render = "Render"
     VerifyRender = "VerifyRender"
     VerifyExtract = "VerifyExtract"
-    VerifyAdjust = "VerifyRender"
+    VerifyAdjust = "VerifyAdjust"
     Verify = "Verify"
 
 
@@ -174,6 +174,7 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
 def select_issue_step(work: "UnitOfWork") -> "StepName":
     for candidate in (
         StepName.VerifyRender,
+        StepName.VerifyAdjust,
         StepName.VerifyExtract,
         StepName.Render,
         StepName.Adjust,
@@ -193,8 +194,13 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
     input_path = work.initial_input or work.get_step_input(StepName.Extract)
     input_name = input_path.name if input_path else "<unknown>"
     return (
+        f"E:"
         f"{icons[StepName.Extract]}"
         f"·{icons[StepName.VerifyExtract]}"
+        f"·A:"
+        f"·{icons[StepName.Adjust]}"
+        f"·{icons[StepName.VerifyAdjust]}"
+        f"·R:"
         f"·{icons[StepName.Render]}"
         f"·{icons[StepName.VerifyRender]} "
         f"{input_name} | "

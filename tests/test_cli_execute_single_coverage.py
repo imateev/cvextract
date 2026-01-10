@@ -226,7 +226,7 @@ def test_execute_single_calls_adjust_verify_on_success(tmp_path):
         "cvextract.cli_execute_single.execute_adjust", return_value=adjusted
     ), patch(
         "cvextract.cli_execute_single.adjust_verify",
-        side_effect=lambda w: w.add_error(StepName.Adjust, "bad") or w,
+        side_effect=lambda w: w.add_error(StepName.VerifyAdjust, "bad") or w,
     ) as mock_verify:
         rc, work = execute_single(config)
 
@@ -255,7 +255,7 @@ def test_adjust_verify_handles_unknown_verifier(tmp_path):
     with patch("cvextract.cli_execute_single.get_verifier", return_value=None):
         result = adjust_verify(work)
 
-    adjust_status = result.step_states[StepName.Adjust]
+    adjust_status = result.step_states[StepName.VerifyAdjust]
     assert any("unknown verifier" in e for e in adjust_status.errors)
 
 
@@ -285,7 +285,7 @@ def test_adjust_verify_records_verifier_exception(tmp_path):
     with verifier:
         result = adjust_verify(work)
 
-    adjust_status = result.step_states[StepName.Adjust]
+    adjust_status = result.step_states[StepName.VerifyAdjust]
     assert any("verify failed" in e for e in adjust_status.errors)
 
 
