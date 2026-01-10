@@ -166,6 +166,108 @@ def test_extract_verify_handles_unknown_verifier(tmp_path):
     assert any("unknown verifier" in e for e in extract_status.errors)
 
 
+def test_extract_verify_returns_work_without_extract_config(tmp_path):
+    """extract_verify should no-op when extract config is missing."""
+    config = UserConfig(target_dir=tmp_path)
+    work = UnitOfWork(config=config)
+
+    result = extract_verify(work)
+
+    assert result is work
+    assert StepName.VerifyExtract not in result.step_states
+
+
+def test_extract_verify_skips_when_configured(tmp_path):
+    """extract_verify should skip when skip_verify is set."""
+    source = tmp_path / "input.docx"
+    source.touch()
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        extract=ExtractStage(source=source, skip_verify=True),
+    )
+    work = UnitOfWork(config=config, initial_input=source)
+
+    result = extract_verify(work)
+
+    assert result is work
+    assert StepName.VerifyExtract not in result.step_states
+
+
+def test_extract_verify_reports_missing_output(tmp_path):
+    """extract_verify should report missing output JSON."""
+    source = tmp_path / "input.docx"
+    source.touch()
+
+    config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(
+        StepName.Extract,
+        input_path=source,
+        output_path=tmp_path / "missing.json",
+    )
+
+    result = extract_verify(work)
+
+    extract_status = result.step_states[StepName.VerifyExtract]
+    assert any("output JSON not found" in e for e in extract_status.errors)
+
+
+def test_extract_verify_stops_on_verifier_errors(tmp_path):
+    """extract_verify should stop when a verifier adds errors."""
+    source = tmp_path / "input.docx"
+    source.touch()
+    output_path = tmp_path / "out.json"
+    output_path.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        extract=ExtractStage(source=source, verifier="dummy"),
+    )
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(
+        StepName.Extract, input_path=source, output_path=output_path
+    )
+
+    class DummyVerifier:
+        def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
+            verify_work.add_error(StepName.VerifyExtract, "bad")
+            return verify_work
+
+    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+        result = extract_verify(work)
+
+    extract_status = result.step_states[StepName.VerifyExtract]
+    assert any("bad" in e for e in extract_status.errors)
+
+
+def test_extract_verify_returns_work_on_success(tmp_path):
+    """extract_verify should return work when verification succeeds."""
+    source = tmp_path / "input.docx"
+    source.touch()
+    output_path = tmp_path / "out.json"
+    output_path.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        extract=ExtractStage(source=source, verifier="dummy"),
+    )
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(
+        StepName.Extract, input_path=source, output_path=output_path
+    )
+
+    class DummyVerifier:
+        def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
+            return verify_work
+
+    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+        result = extract_verify(work)
+
+    assert result is work
+    assert result.has_no_errors(StepName.VerifyExtract)
+
+
 def test_extract_verify_records_verifier_exception(tmp_path):
     """extract_verify should record verifier failures as errors."""
     source = tmp_path / "input.docx"
@@ -259,6 +361,107 @@ def test_adjust_verify_handles_unknown_verifier(tmp_path):
 
     adjust_status = result.step_states[StepName.VerifyAdjust]
     assert any("unknown verifier" in e for e in adjust_status.errors)
+
+
+def test_adjust_verify_returns_work_without_adjust_config(tmp_path):
+    """adjust_verify should no-op when adjust config is missing."""
+    config = UserConfig(target_dir=tmp_path)
+    work = UnitOfWork(config=config)
+
+    result = adjust_verify(work)
+
+    assert result is work
+    assert StepName.VerifyAdjust not in result.step_states
+
+
+def test_adjust_verify_skips_when_configured(tmp_path):
+    """adjust_verify should skip when skip_verify is set."""
+    json_file = tmp_path / "adjusted.json"
+    json_file.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})], skip_verify=True),
+    )
+    work = UnitOfWork(config=config, initial_input=json_file)
+
+    result = adjust_verify(work)
+
+    assert result is work
+    assert StepName.VerifyAdjust not in result.step_states
+
+
+def test_adjust_verify_reports_missing_output(tmp_path):
+    """adjust_verify should report missing output JSON."""
+    json_file = tmp_path / "adjusted.json"
+    json_file.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})]),
+    )
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Adjust,
+        input_path=json_file,
+        output_path=tmp_path / "missing.json",
+    )
+
+    result = adjust_verify(work)
+
+    adjust_status = result.step_states[StepName.VerifyAdjust]
+    assert any("output JSON not found" in e for e in adjust_status.errors)
+
+
+def test_adjust_verify_stops_on_verifier_errors(tmp_path):
+    """adjust_verify should stop when a verifier adds errors."""
+    json_file = tmp_path / "adjusted.json"
+    json_file.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})], verifier="dummy"),
+    )
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Adjust, input_path=json_file, output_path=json_file
+    )
+
+    class DummyVerifier:
+        def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
+            verify_work.add_error(StepName.VerifyAdjust, "bad")
+            return verify_work
+
+    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+        result = adjust_verify(work)
+
+    adjust_status = result.step_states[StepName.VerifyAdjust]
+    assert any("bad" in e for e in adjust_status.errors)
+
+
+def test_adjust_verify_returns_work_on_success(tmp_path):
+    """adjust_verify should return work when verification succeeds."""
+    json_file = tmp_path / "adjusted.json"
+    json_file.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})], verifier="dummy"),
+    )
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Adjust, input_path=json_file, output_path=json_file
+    )
+
+    class DummyVerifier:
+        def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
+            return verify_work
+
+    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+        result = adjust_verify(work)
+
+    assert result is work
+    assert result.has_no_errors(StepName.VerifyAdjust)
 
 
 def test_adjust_verify_records_verifier_exception(tmp_path):
