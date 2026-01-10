@@ -25,7 +25,7 @@ from cvextract.renderers import register_renderer, get_renderer, list_renderers
 register_renderer("my-custom-renderer", MyCustomRenderer)
 
 # Get a renderer instance by name
-renderer = get_renderer("private-internal-renderer")
+renderer = get_renderer("default-docx-cv-renderer")
 
 # List all available renderers
 renderers = list_renderers()
@@ -51,9 +51,9 @@ class CustomRenderer(CVRenderer):
         return work
 ```
 
-### DocxCVRenderer (private-internal-renderer)
+### DocxCVRenderer (default-docx-cv-renderer)
 
-The `DocxCVRenderer` is the default implementation (registered as `"private-internal-renderer"`) that renders CV data to Microsoft Word `.docx` files using docxtpl templates:
+The `DocxCVRenderer` is the default implementation (registered as `"default-docx-cv-renderer"`) that renders CV data to Microsoft Word `.docx` files using docxtpl templates:
 
 ```python
 from cvextract.cli_config import RenderStage, UserConfig
@@ -76,7 +76,7 @@ work.set_step_paths(
     output_path=output_path,
 )
 
-renderer = get_renderer("private-internal-renderer")
+renderer = get_renderer("default-docx-cv-renderer")
 result = renderer.render(work)
 output = result.get_step_output(StepName.Render)
 ```
@@ -150,7 +150,7 @@ work.set_step_paths(
     output_path=output_path,
 )
 
-renderer = get_renderer("private-internal-renderer")
+renderer = get_renderer("default-docx-cv-renderer")
 result = renderer.render(work)
 
 print(f"Rendered CV saved to: {result.get_step_output(StepName.Render)}")
@@ -230,7 +230,7 @@ def render_cv_with_custom_template(json_file: Path, template_file: Path, output_
         input_path=json_file,
         output_path=output_file,
     )
-    renderer = get_renderer("private-internal-renderer")
+    renderer = get_renderer("default-docx-cv-renderer")
     return renderer.render(work)
 
 # Usage
@@ -243,4 +243,4 @@ result = render_cv_with_custom_template(
 
 ## Integration with Existing Pipeline
 
-The renderers integrate with the existing pipeline through the `render_cv_data()` function in `pipeline_helpers.py`, which uses the default renderer (`"private-internal-renderer"`).
+The renderers integrate with the existing pipeline through the `render_cv_data()` function in `pipeline_helpers.py`, which uses the default renderer (`"default-docx-cv-renderer"`).

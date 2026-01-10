@@ -53,7 +53,7 @@ def _resolve_extractor_names(work: UnitOfWork) -> List[str]:
     raw_name = work.config.extract.name or ""
     names = [name.strip() for name in raw_name.split(",") if name.strip()]
     if not names:
-        names = ["default_docx_cv_extractor"]
+        names = ["default-docx-cv-extractor"]
     return names
 
 
@@ -88,9 +88,9 @@ def render_cv_data(work: UnitOfWork) -> UnitOfWork:
     Returns:
         UnitOfWork with rendered output populated
     """
-    renderer = get_renderer("private-internal-renderer")
+    renderer = get_renderer("default-docx-cv-renderer")
     if not renderer:
-        raise ValueError("Default renderer 'private-internal-renderer' not found")
+        raise ValueError("Default renderer 'default-docx-cv-renderer' not found")
     return renderer.render(work)
 
 

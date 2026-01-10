@@ -29,7 +29,7 @@ class TestExtractorRegistry:
         names = [e["name"] for e in extractors]
 
         # Check for built-in extractors
-        assert "default_docx_cv_extractor" in names
+        assert "default-docx-cv-extractor" in names
         assert "openai-extractor" in names
 
         # Each should have a description
@@ -41,8 +41,8 @@ class TestExtractorRegistry:
             assert len(extractor["description"]) > 0
 
     def test_get_extractor_returns_private_internal(self):
-        """get_extractor() returns default_docx_cv_extractor instance."""
-        extractor = get_extractor("default_docx_cv_extractor")
+        """get_extractor() returns default-docx-cv-extractor instance."""
+        extractor = get_extractor("default-docx-cv-extractor")
 
         assert extractor is not None
         assert isinstance(extractor, CVExtractor)

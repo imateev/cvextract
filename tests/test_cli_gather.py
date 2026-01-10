@@ -340,7 +340,7 @@ class TestGatherUserRequirements:
                 "--rerun-failed",
                 "/tmp/failed.txt",
                 "--extract",
-                "name=default_docx_cv_extractor",
+                "name=default-docx-cv-extractor",
                 "--target",
                 "/output",
             ]

@@ -31,7 +31,7 @@ def get_extractor(name: str, **kwargs) -> Optional[CVExtractor]:
     Get an extractor instance by name.
 
     Args:
-        name: The extractor name (e.g., "openai-extractor", "default_docx_cv_extractor")
+        name: The extractor name (e.g., "openai-extractor", "default-docx-cv-extractor")
         **kwargs: Arguments to pass to the extractor constructor
 
     Returns:

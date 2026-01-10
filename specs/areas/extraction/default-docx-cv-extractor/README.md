@@ -46,12 +46,12 @@ cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ### CLI Usage
 
 ```bash
-# Default (default_docx_cv_extractor is used automatically)
+# Default (default-docx-cv-extractor is used automatically)
 python -m cvextract.cli --extract source=cv.docx --target output/
 
 # Explicit specification
 python -m cvextract.cli \
-  --extract source=cv.docx name=default_docx_cv_extractor \
+  --extract source=cv.docx name=default-docx-cv-extractor \
   --target output/
 ```
 
@@ -64,7 +64,7 @@ from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
-extractor = get_extractor("default_docx_cv_extractor")
+extractor = get_extractor("default-docx-cv-extractor")
 work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
 work.set_step_paths(
     StepName.Extract,
@@ -81,7 +81,7 @@ cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ### CLI Parameters
 
 - `source=<path>`: Path to DOCX file (required)
-- `name=default_docx_cv_extractor`: Extractor name (optional, this is the default)
+- `name=default-docx-cv-extractor`: Extractor name (optional, this is the default)
 - `output=<path>`: Output JSON path (optional, defaults to `{target}/structured_data/`)
 
 ### Environment Variables
@@ -147,7 +147,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json`:
 
 ### Integration Points
 
-- Registered in `cvextract/extractors/__init__.py` as `"default_docx_cv_extractor"`
+- Registered in `cvextract/extractors/__init__.py` as `"default-docx-cv-extractor"`
 - Used by `cvextract.pipeline_helpers.extract_cv_data()` as default (expects `UnitOfWork`)
 - Used by `cvextract.cli_execute_pipeline.execute_pipeline()` for extraction stage
 

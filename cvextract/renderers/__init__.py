@@ -14,7 +14,7 @@ from .renderer_registry import (
 
 
 # Register built-in renderers
-register_renderer("private-internal-renderer", DocxCVRenderer)
+register_renderer("default-docx-cv-renderer", DocxCVRenderer)
 
 
 __all__ = [

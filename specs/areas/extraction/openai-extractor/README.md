@@ -163,7 +163,7 @@ extractor = OpenAICVExtractor(retry_config=custom_retry)
 
 ### Output
 
-JSON data conforming to `cvextract/contracts/cv_schema.json` (same schema as default_docx_cv_extractor).
+JSON data conforming to `cvextract/contracts/cv_schema.json` (same schema as default-docx-cv-extractor).
 
 ## Dependencies
 
@@ -236,7 +236,7 @@ The OpenAI extractor was added to support text files and non-standard DOCX forma
 1. **PDF Support**: Should we add PyPDF2/pdfplumber for PDF extraction?
 2. **PPTX Support**: Should we support PowerPoint resume formats?
 3. **Cost Optimization**: Should we implement chunking for very long CVs?
-4. **Fallback**: Should we fall back to default_docx_cv_extractor on API failures for DOCX?
+4. **Fallback**: Should we fall back to default-docx-cv-extractor on API failures for DOCX?
 
 ## Performance Characteristics
 
@@ -281,7 +281,7 @@ The OpenAI extractor was added to support text files and non-standard DOCX forma
 ## Related Documentation
 
 - [Extractor Architecture](../README.md)
-- [Default DOCX CV Extractor](../default_docx_cv_extractor/README.md) - Default DOCX parser
+- [Default DOCX CV Extractor](../default-docx-cv-extractor/README.md) - Default DOCX parser
 - [Extractor Registry](../extractor-registry/README.md) - Registration system
 - Module README: `cvextract/extractors/README.md`
 - Main README: Section on "Pluggable Extractors"

@@ -40,7 +40,7 @@ The extraction area provides pluggable architecture for extracting structured CV
 
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
-| [Default DOCX CV Extractor](areas/extraction/default_docx_cv_extractor/README.md) | Active | Default DOCX parser using WordprocessingML XML | `cvextract.extractors.DocxCVExtractor` | `name=default_docx_cv_extractor` (default) |
+| [Default DOCX CV Extractor](areas/extraction/default-docx-cv-extractor/README.md) | Active | Default DOCX parser using WordprocessingML XML | `cvextract.extractors.DocxCVExtractor` | `name=default-docx-cv-extractor` (default) |
 | [OpenAI Extractor](areas/extraction/openai-extractor/README.md) | Active | OpenAI-powered intelligent extraction for TXT/DOCX | `cvextract.extractors.OpenAICVExtractor` | `name=openai-extractor`, `OPENAI_API_KEY` |
 | [Extractor Registry](areas/extraction/extractor-registry/README.md) | Active | Pluggable extractor registration and lookup system | `cvextract.extractors.{register_extractor, get_extractor, list_extractors}` | N/A |
 
@@ -73,7 +73,7 @@ The rendering area provides pluggable architecture for rendering structured CV d
 
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
-| [DOCX Renderer](areas/rendering/docx-renderer/README.md) | Active | Renders CV data to DOCX using docxtpl/Jinja2 | `cvextract.renderers.DocxCVRenderer` or `get_renderer("private-internal-renderer")` | `template=<path>` |
+| [DOCX Renderer](areas/rendering/docx-renderer/README.md) | Active | Renders CV data to DOCX using docxtpl/Jinja2 | `cvextract.renderers.DocxCVRenderer` or `get_renderer("default-docx-cv-renderer")` | `template=<path>` |
 | [Pluggable Renderer Architecture](areas/rendering/pluggable-renderer-architecture/README.md) | Active | Abstract base class and registry for renderers | `cvextract.renderers.{CVRenderer, register_renderer, get_renderer, list_renderers}` | N/A |
 
 ---

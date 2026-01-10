@@ -18,7 +18,7 @@ class ExtractStage:
 
     source: Path  # Input file(s)
     name: str = (
-        "default_docx_cv_extractor"  # Extractor name (default: default_docx_cv_extractor)
+        "default-docx-cv-extractor"  # Extractor name (default: default-docx-cv-extractor)
     )
     output: Optional[Path] = (
         None  # Output JSON (optional, defaults to target_dir/structured_data/)

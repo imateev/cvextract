@@ -26,7 +26,7 @@ class TestRendererRegistry:
         names = [r["name"] for r in renderers]
 
         # Check for built-in renderer
-        assert "private-internal-renderer" in names
+        assert "default-docx-cv-renderer" in names
 
         # Each should have a description
         for renderer in renderers:
@@ -37,8 +37,8 @@ class TestRendererRegistry:
             assert len(renderer["description"]) > 0
 
     def test_get_renderer_returns_private_internal(self):
-        """get_renderer() returns private-internal-renderer instance."""
-        renderer = get_renderer("private-internal-renderer")
+        """get_renderer() returns default-docx-cv-renderer instance."""
+        renderer = get_renderer("default-docx-cv-renderer")
 
         assert renderer is not None
         assert isinstance(renderer, CVRenderer)

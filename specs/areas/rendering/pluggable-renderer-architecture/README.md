@@ -29,7 +29,7 @@ from cvextract.renderers import register_renderer, get_renderer, list_renderers
 register_renderer("my-custom-renderer", MyCustomRenderer)
 
 # Get a renderer instance by name
-renderer = get_renderer("private-internal-renderer")
+renderer = get_renderer("default-docx-cv-renderer")
 
 # List all available renderers
 renderers = list_renderers()
@@ -52,7 +52,7 @@ class CustomRenderer(CVRenderer):
 ```python
 from cvextract.renderers import get_renderer
 
-renderer = get_renderer("private-internal-renderer")
+renderer = get_renderer("default-docx-cv-renderer")
 result = renderer.render(work)
 ```
 
@@ -101,7 +101,7 @@ None (base class is pure Python)
 
 ### Integration Points
 
-- Implemented by `cvextract.renderers.DocxCVRenderer` (registered as `"private-internal-renderer"`)
+- Implemented by `cvextract.renderers.DocxCVRenderer` (registered as `"default-docx-cv-renderer"`)
 - Used by `cvextract.pipeline_helpers.render_cv_data()`
 - Registry pattern mirrors `cvextract.extractors.extractor_registry`
 
@@ -119,7 +119,7 @@ The pluggable architecture was introduced during refactoring to separate concern
 
 **Key Files**:
 - `cvextract/renderers/base.py` - Abstract base class
-- `cvextract/renderers/docx_renderer.py` - DOCX implementation (registered as `"private-internal-renderer"`)
+- `cvextract/renderers/docx_renderer.py` - DOCX implementation (registered as `"default-docx-cv-renderer"`)
 - `cvextract/renderers/renderer_registry.py` - Registry implementation
 - `cvextract/renderers/__init__.py` - Public API and renderer registration
 

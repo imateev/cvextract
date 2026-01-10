@@ -20,7 +20,7 @@ def register_renderer(name: str, renderer_class: Type[CVRenderer]) -> None:
     Register a renderer class in the global registry.
 
     Args:
-        name: The name to register the renderer under (e.g., "private-internal-renderer")
+        name: The name to register the renderer under (e.g., "default-docx-cv-renderer")
         renderer_class: The renderer class to register
     """
     _RENDERER_REGISTRY[name] = renderer_class
@@ -31,7 +31,7 @@ def get_renderer(name: str, **kwargs) -> Optional[CVRenderer]:
     Get a renderer instance by name.
 
     Args:
-        name: The renderer name (e.g., "private-internal-renderer")
+        name: The renderer name (e.g., "default-docx-cv-renderer")
         **kwargs: Arguments to pass to the renderer constructor
 
     Returns:

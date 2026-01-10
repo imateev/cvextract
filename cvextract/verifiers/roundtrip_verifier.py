@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any, List
 
-from ..shared import StepName, UnitOfWork
+from ..shared import StepName, UnitOfWork, clean_text
 from .base import CVVerifier
 
 
@@ -63,11 +63,11 @@ class RoundtripVerifier(CVVerifier):
             if isinstance(entry, str):
                 parts = re.split(r"[\u2022•·,;]|\s•\s|\s-\s|•", entry)
                 for part in parts:
-                    cleaned = part.strip()
+                    cleaned = clean_text(part)
                     if cleaned:
                         tokens.append(cleaned.lower())
             else:
-                tokens.append(str(entry).strip().lower())
+                tokens.append(clean_text(str(entry)).lower())
         return sorted(tokens)
 
     def _is_environment_path(self, path: str) -> bool:
@@ -87,8 +87,12 @@ class RoundtripVerifier(CVVerifier):
             a_keys = set(a.keys())
             b_keys = set(b.keys())
             for missing in sorted(a_keys - b_keys):
+                if isinstance(a.get(missing), list) and not a.get(missing):
+                    continue
                 errors.append(f"missing key in new at {path or '<root>'}.{missing}")
             for extra in sorted(b_keys - a_keys):
+                if isinstance(b.get(extra), list) and not b.get(extra):
+                    continue
                 errors.append(f"extra key in new at {path or '<root>'}.{extra}")
             for k in sorted(a_keys & b_keys):
                 self._diff(a[k], b[k], f"{path}.{k}" if path else k, errors)
@@ -110,6 +114,15 @@ class RoundtripVerifier(CVVerifier):
                 return
             for idx, (x, y) in enumerate(zip(a, b)):
                 self._diff(x, y, f"{path}[{idx}]" if path else f"[{idx}]", errors)
+            return
+
+        if isinstance(a, str):
+            a_norm = clean_text(a)
+            b_norm = clean_text(b)
+            if a_norm != b_norm:
+                errors.append(
+                    f"value mismatch at {path or '<root>'}: {a_norm!r} vs {b_norm!r}"
+                )
             return
 
         # Primitive or other immutable

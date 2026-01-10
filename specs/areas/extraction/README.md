@@ -6,7 +6,7 @@ The extraction area provides a pluggable architecture for extracting structured 
 
 ## Features
 
-- [Default DOCX CV Extractor](default_docx_cv_extractor/README.md) - Default DOCX parser using WordprocessingML XML
+- [Default DOCX CV Extractor](default-docx-cv-extractor/README.md) - Default DOCX parser using WordprocessingML XML
 - [OpenAI Extractor](openai-extractor/README.md) - OpenAI-powered intelligent extraction for TXT/DOCX
 - [Extractor Registry](extractor-registry/README.md) - Pluggable extractor registration and lookup system
 
@@ -57,7 +57,7 @@ Structured JSON Data (Extract step output)
 
 - **Internal**: `cvextract.contracts` (CV schema), `cvextract.shared` (prompt loading)
 - **External**: 
-  - `lxml` (XML parsing for default_docx_cv_extractor)
+  - `lxml` (XML parsing for default-docx-cv-extractor)
   - `openai` (OpenAI API for openai-extractor)
   - `requests` (HTTP client for openai-extractor)
 

@@ -106,7 +106,7 @@ def test_extract_single_falls_back_to_next_extractor(monkeypatch, tmp_path: Path
             )
 
     def fake_get_extractor(name: str):
-        if name == "default_docx_cv_extractor":
+        if name == "default-docx-cv-extractor":
             return FailingExtractor()
         if name == "openai-extractor":
             return SuccessExtractor()
@@ -115,7 +115,7 @@ def test_extract_single_falls_back_to_next_extractor(monkeypatch, tmp_path: Path
     monkeypatch.setattr(p, "get_extractor", fake_get_extractor)
 
     work = UnitOfWork(
-        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx, name="default_docx_cv_extractor,openai-extractor")),
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx, name="default-docx-cv-extractor,openai-extractor")),
         initial_input=docx,
     )
     work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)

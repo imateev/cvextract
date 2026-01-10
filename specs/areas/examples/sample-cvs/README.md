@@ -216,5 +216,5 @@ Content is fictional but realistic, using pop culture names for memorability.
 
 - [Examples Architecture](../README.md)
 - [Documentation](../documentation/README.md)
-- [Default DOCX CV Extractor](../../extraction/default_docx_cv_extractor/README.md)
+- [Default DOCX CV Extractor](../../extraction/default-docx-cv-extractor/README.md)
 - Main README: Examples sections
