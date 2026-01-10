@@ -54,8 +54,6 @@ def _resolve_extractor_names(work: UnitOfWork) -> List[str]:
     names = [name.strip() for name in raw_name.split(",") if name.strip()]
     if not names:
         names = ["default_docx_cv_extractor"]
-    if names == ["default_docx_cv_extractor"]:
-        names.append("openai-extractor")
     return names
 
 
