@@ -117,3 +117,25 @@ class TestCVBodyParsing:
         assert len(exps) == 2
         assert exps[0]["heading"].startswith("09/2024")
         assert exps[1]["heading"].startswith("01/2022")
+
+    def test_parse_title_only_headings(self, monkeypatch):
+        """Title-only headings should start new experiences."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("Data Engineering", False, ""),
+            ("• Built pipelines", True, ""),
+            ("Database Administration", False, ""),
+            ("• Tuned indexes", True, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"] == "Data Engineering"
+        assert exps[1]["heading"] == "Database Administration"

@@ -68,6 +68,25 @@ ENVIRONMENT_PATTERN = re.compile(
 )
 
 
+def _looks_like_heading(line: str, is_bullet: bool, style: str) -> bool:
+    if is_bullet:
+        return False
+    style_lower = style.lower()
+    if style_lower.startswith("heading") or "title" in style_lower:
+        return True
+    if HEADING_PATTERN.search(line):
+        return True
+    if line.lower().startswith("environment"):
+        return False
+    if line.startswith(("•", "·", "-", "–", "—", "->", "→")):
+        return False
+    if len(line) > 80 or line.count(" ") > 10:
+        return False
+    if line.endswith((".", ";", ":")):
+        return False
+    return True
+
+
 def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]:
     """
     Parse the main body directly from DOCX.
@@ -111,8 +130,7 @@ def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]
 
         if in_experience:
             # Heading detection: either matches date range OR is a heading style
-            is_heading_style = style.lower().startswith("heading") and not is_bullet
-            if HEADING_PATTERN.search(line) or is_heading_style:
+            if _looks_like_heading(line, is_bullet, style):
                 flush_current()
                 current_exp = ExperienceBuilder(heading=clean_text(line))
                 continue
