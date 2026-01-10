@@ -10,6 +10,7 @@ from cvextract.shared import (
     StepStatus,
     UnitOfWork,
     get_status_icons,
+    write_output_json,
 )
 from cvextract.verifiers import get_verifier
 
@@ -84,9 +85,45 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
     result = p.extract_single(work)
     extract_status = result.step_states[StepName.Extract]
-    assert len(extract_status.errors) == 1
-    assert "exception: RuntimeError" in extract_status.errors[0]
+    assert any("exception: RuntimeError" in err for err in extract_status.errors)
     assert extract_status.warnings == []
+
+
+def test_extract_single_falls_back_to_next_extractor(monkeypatch, tmp_path: Path):
+    """extract_single should try the next extractor after a failure."""
+    docx = tmp_path / "test.docx"
+    output = tmp_path / "test.json"
+    docx.write_text("docx")
+
+    class FailingExtractor:
+        def extract(self, _work: UnitOfWork) -> UnitOfWork:
+            raise RuntimeError("boom")
+
+    class SuccessExtractor:
+        def extract(self, work: UnitOfWork) -> UnitOfWork:
+            return write_output_json(
+                work, {"extracted": True}, step=StepName.Extract
+            )
+
+    def fake_get_extractor(name: str):
+        if name == "private-internal-extractor":
+            return FailingExtractor()
+        if name == "openai-extractor":
+            return SuccessExtractor()
+        return None
+
+    monkeypatch.setattr(p, "get_extractor", fake_get_extractor)
+
+    work = UnitOfWork(
+        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
+        initial_input=docx,
+    )
+    work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
+
+    result = p.extract_single(work)
+    extract_status = result.step_states[StepName.Extract]
+    assert extract_status.errors == []
+    assert json.loads(output.read_text(encoding="utf-8"))["extracted"] is True
 
 
 def test_extract_single_does_not_create_verify_status(monkeypatch, tmp_path: Path):

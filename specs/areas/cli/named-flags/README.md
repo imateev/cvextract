@@ -62,7 +62,7 @@ python -m cvextract.cli \
 
 **Extract**:
 - `source=<path>` - Input file/directory
-- `name=<extractor>` - Extractor name
+- `name=<extractor[,extractor,...]>` - Extractor name(s) (tried in order)
 - `output=<path>` - Output JSON path
 
 **Adjust**:

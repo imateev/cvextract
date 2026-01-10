@@ -47,6 +47,18 @@ def safe_relpath(p: Path, root: Path) -> str:
         return p.name
 
 
+def _resolve_extractor_names(work: UnitOfWork) -> List[str]:
+    if not work.config.extract:
+        return []
+    raw_name = work.config.extract.name or ""
+    names = [name.strip() for name in raw_name.split(",") if name.strip()]
+    if not names:
+        names = ["private-internal-extractor"]
+    if names == ["private-internal-extractor"]:
+        names.append("openai-extractor")
+    return names
+
+
 def extract_cv_data(
     work: UnitOfWork, extractor: Optional[CVExtractor] = None
 ) -> UnitOfWork:
@@ -173,40 +185,64 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Extract, "extract: output JSON path is not set")
         return work
 
-    try:
-        extractor: Optional[CVExtractor] = None
-        if work.config.extract and work.config.extract.name:
-            extractor = get_extractor(work.config.extract.name)
-            if not extractor:
-                work.add_error(
-                    StepName.Extract, f"unknown extractor: {work.config.extract.name}"
-                )
-                extract_status = work.step_states.get(StepName.Extract)
-                if extract_status:
-                    extract_status.ConfiguredExecutorAvailable = False
-                return work
+    extractor_names = _resolve_extractor_names(work)
+    base_input = extract_status.input
+    base_output = extract_status.output
+    last_errors: List[str] = []
+    last_work = work
+    had_extractor = False
 
-        extract_work = extract_cv_data(work, extractor=extractor)
-        extract_status = extract_work.step_states.get(StepName.Extract)
-        output_path = extract_status.output if extract_status else None
-        if output_path is None:
-            extract_work.add_error(
-                StepName.Extract, "extract: output JSON path is not set"
+    for extractor_name in extractor_names:
+        attempt_status = StepStatus(step=StepName.Extract)
+        attempt_status.input = base_input
+        attempt_status.output = base_output
+        attempt_states = dict(work.step_states)
+        attempt_states[StepName.Extract] = attempt_status
+        attempt_work = replace(work, step_states=attempt_states)
+
+        extractor = get_extractor(extractor_name)
+        if not extractor:
+            last_errors.append(f"unknown extractor: {extractor_name}")
+            last_work = attempt_work
+            continue
+        had_extractor = True
+
+        try:
+            extract_work = extract_cv_data(attempt_work, extractor=extractor)
+            attempt_result_status = extract_work.step_states.get(StepName.Extract)
+            output_path = (
+                attempt_result_status.output if attempt_result_status else None
             )
+            if output_path is None:
+                extract_work.add_error(
+                    StepName.Extract, "extract: output JSON path is not set"
+                )
+            elif not output_path.exists():
+                extract_work.add_error(
+                    StepName.Extract,
+                    f"extract: output JSON not found: {output_path}",
+                )
+        except Exception as e:
+            extract_work = attempt_work
+            if work.config.debug:
+                LOG.error(traceback.format_exc())
+                dump_body_sample(attempt_status.input, n=30)
+            extract_work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
+
+        if extract_work.has_no_errors(StepName.Extract):
             return extract_work
-        if not output_path.exists():
-            extract_work.add_error(
-                StepName.Extract,
-                f"extract: output JSON not found: {output_path}",
-            )
-            return extract_work
-        return extract_work
-    except Exception as e:
-        if work.config.debug:
-            LOG.error(traceback.format_exc())
-            dump_body_sample(extract_status.input, n=30)
-        work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
-        return work
+
+        result_status = extract_work.step_states.get(StepName.Extract)
+        if result_status:
+            last_errors.extend(result_status.errors)
+        last_work = extract_work
+
+    if last_errors:
+        final_status = last_work.ensure_step_status(StepName.Extract)
+        final_status.errors = last_errors
+        if not had_extractor:
+            final_status.ConfiguredExecutorAvailable = False
+    return last_work
 
 
 def render(work: UnitOfWork) -> UnitOfWork:

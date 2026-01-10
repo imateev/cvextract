@@ -174,8 +174,9 @@ Examples:
         nargs="*",
         metavar="PARAM",
         help="Extract stage: Extract CV data from source file to JSON. "
-        "Parameters: source=<file> (required) [name=<extractor-name>] [output=<path>] "
+        "Parameters: source=<file> (required) [name=<extractor-name[,extractor-name,...]>] [output=<path>] "
         "[verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
+        "Defaults to private-internal-extractor, then openai-extractor on failure. "
         "Use --list extractors to see available extractors.",
     )
     parser.add_argument(
