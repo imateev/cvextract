@@ -40,7 +40,7 @@ extractor = get_extractor("my-extractor")
 
 # List all extractors
 extractors = list_extractors()
-# Returns: [{"name": "private-internal-extractor", "description": "..."}, ...]
+# Returns: [{"name": "default-docx-cv-extractor", "description": "..."}, ...]
 ```
 
 ### CLI Usage
@@ -68,7 +68,7 @@ python -m cvextract.cli \
 In `cvextract/extractors/__init__.py`:
 
 ```python
-register_extractor("private-internal-extractor", DocxCVExtractor)
+register_extractor("default-docx-cv-extractor", DocxCVExtractor)
 register_extractor("openai-extractor", OpenAICVExtractor)
 ```
 
@@ -210,6 +210,6 @@ extractor = get_extractor("pdf-extractor")
 ## Related Documentation
 
 - [Extractor Architecture](../README.md)
-- [Private Internal Extractor](../private-internal-extractor/README.md)
+- [Default DOCX CV Extractor](../default-docx-cv-extractor/README.md)
 - [OpenAI Extractor](../openai-extractor/README.md)
 - Module README: `cvextract/extractors/README.md`

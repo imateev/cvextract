@@ -174,8 +174,9 @@ Examples:
         nargs="*",
         metavar="PARAM",
         help="Extract stage: Extract CV data from source file to JSON. "
-        "Parameters: source=<file> (required) [name=<extractor-name>] [output=<path>] "
+        "Parameters: source=<file> (required) [name=<extractor-name[,extractor-name,...]>] [output=<path>] "
         "[verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
+        "Defaults to default-docx-cv-extractor. Provide a comma-separated list to enable fallback. "
         "Use --list extractors to see available extractors.",
     )
     parser.add_argument(
@@ -309,8 +310,8 @@ Examples:
         if "source" not in params and not parallel_stage and not args.rerun_failed:
             raise ValueError("--extract requires 'source' parameter")
 
-        # Get extractor name (default to private-internal-extractor)
-        extractor_name = params.get("name", "private-internal-extractor")
+        # Get extractor name (default to default-docx-cv-extractor)
+        extractor_name = params.get("name", "default-docx-cv-extractor")
 
         extract_stage = ExtractStage(
             source=(

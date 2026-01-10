@@ -1,8 +1,8 @@
-# Private Internal Extractor
+# Default DOCX CV Extractor
 
 ## Overview
 
-The private internal extractor is the default CV extraction implementation that directly parses Microsoft Word `.docx` files using WordprocessingML XML. It provides fast, deterministic, offline extraction without external API calls.
+The default DOCX CV extractor is the default CV extraction implementation that directly parses Microsoft Word `.docx` files using WordprocessingML XML. It provides fast, deterministic, offline extraction without external API calls.
 
 ## Status
 
@@ -46,12 +46,12 @@ cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ### CLI Usage
 
 ```bash
-# Default (private-internal-extractor is used automatically)
+# Default (default-docx-cv-extractor is used automatically)
 python -m cvextract.cli --extract source=cv.docx --target output/
 
 # Explicit specification
 python -m cvextract.cli \
-  --extract source=cv.docx name=private-internal-extractor \
+  --extract source=cv.docx name=default-docx-cv-extractor \
   --target output/
 ```
 
@@ -64,7 +64,7 @@ from cvextract.shared import StepName, UnitOfWork
 from pathlib import Path
 import json
 
-extractor = get_extractor("private-internal-extractor")
+extractor = get_extractor("default-docx-cv-extractor")
 work = UnitOfWork(config=UserConfig(target_dir=Path("outputs")))
 work.set_step_paths(
     StepName.Extract,
@@ -81,7 +81,7 @@ cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ### CLI Parameters
 
 - `source=<path>`: Path to DOCX file (required)
-- `name=private-internal-extractor`: Extractor name (optional, this is the default)
+- `name=default-docx-cv-extractor`: Extractor name (optional, this is the default)
 - `output=<path>`: Output JSON path (optional, defaults to `{target}/structured_data/`)
 
 ### Environment Variables
@@ -147,7 +147,7 @@ JSON data conforming to `cvextract/contracts/cv_schema.json`:
 
 ### Integration Points
 
-- Registered in `cvextract/extractors/__init__.py` as `"private-internal-extractor"`
+- Registered in `cvextract/extractors/__init__.py` as `"default-docx-cv-extractor"`
 - Used by `cvextract.pipeline_helpers.extract_cv_data()` as default (expects `UnitOfWork`)
 - Used by `cvextract.cli_execute_pipeline.execute_pipeline()` for extraction stage
 

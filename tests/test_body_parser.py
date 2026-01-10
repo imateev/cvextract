@@ -15,7 +15,7 @@ class TestCVBodyParsing:
             ("Some overview text", False, ""),
             ("PROFESSIONAL EXPERIENCE", False, ""),
             ("Jan 2020 - Present | Company", False, "Heading1"),
-            ("Did things", False, ""),
+            ("Did things for multiple projects.", False, ""),
             ("• bullet 1", True, ""),
             ("Environment: Python, AWS", False, ""),
         ]
@@ -73,3 +73,115 @@ class TestCVBodyParsing:
         overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
         assert overview == "Some overview text"
         assert len(exps) == 1
+
+    def test_parse_year_only_headings(self, monkeypatch):
+        """Year-only headings should be treated as experience headings."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("2021 | Student Consultant Data Strategy", False, ""),
+            ("Did work on projects.", False, ""),
+            ("2022 – 2024 | Inhouse Consultant Business Intelligence", False, ""),
+            ("More work on delivery.", False, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"].startswith("2021 |")
+        assert exps[1]["heading"].startswith("2022 – 2024")
+
+    def test_parse_numeric_month_headings(self, monkeypatch):
+        """Numeric month headings should be treated as experience headings."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("09/2024 – Present | Junior Software Engineer", False, ""),
+            ("Did work on features.", False, ""),
+            ("01/2022 - 08/2024 | Analyst", False, ""),
+            ("More work on analysis.", False, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"].startswith("09/2024")
+        assert exps[1]["heading"].startswith("01/2022")
+
+    def test_parse_title_only_headings(self, monkeypatch):
+        """Title-only headings should start new experiences."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("Data Engineering", False, ""),
+            ("• Built pipelines", True, ""),
+            ("Database Administration", False, ""),
+            ("• Tuned indexes", True, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"] == "Data Engineering"
+        assert exps[1]["heading"] == "Database Administration"
+
+    def test_parse_bullet_date_headings(self, monkeypatch):
+        """Date headings should be detected even if marked as bullets."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("December 2024 – Present | Senior UI Designer", True, ""),
+            ("• Did work", True, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 1
+        assert exps[0]["heading"].startswith("December 2024")
+
+    def test_parse_multiline_paragraph_headings(self, monkeypatch):
+        """Section titles and headings embedded in a paragraph should be detected."""
+        stream = [
+            (
+                "Overview text\nPROFESSIONAL EXPERIENCE.",
+                False,
+                "",
+            ),
+            (
+                "December 2024 - Present | Senior UI-Designer\nIn this project, Emanuel worked on design systems.",
+                False,
+                "",
+            ),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 1
+        assert exps[0]["heading"].startswith("December 2024")
+        assert "In this project" in exps[0]["description"]

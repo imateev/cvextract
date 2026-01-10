@@ -241,6 +241,48 @@ class TestRoundtripVerifier:
         status = _status(result, StepName.VerifyRender)
         assert status.errors == []
 
+    def test_verifier_accepts_sidebar_list_tokenization(self, tmp_path):
+        """Sidebar list entries with commas/bullets should be equivalent."""
+        verifier = RoundtripVerifier()
+        source = {
+            "sidebar": {
+                "tools": ["Python (pandas, numpy, matplotlib)"],
+            }
+        }
+        target = {
+            "sidebar": {
+                "tools": ["Python (pandas", "numpy", "matplotlib)"],
+            }
+        }
+        work = _make_roundtrip_work(tmp_path, source, target)
+        result = verifier.verify(work)
+        status = _status(result, StepName.VerifyRender)
+        assert status.errors == []
+
+    def test_verifier_accepts_bullets_in_description(self, tmp_path):
+        """Bullets embedded in description should not be treated as mismatches."""
+        verifier = RoundtripVerifier()
+        source = {
+            "experiences": [
+                {
+                    "description": "Built pipelines and automated jobs.",
+                    "bullets": ["• Built pipelines"],
+                }
+            ]
+        }
+        target = {
+            "experiences": [
+                {
+                    "description": "Built pipelines and automated jobs.",
+                    "bullets": [],
+                }
+            ]
+        }
+        work = _make_roundtrip_work(tmp_path, source, target)
+        result = verifier.verify(work)
+        status = _status(result, StepName.VerifyRender)
+        assert status.errors == []
+
     def test_verifier_requires_target_data_parameter(self, tmp_path):
         """Verifier should report missing target data when output is unset."""
         verifier = RoundtripVerifier()

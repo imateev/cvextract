@@ -232,9 +232,7 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     if config.render:
         work = execute_render(work)
 
-        if config.should_compare and not (
-            config.extract and config.extract.name == "openai-extractor"
-        ):
+        if config.should_compare:
             work = roundtrip_verify(work)
 
     # Log result (unless suppressed for parallel mode)

@@ -52,7 +52,7 @@ python -m cvextract.cli \
 
 - **`--extract`**: Extract CV data from source file
   - Required params: `source=<path>`
-  - Optional params: `name=<extractor>`, `output=<path>`, `verifier=<verifier-name>`, `skip-verify`
+  - Optional params: `name=<extractor[,extractor,...]>`, `output=<path>`, `verifier=<verifier-name>`, `skip-verify`
 
 - **`--adjust`**: Adjust CV data (can be repeated for chaining)
   - Required params: `name=<adjuster>`, adjuster-specific params

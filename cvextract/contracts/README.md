@@ -17,7 +17,7 @@ Defines the structure for CV (Curriculum Vitae) data extracted from documents an
 **Used by:**
 - `verifiers.DefaultCvSchemaVerifier` - Validates CV data
 - `extractors.DocxCVExtractor` - Produces data conforming to this schema
-- All registered renderers (e.g., `"private-internal-renderer"`) - Consume data conforming to this schema
+- All registered renderers (e.g., `"default-docx-cv-renderer"`) - Consume data conforming to this schema
 
 ### research_schema.json
 

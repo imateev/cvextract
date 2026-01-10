@@ -80,7 +80,7 @@ The extraction logic is implemented using a pluggable architecture (`cvextract/e
 
 **Available Extractors:**
 
-1. **`private-internal-extractor`** (default) - Internal DOCX parser
+1. **`default-docx-cv-extractor`** (default) - Internal DOCX parser
    - Directly parses DOCX files using WordprocessingML XML
    - Fast, deterministic, no external API calls
    - Best for: Standard DOCX files with known structure
@@ -95,7 +95,7 @@ The extraction logic is implemented using a pluggable architecture (`cvextract/e
    - Future: PDF and PPTX support can be added with PyPDF2/pdfplumber and python-pptx libraries
 
 **When to use each extractor:**
-- Use `private-internal-extractor` for batch processing of standardized DOCX files (fast, free, offline)
+- Use `default-docx-cv-extractor` for batch processing of standardized DOCX files (fast, free, offline)
 - Use `openai-extractor` for text files or DOCX files with non-standard layouts where structure-based parsing fails
 
 See `cvextract/extractors/README.md` for details on creating custom extractors.
@@ -194,8 +194,8 @@ python -m cvextract.cli \
   - Supports multiple formats depending on extractor
   - Single file: processes one file
   - Directory: processes all matching files recursively
-- `name=<extractor-name>` - Name of the extractor to use (optional, defaults to `private-internal-extractor`)
-  - `private-internal-extractor`: Internal DOCX parser (default, DOCX only)
+- `name=<extractor-name>` - Name of the extractor to use (optional, defaults to `default-docx-cv-extractor`)
+  - `default-docx-cv-extractor`: Internal DOCX parser (default, DOCX only)
   - `openai-extractor`: OpenAI-based extraction (supports TXT, DOCX)
   - Use `--list extractors` to see all available extractors
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
@@ -276,7 +276,7 @@ python -m cvextract.cli --list extractors
 python -m cvextract.cli --list extractors
 
 # Output shows:
-#   private-internal-extractor
+#   default-docx-cv-extractor
 #     CV extractor for Microsoft Word .docx files.
 #   openai-extractor
 #     CV extractor using OpenAI API for intelligent extraction.
@@ -287,7 +287,7 @@ python -m cvextract.cli --list extractors
 ```bash
 # Use a custom verifier for extraction
 python -m cvextract.cli \
-  --extract source=/path/to/cv.docx name=private-internal-extractor verifier=default-extract-verifier \
+  --extract source=/path/to/cv.docx name=default-docx-cv-extractor verifier=default-extract-verifier \
   --target /output
 ```
 
@@ -319,7 +319,7 @@ python -m cvextract.cli \
 #### Single-File Extraction
 
 ```bash
-# Extract one DOCX CV file with default extractor (private-internal-extractor)
+# Extract one DOCX CV file with default extractor (default-docx-cv-extractor)
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
   --target /output

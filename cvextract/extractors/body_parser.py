@@ -46,11 +46,20 @@ MONTH_NAME = (
     r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
     r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
 )
+MONTH_NUM = r"(?:0?[1-9]|1[0-2])/(?:19|20)\d{2}"
+DASH = r"(?:--|[-–—‑‒−])"
 
 HEADING_PATTERN = re.compile(
-    rf"{MONTH_NAME}\s+\d{{4}}\s*"
-    r"(?:--|[-–—])\s*"
-    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})",
+    rf"^(?:"
+    rf"{MONTH_NAME}\s+\d{{4}}\s*{DASH}\s*"
+    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}}|{MONTH_NUM})"
+    r"|"
+    rf"{MONTH_NUM}\s*{DASH}\s*(?:{MONTH_NUM}|Present|Now|Current)"
+    r"|"
+    rf"\d{{4}}\s*{DASH}\s*(?:\d{{4}}|Present|Now|Current)"
+    r"|"
+    r"\d{4}\s*\|"
+    r")",
     re.IGNORECASE,
 )
 
@@ -58,6 +67,25 @@ ENVIRONMENT_PATTERN = re.compile(
     r"^Environment\s*:\s*(.+)$",
     re.IGNORECASE,
 )
+
+
+def _looks_like_heading(line: str, is_bullet: bool, style: str) -> bool:
+    style_lower = style.lower()
+    if HEADING_PATTERN.search(line):
+        return True
+    if style_lower.startswith("heading") or "title" in style_lower:
+        return True
+    if is_bullet:
+        return False
+    if line.lower().startswith("environment"):
+        return False
+    if line.startswith(("•", "·", "-", "–", "—", "->", "→")):
+        return False
+    if len(line) > 80 or line.count(" ") > 10:
+        return False
+    if line.endswith((".", ";", ":")):
+        return False
+    return True
 
 
 def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]:
@@ -79,50 +107,52 @@ def parse_cv_from_docx_body(docx_path: Path) -> Tuple[str, List[Dict[str, Any]]]
             current_exp = None
 
     for raw_text, is_bullet, style in iter_document_paragraphs(docx_path):
-        line = raw_text.strip()
-        if not line:
-            continue
+        for raw_line in raw_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
 
-        upper = line.strip(" .:").upper()
+            upper = line.strip(" .:").upper()
 
-        # Strict section detection
-        if upper == "OVERVIEW":
-            flush_current()
-            in_overview = True
-            in_experience = False
-            continue
-        if upper == "PROFESSIONAL EXPERIENCE":
-            flush_current()
-            in_overview = False
-            in_experience = True
-            continue
-
-        if in_overview:
-            overview_parts.append(clean_text(line))
-            continue
-
-        if in_experience:
-            # Heading detection: either matches date range OR is a heading style
-            is_heading_style = style.lower().startswith("heading") and not is_bullet
-            if HEADING_PATTERN.search(line) or is_heading_style:
+            # Strict section detection
+            if upper == "OVERVIEW":
                 flush_current()
-                current_exp = ExperienceBuilder(heading=clean_text(line))
+                in_overview = True
+                in_experience = False
+                continue
+            if upper == "PROFESSIONAL EXPERIENCE":
+                flush_current()
+                in_overview = False
+                in_experience = True
                 continue
 
-            m_env = ENVIRONMENT_PATTERN.match(line)
-            if m_env and current_exp is not None:
-                techs_raw = m_env.group(1)
-                techs = [clean_text(t) for t in techs_raw.split(",") if clean_text(t)]
-                current_exp.environment.extend(techs)
+            if in_overview:
+                overview_parts.append(clean_text(line))
                 continue
 
-            if is_bullet:
+            if in_experience:
+                # Heading detection: either matches date range OR is a heading style
+                if _looks_like_heading(line, is_bullet, style):
+                    flush_current()
+                    current_exp = ExperienceBuilder(heading=clean_text(line))
+                    continue
+
+                m_env = ENVIRONMENT_PATTERN.match(line)
+                if m_env and current_exp is not None:
+                    techs_raw = m_env.group(1)
+                    techs = [
+                        clean_text(t) for t in techs_raw.split(",") if clean_text(t)
+                    ]
+                    current_exp.environment.extend(techs)
+                    continue
+
+                if is_bullet:
+                    if current_exp is not None:
+                        current_exp.bullets.append(clean_text(line))
+                    continue
+
                 if current_exp is not None:
-                    current_exp.bullets.append(clean_text(line))
-                continue
-
-            if current_exp is not None:
-                current_exp.description_parts.append(clean_text(line))
+                    current_exp.description_parts.append(clean_text(line))
 
     flush_current()
     overview = " ".join(overview_parts).strip()

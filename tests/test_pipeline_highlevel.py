@@ -90,7 +90,7 @@ class TestRenderCvData:
             result = render_cv_data(work)
 
             assert result == work
-            mock_get_renderer.assert_called_once_with("private-internal-renderer")
+            mock_get_renderer.assert_called_once_with("default-docx-cv-renderer")
             mock_renderer.render.assert_called_once_with(work)
 
     def test_render_cv_data_returns_unit_of_work(self, tmp_path, make_render_work):
@@ -133,11 +133,11 @@ class TestRenderCvData:
 
             with pytest.raises(
                 ValueError,
-                match="Default renderer 'private-internal-renderer' not found",
+                match="Default renderer 'default-docx-cv-renderer' not found",
             ):
                 render_cv_data(work)
 
-            mock_get_renderer.assert_called_once_with("private-internal-renderer")
+            mock_get_renderer.assert_called_once_with("default-docx-cv-renderer")
 
 
 class TestExtractCvDataOutput:
