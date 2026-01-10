@@ -40,7 +40,7 @@ The extraction area provides pluggable architecture for extracting structured CV
 
 | Feature | Status | Description | Entry Points | Config/Env |
 |---------|--------|-------------|--------------|------------|
-| [Private Internal Extractor](areas/extraction/private-internal-extractor/README.md) | Active | Default DOCX parser using WordprocessingML XML | `cvextract.extractors.DocxCVExtractor` | `name=private-internal-extractor` (default) |
+| [Default DOCX CV Extractor](areas/extraction/default_docx_cv_extractor/README.md) | Active | Default DOCX parser using WordprocessingML XML | `cvextract.extractors.DocxCVExtractor` | `name=default_docx_cv_extractor` (default) |
 | [OpenAI Extractor](areas/extraction/openai-extractor/README.md) | Active | OpenAI-powered intelligent extraction for TXT/DOCX | `cvextract.extractors.OpenAICVExtractor` | `name=openai-extractor`, `OPENAI_API_KEY` |
 | [Extractor Registry](areas/extraction/extractor-registry/README.md) | Active | Pluggable extractor registration and lookup system | `cvextract.extractors.{register_extractor, get_extractor, list_extractors}` | N/A |
 

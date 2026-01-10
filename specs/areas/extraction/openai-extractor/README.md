@@ -2,7 +2,7 @@
 
 ## Overview
 
-The OpenAI extractor uses OpenAI's GPT models to intelligently extract structured CV data from various text formats including TXT and DOCX files. It can handle non-standard layouts that the private internal extractor cannot process.
+The OpenAI extractor uses OpenAI's GPT models to intelligently extract structured CV data from various text formats including TXT and DOCX files. It can handle non-standard layouts that the default DOCX CV extractor cannot process.
 
 ## Status
 
@@ -163,7 +163,7 @@ extractor = OpenAICVExtractor(retry_config=custom_retry)
 
 ### Output
 
-JSON data conforming to `cvextract/contracts/cv_schema.json` (same schema as private-internal-extractor).
+JSON data conforming to `cvextract/contracts/cv_schema.json` (same schema as default_docx_cv_extractor).
 
 ## Dependencies
 
@@ -209,7 +209,7 @@ Tested in:
 
 ### Initial Implementation
 
-The OpenAI extractor was added to support text files and non-standard DOCX formats that the private internal extractor cannot handle.
+The OpenAI extractor was added to support text files and non-standard DOCX formats that the default DOCX CV extractor cannot handle.
 
 ### Recent Enhancements (Production Hardening)
 
@@ -236,7 +236,7 @@ The OpenAI extractor was added to support text files and non-standard DOCX forma
 1. **PDF Support**: Should we add PyPDF2/pdfplumber for PDF extraction?
 2. **PPTX Support**: Should we support PowerPoint resume formats?
 3. **Cost Optimization**: Should we implement chunking for very long CVs?
-4. **Fallback**: Should we fall back to private-internal-extractor on API failures for DOCX?
+4. **Fallback**: Should we fall back to default_docx_cv_extractor on API failures for DOCX?
 
 ## Performance Characteristics
 
@@ -281,7 +281,7 @@ The OpenAI extractor was added to support text files and non-standard DOCX forma
 ## Related Documentation
 
 - [Extractor Architecture](../README.md)
-- [Private Internal Extractor](../private-internal-extractor/README.md) - Default DOCX parser
+- [Default DOCX CV Extractor](../default_docx_cv_extractor/README.md) - Default DOCX parser
 - [Extractor Registry](../extractor-registry/README.md) - Registration system
 - Module README: `cvextract/extractors/README.md`
 - Main README: Section on "Pluggable Extractors"

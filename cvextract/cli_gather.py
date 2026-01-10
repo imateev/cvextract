@@ -176,7 +176,7 @@ Examples:
         help="Extract stage: Extract CV data from source file to JSON. "
         "Parameters: source=<file> (required) [name=<extractor-name[,extractor-name,...]>] [output=<path>] "
         "[verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
-        "Defaults to private-internal-extractor, then openai-extractor on failure. "
+        "Defaults to default_docx_cv_extractor, then openai-extractor on failure. "
         "Use --list extractors to see available extractors.",
     )
     parser.add_argument(
@@ -310,8 +310,8 @@ Examples:
         if "source" not in params and not parallel_stage and not args.rerun_failed:
             raise ValueError("--extract requires 'source' parameter")
 
-        # Get extractor name (default to private-internal-extractor)
-        extractor_name = params.get("name", "private-internal-extractor")
+        # Get extractor name (default to default_docx_cv_extractor)
+        extractor_name = params.get("name", "default_docx_cv_extractor")
 
         extract_stage = ExtractStage(
             source=(

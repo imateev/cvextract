@@ -53,8 +53,8 @@ def _resolve_extractor_names(work: UnitOfWork) -> List[str]:
     raw_name = work.config.extract.name or ""
     names = [name.strip() for name in raw_name.split(",") if name.strip()]
     if not names:
-        names = ["private-internal-extractor"]
-    if names == ["private-internal-extractor"]:
+        names = ["default_docx_cv_extractor"]
+    if names == ["default_docx_cv_extractor"]:
         names.append("openai-extractor")
     return names
 

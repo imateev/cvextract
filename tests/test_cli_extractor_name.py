@@ -19,10 +19,10 @@ class TestCLIExtractorNameParsing:
         )
 
         assert config.extract is not None
-        assert config.extract.name == "private-internal-extractor"
+        assert config.extract.name == "default_docx_cv_extractor"
 
     def test_extract_with_private_internal_name(self, tmp_path):
-        """--extract with name=private-internal-extractor."""
+        """--extract with name=default_docx_cv_extractor."""
         target = tmp_path / "output"
         source = tmp_path / "cv.docx"
         source.touch()
@@ -31,14 +31,14 @@ class TestCLIExtractorNameParsing:
             [
                 "--extract",
                 f"source={source}",
-                "name=private-internal-extractor",
+                "name=default_docx_cv_extractor",
                 "--target",
                 str(target),
             ]
         )
 
         assert config.extract is not None
-        assert config.extract.name == "private-internal-extractor"
+        assert config.extract.name == "default_docx_cv_extractor"
 
     def test_extract_with_openai_name(self, tmp_path):
         """--extract with name=openai-extractor."""

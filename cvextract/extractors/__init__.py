@@ -15,7 +15,7 @@ from .extractor_registry import (
 
 
 # Register built-in extractors
-register_extractor("private-internal-extractor", DocxCVExtractor)
+register_extractor("default_docx_cv_extractor", DocxCVExtractor)
 register_extractor("openai-extractor", OpenAICVExtractor)
 
 
