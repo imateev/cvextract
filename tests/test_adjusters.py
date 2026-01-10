@@ -17,7 +17,7 @@ from cvextract.adjusters import (
 from cvextract.adjusters.adjuster_registry import unregister_adjuster
 from cvextract.adjusters.openai_job_specific_adjuster import _fetch_job_description
 from cvextract.cli_config import ExtractStage, UserConfig
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, load_input_json, write_output_json
 
 
 def make_work(tmp_path: Path, cv_data: dict) -> UnitOfWork:
@@ -53,7 +53,7 @@ class TestCVAdjusterBase:
                     return "Test"
 
                 def adjust(self, work, **kwargs):
-                    return self._write_output_json(work, self._load_input_json(work))
+                    return write_output_json(work, load_input_json(work))
 
             IncompleteAdjuster()
 
@@ -66,7 +66,7 @@ class TestCVAdjusterBase:
                     return "test"
 
                 def adjust(self, work, **kwargs):
-                    return self._write_output_json(work, self._load_input_json(work))
+                    return write_output_json(work, load_input_json(work))
 
             IncompleteAdjuster()
 
@@ -94,7 +94,7 @@ class TestCVAdjusterBase:
                 return "Test"
 
             def adjust(self, work, **kwargs):
-                return self._write_output_json(work, self._load_input_json(work))
+                return write_output_json(work, load_input_json(work))
 
         adjuster = TestAdjuster()
         # Should not raise any exception with default implementation
@@ -111,9 +111,9 @@ class TestCVAdjusterBase:
                 return "A fully implemented test adjuster"
 
             def adjust(self, work, **kwargs):
-                cv_data = self._load_input_json(work)
+                cv_data = load_input_json(work)
                 cv_data["adjusted"] = True
-                return self._write_output_json(work, cv_data)
+                return write_output_json(work, cv_data)
 
             def validate_params(self, **kwargs):
                 if "required" not in kwargs:
@@ -144,7 +144,7 @@ class TestCVAdjusterBase:
                 return "Strict test adjuster"
 
             def adjust(self, work, **kwargs):
-                return self._write_output_json(work, self._load_input_json(work))
+                return write_output_json(work, load_input_json(work))
 
             def validate_params(self, **kwargs):
                 if "required_param" not in kwargs:
@@ -274,7 +274,7 @@ class TestAdjusterRegistry:
                 return "Test adjuster"
 
             def adjust(self, work, **kwargs):
-                return self._write_output_json(work, self._load_input_json(work))
+                return write_output_json(work, load_input_json(work))
 
         register_adjuster(CustomAdjuster)
 

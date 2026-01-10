@@ -86,7 +86,7 @@ To create a custom adjuster:
 
 ```python
 from cvextract.adjusters import CVAdjuster, register_adjuster
-from cvextract.shared import UnitOfWork
+from cvextract.shared import UnitOfWork, load_input_json, write_output_json
 class MyCustomAdjuster(CVAdjuster):
     def name(self) -> str:
         return "my-custom-adjuster"
@@ -100,9 +100,9 @@ class MyCustomAdjuster(CVAdjuster):
     
     def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
         self.validate_params(**kwargs)
-        data = self._load_input_json(work)
+        data = load_input_json(work)
         # Your adjustment logic here
-        return self._write_output_json(work, data)
+        return write_output_json(work, data)
 
 # Register it
 register_adjuster(MyCustomAdjuster)

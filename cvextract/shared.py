@@ -8,6 +8,7 @@ and text normalization helpers used across extraction, parsing, and rendering.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -124,6 +125,47 @@ class UnitOfWork:
         if status is None:
             return True
         return not status.errors and not status.warnings
+
+
+def load_input_json(
+    work: UnitOfWork, *, step: "StepName" = None
+) -> Dict[str, Any]:
+    """
+    Load JSON from the step input path.
+
+    Args:
+        work: UnitOfWork containing step input paths.
+        step: Step to read input from (defaults to Adjust).
+    """
+    if step is None:
+        step = StepName.Adjust
+    status = work.ensure_step_status(step)
+    if status.input is None:
+        raise ValueError(f"{step.value} input path is not set")
+    with status.input.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def write_output_json(
+    work: UnitOfWork, data: Dict[str, Any], *, step: "StepName" = None
+) -> UnitOfWork:
+    """
+    Write JSON to the step output path.
+
+    Args:
+        work: UnitOfWork containing step output paths.
+        data: JSON-serializable data to write.
+        step: Step to write output for (defaults to Adjust).
+    """
+    if step is None:
+        step = StepName.Adjust
+    status = work.ensure_step_status(step)
+    if status.output is None:
+        raise ValueError(f"{step.value} output path is not set")
+    status.output.parent.mkdir(parents=True, exist_ok=True)
+    with status.output.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return work
 
 
 class StepName(str, Enum):

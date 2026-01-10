@@ -6,11 +6,9 @@ Defines the contract for pluggable CV adjustment implementations.
 
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict
 
-from ..shared import StepName, UnitOfWork
+from ..shared import UnitOfWork
 
 
 class CVAdjuster(ABC):
@@ -58,22 +56,6 @@ class CVAdjuster(ABC):
             ValueError: If required parameters are missing or invalid
         """
         ...
-
-    def _load_input_json(self, work: UnitOfWork) -> Dict[str, Any]:
-        status = work.ensure_step_status(StepName.Adjust)
-        if status.input is None:
-            raise ValueError("Adjust input path is not set")
-        with status.input.open("r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def _write_output_json(self, work: UnitOfWork, data: Dict[str, Any]) -> UnitOfWork:
-        status = work.ensure_step_status(StepName.Adjust)
-        if status.output is None:
-            raise ValueError("Adjust output path is not set")
-        status.output.parent.mkdir(parents=True, exist_ok=True)
-        with status.output.open("w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return work
 
     def validate_params(self, **kwargs) -> None:
         """
