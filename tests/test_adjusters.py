@@ -2636,8 +2636,8 @@ class TestResearchCompanyProfileCache:
         _cache_research_data(cache_path, research_data)
         assert json.loads(cache_path.read_text(encoding="utf-8")) == research_data
 
-    def test_load_cached_research_skips_validation_when_configured(self, tmp_path):
-        """_load_cached_research() returns cached data when skip_verify is True."""
+    def test_load_cached_research_rejects_invalid_cache(self, tmp_path):
+        """_load_cached_research() returns None when cached data fails validation."""
         from cvextract.adjusters.openai_company_research_adjuster import (
             _load_cached_research,
         )
@@ -2650,9 +2650,9 @@ class TestResearchCompanyProfileCache:
             "cvextract.adjusters.openai_company_research_adjuster._validate_research_data",
             return_value=False,
         ):
-            result = _load_cached_research(cache_path, skip_verify=True)
+            result = _load_cached_research(cache_path)
 
-        assert result == cached
+        assert result is None
 
 
 class TestResearchCompanyProfileFailures:
