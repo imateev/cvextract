@@ -139,3 +139,49 @@ class TestCVBodyParsing:
         assert len(exps) == 2
         assert exps[0]["heading"] == "Data Engineering"
         assert exps[1]["heading"] == "Database Administration"
+
+    def test_parse_bullet_date_headings(self, monkeypatch):
+        """Date headings should be detected even if marked as bullets."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("December 2024 – Present | Senior UI Designer", True, ""),
+            ("• Did work", True, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 1
+        assert exps[0]["heading"].startswith("December 2024")
+
+    def test_parse_multiline_paragraph_headings(self, monkeypatch):
+        """Section titles and headings embedded in a paragraph should be detected."""
+        stream = [
+            (
+                "Overview text\nPROFESSIONAL EXPERIENCE.",
+                False,
+                "",
+            ),
+            (
+                "December 2024 - Present | Senior UI-Designer\nIn this project, Emanuel worked on design systems.",
+                False,
+                "",
+            ),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 1
+        assert exps[0]["heading"].startswith("December 2024")
+        assert "In this project" in exps[0]["description"]
