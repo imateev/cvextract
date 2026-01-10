@@ -66,46 +66,6 @@ def test_extract_single_success(monkeypatch, tmp_path: Path):
     assert len(extract_status.warnings) == 0
 
 
-def test_extract_single_does_not_verify(monkeypatch, tmp_path: Path):
-    """Test extraction does not run verification."""
-    docx = tmp_path / "test.docx"
-    output = tmp_path / "test.json"
-    docx.write_text("docx")
-
-    def fake_process(work, extractor=None):
-        data = {
-            "identity": {
-                "title": "T",
-                "full_name": "F N",
-                "first_name": "F",
-                "last_name": "N",
-            },
-            "sidebar": {
-                "languages": ["Python"],
-                "tools": [],
-                "industries": [],
-                "spoken_languages": [],
-                "academic_background": [],
-            },
-            "experiences": [{"heading": "h", "description": "d", "bullets": ["b"]}],
-        }
-        output_path = work.get_step_output(StepName.Extract)
-        output_path.write_text(json.dumps(data), encoding="utf-8")
-        return work
-
-    monkeypatch.setattr(p, "extract_cv_data", fake_process)
-
-    work = UnitOfWork(
-        config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=docx)),
-        initial_input=docx,
-    )
-    work.set_step_paths(StepName.Extract, input_path=docx, output_path=output)
-    result = p.extract_single(work)
-    extract_status = result.step_states[StepName.Extract]
-    assert extract_status.errors == []
-    assert extract_status.warnings == []
-
-
 def test_extract_single_exception(monkeypatch, tmp_path: Path):
     """Test extraction with exception."""
     docx = tmp_path / "test.docx"
@@ -129,8 +89,8 @@ def test_extract_single_exception(monkeypatch, tmp_path: Path):
     assert extract_status.warnings == []
 
 
-def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
-    """extract_single should not call verifiers."""
+def test_extract_single_does_not_create_verify_status(monkeypatch, tmp_path: Path):
+    """extract_single should not create verification status entries."""
     docx = tmp_path / "test.docx"
     output = tmp_path / "test.json"
     docx.write_text("docx")
@@ -154,9 +114,10 @@ def test_extract_single_never_calls_verifier(monkeypatch, tmp_path: Path):
     extract_status = result.step_states[StepName.Extract]
     assert extract_status.errors == []
     assert extract_status.warnings == []
+    assert StepName.VerifyExtract not in result.step_states
 
 
-def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
+def test_render_exception_adds_warning(monkeypatch, tmp_path: Path):
     """Test rendering exceptions surface as warnings."""
     json_file = tmp_path / "test.json"
     json_file.write_text('{"a": 1}', encoding="utf-8")
