@@ -48,7 +48,7 @@ for v in verifiers:
 Example output:
 ```
 cv-schema-verifier: Verifier that validates CV data against cv_schema.json.
-private-internal-verifier: Verifier for extracted CV data completeness and validity.
+default-extract-verifier: Verifier for extracted CV data completeness and validity.
 roundtrip-verifier: Verifier for comparing two CV data structures.
 ```
 
@@ -66,7 +66,7 @@ work.current_step = StepName.Extract
 work.ensure_step_status(StepName.Extract)
 
 # Get a verifier by name
-verifier = get_verifier('private-internal-verifier')
+verifier = get_verifier('default-extract-verifier')
 result = verifier.verify(work)
 
 # Pass constructor arguments
@@ -100,9 +100,9 @@ The following verifiers are registered by default:
 
 | Name | Class | Description |
 |------|-------|-------------|
-| `private-internal-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
+| `default-extract-verifier` | `DefaultExpectedCvDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
-| `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against cv_schema.json |
+| `cv-schema-verifier` | `DefaultCvSchemaVerifier` | Validates CV data against cv_schema.json |
 
 ## Implementation Details
 
@@ -142,9 +142,9 @@ All verifier registration happens in `cvextract/verifiers/__init__.py`:
 from .verifier_registry import register_verifier
 
 # Register built-in verifiers
-register_verifier("private-internal-verifier", ExtractedDataVerifier)
+register_verifier("default-extract-verifier", DefaultExpectedCvDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
-register_verifier("cv-schema-verifier", CVSchemaVerifier)
+register_verifier("cv-schema-verifier", DefaultCvSchemaVerifier)
 ```
 
 ### With Public API
@@ -154,9 +154,9 @@ The registry functions are exported in `__all__` for public use:
 ```python
 __all__ = [
     "CVVerifier",
-    "ExtractedDataVerifier",
+    "DefaultExpectedCvDataVerifier",
     "RoundtripVerifier",
-    "CVSchemaVerifier",
+    "DefaultCvSchemaVerifier",
     "register_verifier",
     "get_verifier",
     "list_verifiers",
@@ -169,11 +169,11 @@ Direct instantiation of verifier classes remains supported:
 
 ```python
 # Registry-based (recommended)
-verifier = get_verifier('private-internal-verifier')
+verifier = get_verifier('default-extract-verifier')
 
 # Direct instantiation (still works)
-from cvextract.verifiers import ExtractedDataVerifier
-verifier = ExtractedDataVerifier()
+from cvextract.verifiers import DefaultExpectedCvDataVerifier
+verifier = DefaultExpectedCvDataVerifier()
 ```
 
 ## Testing

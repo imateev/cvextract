@@ -82,7 +82,7 @@ All extractors must inherit from `CVExtractor` and implement:
 class CVExtractor(ABC):
     @abstractmethod
     def extract(self, work: UnitOfWork) -> UnitOfWork:
-        """Extract CV data and write JSON to work.output."""
+        """Extract CV data and write JSON to the Extract step output."""
         pass
     
     def name(self) -> str:

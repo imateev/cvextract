@@ -6,9 +6,7 @@ Defines the contract for pluggable CV extraction implementations.
 
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict
 
 from ..shared import UnitOfWork
 
@@ -28,8 +26,9 @@ class CVExtractor(ABC):
         Extract structured CV data from the given work unit.
 
         Args:
-            work: UnitOfWork with input/output paths and config. Implementations
-                should read from work.input and write JSON to work.output.
+            work: UnitOfWork with Extract step input/output paths and config.
+                Implementations should read from the Extract step input and
+                write JSON to the Extract step output.
 
         Returns:
             UnitOfWork with output JSON populated.
@@ -40,11 +39,3 @@ class CVExtractor(ABC):
             Exception: For extraction-specific errors
         """
         ...
-
-    def _write_output_json(self, work: UnitOfWork, data: Dict[str, Any]) -> UnitOfWork:
-        if work.output is None:
-            raise ValueError("Extraction output path is not set")
-        work.output.parent.mkdir(parents=True, exist_ok=True)
-        with work.output.open("w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return work

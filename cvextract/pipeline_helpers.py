@@ -22,7 +22,6 @@ from .extractors.docx_utils import dump_body_sample
 from .logging_utils import LOG
 from .renderers import get_renderer
 from .shared import StepName, StepStatus, UnitOfWork
-from .verifiers import get_verifier
 
 
 def infer_source_root(inputs: List[Path]) -> Path:
@@ -55,7 +54,7 @@ def extract_cv_data(
     Extract CV structure from a source file using the specified extractor.
 
     Args:
-        work: UnitOfWork containing input/output paths.
+        work: UnitOfWork containing Extract step input/output paths.
         extractor: CVExtractor instance to use. If None, uses default DocxCVExtractor
 
     Returns:
@@ -74,7 +73,7 @@ def render_cv_data(work: UnitOfWork) -> UnitOfWork:
     renderer architecture.
 
     Args:
-        work: UnitOfWork containing render configuration and paths.
+        work: UnitOfWork containing Render step input/output paths.
 
     Returns:
         UnitOfWork with rendered output populated
@@ -116,15 +115,21 @@ def _render_docx(work: UnitOfWork) -> UnitOfWork:
         work.add_error(StepName.Render, "render: missing render configuration")
         return work
 
-    if work.output is None:
+    render_status = work.ensure_step_status(StepName.Render)
+    if render_status.input is None:
         work.add_error(StepName.Render, "render: input JSON path is not set")
         return work
 
-    input_path = work.initial_input or work.input
+    input_path = (
+        work.initial_input
+        or work.get_step_input(StepName.Extract)
+        or render_status.input
+    )
     source_base = _resolve_source_base_for_render(work, input_path)
     rel_path = _resolve_parent(input_path, source_base)
     output_docx = prepare_output_path(work, input_path, rel_path)
-    render_work = replace(work, output=output_docx)
+    render_work = replace(work)
+    render_work.set_step_paths(StepName.Render, output_path=output_docx)
 
     try:
         render_work = render_cv_data(render_work)
@@ -149,13 +154,22 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         UnitOfWork copy with extract StepStatus populated
     """
     statuses = dict(work.step_states)
-    statuses[StepName.Extract] = StepStatus(step=StepName.Extract)
+    previous_status = statuses.get(StepName.Extract)
+    extract_status = StepStatus(step=StepName.Extract)
+    if previous_status:
+        extract_status.input = previous_status.input
+        extract_status.output = previous_status.output
+    statuses[StepName.Extract] = extract_status
     work = replace(work, step_states=statuses)
+    extract_status = work.step_states[StepName.Extract]
+    if extract_status.input is None:
+        work.add_error(StepName.Extract, "extract: input file path is not set")
+        return work
     if not work.ensure_path_exists(
-        StepName.Extract, work.input, "input file", must_be_file=True
+        StepName.Extract, extract_status.input, "input file", must_be_file=True
     ):
         return work
-    if work.output is None:
+    if extract_status.output is None:
         work.add_error(StepName.Extract, "extract: output JSON path is not set")
         return work
 
@@ -173,87 +187,26 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
                 return work
 
         extract_work = extract_cv_data(work, extractor=extractor)
-        if extract_work.output is None:
+        extract_status = extract_work.step_states.get(StepName.Extract)
+        output_path = extract_status.output if extract_status else None
+        if output_path is None:
             extract_work.add_error(
                 StepName.Extract, "extract: output JSON path is not set"
             )
             return extract_work
-        if not extract_work.output.exists():
+        if not output_path.exists():
             extract_work.add_error(
                 StepName.Extract,
-                f"extract: output JSON not found: {extract_work.output}",
+                f"extract: output JSON not found: {output_path}",
             )
             return extract_work
         return extract_work
     except Exception as e:
         if work.config.debug:
             LOG.error(traceback.format_exc())
-            dump_body_sample(work.input, n=30)
+            dump_body_sample(extract_status.input, n=30)
         work.add_error(StepName.Extract, f"exception: {type(e).__name__}")
         return work
-
-
-def _roundtrip_compare(
-    render_work: UnitOfWork,
-    output_docx: Path,
-    roundtrip_dir: Path,
-    original_cv_path: Path,
-) -> UnitOfWork:
-    roundtrip_dir.mkdir(parents=True, exist_ok=True)
-    roundtrip_json = roundtrip_dir / (output_docx.stem + ".json")
-    roundtrip_work = UnitOfWork(
-        config=render_work.config,
-        input=output_docx,
-        output=roundtrip_json,
-        initial_input=render_work.initial_input,
-    )
-    roundtrip_work = extract_cv_data(roundtrip_work)
-    if roundtrip_work.output is None or not roundtrip_work.output.exists():
-        raise FileNotFoundError(
-            f"roundtrip JSON not created: {roundtrip_work.output or roundtrip_json}"
-        )
-    verifier_name = "roundtrip-verifier"
-    if render_work.config.render and render_work.config.render.verifier:
-        verifier_name = render_work.config.render.verifier
-    verifier = get_verifier(verifier_name)
-    if not verifier:
-        raise ValueError(f"unknown verifier: {verifier_name}")
-    compare_work = replace(
-        render_work,
-        input=original_cv_path,
-        output=roundtrip_json,
-        current_step=StepName.RoundtripComparer,
-    )
-    return verifier.verify(compare_work)
-
-
-def _verify_roundtrip(
-    render_work: UnitOfWork,
-    original_cv_path: Path,
-) -> UnitOfWork:
-    output_docx = render_work.output
-    if output_docx is None:
-        return render_work
-
-    input_path = render_work.initial_input or render_work.input
-    source_base = _resolve_source_base_for_render(render_work, input_path)
-    rel_path = _resolve_parent(input_path, source_base)
-    roundtrip_dir = render_work.config.workspace.verification_dir / rel_path
-    try:
-        _roundtrip_compare(
-            render_work,
-            output_docx,
-            roundtrip_dir,
-            original_cv_path,
-        )
-    except Exception as e:
-        message = f"roundtrip comparer: {type(e).__name__}"
-        LOG.warning("%s", message)
-        render_work.add_error(StepName.RoundtripComparer, message)
-        return render_work
-
-    render_work.ensure_step_status(StepName.RoundtripComparer)
-    return render_work
 
 
 def render(work: UnitOfWork) -> UnitOfWork:
@@ -267,7 +220,6 @@ def render(work: UnitOfWork) -> UnitOfWork:
         UnitOfWork with Render status populated.
     """
     return _render_docx(work)
-
 
 
 def prepare_output_path(work: UnitOfWork, input_path: Path, rel_path: Path) -> Path:

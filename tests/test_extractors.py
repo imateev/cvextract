@@ -7,7 +7,7 @@ import pytest
 
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, DocxCVExtractor
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 
 
 class TestCVExtractorInterface:
@@ -41,10 +41,11 @@ class TestDocxCVExtractor:
         """extract() raises FileNotFoundError for non-existent files."""
         extractor = DocxCVExtractor()
         with pytest.raises(FileNotFoundError):
-            work = UnitOfWork(
-                config=UserConfig(target_dir=tmp_path),
-                input=Path("/nonexistent/file.docx"),
-                output=tmp_path / "output.json",
+            work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+            work.set_step_paths(
+                StepName.Extract,
+                input_path=Path("/nonexistent/file.docx"),
+                output_path=tmp_path / "output.json",
             )
             extractor.extract(work)
 
@@ -54,10 +55,11 @@ class TestDocxCVExtractor:
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("test")
         with pytest.raises(ValueError, match="must be a .docx file"):
-            work = UnitOfWork(
-                config=UserConfig(target_dir=tmp_path),
-                input=txt_file,
-                output=tmp_path / "output.json",
+            work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+            work.set_step_paths(
+                StepName.Extract,
+                input_path=txt_file,
+                output_path=tmp_path / "output.json",
             )
             extractor.extract(work)
 
@@ -93,13 +95,14 @@ class TestDocxCVExtractor:
         )
 
         extractor = DocxCVExtractor()
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=docx_path,
-            output=tmp_path / "output.json",
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.Extract, input_path=docx_path, output_path=tmp_path / "output.json"
         )
         extractor.extract(work)
-        result = json.loads(work.output.read_text(encoding="utf-8"))
+        result = json.loads(
+            work.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+        )
 
         assert set(result.keys()) == {"identity", "sidebar", "overview", "experiences"}
         assert result["identity"]["full_name"] == "Test User"
@@ -145,15 +148,18 @@ class TestExtractorPluggability:
                         }
                     ],
                 }
-                return self._write_output_json(work, data)
+                return write_output_json(work, data, step=StepName.Extract)
 
         extractor = MockCVExtractor()
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=Path("/any/path"),
-            output=tmp_path / "output.json",
+        work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+        work.set_step_paths(
+            StepName.Extract,
+            input_path=Path("/any/path"),
+            output_path=tmp_path / "output.json",
         )
         extractor.extract(work)
-        result = json.loads(work.output.read_text(encoding="utf-8"))
+        result = json.loads(
+            work.get_step_output(StepName.Extract).read_text(encoding="utf-8")
+        )
         assert result["identity"]["title"] == "Mock Title"
         assert "Python" in result["sidebar"]["languages"]

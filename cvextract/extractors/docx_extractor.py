@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..shared import UnitOfWork
+from ..shared import StepName, UnitOfWork, write_output_json
 from .base import CVExtractor
 from .body_parser import parse_cv_from_docx_body
 from .sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
@@ -30,7 +30,7 @@ class DocxCVExtractor(CVExtractor):
         Extract structured CV data from a .docx file.
 
         Args:
-            work: UnitOfWork containing input/output paths.
+            work: UnitOfWork containing Extract step input/output paths.
 
         Returns:
             UnitOfWork with output JSON populated.
@@ -39,7 +39,9 @@ class DocxCVExtractor(CVExtractor):
             FileNotFoundError: If the .docx file does not exist
             Exception: For parsing or extraction errors
         """
-        source = work.input
+        source = work.get_step_input(StepName.Extract)
+        if source is None:
+            raise ValueError("Extraction input path is not set")
         if not source.exists():
             raise FileNotFoundError(f"Source file not found: {source}")
 
@@ -59,4 +61,4 @@ class DocxCVExtractor(CVExtractor):
             "overview": overview,
             "experiences": experiences,
         }
-        return self._write_output_json(work, data)
+        return write_output_json(work, data, step=StepName.Extract)

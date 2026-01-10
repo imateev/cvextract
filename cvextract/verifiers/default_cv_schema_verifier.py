@@ -10,11 +10,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..shared import UnitOfWork
+from ..shared import StepName, UnitOfWork
 from .base import CVVerifier
 
 
-class CVSchemaVerifier(CVVerifier):
+class DefaultCvSchemaVerifier(CVVerifier):
     """
     Verifier that validates CV data against cv_schema.json.
 
@@ -50,7 +50,8 @@ class CVSchemaVerifier(CVVerifier):
         Returns:
             Updated UnitOfWork with validation results
         """
-        data, errs = self._load_output_json(work)
+        step = work.resolve_verification_step()
+        data, errs = self._load_output_json(work, step)
         if data is None:
             return self._record(work, errs, [])
 
@@ -144,14 +145,15 @@ class CVSchemaVerifier(CVVerifier):
         return self._record(work, errs, warns)
 
     def _load_output_json(
-        self, work: UnitOfWork
+        self, work: UnitOfWork, step: StepName
     ) -> tuple[Dict[str, Any] | None, List[str]]:
-        if work.output is None:
+        output_path = work.get_step_output(step)
+        if output_path is None:
             return None, ["verification input JSON path is not set"]
-        if not work.output.exists():
-            return None, [f"verification input JSON not found: {work.output}"]
+        if not output_path.exists():
+            return None, [f"verification input JSON not found: {output_path}"]
         try:
-            with work.output.open("r", encoding="utf-8") as f:
+            with output_path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception as e:
             return None, [f"verification input JSON unreadable: {type(e).__name__}"]

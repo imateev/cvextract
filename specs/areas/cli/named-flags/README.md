@@ -14,7 +14,7 @@ All CLI parameters use explicit naming:
 1. **Self-Documenting**: Each parameter clearly states what it controls
 2. **No Positional Args**: Order doesn't matter (within a flag's scope)
 3. **Values with Spaces**: Proper handling of paths and text with spaces
-4. **Boolean Flags**: Flags without values (e.g., `dry-run`)
+4. **Boolean Flags**: Flags without values (e.g., `skip-verify`)
 
 ## Entry Points
 
@@ -30,7 +30,7 @@ python -m cvextract.cli \
 # Adjust parameters
 python -m cvextract.cli \
   --extract source=cv.docx \
-  --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 dry-run \
+  --adjust name=openai-company-research customer-url=https://example.com openai-model=gpt-4 \
   --target output/ \
   --verbosity debug
 
@@ -73,7 +73,6 @@ python -m cvextract.cli \
 - `job-url=<url>` - For job-specific
 - `job-description=<text>` - For job-specific
 - `openai-model=<model>` - OpenAI model override
-- `dry-run` - Boolean flag
 
 **Apply**:
 - `template=<path>` - Template file (required)
@@ -158,8 +157,8 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 ### Boolean Flags
 
 ```bash
-# dry-run flag (no value)
---adjust name=openai-company-research customer-url=https://example.com dry-run
+# skip-verify flag (no value)
+--adjust name=openai-company-research customer-url=https://example.com skip-verify
 
 # Global boolean flags
 --debug

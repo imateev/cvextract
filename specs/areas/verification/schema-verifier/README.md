@@ -10,7 +10,7 @@ The schema verifier validates CV data against the formal JSON Schema definition,
 
 ## Description
 
-The `CVSchemaVerifier` class:
+The `DefaultCvSchemaVerifier` class:
 1. Loads JSON Schema from `cvextract/contracts/cv_schema.json`
 2. Validates CV data against schema structure
 3. Reports schema violations as errors
@@ -29,7 +29,7 @@ from cvextract.verifiers import get_verifier
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
+work.ensure_step_status(StepName.VerifyExtract)
 
 # Use default schema
 verifier = get_verifier("cv-schema-verifier")
@@ -53,14 +53,14 @@ from cvextract.verifiers import get_verifier
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
 work.current_step = StepName.Extract
-work.ensure_step_status(StepName.Extract)
+work.ensure_step_status(StepName.VerifyExtract)
 
 # First check schema
 schema_verifier = get_verifier("cv-schema-verifier")
 schema_result = schema_verifier.verify(work)
 
 # Then check completeness
-data_verifier = get_verifier("private-internal-verifier")
+data_verifier = get_verifier("default-extract-verifier")
 data_result = data_verifier.verify(work)
 ```
 

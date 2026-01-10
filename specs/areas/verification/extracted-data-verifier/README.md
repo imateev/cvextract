@@ -10,7 +10,7 @@ The extracted data verifier validates completeness and basic structure of extrac
 
 ## Description
 
-The `ExtractedDataVerifier` class checks:
+The `DefaultExpectedCvDataVerifier` class checks:
 1. Presence of all top-level sections (identity, sidebar, overview, experiences)
 2. Identity completeness (title, names)
 3. Sidebar category population
@@ -29,7 +29,7 @@ from cvextract.verifiers import get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
-verifier = get_verifier("private-internal-verifier")
+verifier = get_verifier("default-extract-verifier")
 result = verifier.verify(work)
 
 if result.ok:

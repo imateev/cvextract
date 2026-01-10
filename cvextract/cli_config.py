@@ -45,7 +45,6 @@ class AdjustStage:
     adjusters: List[AdjusterConfig]  # List of adjusters to apply in order
     data: Optional[Path] = None  # Input JSON (optional if chained after extract)
     output: Optional[Path] = None  # Output JSON (optional, defaults based on source)
-    dry_run: bool = False  # If True, only adjust without rendering
     verifier: Optional[str] = None  # Verifier name (optional)
     skip_verify: bool = False  # Skip verification for this stage
 

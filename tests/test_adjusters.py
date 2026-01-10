@@ -17,23 +17,23 @@ from cvextract.adjusters import (
 from cvextract.adjusters.adjuster_registry import unregister_adjuster
 from cvextract.adjusters.openai_job_specific_adjuster import _fetch_job_description
 from cvextract.cli_config import ExtractStage, UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, load_input_json, write_output_json
 
 
 def make_work(tmp_path: Path, cv_data: dict) -> UnitOfWork:
     input_path = tmp_path / "input.json"
     input_path.write_text(json.dumps(cv_data, indent=2))
     output_path = tmp_path / "output.json"
-    return UnitOfWork(
+    work = UnitOfWork(
         config=UserConfig(target_dir=tmp_path, extract=ExtractStage(source=input_path)),
         initial_input=input_path,
-        input=input_path,
-        output=output_path,
     )
+    work.set_step_paths(StepName.Adjust, input_path=input_path, output_path=output_path)
+    return work
 
 
 def read_output(work: UnitOfWork) -> dict:
-    return json.loads(work.output.read_text())
+    return json.loads(work.get_step_output(StepName.Adjust).read_text())
 
 
 class TestCVAdjusterBase:
@@ -53,7 +53,7 @@ class TestCVAdjusterBase:
                     return "Test"
 
                 def adjust(self, work, **kwargs):
-                    return self._write_output_json(work, self._load_input_json(work))
+                    return write_output_json(work, load_input_json(work))
 
             IncompleteAdjuster()
 
@@ -66,7 +66,7 @@ class TestCVAdjusterBase:
                     return "test"
 
                 def adjust(self, work, **kwargs):
-                    return self._write_output_json(work, self._load_input_json(work))
+                    return write_output_json(work, load_input_json(work))
 
             IncompleteAdjuster()
 
@@ -94,7 +94,7 @@ class TestCVAdjusterBase:
                 return "Test"
 
             def adjust(self, work, **kwargs):
-                return self._write_output_json(work, self._load_input_json(work))
+                return write_output_json(work, load_input_json(work))
 
         adjuster = TestAdjuster()
         # Should not raise any exception with default implementation
@@ -111,9 +111,9 @@ class TestCVAdjusterBase:
                 return "A fully implemented test adjuster"
 
             def adjust(self, work, **kwargs):
-                cv_data = self._load_input_json(work)
+                cv_data = load_input_json(work)
                 cv_data["adjusted"] = True
-                return self._write_output_json(work, cv_data)
+                return write_output_json(work, cv_data)
 
             def validate_params(self, **kwargs):
                 if "required" not in kwargs:
@@ -144,7 +144,7 @@ class TestCVAdjusterBase:
                 return "Strict test adjuster"
 
             def adjust(self, work, **kwargs):
-                return self._write_output_json(work, self._load_input_json(work))
+                return write_output_json(work, load_input_json(work))
 
             def validate_params(self, **kwargs):
                 if "required_param" not in kwargs:
@@ -274,7 +274,7 @@ class TestAdjusterRegistry:
                 return "Test adjuster"
 
             def adjust(self, work, **kwargs):
-                return self._write_output_json(work, self._load_input_json(work))
+                return write_output_json(work, load_input_json(work))
 
         register_adjuster(CustomAdjuster)
 
@@ -2208,12 +2208,8 @@ class TestOpenAICompanyResearchHelpers:
             "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
             return_value={"required": []},
         ):
-            assert (
-                _validate_research_data({"name": 123, "domains": ["x"]}) is False
-            )
-            assert (
-                _validate_research_data({"name": "", "domains": ["x"]}) is False
-            )
+            assert _validate_research_data({"name": 123, "domains": ["x"]}) is False
+            assert _validate_research_data({"name": "", "domains": ["x"]}) is False
 
     def test_validate_research_data_rejects_invalid_description(self):
         """_validate_research_data() rejects invalid description values."""
@@ -2240,13 +2236,9 @@ class TestOpenAICompanyResearchHelpers:
             "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
             return_value={"required": []},
         ):
-            assert (
-                _validate_research_data({"name": "Test", "domains": "bad"}) is False
-            )
+            assert _validate_research_data({"name": "Test", "domains": "bad"}) is False
             assert _validate_research_data({"name": "Test", "domains": []}) is False
-            assert (
-                _validate_research_data({"name": "Test", "domains": [1]}) is False
-            )
+            assert _validate_research_data({"name": "Test", "domains": [1]}) is False
 
     def test_validate_research_data_rejects_invalid_technology_signals(self):
         """_validate_research_data() rejects invalid technology_signals values."""
@@ -2314,9 +2306,7 @@ class TestOpenAICompanyResearchHelpers:
                     {
                         "name": "Test",
                         "domains": ["x"],
-                        "technology_signals": [
-                            {"technology": "X", "signals": [1]}
-                        ],
+                        "technology_signals": [{"technology": "X", "signals": [1]}],
                     }
                 )
                 is False
@@ -2646,8 +2636,8 @@ class TestResearchCompanyProfileCache:
         _cache_research_data(cache_path, research_data)
         assert json.loads(cache_path.read_text(encoding="utf-8")) == research_data
 
-    def test_load_cached_research_skips_validation_when_configured(self, tmp_path):
-        """_load_cached_research() returns cached data when skip_verify is True."""
+    def test_load_cached_research_rejects_invalid_cache(self, tmp_path):
+        """_load_cached_research() returns None when cached data fails validation."""
         from cvextract.adjusters.openai_company_research_adjuster import (
             _load_cached_research,
         )
@@ -2660,9 +2650,9 @@ class TestResearchCompanyProfileCache:
             "cvextract.adjusters.openai_company_research_adjuster._validate_research_data",
             return_value=False,
         ):
-            result = _load_cached_research(cache_path, skip_verify=True)
+            result = _load_cached_research(cache_path)
 
-        assert result == cached
+        assert result is None
 
 
 class TestResearchCompanyProfileFailures:

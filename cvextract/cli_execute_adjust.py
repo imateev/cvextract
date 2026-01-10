@@ -12,24 +12,30 @@ from pathlib import Path
 from .adjusters import get_adjuster
 from .logging_utils import LOG
 from .shared import StepName, UnitOfWork
-from .verifiers import get_verifier
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
     config = work.config
-    if not config.adjust or not work.output:
+    if not config.adjust:
         return work
 
     base_work = work
+    input_path = work.get_step_input(StepName.Adjust) or work.get_step_output(
+        StepName.Extract
+    )
+    if input_path is None:
+        return work
     if not work.ensure_path_exists(
         StepName.Adjust,
-        work.output,
+        input_path,
         "adjust input JSON",
         must_be_file=True,
     ):
         return base_work
     try:
-        base_input = work.initial_input or work.input
+        base_input = (
+            work.initial_input or work.get_step_input(StepName.Extract) or input_path
+        )
         if config.input_dir:
             source_base = config.input_dir.resolve()
         else:
@@ -55,11 +61,9 @@ def execute(work: UnitOfWork) -> UnitOfWork:
         output_path = config.adjust.output or (
             config.workspace.adjusted_json_dir / rel_path / f"{base_input.stem}.json"
         )
-        adjust_work = UnitOfWork(
-            config=config,
-            initial_input=work.initial_input,
-            input=work.output,
-            output=output_path,
+        adjust_work = replace(work)
+        adjust_work.set_step_paths(
+            StepName.Adjust, input_path=input_path, output_path=output_path
         )
 
         for idx, adjuster_config in enumerate(config.adjust.adjusters):
@@ -96,40 +100,9 @@ def execute(work: UnitOfWork) -> UnitOfWork:
                 raise
 
             adjust_work = adjuster.adjust(adjust_work, **adjuster_params)
-            adjust_work = replace(adjust_work, input=adjust_work.output)
-
-        skip_verify = bool(
-            config.skip_all_verify
-            or (config.adjust and config.adjust.skip_verify)
-        )
-        if skip_verify:
-            return adjust_work
-
-        if not adjust_work.output or not adjust_work.output.exists():
-            adjust_work.add_error(
-                StepName.Adjust, "adjust: output JSON not found for verification"
-            )
-            return adjust_work
-
-        verifier_name = "cv-schema-verifier"
-        if config.adjust and config.adjust.verifier:
-            verifier_name = config.adjust.verifier
-        verifier = get_verifier(verifier_name)
-        if not verifier:
-            adjust_work.add_error(
-                StepName.Adjust, f"unknown verifier: {verifier_name}"
-            )
-            return adjust_work
-
-        adjust_work.ensure_step_status(StepName.Adjust)
-        adjust_work.current_step = StepName.Adjust
-        try:
-            adjust_work = verifier.verify(adjust_work)
-        except Exception as e:
-            adjust_work.add_error(
-                StepName.Adjust, f"adjust: verify failed ({type(e).__name__})"
-            )
-            return adjust_work
+            output_path = adjust_work.get_step_output(StepName.Adjust)
+            if output_path is not None:
+                adjust_work.set_step_paths(StepName.Adjust, input_path=output_path)
 
         return adjust_work
     except Exception:

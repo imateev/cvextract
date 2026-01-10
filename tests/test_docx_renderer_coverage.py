@@ -10,7 +10,7 @@ import pytest
 
 from cvextract.cli_config import RenderStage, UserConfig
 from cvextract.renderers import DocxCVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 class TestDocxCVRendererErrorCases:
@@ -22,17 +22,13 @@ class TestDocxCVRendererErrorCases:
 
         # Create work with no render config
         config = UserConfig(target_dir=tmp_path)
-        work = UnitOfWork(
-            config=config,
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.docx",
-        )
+        work = UnitOfWork(config=config)
 
         with pytest.raises(ValueError, match="Render configuration is missing"):
             renderer.render(work)
 
     def test_render_raises_error_when_output_is_none(self, tmp_path, make_render_work):
-        """Raises ValueError when work.output is None."""
+        """Raises ValueError when the render output path is None."""
         renderer = DocxCVRenderer()
 
         template = tmp_path / "template.docx"
@@ -56,13 +52,14 @@ class TestDocxCVRendererErrorCases:
 
         work = make_render_work(cv_data, template, tmp_path / "output.docx")
         # Set output to None to trigger the error
-        work.output = None
+        status = work.ensure_step_status(StepName.Render)
+        status.output = None
 
         with pytest.raises(ValueError, match="Render output path is not set"):
             renderer.render(work)
 
     def test_render_raises_error_when_input_is_none(self, tmp_path, make_render_work):
-        """Raises ValueError when work.input is None."""
+        """Raises ValueError when the render input path is None."""
         renderer = DocxCVRenderer()
 
         template = tmp_path / "template.docx"
@@ -86,7 +83,8 @@ class TestDocxCVRendererErrorCases:
 
         work = make_render_work(cv_data, template, tmp_path / "output.docx")
         # Set input to None to trigger the error
-        work.input = None
+        status = work.ensure_step_status(StepName.Render)
+        status.input = None
 
         with pytest.raises(ValueError, match="Render input path is not set"):
             renderer.render(work)

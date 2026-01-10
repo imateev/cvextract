@@ -32,15 +32,15 @@ try:
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
-from ..shared import UnitOfWork, format_prompt
+from ..shared import UnitOfWork, format_prompt, load_input_json, write_output_json
 from .base import CVAdjuster
+from .openai_utils import OpenAIRetry as _OpenAIRetry
+from .openai_utils import RetryConfig as _RetryConfig
+from .openai_utils import extract_json_object as _extract_json_object
 from .openai_utils import (
-    OpenAIRetry as _OpenAIRetry,
-    RetryConfig as _RetryConfig,
-    extract_json_object as _extract_json_object,
     get_cached_resource_path,
-    strip_markdown_fences as _strip_markdown_fences,
 )
+from .openai_utils import strip_markdown_fences as _strip_markdown_fences
 
 LOG = logging.getLogger("cvextract")
 
@@ -66,6 +66,7 @@ def _load_cv_schema() -> Optional[Dict[str, Any]]:
     except Exception as e:
         LOG.warning("Failed to load CV schema: %s", e)
         return None
+
 
 def _fetch_job_description(url: str) -> str:
     """
@@ -169,14 +170,14 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             )
 
     def adjust(self, work: UnitOfWork, **kwargs) -> UnitOfWork:
-        cv_data = self._load_input_json(work)
+        cv_data = load_input_json(work)
         self.validate_params(**kwargs)
 
         if not self._api_key or OpenAI is None:
             LOG.warning(
                 "Job-specific adjust skipped: OpenAI unavailable or API key missing."
             )
-            return self._write_output_json(work, cv_data)
+            return write_output_json(work, cv_data)
 
         job_description = (
             kwargs.get("job_description", kwargs.get("job-description", "")) or ""
@@ -191,7 +192,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 LOG.warning(
                     "Job-specific adjust: failed to fetch job description from URL"
                 )
-                return self._write_output_json(work, cv_data)
+                return write_output_json(work, cv_data)
 
         # Load prompt (keep typo key for compatibility, add fallback)
         system_prompt = format_prompt(
@@ -204,7 +205,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
 
         if not system_prompt:
             LOG.warning("Job-specific adjust skipped: failed to load prompt template")
-            return self._write_output_json(work, cv_data)
+            return write_output_json(work, cv_data)
 
         client = OpenAI(api_key=self._api_key)
         retryer = _OpenAIRetry(retry=self._retry, sleep=self._sleep)
@@ -237,7 +238,7 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             LOG.warning(
                 "Job-specific adjust error (%s); using original JSON.", type(e).__name__
             )
-            return self._write_output_json(work, cv_data)
+            return write_output_json(work, cv_data)
 
         content = None
         finish_reason = None
@@ -255,18 +256,18 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
                 "Job-specific adjust: completion not finished (%s); using original JSON.",
                 finish_reason,
             )
-            return self._write_output_json(work, cv_data)
+            return write_output_json(work, cv_data)
 
         if not content:
             LOG.warning("Job-specific adjust: empty completion; using original JSON.")
-            return self._write_output_json(work, cv_data)
+            return write_output_json(work, cv_data)
 
         adjusted = _extract_json_object(content)
         if adjusted is None:
             LOG.warning(
                 "Job-specific adjust: invalid JSON response; using original JSON."
             )
-            return self._write_output_json(work, cv_data)
+            return write_output_json(work, cv_data)
 
         LOG.info("The CV was adjusted to better fit the job description.")
-        return self._write_output_json(work, adjusted)
+        return write_output_json(work, adjusted)

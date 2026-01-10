@@ -16,7 +16,7 @@ try:
     from importlib.resources import as_file, files
 except ModuleNotFoundError:
     # Python < 3.9 backport
-    from importlib_resources import files, as_file  # type: ignore
+    from importlib_resources import as_file, files  # type: ignore
 
 T = TypeVar("T")
 

@@ -2,7 +2,6 @@
 
 import json
 import zipfile
-from dataclasses import replace
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,8 +15,8 @@ from cvextract.cli_config import (
     RenderStage,
     UserConfig,
 )
-from cvextract.cli_execute_pipeline import execute_pipeline
-from cvextract.shared import StepName, StepStatus, UnitOfWork
+from cvextract.cli_execute_pipeline import _build_rerun_config, execute_pipeline
+from cvextract.shared import StepName, UnitOfWork
 
 
 @pytest.fixture
@@ -64,20 +63,21 @@ def _valid_cv_payload() -> dict:
 def _extract_result(
     work: UnitOfWork, ok: bool, errs: list[str], warns: list[str]
 ) -> UnitOfWork:
-    if work.output:
-        work.output.parent.mkdir(parents=True, exist_ok=True)
-        work.output.write_text(json.dumps(_valid_cv_payload()))
-    statuses = dict(work.step_states)
-    statuses[StepName.Extract] = StepStatus(
-        step=StepName.Extract, warnings=warns, errors=errs
-    )
-    return replace(work, step_states=statuses)
+    output_path = work.get_step_output(StepName.Extract)
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(_valid_cv_payload()))
+    status = work.ensure_step_status(StepName.Extract)
+    status.warnings = list(warns)
+    status.errors = list(errs)
+    return work
 
 
 def _adjust_result(work: UnitOfWork, payload: dict) -> UnitOfWork:
-    work.output.parent.mkdir(parents=True, exist_ok=True)
-    work.output.write_text(json.dumps(payload))
-    return replace(work, output=work.output)
+    output_path = work.get_step_output(StepName.Adjust)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload))
+    return work
 
 
 @pytest.fixture
@@ -219,14 +219,14 @@ class TestExecutePipelineExtractOnly:
         assert exit_code == 0
         # Verify extract_single was called with custom output
         call_args = mock_extract.call_args
-        assert call_args[0][0].output == custom_output
+        assert call_args[0][0].get_step_output(StepName.Extract) == custom_output
 
 
 class TestExecutePipelineExtractApply:
     """Tests for execute_pipeline with extract + apply stages."""
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_extract_apply_success(
         self,
@@ -240,7 +240,7 @@ class TestExecutePipelineExtractApply:
         """Test successful extract + apply."""
         mock_extract.side_effect = lambda work: _extract_result(work, True, [], [])
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -257,7 +257,7 @@ class TestExecutePipelineExtractApply:
         mock_render.assert_called_once()
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_extract_fails_apply_skipped(
         self,
@@ -288,7 +288,7 @@ class TestExecutePipelineExtractApply:
         mock_verify.assert_not_called()
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_extract_apply_both_warnings_returns_zero(
         self,
@@ -304,7 +304,7 @@ class TestExecutePipelineExtractApply:
             work, True, [], ["extract warning"]
         )
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -321,7 +321,7 @@ class TestExecutePipelineExtractApply:
 class TestExecutePipelineApplyOnly:
     """Tests for execute_pipeline with apply stage only (from existing JSON)."""
 
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_apply_from_json_success(
         self,
@@ -333,7 +333,7 @@ class TestExecutePipelineApplyOnly:
     ):
         """Test applying from existing JSON file."""
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
 
         config = UserConfig(
             extract=None,
@@ -347,7 +347,7 @@ class TestExecutePipelineApplyOnly:
         assert exit_code == 0
         mock_render.assert_called_once()
 
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_apply_custom_output(
         self,
@@ -359,7 +359,7 @@ class TestExecutePipelineApplyOnly:
     ):
         """Test applying with custom output path."""
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
 
         custom_output = tmp_path / "custom_output.docx"
         config = UserConfig(
@@ -383,7 +383,7 @@ class TestExecutePipelineAdjust:
 
     @patch("cvextract.cli_execute_extract.extract_single")
     @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_extract_adjust_apply_success(
         self,
@@ -399,12 +399,9 @@ class TestExecutePipelineAdjust:
 
         # Mock extract_single to create a JSON file
         def fake_extract(work: UnitOfWork):
-            work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            output_path = work.get_step_output(StepName.Extract)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -418,7 +415,7 @@ class TestExecutePipelineAdjust:
         mock_get_adjuster.return_value = mock_adjuster
 
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=mock_docx, output=None),
@@ -430,7 +427,6 @@ class TestExecutePipelineAdjust:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=False,
                 data=None,
                 output=None,
             ),
@@ -446,63 +442,8 @@ class TestExecutePipelineAdjust:
         mock_adjuster.adjust.assert_called_once()
         mock_render.assert_called_once()
 
-    @patch("cvextract.cli_execute_extract.extract_single")
     @patch("cvextract.cli_execute_adjust.get_adjuster")
-    def test_adjust_dry_run_skips_apply(
-        self,
-        mock_get_adjuster,
-        mock_extract,
-        tmp_path: Path,
-        mock_docx: Path,
-        mock_template: Path,
-    ):
-        """Test that dry-run mode skips apply stage."""
-
-        # Mock extract_single to create a JSON file
-        def fake_extract(work: UnitOfWork):
-            work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
-            return _extract_result(work, True, [], [])
-
-        mock_extract.side_effect = fake_extract
-        # Mock adjuster
-        mock_adjuster = MagicMock()
-        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, _valid_cv_payload()
-        )
-        mock_adjuster.validate_params.return_value = None
-        mock_get_adjuster.return_value = mock_adjuster
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=AdjustStage(
-                adjusters=[
-                    AdjusterConfig(
-                        name="openai-company-research",
-                        params={"customer-url": "https://example.com"},
-                        openai_model="gpt-4",
-                    )
-                ],
-                dry_run=True,
-                data=None,
-                output=None,
-            ),
-            render=RenderStage(template=mock_template, data=None, output=None),
-            target_dir=tmp_path / "out",
-            log_file=None,
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 0
-        mock_extract.assert_called_once()
-        mock_adjuster.adjust.assert_called_once()
-
-    @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_adjust_from_json(
         self,
@@ -522,7 +463,7 @@ class TestExecutePipelineAdjust:
         mock_adjuster.validate_params.return_value = None
         mock_get_adjuster.return_value = mock_adjuster
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
         config = UserConfig(
             extract=None,
             adjust=AdjustStage(
@@ -533,7 +474,6 @@ class TestExecutePipelineAdjust:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=False,
                 data=mock_json,
                 output=None,
             ),
@@ -573,7 +513,6 @@ class TestExecutePipelineAdjust:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=False,
                 data=input_json,
                 output=None,
             ),
@@ -589,113 +528,6 @@ class TestExecutePipelineAdjust:
         # CLI should not inject cache_path into adjuster params
         call_kwargs = mock_adjuster.adjust.call_args.kwargs
         assert "cache_path" not in call_kwargs
-
-    @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_adjust.get_adjuster")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
-    @patch("cvextract.cli_execute_render.render")
-    def test_adjust_exception_fallback(
-        self,
-        mock_render,
-        mock_verify,
-        mock_get_adjuster,
-        mock_extract,
-        tmp_path: Path,
-        mock_docx: Path,
-        mock_template: Path,
-    ):
-        """Test that adjustment exceptions are handled and apply proceeds with original JSON."""
-
-        # Mock extract_single to create a JSON file
-        def fake_extract(work: UnitOfWork):
-            work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
-            return _extract_result(work, True, [], [])
-
-        mock_extract.side_effect = fake_extract
-        # Mock adjuster to raise exception
-        mock_adjuster = MagicMock()
-        mock_adjuster.adjust.side_effect = Exception("Adjustment failed")
-        mock_adjuster.validate_params.return_value = None
-        mock_get_adjuster.return_value = mock_adjuster
-        mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=AdjustStage(
-                adjusters=[
-                    AdjusterConfig(
-                        name="openai-company-research",
-                        params={"customer-url": "https://example.com"},
-                        openai_model="gpt-4",
-                    )
-                ],
-                dry_run=False,
-                data=None,
-                output=None,
-            ),
-            render=RenderStage(template=mock_template, data=None, output=None),
-            target_dir=tmp_path / "out",
-            log_file=None,
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 0
-        mock_render.assert_called_once()
-
-
-class TestExecutePipelineDebugMode:
-    """Tests for execute_pipeline with debug mode."""
-
-    @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_adjust.get_adjuster")
-    def test_adjust_exception_debug_mode(
-        self, mock_get_adjuster, mock_extract, tmp_path: Path, mock_docx: Path
-    ):
-        """Test that adjust exceptions in debug mode are logged."""
-
-        def fake_extract(work: UnitOfWork):
-            work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
-            return _extract_result(work, True, [], [])
-
-        mock_extract.side_effect = fake_extract
-        # Mock adjuster to raise exception
-        mock_adjuster = MagicMock()
-        mock_adjuster.adjust.side_effect = Exception("Adjustment error")
-        mock_adjuster.validate_params.return_value = None
-        mock_get_adjuster.return_value = mock_adjuster
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=AdjustStage(
-                adjusters=[
-                    AdjusterConfig(
-                        name="openai-company-research",
-                        params={"customer-url": "https://example.com"},
-                        openai_model="gpt-4",
-                    )
-                ],
-                dry_run=True,
-                data=None,
-                output=None,
-            ),
-            render=None,
-            target_dir=tmp_path / "out",
-            log_file=None,
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 0  # Dry run doesn't fail on adjust error
 
 
 class TestFolderStructurePreservation:
@@ -726,7 +558,7 @@ class TestFolderStructurePreservation:
 
         # Verify extract was called with the correct output path
         call_args = mock_extract.call_args
-        output_json = call_args[0][0].output
+        output_json = call_args[0][0].get_step_output(StepName.Extract)
 
         # Output should be in DACH/Software Engineering subdirectory
         assert "DACH" in str(output_json)
@@ -745,12 +577,9 @@ class TestFolderStructurePreservation:
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
 
         def fake_extract(work: UnitOfWork):
-            work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            output_path = work.get_step_output(StepName.Extract)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
@@ -772,7 +601,6 @@ class TestFolderStructurePreservation:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=True,
                 data=None,
                 output=None,
             ),
@@ -789,7 +617,7 @@ class TestFolderStructurePreservation:
         mock_adjuster.adjust.assert_called_once()
 
     @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_render._verify_roundtrip")
+    @patch("cvextract.cli_execute_single.roundtrip_verify")
     @patch("cvextract.cli_execute_render.render")
     def test_apply_preserves_folder_structure(
         self,
@@ -805,17 +633,14 @@ class TestFolderStructurePreservation:
         input_file = parallel_input_tree.docx("DACH/Software Engineering/profile.docx")
 
         def fake_extract(work: UnitOfWork):
-            work.output.parent.mkdir(parents=True, exist_ok=True)
-            work.output.write_text(
-                json.dumps(
-                    _valid_cv_payload()
-                )
-            )
+            output_path = work.get_step_output(StepName.Extract)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps(_valid_cv_payload()))
             return _extract_result(work, True, [], [])
 
         mock_extract.side_effect = fake_extract
         mock_render.side_effect = lambda work: work
-        mock_verify.side_effect = lambda work, _path: work
+        mock_verify.side_effect = lambda work: work
 
         config = UserConfig(
             extract=ExtractStage(source=input_file, output=None),
@@ -913,7 +738,7 @@ class TestFolderStructurePreservation:
         )
 
         def _fake_execute_single(cfg):
-            work = UnitOfWork(config=cfg, input=doc_a, output=None)
+            work = UnitOfWork(config=cfg, initial_input=doc_a)
             exit_code = 1 if cfg.extract and cfg.extract.source == doc_b else 0
             return exit_code, work
 
@@ -926,6 +751,37 @@ class TestFolderStructurePreservation:
         assert exit_code == 1
         logged = config.log_failed.read_text(encoding="utf-8").strip().splitlines()
         assert logged == [str(doc_b)]
+
+    def test_rerun_failed_missing_list_returns_error(self, tmp_path: Path):
+        """execute_pipeline() returns error if rerun list cannot be read."""
+        missing_list = tmp_path / "missing.txt"
+
+        config = UserConfig(
+            target_dir=tmp_path / "output",
+            rerun_failed=missing_list,
+        )
+
+        with patch("cvextract.cli_execute_pipeline.execute_single") as mock_execute:
+            exit_code = execute_pipeline(config)
+
+        assert exit_code == 1
+        mock_execute.assert_not_called()
+
+    def test_rerun_failed_empty_list_returns_error(self, tmp_path: Path):
+        """execute_pipeline() returns error when rerun list is empty."""
+        failed_list = tmp_path / "failed.txt"
+        failed_list.write_text("# comment\n\n", encoding="utf-8")
+
+        config = UserConfig(
+            target_dir=tmp_path / "output",
+            rerun_failed=failed_list,
+        )
+
+        with patch("cvextract.cli_execute_pipeline.execute_single") as mock_execute:
+            exit_code = execute_pipeline(config)
+
+        assert exit_code == 1
+        mock_execute.assert_not_called()
 
     def test_rerun_failed_parallel_uses_failed_list(self, tmp_path: Path):
         """execute_pipeline() uses rerun list for parallel reruns."""
@@ -951,6 +807,49 @@ class TestFolderStructurePreservation:
         assert exit_code == 0
         args, _kwargs = mock_parallel.call_args
         assert [str(p) for p in args[0]] == [str(doc_a), str(doc_b)]
+
+    def test_build_rerun_config_updates_render_data(self, tmp_path: Path):
+        """_build_rerun_config should replace render data with file path."""
+        template = tmp_path / "template.docx"
+        template.touch()
+        original = tmp_path / "original.json"
+        rerun_path = tmp_path / "rerun.json"
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            render=RenderStage(template=template, data=original),
+            parallel=ParallelStage(source=tmp_path, n=1),
+            input_dir=tmp_path / "input",
+        )
+
+        rerun_config = _build_rerun_config(config, rerun_path)
+
+        assert rerun_config.render is not None
+        assert rerun_config.render.data == rerun_path
+        assert rerun_config.parallel is None
+        assert rerun_config.input_dir is None
+
+    def test_build_rerun_config_updates_adjust_data(self, tmp_path: Path):
+        """_build_rerun_config should replace adjust data with file path."""
+        original = tmp_path / "original.json"
+        rerun_path = tmp_path / "rerun.json"
+
+        config = UserConfig(
+            target_dir=tmp_path,
+            adjust=AdjustStage(
+                adjusters=[AdjusterConfig(name="noop", params={})],
+                data=original,
+            ),
+            parallel=ParallelStage(source=tmp_path, n=1),
+            input_dir=tmp_path / "input",
+        )
+
+        rerun_config = _build_rerun_config(config, rerun_path)
+
+        assert rerun_config.adjust is not None
+        assert rerun_config.adjust.data == rerun_path
+        assert rerun_config.parallel is None
+        assert rerun_config.input_dir is None
 
     @patch("cvextract.cli_execute_extract.extract_single")
     def test_relative_path_calculation_with_value_error_fallback(

@@ -11,7 +11,7 @@ import pytest
 from docx import Document
 
 from cvextract.renderers import DocxCVRenderer
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ class TestDocxCVRendererBasicFunctionality:
         work = make_render_work(cv_data, minimal_template, output_path)
         result = renderer.render(work)
 
-        assert result.output == output_path
+        assert result.get_step_output(StepName.Render) == output_path
         assert output_path.exists()
         assert output_path.is_file()
         assert output_path.stat().st_size > 0
@@ -156,7 +156,7 @@ class TestDocxCVRendererBasicFunctionality:
         work = make_render_work(cv_data, minimal_template, output_path)
         result = renderer.render(work)
         assert isinstance(result, UnitOfWork)
-        assert result.output == output_path
+        assert result.get_step_output(StepName.Render) == output_path
 
 
 class TestDocxCVRendererValidation:

@@ -9,6 +9,7 @@ from cvextract.renderers import (
     register_renderer,
 )
 from cvextract.renderers.renderer_registry import unregister_renderer
+from cvextract.shared import StepName
 
 
 class TestRendererRegistry:
@@ -59,8 +60,11 @@ class TestRendererRegistry:
                 self.custom_param = custom_param
 
             def render(self, work):
-                work.output.parent.mkdir(parents=True, exist_ok=True)
-                work.output.write_text("rendered")
+                output_path = work.get_step_output(StepName.Render)
+                if output_path is None:
+                    raise ValueError("Render output path is not set")
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("rendered")
                 return work
 
         # Register it temporarily
@@ -83,8 +87,11 @@ class TestRendererRegistry:
             """Custom test renderer for testing."""
 
             def render(self, work):
-                work.output.parent.mkdir(parents=True, exist_ok=True)
-                work.output.write_text("custom rendered content")
+                output_path = work.get_step_output(StepName.Render)
+                if output_path is None:
+                    raise ValueError("Render output path is not set")
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("custom rendered content")
                 return work
 
         # Register custom renderer
@@ -105,9 +112,10 @@ class TestRendererRegistry:
             output = tmp_path / "output.txt"
             work = make_render_work({}, Path("/any/path"), output)
             result = renderer.render(work)
-            assert result.output == output
-            assert result.output.exists()
-            assert result.output.read_text() == "custom rendered content"
+            rendered_path = result.get_step_output(StepName.Render)
+            assert rendered_path == output
+            assert rendered_path.exists()
+            assert rendered_path.read_text() == "custom rendered content"
         finally:
             # Clean up the custom renderer
             unregister_renderer("custom-test-renderer")
@@ -148,14 +156,22 @@ class TestRendererRegistry:
             """First test renderer."""
 
             def render(self, work):
-                work.output.write_text("first")
+                output_path = work.get_step_output(StepName.Render)
+                if output_path is None:
+                    raise ValueError("Render output path is not set")
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("first")
                 return work
 
         class SecondRenderer(CVRenderer):
             """Second test renderer."""
 
             def render(self, work):
-                work.output.write_text("second")
+                output_path = work.get_step_output(StepName.Render)
+                if output_path is None:
+                    raise ValueError("Render output path is not set")
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("second")
                 return work
 
         # Register first renderer

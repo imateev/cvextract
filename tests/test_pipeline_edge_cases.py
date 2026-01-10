@@ -5,9 +5,6 @@ from pathlib import Path
 
 import cvextract.cli as cli
 import cvextract.pipeline as pipeline
-import cvextract.pipeline_helpers as helpers
-from cvextract.cli_config import UserConfig
-from cvextract.shared import StepName, StepStatus, UnitOfWork, get_status_icons
 
 
 class TestCliEdgeCases:
@@ -75,6 +72,30 @@ class TestPipelineEdgeCases:
         root = pipeline.infer_source_root([])
         assert root.is_absolute()
 
+    def test_infer_source_root_single_file(self, tmp_path):
+        """Test infer_source_root with a single file."""
+        file_path = tmp_path / "data.json"
+        file_path.touch()
+
+        root = pipeline.infer_source_root([file_path])
+
+        assert root == tmp_path.resolve()
+
+    def test_infer_source_root_multiple_files(self, tmp_path):
+        """Test infer_source_root with multiple files."""
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+        file_a = dir_a / "one.json"
+        file_b = dir_b / "two.json"
+        file_a.touch()
+        file_b.touch()
+
+        root = pipeline.infer_source_root([file_a, file_b])
+
+        assert root == tmp_path.resolve()
+
     def test_safe_relpath_exception_handling(self):
         """Test safe_relpath when relative_to raises exception."""
         # Create a path that will fail relative_to
@@ -84,102 +105,3 @@ class TestPipelineEdgeCases:
         result = pipeline.safe_relpath(p, root)
         # Should fall back to just the name
         assert result == "path"
-
-    def test_categorize_result_extract_fail(self):
-        """Test _categorize_result when extract fails."""
-        full, part, fail = helpers.categorize_result(
-            extract_ok=False, has_warns=False, apply_ok=None
-        )
-        assert (full, part, fail) == (0, 0, 1)
-
-    def test_categorize_result_apply_false_no_warns(self):
-        """Test _categorize_result when apply fails without warns."""
-        full, part, fail = helpers.categorize_result(
-            extract_ok=True, has_warns=False, apply_ok=False
-        )
-        # When apply fails, it's partial (not fully failed)
-        assert (full, part, fail) == (0, 1, 0)
-
-    def test_categorize_result_success(self):
-        """Test _categorize_result for successful result."""
-        full, part, fail = helpers.categorize_result(
-            extract_ok=True, has_warns=False, apply_ok=True
-        )
-        assert (full, part, fail) == (1, 0, 0)
-
-    def test_categorize_result_with_warns(self):
-        """Test _categorize_result with warnings."""
-        full, part, fail = helpers.categorize_result(
-            extract_ok=True, has_warns=True, apply_ok=None
-        )
-        assert (full, part, fail) == (0, 1, 0)
-
-    def test_get_status_icons_all_success(self, tmp_path):
-        """Test status icons for complete success."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
-        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
-        work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer
-        )
-        icons = get_status_icons(work)
-        assert icons[StepName.Extract] == "🟢"
-        assert icons[StepName.Render] == "✅"
-        assert icons[StepName.RoundtripComparer] == "✅"
-
-    def test_get_status_icons_all_failures(self, tmp_path):
-        """Test status icons for complete failure."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
-        work.step_states[StepName.Extract] = StepStatus(
-            step=StepName.Extract,
-            errors=["extract error"],
-        )
-        work.step_states[StepName.Render] = StepStatus(
-            step=StepName.Render,
-            errors=["render error"],
-        )
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer,
-            errors=["verify error"],
-        )
-        icons = get_status_icons(work)
-        assert icons[StepName.Extract] == "❌"
-        assert icons[StepName.Render] == "❌"
-        assert icons[StepName.RoundtripComparer] == "❌"
-
-    def test_get_status_icons_extract_warn(self, tmp_path):
-        """Test status icons when extract has warning."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
-        work.step_states[StepName.Extract] = StepStatus(
-            step=StepName.Extract,
-            warnings=["warn"],
-        )
-        icons = get_status_icons(work)
-        assert icons[StepName.Extract] == "❎"
-        assert icons[StepName.Render] == "➖"
-        assert icons[StepName.RoundtripComparer] == "➖"
-
-    def test_get_status_icons_none_values(self, tmp_path):
-        """Test status icons with None values for apply/compare."""
-        work = UnitOfWork(
-            config=UserConfig(target_dir=tmp_path),
-            input=tmp_path / "input.json",
-            output=tmp_path / "output.json",
-        )
-        work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
-        icons = get_status_icons(work)
-        assert icons[StepName.Extract] == "🟢"
-        assert icons[StepName.Render] == "➖"
-        assert icons[StepName.RoundtripComparer] == "➖"

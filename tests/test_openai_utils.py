@@ -57,7 +57,7 @@ def test_get_cached_resource_path_writes_cache_from_resource(tmp_path):
     ):
         result = openai_utils.get_cached_resource_path("resource.json")
 
-    cache_path = (tmp_path / "cvextract" / "resource.json")
+    cache_path = tmp_path / "cvextract" / "resource.json"
     assert result == cache_path
     assert cache_path.read_text(encoding="utf-8") == "data"
 

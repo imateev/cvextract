@@ -142,12 +142,12 @@ with open(schema_path) as f:
 
 - `cvextract.renderers.DocxCVRenderer`
 - `cvextract.adjusters.*` (all adjusters)
-- `cvextract.verifiers.CVSchemaVerifier`
+- `cvextract.verifiers.DefaultCvSchemaVerifier`
 - All templates in `examples/templates/`
 
 ### Validators
 
-- `cvextract.verifiers.CVSchemaVerifier` - Runtime validation
+- `cvextract.verifiers.DefaultCvSchemaVerifier` - Runtime validation
 
 ## Dependencies
 
@@ -156,7 +156,7 @@ with open(schema_path) as f:
 - Used by all extractors (produce conforming data)
 - Used by all adjusters (preserve schema)
 - Used by all renderers (consume conforming data)
-- Used by `CVSchemaVerifier` for validation
+- Used by `DefaultCvSchemaVerifier` for validation
 
 ### External Dependencies
 
@@ -173,7 +173,7 @@ with open(schema_path) as f:
 
 Tested in:
 - `tests/test_contracts.py` - Schema validation tests
-- `tests/test_verifiers.py` - CVSchemaVerifier tests
+- `tests/test_verifiers.py` - DefaultCvSchemaVerifier tests
 - `tests/test_extractors.py` - Extractor output validation
 - `tests/test_renderers.py` - Renderer input validation
 

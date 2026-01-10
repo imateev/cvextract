@@ -21,7 +21,8 @@ from cvextract.verifiers.verifier_registry import unregister_verifier
 def _make_work(tmp_path):
     path = tmp_path / "data.json"
     path.write_text(json.dumps({}), encoding="utf-8")
-    work = UnitOfWork(config=UserConfig(target_dir=tmp_path), input=path, output=path)
+    work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
+    work.set_step_paths(StepName.Extract, input_path=path, output_path=path)
     work.current_step = StepName.Extract
     work.ensure_step_status(StepName.Extract)
     return work
@@ -41,7 +42,7 @@ class TestVerifierRegistry:
         names = [v["name"] for v in verifiers]
 
         # Check for built-in verifiers
-        assert "private-internal-verifier" in names
+        assert "default-extract-verifier" in names
         assert "roundtrip-verifier" in names
         assert "cv-schema-verifier" in names
 
@@ -54,8 +55,8 @@ class TestVerifierRegistry:
             assert len(verifier["description"]) > 0
 
     def test_get_verifier_returns_data_verifier(self):
-        """get_verifier() returns private-internal-verifier instance."""
-        verifier = get_verifier("private-internal-verifier")
+        """get_verifier() returns default-extract-verifier instance."""
+        verifier = get_verifier("default-extract-verifier")
 
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)
@@ -82,7 +83,7 @@ class TestVerifierRegistry:
 
     def test_get_verifier_with_kwargs(self):
         """get_verifier() passes kwargs to verifier constructor."""
-        # CVSchemaVerifier accepts schema_path parameter
+        # DefaultCvSchemaVerifier accepts schema_path parameter
         schema_path = Path("/tmp/test_schema.json")
         verifier = get_verifier("cv-schema-verifier", schema_path=schema_path)
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from cvextract.cli_config import RenderStage, UserConfig
-from cvextract.shared import UnitOfWork
+from cvextract.shared import StepName, UnitOfWork
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -34,11 +34,13 @@ def make_render_work(tmp_path: Path):
                 output=output_path,
             ),
         )
-        return UnitOfWork(
+        work = UnitOfWork(
             config=config,
-            input=json_path,
-            output=output_path,
             initial_input=json_path,
         )
+        work.set_step_paths(
+            StepName.Render, input_path=json_path, output_path=output_path
+        )
+        return work
 
     return _make
