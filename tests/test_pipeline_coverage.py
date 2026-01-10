@@ -243,8 +243,8 @@ class TestGetStatusIcons:
             warnings=["warning"],
         )
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer
+        work.step_states[StepName.VerifyRender] = StepStatus(
+            step=StepName.VerifyRender
         )
         icons = get_status_icons(work)
         assert "❎" in icons[StepName.Extract]  # Warning icon for extract
@@ -254,8 +254,8 @@ class TestGetStatusIcons:
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer
+        work.step_states[StepName.VerifyRender] = StepStatus(
+            step=StepName.VerifyRender
         )
         icons = get_status_icons(work)
         assert "🟢" in icons[StepName.Extract]  # Green icon
@@ -271,8 +271,8 @@ class TestGetStatusIcons:
             step=StepName.Render,
             errors=["render error"],
         )
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer,
+        work.step_states[StepName.VerifyRender] = StepStatus(
+            step=StepName.VerifyRender,
             errors=["compare error"],
         )
         icons = get_status_icons(work)
@@ -290,13 +290,13 @@ class TestGetStatusIcons:
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer
+        work.step_states[StepName.VerifyRender] = StepStatus(
+            step=StepName.VerifyRender
         )
         icons = get_status_icons(work)
         assert (
-            "✅" in icons[StepName.RoundtripComparer]
-            or "✓" in icons[StepName.RoundtripComparer]
+            "✅" in icons[StepName.VerifyRender]
+            or "✓" in icons[StepName.VerifyRender]
         )
 
     def test_compare_failed(self, tmp_path):
@@ -304,12 +304,12 @@ class TestGetStatusIcons:
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-        work.step_states[StepName.RoundtripComparer] = StepStatus(
-            step=StepName.RoundtripComparer,
+        work.step_states[StepName.VerifyRender] = StepStatus(
+            step=StepName.VerifyRender,
             errors=["compare mismatch"],
         )
         icons = get_status_icons(work)
-        assert "❌" in icons[StepName.RoundtripComparer]  # Error for compare mismatch
+        assert "❌" in icons[StepName.VerifyRender]  # Error for compare mismatch
 
     def test_compare_none(self, tmp_path):
         """Test compare not executed."""
@@ -317,7 +317,7 @@ class TestGetStatusIcons:
         work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
         work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
         icons = get_status_icons(work)
-        assert "➖" in icons[StepName.RoundtripComparer]
+        assert "➖" in icons[StepName.VerifyRender]
 
 
 class TestInferSourceRoot:

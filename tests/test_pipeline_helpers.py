@@ -179,7 +179,7 @@ def test_render_and_verify_exception(monkeypatch, tmp_path: Path):
     assert render_status.errors == []
     assert len(render_status.warnings) == 1
     assert "render: ValueError" in render_status.warnings[0]
-    assert StepName.RoundtripComparer not in result.step_states
+    assert StepName.VerifyRender not in result.step_states
 
 
 def test_get_status_icons_extract_success_no_warnings():
@@ -189,7 +189,7 @@ def test_get_status_icons_extract_success_no_warnings():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.RoundtripComparer] == "➖"
+    assert icons[StepName.VerifyRender] == "➖"
 
 
 def test_get_status_icons_extract_success_with_warnings():
@@ -202,7 +202,7 @@ def test_get_status_icons_extract_success_with_warnings():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "❎"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.RoundtripComparer] == "➖"
+    assert icons[StepName.VerifyRender] == "➖"
 
 
 def test_get_status_icons_extract_failed():
@@ -215,7 +215,7 @@ def test_get_status_icons_extract_failed():
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "❌"
     assert icons[StepName.Render] == "➖"
-    assert icons[StepName.RoundtripComparer] == "➖"
+    assert icons[StepName.VerifyRender] == "➖"
 
 
 def test_get_status_icons_apply_success():
@@ -223,13 +223,13 @@ def test_get_status_icons_apply_success():
     work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-    work.step_states[StepName.RoundtripComparer] = StepStatus(
-        step=StepName.RoundtripComparer
+    work.step_states[StepName.VerifyRender] = StepStatus(
+        step=StepName.VerifyRender
     )
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "✅"
-    assert icons[StepName.RoundtripComparer] == "✅"
+    assert icons[StepName.VerifyRender] == "✅"
 
 
 def test_get_status_icons_apply_failed():
@@ -240,14 +240,14 @@ def test_get_status_icons_apply_failed():
         step=StepName.Render,
         errors=["render failed"],
     )
-    work.step_states[StepName.RoundtripComparer] = StepStatus(
-        step=StepName.RoundtripComparer,
+    work.step_states[StepName.VerifyRender] = StepStatus(
+        step=StepName.VerifyRender,
         errors=["compare failed"],
     )
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "❌"
-    assert icons[StepName.RoundtripComparer] == "❌"
+    assert icons[StepName.VerifyRender] == "❌"
 
 
 def test_categorize_result_extract_failed():

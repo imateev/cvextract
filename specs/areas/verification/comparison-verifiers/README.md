@@ -33,11 +33,11 @@ verifier = get_verifier("roundtrip-verifier")
 source_path = Path("source.json")
 target_path = Path("roundtrip.json")
 work = UnitOfWork(config=UserConfig(target_dir=source_path.parent), input=source_path, output=target_path)
-work.current_step = StepName.RoundtripComparer
-work.ensure_step_status(StepName.RoundtripComparer)
+work.current_step = StepName.VerifyRender
+work.ensure_step_status(StepName.VerifyRender)
 result = verifier.verify(work)
 
-status = result.step_states[StepName.RoundtripComparer]
+status = result.step_states[StepName.VerifyRender]
 if not status.errors:
     print("Data structures match!")
 else:

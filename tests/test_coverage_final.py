@@ -22,10 +22,10 @@ def _make_roundtrip_work(tmp_path, source, target):
         StepName.Extract, input_path=source_path, output_path=source_path
     )
     work.set_step_paths(
-        StepName.RoundtripComparer, input_path=target_path
+        StepName.VerifyRender, input_path=target_path
     )
-    work.current_step = StepName.RoundtripComparer
-    work.ensure_step_status(StepName.RoundtripComparer)
+    work.current_step = StepName.VerifyRender
+    work.ensure_step_status(StepName.VerifyRender)
     return work
 
 
@@ -115,7 +115,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert any("value mismatch" in err for err in status.errors)
 
     def test_compare_type_mismatch(self, tmp_path):
@@ -126,7 +126,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert any("type mismatch" in err for err in status.errors)
 
     def test_compare_list_length_mismatch(self, tmp_path):
@@ -137,7 +137,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert any("list length mismatch" in err for err in status.errors)
 
     def test_compare_nested_dict_mismatch(self, tmp_path):
@@ -148,7 +148,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert any("value mismatch" in err for err in status.errors)
 
     def test_compare_missing_key(self, tmp_path):
@@ -159,7 +159,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert any("missing key" in err for err in status.errors)
 
     def test_compare_extra_key(self, tmp_path):
@@ -170,7 +170,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert status.errors
 
     def test_compare_environment_field_normalization(self, tmp_path):
@@ -198,7 +198,7 @@ class TestCompareDataStructures:
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
         # Should be OK because environment is normalized and equivalent
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert status.errors == []
 
     def test_compare_environment_real_mismatch(self, tmp_path):
@@ -211,7 +211,7 @@ class TestCompareDataStructures:
         verifier = get_verifier("roundtrip-verifier")
         work = _make_roundtrip_work(tmp_path, original, new)
         result = verifier.verify(work)
-        status = result.step_states[StepName.RoundtripComparer]
+        status = result.step_states[StepName.VerifyRender]
         assert any("environment mismatch" in err for err in status.errors)
 
 

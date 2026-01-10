@@ -32,9 +32,9 @@ def _make_roundtrip_work(tmp_path, source, target):
     target_path.write_text(json.dumps(target), encoding="utf-8")
     work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
     work.set_step_paths(StepName.Extract, output_path=source_path)
-    work.set_step_paths(StepName.RoundtripComparer, input_path=target_path)
-    work.current_step = StepName.RoundtripComparer
-    work.ensure_step_status(StepName.RoundtripComparer)
+    work.set_step_paths(StepName.VerifyRender, input_path=target_path)
+    work.current_step = StepName.VerifyRender
+    work.ensure_step_status(StepName.VerifyRender)
     return work
 
 
@@ -198,7 +198,7 @@ class TestRoundtripVerifier:
         data = {"x": 1, "y": [1, 2], "z": {"k": "v"}}
         work = _make_roundtrip_work(tmp_path, data, data)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert status.errors == []
 
     def test_verifier_detects_missing_keys(self, tmp_path):
@@ -208,7 +208,7 @@ class TestRoundtripVerifier:
         target = {"x": 1}
         work = _make_roundtrip_work(tmp_path, source, target)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert any("missing key" in e for e in status.errors)
 
     def test_verifier_detects_value_mismatches(self, tmp_path):
@@ -218,7 +218,7 @@ class TestRoundtripVerifier:
         target = {"x": 2}
         work = _make_roundtrip_work(tmp_path, source, target)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert any("value mismatch" in e for e in status.errors)
 
     def test_verifier_normalizes_environment_fields(self, tmp_path):
@@ -236,7 +236,7 @@ class TestRoundtripVerifier:
         }
         work = _make_roundtrip_work(tmp_path, source, target)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert status.errors == []
 
     def test_verifier_requires_target_data_parameter(self, tmp_path):
@@ -246,10 +246,10 @@ class TestRoundtripVerifier:
         source_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.set_step_paths(StepName.Extract, output_path=source_path)
-        work.current_step = StepName.RoundtripComparer
-        work.ensure_step_status(StepName.RoundtripComparer)
+        work.current_step = StepName.VerifyRender
+        work.ensure_step_status(StepName.VerifyRender)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert any("target" in e for e in status.errors)
 
     def test_verifier_reports_missing_source_file(self, tmp_path):
@@ -263,11 +263,11 @@ class TestRoundtripVerifier:
         work.set_step_paths(
             StepName.Extract, output_path=source_path
         )
-        work.set_step_paths(StepName.RoundtripComparer, input_path=target_path)
-        work.current_step = StepName.RoundtripComparer
-        work.ensure_step_status(StepName.RoundtripComparer)
+        work.set_step_paths(StepName.VerifyRender, input_path=target_path)
+        work.current_step = StepName.VerifyRender
+        work.ensure_step_status(StepName.VerifyRender)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert any("source JSON not found" in e for e in status.errors)
 
     def test_verifier_reports_unreadable_source(self, tmp_path):
@@ -282,11 +282,11 @@ class TestRoundtripVerifier:
         work.set_step_paths(
             StepName.Extract, output_path=source_path
         )
-        work.set_step_paths(StepName.RoundtripComparer, input_path=target_path)
-        work.current_step = StepName.RoundtripComparer
-        work.ensure_step_status(StepName.RoundtripComparer)
+        work.set_step_paths(StepName.VerifyRender, input_path=target_path)
+        work.current_step = StepName.VerifyRender
+        work.ensure_step_status(StepName.VerifyRender)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert any("unreadable" in e for e in status.errors)
 
 
@@ -819,5 +819,5 @@ class TestParameterPassing:
 
         work = _make_roundtrip_work(tmp_path, source_data, target_data)
         result = verifier.verify(work)
-        status = _status(result, StepName.RoundtripComparer)
+        status = _status(result, StepName.VerifyRender)
         assert status.errors == []

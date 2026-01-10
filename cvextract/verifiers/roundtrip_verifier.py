@@ -33,7 +33,7 @@ class RoundtripVerifier(CVVerifier):
         extracted = work.ensure_step_status(StepName.Extract)
         data, data_errs = self._load_json(extracted.output, "roundtrip source JSON")
 
-        roundtrip_comparer = work.ensure_step_status(StepName.RoundtripComparer)
+        roundtrip_comparer = work.ensure_step_status(StepName.VerifyRender)
         target_data, target_errs = self._load_json(
             roundtrip_comparer.input, "roundtrip target JSON"
         )

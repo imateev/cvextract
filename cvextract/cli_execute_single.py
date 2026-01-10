@@ -39,7 +39,7 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
         or not extract_status.output.exists()
     ):
         work.add_error(
-            StepName.RoundtripComparer,
+            StepName.VerifyRender,
             "roundtrip: extract output unavailable for comparison",
         )
         return work
@@ -61,7 +61,7 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
         roundtrip_work = extract_cv_data(roundtrip_work)
     except Exception as e:
         work.add_error(
-            StepName.RoundtripComparer,
+            StepName.VerifyRender,
             f"roundtrip: extract failed ({type(e).__name__})",
         )
         return work
@@ -69,7 +69,7 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
     roundtrip_output = roundtrip_work.get_step_output(StepName.Extract)
     if not roundtrip_output or not roundtrip_output.exists():
         work.add_error(
-            StepName.RoundtripComparer,
+            StepName.VerifyRender,
             f"roundtrip: output JSON not created: {roundtrip_output or roundtrip_json}",
         )
         return work
@@ -82,10 +82,10 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
         raise ValueError(f"unknown verifier: {verifier_name}")
 
     work.set_step_paths(
-        StepName.RoundtripComparer,
+        StepName.VerifyRender,
         input_path=roundtrip_output
     )
-    work.current_step = StepName.RoundtripComparer
+    work.current_step = StepName.VerifyRender
     return verifier.verify(work)
 
 

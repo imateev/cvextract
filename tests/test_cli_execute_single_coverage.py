@@ -297,7 +297,7 @@ def test_roundtrip_verify_skips_without_render_status(tmp_path):
     result = roundtrip_verify(work)
 
     assert result is work
-    assert StepName.RoundtripComparer not in result.step_states
+    assert StepName.VerifyRender not in result.step_states
 
 
 def test_roundtrip_verify_adds_error_when_extract_missing(tmp_path):
@@ -320,7 +320,7 @@ def test_roundtrip_verify_adds_error_when_extract_missing(tmp_path):
 
     result = roundtrip_verify(work)
 
-    errors = result.step_states[StepName.RoundtripComparer].errors
+    errors = result.step_states[StepName.VerifyRender].errors
     assert any("extract output unavailable" in e for e in errors)
 
 
@@ -348,7 +348,7 @@ def test_roundtrip_verify_records_extract_failure(tmp_path):
     ):
         result = roundtrip_verify(work)
 
-    errors = result.step_states[StepName.RoundtripComparer].errors
+    errors = result.step_states[StepName.VerifyRender].errors
     assert any("extract failed" in e for e in errors)
 
 
@@ -393,6 +393,6 @@ def test_roundtrip_verify_sets_comparer_input(tmp_path):
     ), patch("cvextract.cli_execute_single.get_verifier", return_value=dummy):
         result = roundtrip_verify(work)
 
-    comparer_status = result.step_states[StepName.RoundtripComparer]
+    comparer_status = result.step_states[StepName.VerifyRender]
     assert comparer_status.input == expected_roundtrip
     assert dummy.called

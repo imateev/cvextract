@@ -130,7 +130,7 @@ class StepName(str, Enum):
     Extract = "Extract"
     Adjust = "Adjust"
     Render = "Render"
-    RoundtripComparer = "RoundtripComparer"
+    VerifyRender = "VerifyRender"
     Verify = "Verify"
 
 
@@ -171,7 +171,7 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
 
 def select_issue_step(work: "UnitOfWork") -> "StepName":
     for candidate in (
-        StepName.RoundtripComparer,
+        StepName.VerifyRender,
         StepName.Render,
         StepName.Adjust,
         StepName.Extract,
@@ -192,7 +192,7 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
     return (
         f"{icons[StepName.Extract]}"
         f"·{icons[StepName.Render]}·"
-        f"{icons[StepName.RoundtripComparer]} "
+        f"{icons[StepName.VerifyRender]} "
         f"{input_name} | "
         f"{fmt_issues(work, issue_step)}"
     )

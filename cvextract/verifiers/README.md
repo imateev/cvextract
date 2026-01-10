@@ -17,7 +17,7 @@ The verifier architecture allows for interchangeable implementations of CV verif
 ### CVVerifier Interface
 
 The `CVVerifier` abstract base class defines the contract that all verifiers must implement.
-Verifiers read inputs from the `UnitOfWork` step paths (typically the current step output, and for roundtrip comparisons the Extract output plus the RoundtripComparer output):
+Verifiers read inputs from the `UnitOfWork` step paths (typically the current step output, and for roundtrip comparisons the Extract output plus the VerifyRender output):
 
 ```python
 import json
@@ -102,10 +102,10 @@ source_path = Path("source.json")
 target_path = Path("roundtrip.json")
 work = UnitOfWork(config=UserConfig(target_dir=source_path.parent))
 work.set_step_paths(StepName.Extract, output_path=source_path)
-work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
-work.current_step = StepName.RoundtripComparer
+work.set_step_paths(StepName.VerifyRender, output_path=target_path)
+work.current_step = StepName.VerifyRender
 result = verifier.verify(work)
-status = result.step_states[StepName.RoundtripComparer]
+status = result.step_states[StepName.VerifyRender]
 if not status.errors:
     print("Data structures match!")
 ```
@@ -196,8 +196,8 @@ source_path = Path("source_cv.json")
 target_path = Path("target_cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=source_path.parent))
 work.set_step_paths(StepName.Extract, output_path=source_path)
-work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
-work.current_step = StepName.RoundtripComparer
+work.set_step_paths(StepName.VerifyRender, output_path=target_path)
+work.current_step = StepName.VerifyRender
 result = verifier.verify(work)
 ```
 
@@ -225,8 +225,8 @@ source_path = Path("source_cv.json")
 target_path = Path("target_cv.json")
 compare_work = UnitOfWork(config=UserConfig(target_dir=source_path.parent))
 compare_work.set_step_paths(StepName.Extract, output_path=source_path)
-compare_work.set_step_paths(StepName.RoundtripComparer, output_path=target_path)
-compare_work.current_step = StepName.RoundtripComparer
+compare_work.set_step_paths(StepName.VerifyRender, output_path=target_path)
+compare_work.current_step = StepName.VerifyRender
 result = get_verifier("roundtrip-verifier").verify(compare_work)
 ```
 
@@ -313,10 +313,10 @@ extractor.extract(roundtrip_work)
 verifier = get_verifier("roundtrip-verifier")
 compare_work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
 compare_work.set_step_paths(StepName.Extract, output_path=json_path)
-compare_work.set_step_paths(StepName.RoundtripComparer, output_path=roundtrip_json)
-compare_work.current_step = StepName.RoundtripComparer
+compare_work.set_step_paths(StepName.VerifyRender, output_path=roundtrip_json)
+compare_work.current_step = StepName.VerifyRender
 result = verifier.verify(compare_work)
-status = result.step_states[StepName.RoundtripComparer]
+status = result.step_states[StepName.VerifyRender]
 
 if not status.errors:
     print("Roundtrip successful!")
