@@ -309,7 +309,7 @@ class TestPipelineHelpersCoverage:
 
             result = p.extract_single(work)
 
-            # Should have dumped body sample
-            mock_dump.assert_called_once()
+            # Should have dumped body sample (once per failed attempt)
+            assert mock_dump.call_count >= 1
             extract_status = result.step_states.get(StepName.Extract)
             assert len(extract_status.errors) > 0

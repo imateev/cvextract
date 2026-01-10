@@ -15,7 +15,7 @@ class TestCVBodyParsing:
             ("Some overview text", False, ""),
             ("PROFESSIONAL EXPERIENCE", False, ""),
             ("Jan 2020 - Present | Company", False, "Heading1"),
-            ("Did things", False, ""),
+            ("Did things for multiple projects.", False, ""),
             ("• bullet 1", True, ""),
             ("Environment: Python, AWS", False, ""),
         ]
@@ -79,9 +79,9 @@ class TestCVBodyParsing:
         stream = [
             ("PROFESSIONAL EXPERIENCE", False, ""),
             ("2021 | Student Consultant Data Strategy", False, ""),
-            ("Did work", False, ""),
+            ("Did work on projects.", False, ""),
             ("2022 – 2024 | Inhouse Consultant Business Intelligence", False, ""),
-            ("More work", False, ""),
+            ("More work on delivery.", False, ""),
         ]
 
         def fake_iter(_path: Path):
@@ -101,9 +101,9 @@ class TestCVBodyParsing:
         stream = [
             ("PROFESSIONAL EXPERIENCE", False, ""),
             ("09/2024 – Present | Junior Software Engineer", False, ""),
-            ("Did work", False, ""),
+            ("Did work on features.", False, ""),
             ("01/2022 - 08/2024 | Analyst", False, ""),
-            ("More work", False, ""),
+            ("More work on analysis.", False, ""),
         ]
 
         def fake_iter(_path: Path):
