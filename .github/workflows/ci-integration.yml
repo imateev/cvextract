@@ -51,9 +51,9 @@ jobs:
            exit 1
           fi
           
-          # Check if output starts with "INFO: 🟢·✅·✅"
-          if !  echo "$output" | grep -q "^INFO: 🟢·✅·✅"; then
-           echo "❌ Integration test failed: Output did not start with 'INFO: 🟢·✅·✅'"
+          # Check if output starts with "INFO: E:🟢·✅·R:✅·✅"
+          if !  echo "$output" | grep -q "^INFO: E:🟢·✅·R:✅·✅"; then
+           echo "❌ Integration test failed: Output did not start with 'INFO: E:🟢·✅·R:✅·✅'"
            exit 1
           fi
           
