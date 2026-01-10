@@ -219,9 +219,7 @@ class TestExecutePipelineExtractOnly:
         assert exit_code == 0
         # Verify extract_single was called with custom output
         call_args = mock_extract.call_args
-        assert (
-            call_args[0][0].get_step_output(StepName.Extract) == custom_output
-        )
+        assert call_args[0][0].get_step_output(StepName.Extract) == custom_output
 
 
 class TestExecutePipelineExtractApply:
@@ -530,6 +528,7 @@ class TestExecutePipelineAdjust:
         # CLI should not inject cache_path into adjuster params
         call_kwargs = mock_adjuster.adjust.call_args.kwargs
         assert "cache_path" not in call_kwargs
+
 
 class TestFolderStructurePreservation:
     """Tests for preserving folder structure in output directories."""

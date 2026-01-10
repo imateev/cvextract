@@ -100,9 +100,7 @@ def test_execute_single_stops_on_unknown_extractor(tmp_path):
 
     with patch(
         "cvextract.cli_execute_single.execute_extract", return_value=extracted
-    ), patch(
-        "cvextract.cli_execute_single.extract_verify"
-    ) as mock_verify, patch(
+    ), patch("cvextract.cli_execute_single.extract_verify") as mock_verify, patch(
         "cvextract.cli_execute_single.execute_render"
     ) as mock_render:
         rc, work = execute_single(config)
@@ -153,13 +151,9 @@ def test_extract_verify_handles_unknown_verifier(tmp_path):
         extract=ExtractStage(source=source, verifier="missing-verifier"),
     )
     work = UnitOfWork(config=config, initial_input=source)
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=output_path
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=output_path)
 
-    with patch(
-        "cvextract.cli_execute_single.get_verifier", return_value=None
-    ):
+    with patch("cvextract.cli_execute_single.get_verifier", return_value=None):
         result = extract_verify(work)
 
     extract_status = result.step_states[StepName.VerifyExtract]
@@ -225,16 +219,16 @@ def test_extract_verify_stops_on_verifier_errors(tmp_path):
         extract=ExtractStage(source=source, verifier="dummy"),
     )
     work = UnitOfWork(config=config, initial_input=source)
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=output_path
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=output_path)
 
     class DummyVerifier:
         def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
             verify_work.add_error(StepName.VerifyExtract, "bad")
             return verify_work
 
-    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+    with patch(
+        "cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()
+    ):
         result = extract_verify(work)
 
     extract_status = result.step_states[StepName.VerifyExtract]
@@ -253,15 +247,15 @@ def test_extract_verify_returns_work_on_success(tmp_path):
         extract=ExtractStage(source=source, verifier="dummy"),
     )
     work = UnitOfWork(config=config, initial_input=source)
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=output_path
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=output_path)
 
     class DummyVerifier:
         def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
             return verify_work
 
-    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+    with patch(
+        "cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()
+    ):
         result = extract_verify(work)
 
     assert result is work
@@ -277,16 +271,18 @@ def test_extract_verify_records_verifier_exception(tmp_path):
 
     config = UserConfig(target_dir=tmp_path, extract=ExtractStage(source=source))
     work = UnitOfWork(config=config, initial_input=source)
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=output_path
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=output_path)
 
     verifier = patch(
         "cvextract.cli_execute_single.get_verifier",
         return_value=type(
             "Verifier",
             (),
-            {"verify": staticmethod(lambda _w: (_ for _ in ()).throw(ValueError("boom")))},
+            {
+                "verify": staticmethod(
+                    lambda _w: (_ for _ in ()).throw(ValueError("boom"))
+                )
+            },
         )(),
     )
 
@@ -352,9 +348,7 @@ def test_adjust_verify_handles_unknown_verifier(tmp_path):
         ),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Adjust, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Adjust, input_path=json_file, output_path=json_file)
 
     with patch("cvextract.cli_execute_single.get_verifier", return_value=None):
         result = adjust_verify(work)
@@ -381,7 +375,9 @@ def test_adjust_verify_skips_when_configured(tmp_path):
 
     config = UserConfig(
         target_dir=tmp_path,
-        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})], skip_verify=True),
+        adjust=AdjustStage(
+            adjusters=[AdjusterConfig(name="noop", params={})], skip_verify=True
+        ),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
 
@@ -420,19 +416,21 @@ def test_adjust_verify_stops_on_verifier_errors(tmp_path):
 
     config = UserConfig(
         target_dir=tmp_path,
-        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})], verifier="dummy"),
+        adjust=AdjustStage(
+            adjusters=[AdjusterConfig(name="noop", params={})], verifier="dummy"
+        ),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Adjust, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Adjust, input_path=json_file, output_path=json_file)
 
     class DummyVerifier:
         def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
             verify_work.add_error(StepName.VerifyAdjust, "bad")
             return verify_work
 
-    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+    with patch(
+        "cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()
+    ):
         result = adjust_verify(work)
 
     adjust_status = result.step_states[StepName.VerifyAdjust]
@@ -446,18 +444,20 @@ def test_adjust_verify_returns_work_on_success(tmp_path):
 
     config = UserConfig(
         target_dir=tmp_path,
-        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})], verifier="dummy"),
+        adjust=AdjustStage(
+            adjusters=[AdjusterConfig(name="noop", params={})], verifier="dummy"
+        ),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Adjust, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Adjust, input_path=json_file, output_path=json_file)
 
     class DummyVerifier:
         def verify(self, verify_work: UnitOfWork) -> UnitOfWork:
             return verify_work
 
-    with patch("cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()):
+    with patch(
+        "cvextract.cli_execute_single.get_verifier", return_value=DummyVerifier()
+    ):
         result = adjust_verify(work)
 
     assert result is work
@@ -474,16 +474,18 @@ def test_adjust_verify_records_verifier_exception(tmp_path):
         adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})]),
     )
     work = UnitOfWork(config=config, initial_input=json_file)
-    work.set_step_paths(
-        StepName.Adjust, input_path=json_file, output_path=json_file
-    )
+    work.set_step_paths(StepName.Adjust, input_path=json_file, output_path=json_file)
 
     verifier = patch(
         "cvextract.cli_execute_single.get_verifier",
         return_value=type(
             "Verifier",
             (),
-            {"verify": staticmethod(lambda _w: (_ for _ in ()).throw(ValueError("boom")))},
+            {
+                "verify": staticmethod(
+                    lambda _w: (_ for _ in ()).throw(ValueError("boom"))
+                )
+            },
         )(),
     )
 
@@ -543,9 +545,7 @@ def test_roundtrip_verify_records_extract_failure(tmp_path):
     work.set_step_paths(
         StepName.Render, input_path=tmp_path / "input.json", output_path=render_output
     )
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=extract_output
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=extract_output)
 
     with patch(
         "cvextract.cli_execute_single.extract_cv_data",
@@ -571,9 +571,7 @@ def test_roundtrip_verify_reports_missing_roundtrip_output(tmp_path):
     work.set_step_paths(
         StepName.Render, input_path=tmp_path / "input.json", output_path=render_output
     )
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=extract_output
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=extract_output)
 
     def _fake_extract(roundtrip_work: UnitOfWork) -> UnitOfWork:
         return roundtrip_work
@@ -601,9 +599,7 @@ def test_roundtrip_verify_sets_comparer_input(tmp_path):
     work.set_step_paths(
         StepName.Render, input_path=tmp_path / "input.json", output_path=render_output
     )
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=extract_output
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=extract_output)
 
     expected_roundtrip = config.workspace.verification_dir / "rendered.json"
 
@@ -650,9 +646,7 @@ def test_roundtrip_verify_raises_for_unknown_verifier(tmp_path):
     work.set_step_paths(
         StepName.Render, input_path=tmp_path / "input.json", output_path=render_output
     )
-    work.set_step_paths(
-        StepName.Extract, input_path=source, output_path=extract_output
-    )
+    work.set_step_paths(StepName.Extract, input_path=source, output_path=extract_output)
 
     def _fake_extract(roundtrip_work: UnitOfWork) -> UnitOfWork:
         output_path = roundtrip_work.get_step_output(StepName.Extract)

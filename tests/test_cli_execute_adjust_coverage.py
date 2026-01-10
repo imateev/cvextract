@@ -265,6 +265,7 @@ class TestCliExecuteAdjustCoverage:
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
+
         def fake_adjust(work, **_kwargs):
             output_path = work.get_step_output(StepName.Adjust)
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -302,6 +303,7 @@ class TestCliExecuteAdjustCoverage:
 
         mock_adjuster = MagicMock()
         mock_adjuster.validate_params = MagicMock()
+
         def fake_adjust(work, **_kwargs):
             output_path = work.get_step_output(StepName.Adjust)
             output_path.parent.mkdir(parents=True, exist_ok=True)

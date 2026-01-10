@@ -127,9 +127,7 @@ class UnitOfWork:
         return not status.errors and not status.warnings
 
 
-def load_input_json(
-    work: UnitOfWork, *, step: "StepName" = None
-) -> Dict[str, Any]:
+def load_input_json(work: UnitOfWork, *, step: "StepName" = None) -> Dict[str, Any]:
     """
     Load JSON from the step input path.
 
@@ -263,11 +261,7 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
         if show_render_verify:
             segment += f"·{icons[StepName.VerifyRender]}"
         segments.append(segment)
-    return (
-        f"{'·'.join(segments)} "
-        f"{input_name} | "
-        f"{fmt_issues(work, issue_step)}"
-    )
+    return f"{'·'.join(segments)} " f"{input_name} | " f"{fmt_issues(work, issue_step)}"
 
 
 def emit_summary(work: "UnitOfWork") -> str:

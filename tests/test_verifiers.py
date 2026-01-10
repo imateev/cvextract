@@ -11,7 +11,9 @@ from cvextract.verifiers import (
     get_verifier,
 )
 from cvextract.verifiers.default_cv_schema_verifier import DefaultCvSchemaVerifier
-from cvextract.verifiers.default_expected_cv_data_verifier import DefaultExpectedCvDataVerifier
+from cvextract.verifiers.default_expected_cv_data_verifier import (
+    DefaultExpectedCvDataVerifier,
+)
 from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
 
@@ -260,9 +262,7 @@ class TestRoundtripVerifier:
         target_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
 
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(
-            StepName.Extract, output_path=source_path
-        )
+        work.set_step_paths(StepName.Extract, output_path=source_path)
         work.set_step_paths(StepName.VerifyRender, input_path=target_path)
         work.current_step = StepName.VerifyRender
         work.ensure_step_status(StepName.VerifyRender)
@@ -279,9 +279,7 @@ class TestRoundtripVerifier:
         target_path.write_text(json.dumps({"x": 1}), encoding="utf-8")
 
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
-        work.set_step_paths(
-            StepName.Extract, output_path=source_path
-        )
+        work.set_step_paths(StepName.Extract, output_path=source_path)
         work.set_step_paths(StepName.VerifyRender, input_path=target_path)
         work.current_step = StepName.VerifyRender
         work.ensure_step_status(StepName.VerifyRender)

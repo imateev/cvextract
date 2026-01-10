@@ -21,9 +21,7 @@ def _make_roundtrip_work(tmp_path, source, target):
     work.set_step_paths(
         StepName.Extract, input_path=source_path, output_path=source_path
     )
-    work.set_step_paths(
-        StepName.VerifyRender, input_path=target_path
-    )
+    work.set_step_paths(StepName.VerifyRender, input_path=target_path)
     work.current_step = StepName.VerifyRender
     work.ensure_step_status(StepName.VerifyRender)
     return work

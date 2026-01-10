@@ -81,10 +81,7 @@ def roundtrip_verify(work: UnitOfWork) -> UnitOfWork:
     if not verifier:
         raise ValueError(f"unknown verifier: {verifier_name}")
 
-    work.set_step_paths(
-        StepName.VerifyRender,
-        input_path=roundtrip_output
-    )
+    work.set_step_paths(StepName.VerifyRender, input_path=roundtrip_output)
     work.current_step = StepName.VerifyRender
     return verifier.verify(work)
 
@@ -110,9 +107,7 @@ def extract_verify(work: UnitOfWork) -> UnitOfWork:
     verifier_names = ["cv-schema-verifier", "default-extract-verifier"]
     if config.extract and config.extract.verifier:
         verifier_names = [
-            name.strip()
-            for name in config.extract.verifier.split(",")
-            if name.strip()
+            name.strip() for name in config.extract.verifier.split(",") if name.strip()
         ]
 
     work.set_step_paths(StepName.VerifyExtract, output_path=output_path)
@@ -157,9 +152,7 @@ def adjust_verify(work: UnitOfWork) -> UnitOfWork:
     verifier_names = ["cv-schema-verifier"]
     if config.adjust and config.adjust.verifier:
         verifier_names = [
-            name.strip()
-            for name in config.adjust.verifier.split(",")
-            if name.strip()
+            name.strip() for name in config.adjust.verifier.split(",") if name.strip()
         ]
 
     work.set_step_paths(StepName.VerifyAdjust, output_path=output_path)

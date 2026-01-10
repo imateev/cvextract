@@ -171,7 +171,9 @@ class TestCVExtractorAbstract:
 
         class DocxExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return write_output_json(work, {"format": "docx"}, step=StepName.Extract)
+                return write_output_json(
+                    work, {"format": "docx"}, step=StepName.Extract
+                )
 
         class PDFExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:

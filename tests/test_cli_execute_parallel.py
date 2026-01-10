@@ -1,8 +1,8 @@
 """Tests for cli_execute_parallel module - parallel directory processing."""
 
+import zipfile
 from concurrent.futures import Future
 from contextlib import contextmanager
-import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,12 +17,12 @@ from cvextract.cli_config import (
     UserConfig,
 )
 from cvextract.cli_execute_parallel import (
-    _WorkStatus,
     _build_file_config,
     _emit_parallel_summary,
     _execute_file,
     _load_failed_list,
     _process_future_result,
+    _WorkStatus,
     _write_failed_list,
     execute_parallel_pipeline,
     scan_directory_for_files,
@@ -581,9 +581,7 @@ class TestParallelHelperFunctions:
         failed_list = tmp_path / "failed.txt"
         doc_a = tmp_path / "a.docx"
         doc_b = tmp_path / "b.docx"
-        failed_list.write_text(
-            f"# comment\n\n- {doc_a}\n{doc_b}\n", encoding="utf-8"
-        )
+        failed_list.write_text(f"# comment\n\n- {doc_a}\n{doc_b}\n", encoding="utf-8")
 
         files = _load_failed_list(failed_list)
 

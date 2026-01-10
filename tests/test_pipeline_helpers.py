@@ -184,9 +184,7 @@ def test_get_status_icons_apply_success():
     work = UnitOfWork(config=UserConfig(target_dir=Path(".")))
     work.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
     work.step_states[StepName.Render] = StepStatus(step=StepName.Render)
-    work.step_states[StepName.VerifyRender] = StepStatus(
-        step=StepName.VerifyRender
-    )
+    work.step_states[StepName.VerifyRender] = StepStatus(step=StepName.VerifyRender)
     icons = get_status_icons(work)
     assert icons[StepName.Extract] == "🟢"
     assert icons[StepName.Render] == "✅"
