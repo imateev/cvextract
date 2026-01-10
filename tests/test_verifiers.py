@@ -10,7 +10,7 @@ from cvextract.verifiers import (
     CVVerifier,
     get_verifier,
 )
-from cvextract.verifiers.default_cv_schema_verifier import CVSchemaVerifier
+from cvextract.verifiers.default_cv_schema_verifier import DefaultCvSchemaVerifier
 from cvextract.verifiers.default_expected_cv_data_verifier import DefaultExpectedCvDataVerifier
 from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
@@ -290,12 +290,12 @@ class TestRoundtripVerifier:
         assert any("unreadable" in e for e in status.errors)
 
 
-class TestCVSchemaVerifier:
-    """Tests for CVSchemaVerifier."""
+class TestDefaultCvSchemaVerifier:
+    """Tests for DefaultCvSchemaVerifier."""
 
     def test_verifier_accepts_valid_schema_data(self, tmp_path):
         """Data conforming to schema should pass validation."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -322,7 +322,7 @@ class TestCVSchemaVerifier:
 
     def test_schema_verifier_reports_missing_output_path(self, tmp_path):
         """Missing output path should surface as error."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         status = work.ensure_step_status(StepName.Extract)
         status.input = tmp_path / "input.json"
@@ -333,7 +333,7 @@ class TestCVSchemaVerifier:
 
     def test_schema_verifier_reports_missing_output_file(self, tmp_path):
         """Missing output file should surface as error."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         output_path = tmp_path / "missing.json"
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.set_step_paths(
@@ -346,7 +346,7 @@ class TestCVSchemaVerifier:
 
     def test_schema_verifier_reports_unreadable_output(self, tmp_path):
         """Unreadable JSON should surface as error."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         output_path = tmp_path / "bad.json"
         output_path.write_text("{invalid", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
@@ -360,7 +360,7 @@ class TestCVSchemaVerifier:
 
     def test_schema_verifier_reports_non_object_json(self, tmp_path):
         """Non-object JSON should surface as error."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         output_path = tmp_path / "list.json"
         output_path.write_text("[1, 2, 3]", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
@@ -374,7 +374,7 @@ class TestCVSchemaVerifier:
 
     def test_verifier_detects_missing_required_fields(self, tmp_path):
         """Missing required fields should fail validation."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {"sidebar": {}}  # Missing required fields
         result = _verify_data(verifier, tmp_path, data)
         status = _status(result, StepName.Extract)
@@ -382,7 +382,7 @@ class TestCVSchemaVerifier:
 
     def test_verifier_detects_invalid_types(self, tmp_path):
         """Invalid field types should fail validation."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -402,7 +402,7 @@ class TestCVSchemaVerifier:
 
     def test_verifier_validates_experience_structure(self, tmp_path):
         """Experience entries must have required fields."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -420,7 +420,7 @@ class TestCVSchemaVerifier:
 
     def test_identity_missing_field_when_identity_is_none(self, tmp_path):
         """When identity is None, should detect missing required field."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": None,  # None instead of object
             "sidebar": {},
@@ -433,7 +433,7 @@ class TestCVSchemaVerifier:
 
     def test_identity_field_empty_string_fails_validation(self, tmp_path):
         """Identity fields must be non-empty strings."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "",  # Empty string
@@ -451,7 +451,7 @@ class TestCVSchemaVerifier:
 
     def test_identity_field_not_string_fails_validation(self, tmp_path):
         """Identity fields must be strings."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": 123,  # Not a string
@@ -469,7 +469,7 @@ class TestCVSchemaVerifier:
 
     def test_sidebar_not_dict_fails_validation(self, tmp_path):
         """Sidebar must be a dict or None."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -487,7 +487,7 @@ class TestCVSchemaVerifier:
 
     def test_overview_not_string_fails_validation(self, tmp_path):
         """Overview must be string or None."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -505,7 +505,7 @@ class TestCVSchemaVerifier:
 
     def test_experiences_not_array_fails_validation(self, tmp_path):
         """Experiences must be a list."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -523,7 +523,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_item_not_dict_fails_validation(self, tmp_path):
         """Each experience must be a dict."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -541,7 +541,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_missing_heading_fails_validation(self, tmp_path):
         """Experience must have heading field."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -559,7 +559,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_heading_not_string_fails_validation(self, tmp_path):
         """Experience heading must be string."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -577,7 +577,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_missing_description_fails_validation(self, tmp_path):
         """Experience must have description field."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -595,7 +595,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_description_not_string_fails_validation(self, tmp_path):
         """Experience description must be string."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -613,7 +613,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_bullets_not_array_fails_validation(self, tmp_path):
         """Experience bullets must be array or missing."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -633,7 +633,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_bullets_items_not_strings_fails_validation(self, tmp_path):
         """Experience bullets items must be strings."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -653,7 +653,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_environment_not_array_or_none_fails_validation(self, tmp_path):
         """Experience environment must be array, None, or missing."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -677,7 +677,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_environment_items_not_strings_fails_validation(self, tmp_path):
         """Experience environment items must be strings."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -701,7 +701,7 @@ class TestCVSchemaVerifier:
 
     def test_experience_environment_none_passes_validation(self, tmp_path):
         """Experience environment can be None."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -721,7 +721,7 @@ class TestCVSchemaVerifier:
 
     def test_empty_bullets_array_passes_validation(self, tmp_path):
         """Empty bullets array should pass validation."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",
@@ -739,7 +739,7 @@ class TestCVSchemaVerifier:
 
     def test_empty_environment_array_passes_validation(self, tmp_path):
         """Empty environment array should pass validation."""
-        verifier = CVSchemaVerifier()
+        verifier = DefaultCvSchemaVerifier()
         data = {
             "identity": {
                 "title": "Engineer",

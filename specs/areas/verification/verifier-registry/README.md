@@ -102,7 +102,7 @@ The following verifiers are registered by default:
 |------|-------|-------------|
 | `default-extract-verifier` | `DefaultExpectedCvDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
-| `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against cv_schema.json |
+| `cv-schema-verifier` | `DefaultCvSchemaVerifier` | Validates CV data against cv_schema.json |
 
 ## Implementation Details
 
@@ -144,7 +144,7 @@ from .verifier_registry import register_verifier
 # Register built-in verifiers
 register_verifier("default-extract-verifier", DefaultExpectedCvDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
-register_verifier("cv-schema-verifier", CVSchemaVerifier)
+register_verifier("cv-schema-verifier", DefaultCvSchemaVerifier)
 ```
 
 ### With Public API
@@ -156,7 +156,7 @@ __all__ = [
     "CVVerifier",
     "DefaultExpectedCvDataVerifier",
     "RoundtripVerifier",
-    "CVSchemaVerifier",
+    "DefaultCvSchemaVerifier",
     "register_verifier",
     "get_verifier",
     "list_verifiers",

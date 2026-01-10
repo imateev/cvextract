@@ -15,7 +15,7 @@ Defines the structure for CV (Curriculum Vitae) data extracted from documents an
 - `experiences`: List of professional experience entries
 
 **Used by:**
-- `verifiers.CVSchemaVerifier` - Validates CV data
+- `verifiers.DefaultCvSchemaVerifier` - Validates CV data
 - `extractors.DocxCVExtractor` - Produces data conforming to this schema
 - All registered renderers (e.g., `"private-internal-renderer"`) - Consume data conforming to this schema
 

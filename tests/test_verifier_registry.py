@@ -83,7 +83,7 @@ class TestVerifierRegistry:
 
     def test_get_verifier_with_kwargs(self):
         """get_verifier() passes kwargs to verifier constructor."""
-        # CVSchemaVerifier accepts schema_path parameter
+        # DefaultCvSchemaVerifier accepts schema_path parameter
         schema_path = Path("/tmp/test_schema.json")
         verifier = get_verifier("cv-schema-verifier", schema_path=schema_path)
 

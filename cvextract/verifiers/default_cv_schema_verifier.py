@@ -14,7 +14,7 @@ from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
-class CVSchemaVerifier(CVVerifier):
+class DefaultCvSchemaVerifier(CVVerifier):
     """
     Verifier that validates CV data against cv_schema.json.
 

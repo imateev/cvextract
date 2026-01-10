@@ -64,21 +64,21 @@ else:
     print(f"Warnings: {status.warnings}")
 ```
 
-#### CVSchemaVerifier
+#### DefaultCvSchemaVerifier
 
 Validates CV data against the JSON schema defined in `cv_schema.json`:
 
 ```python
-from cvextract.verifiers import CVSchemaVerifier
+from cvextract.verifiers import DefaultCvSchemaVerifier
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
 
 # Use default schema location (cv_schema.json in contracts/ directory)
-verifier = CVSchemaVerifier()
+verifier = DefaultCvSchemaVerifier()
 
 # Or specify custom schema path
-verifier = CVSchemaVerifier(schema_path=Path("custom_schema.json"))
+verifier = DefaultCvSchemaVerifier(schema_path=Path("custom_schema.json"))
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
@@ -210,7 +210,7 @@ The verifiers are now used directly throughout the codebase:
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
-from cvextract.verifiers import CVSchemaVerifier, DefaultExpectedCvDataVerifier, get_verifier
+from cvextract.verifiers import DefaultCvSchemaVerifier, DefaultExpectedCvDataVerifier, get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
@@ -235,13 +235,13 @@ result = get_verifier("roundtrip-verifier").verify(compare_work)
 ### Using Multiple Verifiers
 
 ```python
-from cvextract.verifiers import CVSchemaVerifier, DefaultExpectedCvDataVerifier
+from cvextract.verifiers import DefaultCvSchemaVerifier, DefaultExpectedCvDataVerifier
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
 
 # First verify against schema
-schema_verifier = CVSchemaVerifier()
+schema_verifier = DefaultCvSchemaVerifier()
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
 work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
@@ -370,7 +370,7 @@ cvextract/verifiers/
 ├── base.py                  # CVVerifier abstract base class
 ├── default_expected_cv_data_verifier.py         # DefaultExpectedCvDataVerifier implementation
 ├── roundtrip_verifier.py   # RoundtripVerifier implementation
-├── default_cv_schema_verifier.py       # CVSchemaVerifier implementation
+├── default_cv_schema_verifier.py       # DefaultCvSchemaVerifier implementation
 └── README.md                # This file
 ```
 

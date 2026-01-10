@@ -10,7 +10,7 @@ The schema verifier validates CV data against the formal JSON Schema definition,
 
 ## Description
 
-The `CVSchemaVerifier` class:
+The `DefaultCvSchemaVerifier` class:
 1. Loads JSON Schema from `cvextract/contracts/cv_schema.json`
 2. Validates CV data against schema structure
 3. Reports schema violations as errors
