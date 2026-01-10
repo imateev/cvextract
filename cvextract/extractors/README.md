@@ -19,7 +19,7 @@ The `CVExtractor` abstract base class defines the contract that all extractors m
 
 ```python
 from cvextract.extractors import CVExtractor
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 
 class CustomExtractor(CVExtractor):
     def extract(self, work: UnitOfWork) -> UnitOfWork:
@@ -30,7 +30,7 @@ class CustomExtractor(CVExtractor):
             "overview": "...",
             "experiences": [...]
         }
-        return self._write_output_json(work, data)
+        return write_output_json(work, data, step=StepName.Extract)
 ```
 
 ### DocxCVExtractor
@@ -74,7 +74,7 @@ To create a custom extractor:
 1. Import the base class:
    ```python
    from cvextract.extractors import CVExtractor
-   from cvextract.shared import UnitOfWork
+   from cvextract.shared import StepName, UnitOfWork, write_output_json
    ```
 
 2. Create your implementation:
@@ -89,7 +89,7 @@ To create a custom extractor:
                "overview": "...",
                "experiences": [...]
            }
-           return self._write_output_json(work, data)
+           return write_output_json(work, data, step=StepName.Extract)
    ```
 
 3. Use your extractor:
@@ -115,7 +115,7 @@ To create a custom extractor:
 ```python
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import DocxCVExtractor
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 from pathlib import Path
 import json
 
@@ -177,7 +177,7 @@ class MockCVExtractor(CVExtractor):
                 }
             ]
         }
-        return self._write_output_json(work, data)
+        return write_output_json(work, data, step=StepName.Extract)
 
 # Use in tests
 extractor = MockCVExtractor()

@@ -12,7 +12,7 @@ from cvextract.extractors import (
     register_extractor,
 )
 from cvextract.extractors.extractor_registry import unregister_extractor
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 
 
 class TestExtractorRegistry:
@@ -89,7 +89,7 @@ class TestExtractorRegistry:
                     "overview": "Custom overview",
                     "experiences": [],
                 }
-                return self._write_output_json(work, data)
+                return write_output_json(work, data, step=StepName.Extract)
 
         # Register custom extractor
         register_extractor("custom-test-extractor", CustomExtractor)

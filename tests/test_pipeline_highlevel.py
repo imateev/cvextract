@@ -8,7 +8,7 @@ import pytest
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor
 from cvextract.pipeline_helpers import extract_cv_data, render_cv_data
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 from cvextract.verifiers import get_verifier
 
 
@@ -17,7 +17,7 @@ class _StubExtractor(CVExtractor):
         self._data = data
 
     def extract(self, work: UnitOfWork) -> UnitOfWork:
-        return self._write_output_json(work, self._data)
+        return write_output_json(work, self._data, step=StepName.Extract)
 
 
 def _make_work(tmp_path, data: dict) -> UnitOfWork:

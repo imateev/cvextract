@@ -13,7 +13,7 @@ import pytest
 
 from cvextract.cli_config import UserConfig
 from cvextract.extractors.base import CVExtractor
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 
 
 def _make_work(tmp_path: Path, input_name: str = "input.docx") -> UnitOfWork:
@@ -54,7 +54,7 @@ class TestCVExtractorAbstract:
             """Concrete implementation of CVExtractor."""
 
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"identity": {}})
+                return write_output_json(work, {"identity": {}}, step=StepName.Extract)
 
         work = _make_work(tmp_path)
         extractor = ConcreteExtractor()
@@ -69,7 +69,7 @@ class TestCVExtractorAbstract:
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
                 assert isinstance(work.get_step_input(StepName.Extract), Path)
-                return self._write_output_json(work, {})
+                return write_output_json(work, {}, step=StepName.Extract)
 
         extractor = TestExtractor()
         work = _make_work(tmp_path)
@@ -80,8 +80,10 @@ class TestCVExtractorAbstract:
 
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(
-                    work, {"identity": {"full_name": "John Doe"}}
+                return write_output_json(
+                    work,
+                    {"identity": {"full_name": "John Doe"}},
+                    step=StepName.Extract,
                 )
 
         extractor = TestExtractor()
@@ -97,7 +99,7 @@ class TestCVExtractorAbstract:
                 source = work.get_step_input(StepName.Extract)
                 if not source or not source.exists():
                     raise FileNotFoundError(f"File not found: {source}")
-                return self._write_output_json(work, {})
+                return write_output_json(work, {}, step=StepName.Extract)
 
         extractor = TestExtractor()
         non_existent = _make_work(tmp_path, input_name="missing.docx")
@@ -123,7 +125,7 @@ class TestCVExtractorAbstract:
 
         class FullExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(
+                return write_output_json(
                     work,
                     {
                         "identity": {
@@ -150,6 +152,7 @@ class TestCVExtractorAbstract:
                             }
                         ],
                     },
+                    step=StepName.Extract,
                 )
 
         extractor = FullExtractor()
@@ -168,11 +171,11 @@ class TestCVExtractorAbstract:
 
         class DocxExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"format": "docx"})
+                return write_output_json(work, {"format": "docx"}, step=StepName.Extract)
 
         class PDFExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"format": "pdf"})
+                return write_output_json(work, {"format": "pdf"}, step=StepName.Extract)
 
         docx = DocxExtractor()
         pdf = PDFExtractor()
@@ -201,13 +204,14 @@ class TestCVExtractorAbstract:
 
         class PathAwareExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(
+                return write_output_json(
                     work,
                     {
                         "source_file": work.get_step_input(StepName.Extract).name,
                         "source_stem": work.get_step_input(StepName.Extract).stem,
                         "source_suffix": work.get_step_input(StepName.Extract).suffix,
                     },
+                    step=StepName.Extract,
                 )
 
         extractor = PathAwareExtractor()
@@ -225,7 +229,7 @@ class TestCVExtractorAbstract:
 
         class EmptyExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {})
+                return write_output_json(work, {}, step=StepName.Extract)
 
         extractor = EmptyExtractor()
         work = _make_work(tmp_path)
@@ -241,7 +245,9 @@ class TestCVExtractorAbstract:
                 return {"version": 1}
 
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, self._build_data())
+                return write_output_json(
+                    work, self._build_data(), step=StepName.Extract
+                )
 
         class DerivedExtractor(BaseExtractor):
             def _build_data(self) -> dict:
@@ -278,9 +284,10 @@ class TestCVExtractorAbstract:
 
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(
+                return write_output_json(
                     work,
                     {"filename": work.get_step_input(StepName.Extract).name},
+                    step=StepName.Extract,
                 )
 
         extractor = TestExtractor()
@@ -295,11 +302,11 @@ class TestCVExtractorAbstract:
 
         class Impl1(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"impl": 1})
+                return write_output_json(work, {"impl": 1}, step=StepName.Extract)
 
         class Impl2(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"impl": 2})
+                return write_output_json(work, {"impl": 2}, step=StepName.Extract)
 
         impl1 = Impl1()
         impl2 = Impl2()
@@ -334,7 +341,9 @@ class TestCVExtractorAbstract:
 
         class TestExtractor(CVExtractor):
             def extract(self, work: UnitOfWork) -> UnitOfWork:
-                return self._write_output_json(work, {"extracted": True})
+                return write_output_json(
+                    work, {"extracted": True}, step=StepName.Extract
+                )
 
         extractor = TestExtractor()
         work = _make_work(tmp_path)

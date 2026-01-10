@@ -34,7 +34,7 @@ except ModuleNotFoundError:
     # Python < 3.9 backport
     from importlib_resources import files, as_file  # type: ignore
 
-from ..shared import StepName, UnitOfWork, format_prompt, load_prompt
+from ..shared import StepName, UnitOfWork, format_prompt, load_prompt, write_output_json
 from .base import CVExtractor
 
 T = TypeVar("T")
@@ -136,7 +136,7 @@ class OpenAICVExtractor(CVExtractor):
             response_text,
             cv_schema,
         )
-        return self._write_output_json(work, data)
+        return write_output_json(work, data, step=StepName.Extract)
 
     def _load_cv_schema(self) -> dict[str, Any]:
         """Load the CV schema."""

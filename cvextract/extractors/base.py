@@ -6,11 +6,9 @@ Defines the contract for pluggable CV extraction implementations.
 
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict
 
-from ..shared import StepName, UnitOfWork
+from ..shared import UnitOfWork
 
 
 class CVExtractor(ABC):
@@ -41,12 +39,3 @@ class CVExtractor(ABC):
             Exception: For extraction-specific errors
         """
         ...
-
-    def _write_output_json(self, work: UnitOfWork, data: Dict[str, Any]) -> UnitOfWork:
-        status = work.ensure_step_status(StepName.Extract)
-        if status.output is None:
-            raise ValueError("Extraction output path is not set")
-        status.output.parent.mkdir(parents=True, exist_ok=True)
-        with status.output.open("w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return work

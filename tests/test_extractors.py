@@ -7,7 +7,7 @@ import pytest
 
 from cvextract.cli_config import UserConfig
 from cvextract.extractors import CVExtractor, DocxCVExtractor
-from cvextract.shared import StepName, UnitOfWork
+from cvextract.shared import StepName, UnitOfWork, write_output_json
 
 
 class TestCVExtractorInterface:
@@ -148,7 +148,7 @@ class TestExtractorPluggability:
                         }
                     ],
                 }
-                return self._write_output_json(work, data)
+                return write_output_json(work, data, step=StepName.Extract)
 
         extractor = MockCVExtractor()
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))

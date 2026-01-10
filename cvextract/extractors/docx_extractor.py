@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..shared import StepName, UnitOfWork
+from ..shared import StepName, UnitOfWork, write_output_json
 from .base import CVExtractor
 from .body_parser import parse_cv_from_docx_body
 from .sidebar_parser import extract_all_header_paragraphs, split_identity_and_sidebar
@@ -61,4 +61,4 @@ class DocxCVExtractor(CVExtractor):
             "overview": overview,
             "experiences": experiences,
         }
-        return self._write_output_json(work, data)
+        return write_output_json(work, data, step=StepName.Extract)
