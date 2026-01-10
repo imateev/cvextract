@@ -352,6 +352,36 @@ def test_roundtrip_verify_records_extract_failure(tmp_path):
     assert any("extract failed" in e for e in errors)
 
 
+def test_roundtrip_verify_reports_missing_roundtrip_output(tmp_path):
+    """roundtrip_verify should report when roundtrip JSON is not created."""
+    source = tmp_path / "input.docx"
+    source.touch()
+    render_output = tmp_path / "rendered.docx"
+    render_output.touch()
+    extract_output = tmp_path / "original.json"
+    extract_output.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(target_dir=tmp_path)
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(
+        StepName.Render, input_path=tmp_path / "input.json", output_path=render_output
+    )
+    work.set_step_paths(
+        StepName.Extract, input_path=source, output_path=extract_output
+    )
+
+    def _fake_extract(roundtrip_work: UnitOfWork) -> UnitOfWork:
+        return roundtrip_work
+
+    with patch(
+        "cvextract.cli_execute_single.extract_cv_data", side_effect=_fake_extract
+    ):
+        result = roundtrip_verify(work)
+
+    errors = result.step_states[StepName.VerifyRender].errors
+    assert any("output JSON not created" in e for e in errors)
+
+
 def test_roundtrip_verify_sets_comparer_input(tmp_path):
     """roundtrip_verify should set comparer input to the roundtrip JSON."""
     source = tmp_path / "input.docx"
