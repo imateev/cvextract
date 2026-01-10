@@ -100,7 +100,7 @@ The following verifiers are registered by default:
 
 | Name | Class | Description |
 |------|-------|-------------|
-| `default-extract-verifier` | `ExtractedDataVerifier` | Validates completeness and structure of extracted data |
+| `default-extract-verifier` | `DefaultExpectedCvDataVerifier` | Validates completeness and structure of extracted data |
 | `roundtrip-verifier` | `RoundtripVerifier` | Compares two CV data structures |
 | `cv-schema-verifier` | `CVSchemaVerifier` | Validates CV data against cv_schema.json |
 
@@ -142,7 +142,7 @@ All verifier registration happens in `cvextract/verifiers/__init__.py`:
 from .verifier_registry import register_verifier
 
 # Register built-in verifiers
-register_verifier("default-extract-verifier", ExtractedDataVerifier)
+register_verifier("default-extract-verifier", DefaultExpectedCvDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("cv-schema-verifier", CVSchemaVerifier)
 ```
@@ -154,7 +154,7 @@ The registry functions are exported in `__all__` for public use:
 ```python
 __all__ = [
     "CVVerifier",
-    "ExtractedDataVerifier",
+    "DefaultExpectedCvDataVerifier",
     "RoundtripVerifier",
     "CVSchemaVerifier",
     "register_verifier",
@@ -172,8 +172,8 @@ Direct instantiation of verifier classes remains supported:
 verifier = get_verifier('default-extract-verifier')
 
 # Direct instantiation (still works)
-from cvextract.verifiers import ExtractedDataVerifier
-verifier = ExtractedDataVerifier()
+from cvextract.verifiers import DefaultExpectedCvDataVerifier
+verifier = DefaultExpectedCvDataVerifier()
 ```
 
 ## Testing

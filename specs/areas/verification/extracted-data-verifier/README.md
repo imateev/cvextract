@@ -10,7 +10,7 @@ The extracted data verifier validates completeness and basic structure of extrac
 
 ## Description
 
-The `ExtractedDataVerifier` class checks:
+The `DefaultExpectedCvDataVerifier` class checks:
 1. Presence of all top-level sections (identity, sidebar, overview, experiences)
 2. Identity completeness (title, names)
 3. Sidebar category population

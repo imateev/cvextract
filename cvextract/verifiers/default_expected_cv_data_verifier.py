@@ -13,7 +13,7 @@ from ..shared import UnitOfWork
 from .base import CVVerifier
 
 
-class ExtractedDataVerifier(CVVerifier):
+class DefaultExpectedCvDataVerifier(CVVerifier):
     """
     Verifier for extracted CV data completeness and validity.
 

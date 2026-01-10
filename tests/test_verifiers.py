@@ -11,7 +11,7 @@ from cvextract.verifiers import (
     get_verifier,
 )
 from cvextract.verifiers.default_cv_schema_verifier import CVSchemaVerifier
-from cvextract.verifiers.default_expected_cv_data_verifier import ExtractedDataVerifier
+from cvextract.verifiers.default_expected_cv_data_verifier import DefaultExpectedCvDataVerifier
 from cvextract.verifiers.roundtrip_verifier import RoundtripVerifier
 
 
@@ -47,8 +47,8 @@ def _status(work, step: StepName):
     return work.step_states[step]
 
 
-class TestExtractedDataVerifier:
-    """Tests for ExtractedDataVerifier."""
+class TestDefaultExpectedCvDataVerifier:
+    """Tests for DefaultExpectedCvDataVerifier."""
 
     def test_verifier_accepts_valid_cv_data(self, tmp_path):
         """Valid CV data should pass verification."""
@@ -83,7 +83,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_detects_missing_identity_fields(self, tmp_path):
         """Missing identity fields should cause verification to fail."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         data = {
             "identity": {"title": "Engineer"},  # Missing other required fields
             "sidebar": {"languages": ["Python"]},
@@ -96,7 +96,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_warns_about_missing_sidebar_sections(self, tmp_path):
         """Missing sidebar sections should generate warnings."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         data = {
             "identity": {
                 "title": "T",
@@ -114,7 +114,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_reports_missing_output_path(self, tmp_path):
         """Missing output path should surface as error."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         status = work.ensure_step_status(StepName.Extract)
         status.input = tmp_path / "input.json"
@@ -125,7 +125,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_reports_missing_output_file(self, tmp_path):
         """Missing output file should surface as error."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         output_path = tmp_path / "missing.json"
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
         work.set_step_paths(
@@ -138,7 +138,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_reports_unreadable_output(self, tmp_path):
         """Unreadable JSON should surface as error."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         output_path = tmp_path / "bad.json"
         output_path.write_text("{invalid", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
@@ -152,7 +152,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_reports_non_object_json(self, tmp_path):
         """Non-object JSON should surface as error."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         output_path = tmp_path / "list.json"
         output_path.write_text("[1, 2, 3]", encoding="utf-8")
         work = UnitOfWork(config=UserConfig(target_dir=tmp_path))
@@ -166,7 +166,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_warns_on_incomplete_experience_fields(self, tmp_path):
         """Missing experience fields should be reported in warnings."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
         data = {
             "identity": {
                 "title": "T",
@@ -792,7 +792,7 @@ class TestParameterPassing:
 
     def test_extracted_verifier_accepts_external_data(self, tmp_path):
         """Verifier should accept data from any source."""
-        verifier = ExtractedDataVerifier()
+        verifier = DefaultExpectedCvDataVerifier()
 
         # Simulate loading from external source
         external_data = {

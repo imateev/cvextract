@@ -40,7 +40,7 @@ class CustomVerifier(CVVerifier):
 
 ### Available Verifiers
 
-#### ExtractedDataVerifier
+#### DefaultExpectedCvDataVerifier
 
 Validates completeness and basic structure of extracted CV data:
 
@@ -48,9 +48,9 @@ Validates completeness and basic structure of extracted CV data:
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
-from cvextract.verifiers import ExtractedDataVerifier
+from cvextract.verifiers import DefaultExpectedCvDataVerifier
 
-verifier = ExtractedDataVerifier()
+verifier = DefaultExpectedCvDataVerifier()
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
 work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
@@ -171,14 +171,14 @@ import json
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
-from cvextract.verifiers import ExtractedDataVerifier
+from cvextract.verifiers import DefaultExpectedCvDataVerifier
 
 # Verify the externally sourced data
 cv_path = Path("external_cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
 work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
-verifier = ExtractedDataVerifier()
+verifier = DefaultExpectedCvDataVerifier()
 result = verifier.verify(work)
 ```
 
@@ -210,7 +210,7 @@ The verifiers are now used directly throughout the codebase:
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
-from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier, get_verifier
+from cvextract.verifiers import CVSchemaVerifier, DefaultExpectedCvDataVerifier, get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent))
@@ -235,7 +235,7 @@ result = get_verifier("roundtrip-verifier").verify(compare_work)
 ### Using Multiple Verifiers
 
 ```python
-from cvextract.verifiers import CVSchemaVerifier, ExtractedDataVerifier
+from cvextract.verifiers import CVSchemaVerifier, DefaultExpectedCvDataVerifier
 from pathlib import Path
 from cvextract.cli_config import UserConfig
 from cvextract.shared import StepName, UnitOfWork
@@ -251,7 +251,7 @@ schema_result = schema_verifier.verify(work)
 schema_status = schema_result.step_states[StepName.Extract]
 if not schema_status.errors:
     # Then check for completeness
-    data_verifier = ExtractedDataVerifier()
+    data_verifier = DefaultExpectedCvDataVerifier()
     data_result = data_verifier.verify(work)
     
     data_status = data_result.step_states[StepName.Extract]
@@ -368,7 +368,7 @@ All verification-related code is organized in the `cvextract/verifiers/` directo
 cvextract/verifiers/
 ├── __init__.py              # Public API exports
 ├── base.py                  # CVVerifier abstract base class
-├── default_expected_cv_data_verifier.py         # ExtractedDataVerifier implementation
+├── default_expected_cv_data_verifier.py         # DefaultExpectedCvDataVerifier implementation
 ├── roundtrip_verifier.py   # RoundtripVerifier implementation
 ├── default_cv_schema_verifier.py       # CVSchemaVerifier implementation
 └── README.md                # This file
