@@ -199,7 +199,7 @@ python -m cvextract.cli \
   - `openai-extractor`: OpenAI-based extraction (supports TXT, DOCX)
   - Use `--list extractors` to see all available extractors
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
-- `verifier=<verifier-name>` - Verifier to run after extraction (optional, defaults to `private-internal-verifier`)
+- `verifier=<verifier-name>` - Verifier to run after extraction (optional, defaults to `default-extract-verifier`)
 - `skip-verify` - Skip extraction verification (optional flag)
 
 **`--adjust`**: Adjust CV data using named adjusters (can be specified multiple times for chaining)
@@ -287,7 +287,7 @@ python -m cvextract.cli --list extractors
 ```bash
 # Use a custom verifier for extraction
 python -m cvextract.cli \
-  --extract source=/path/to/cv.docx name=private-internal-extractor verifier=private-internal-verifier \
+  --extract source=/path/to/cv.docx name=private-internal-extractor verifier=default-extract-verifier \
   --target /output
 ```
 

@@ -130,7 +130,7 @@ def test_execute_single_calls_extract_verify_on_success(tmp_path):
         "cvextract.cli_execute_single.execute_extract", return_value=extracted
     ), patch(
         "cvextract.cli_execute_single.extract_verify",
-        side_effect=lambda w: w.add_error(StepName.Extract, "bad") or w,
+        side_effect=lambda w: w.add_error(StepName.VerifyExtract, "bad") or w,
     ) as mock_verify:
         rc, work = execute_single(config)
 
@@ -160,7 +160,7 @@ def test_extract_verify_handles_unknown_verifier(tmp_path):
     ):
         result = extract_verify(work)
 
-    extract_status = result.step_states[StepName.Extract]
+    extract_status = result.step_states[StepName.VerifyExtract]
     assert any("unknown verifier" in e for e in extract_status.errors)
 
 
@@ -189,7 +189,7 @@ def test_extract_verify_records_verifier_exception(tmp_path):
     with verifier:
         result = extract_verify(work)
 
-    extract_status = result.step_states[StepName.Extract]
+    extract_status = result.step_states[StepName.VerifyExtract]
     assert any("verify failed" in e for e in extract_status.errors)
 
 

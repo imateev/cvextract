@@ -42,7 +42,7 @@ class TestVerifierRegistry:
         names = [v["name"] for v in verifiers]
 
         # Check for built-in verifiers
-        assert "private-internal-verifier" in names
+        assert "default-extract-verifier" in names
         assert "roundtrip-verifier" in names
         assert "cv-schema-verifier" in names
 
@@ -55,8 +55,8 @@ class TestVerifierRegistry:
             assert len(verifier["description"]) > 0
 
     def test_get_verifier_returns_data_verifier(self):
-        """get_verifier() returns private-internal-verifier instance."""
-        verifier = get_verifier("private-internal-verifier")
+        """get_verifier() returns default-extract-verifier instance."""
+        verifier = get_verifier("default-extract-verifier")
 
         assert verifier is not None
         assert isinstance(verifier, CVVerifier)

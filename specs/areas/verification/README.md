@@ -25,7 +25,7 @@ The verification area provides data validation and quality checking capabilities
 - **Base Interface**: `cvextract/verifiers/base.py` - `CVVerifier` abstract base class
 - **UnitOfWork**: `cvextract/shared.py` - step statuses carry verification results
 - **Implementations**:
-  - `cvextract/verifiers/default_expected_cv_data_verifier.py` - Completeness validation (registered as `private-internal-verifier`)
+  - `cvextract/verifiers/default_expected_cv_data_verifier.py` - Completeness validation (registered as `default-extract-verifier`)
   - `cvextract/verifiers/default_cv_schema_verifier.py` - CV JSON schema validation (registered as `cv-schema-verifier`)
   - `cvextract/verifiers/roundtrip_verifier.py` - Data comparison (registered as `roundtrip-verifier`)
 

@@ -29,7 +29,7 @@ from cvextract.verifiers import get_verifier
 
 cv_path = Path("cv.json")
 work = UnitOfWork(config=UserConfig(target_dir=cv_path.parent), input=cv_path, output=cv_path)
-verifier = get_verifier("private-internal-verifier")
+verifier = get_verifier("default-extract-verifier")
 result = verifier.verify(work)
 
 if result.ok:

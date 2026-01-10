@@ -103,24 +103,27 @@ def extract_verify(work: UnitOfWork) -> UnitOfWork:
     output_path = work.get_step_output(StepName.Extract)
     if not output_path or not output_path.exists():
         work.add_error(
-            StepName.Extract, "extract: output JSON not found for verification"
+            StepName.VerifyExtract, "extract: output JSON not found for verification"
         )
         return work
 
-    verifier_name = "private-internal-verifier"
+    verifier_name = "default-extract-verifier"
     if config.extract and config.extract.verifier:
         verifier_name = config.extract.verifier
     verifier = get_verifier(verifier_name)
     if not verifier:
-        work.add_error(StepName.Extract, f"unknown verifier: {verifier_name}")
+        work.add_error(StepName.VerifyExtract, f"unknown verifier: {verifier_name}")
         return work
 
-    work.ensure_step_status(StepName.Extract)
-    work.current_step = StepName.Extract
+    work.set_step_paths(StepName.VerifyExtract, output_path=output_path)
+    work.ensure_step_status(StepName.VerifyExtract)
+    work.current_step = StepName.VerifyExtract
     try:
         work = verifier.verify(work)
     except Exception as e:
-        work.add_error(StepName.Extract, f"extract: verify failed ({type(e).__name__})")
+        work.add_error(
+            StepName.VerifyExtract, f"extract: verify failed ({type(e).__name__})"
+        )
         return work
 
     return work
@@ -188,7 +191,9 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
         if work.has_no_errors(StepName.Extract):
             work = extract_verify(work)
 
-        if not work.has_no_errors(StepName.Extract):
+        if not work.has_no_errors(StepName.Extract) or not work.has_no_errors(
+            StepName.VerifyExtract
+        ):
             if config.adjust or config.render:
                 config = replace(config, adjust=None, render=None)
     else:

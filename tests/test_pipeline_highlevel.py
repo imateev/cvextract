@@ -315,7 +315,7 @@ class TestExtractedDataVerification:
                 }
             ],
         }
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
         status = res.step_states[StepName.Extract]
@@ -329,7 +329,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
         status = res.step_states[StepName.Extract]
@@ -354,7 +354,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
         status = res.step_states[StepName.Extract]
@@ -373,7 +373,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [{"heading": "h", "description": "d"}],
         }
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
         status = res.step_states[StepName.Extract]
@@ -394,7 +394,7 @@ class TestExtractedDataVerification:
                 {"heading": "h", "description": "d", "environment": "Python"}
             ],  # should be list or None
         }
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
         status = res.step_states[StepName.Extract]
@@ -413,7 +413,7 @@ class TestExtractedDataVerification:
             "overview": "hi",
             "experiences": [],
         }
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         work = _make_work(tmp_path, data)
         res = verifier.verify(work)
         status = res.step_states[StepName.Extract]

@@ -16,7 +16,7 @@ from .verifier_registry import (
 
 
 # Register built-in verifiers
-register_verifier("private-internal-verifier", ExtractedDataVerifier)
+register_verifier("default-extract-verifier", ExtractedDataVerifier)
 register_verifier("roundtrip-verifier", RoundtripVerifier)
 register_verifier("cv-schema-verifier", CVSchemaVerifier)
 

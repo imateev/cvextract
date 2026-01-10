@@ -307,7 +307,7 @@ def test_verify_extracted_data_missing_identity(tmp_path):
         "sidebar": {"languages": ["EN"]},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    verifier = get_verifier("private-internal-verifier")
+    verifier = get_verifier("default-extract-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
     status = result.step_states[StepName.Extract]
@@ -326,7 +326,7 @@ def test_verify_extracted_data_empty_sidebar(tmp_path):
         "sidebar": {},
         "experiences": [{"heading": "h", "description": "d"}],
     }
-    verifier = get_verifier("private-internal-verifier")
+    verifier = get_verifier("default-extract-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
     status = result.step_states[StepName.Extract]
@@ -345,7 +345,7 @@ def test_verify_extracted_data_no_experiences(tmp_path):
         "sidebar": {"languages": ["EN"]},
         "experiences": [],
     }
-    verifier = get_verifier("private-internal-verifier")
+    verifier = get_verifier("default-extract-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
     status = result.step_states[StepName.Extract]
@@ -377,7 +377,7 @@ def test_verify_extracted_data_invalid_environment(tmp_path):
             }
         ],
     }
-    verifier = get_verifier("private-internal-verifier")
+    verifier = get_verifier("default-extract-verifier")
     work = _make_work(tmp_path, data)
     result = verifier.verify(work)
     status = result.step_states[StepName.Extract]

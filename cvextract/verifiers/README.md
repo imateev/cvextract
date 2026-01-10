@@ -218,7 +218,7 @@ work.set_step_paths(StepName.Extract, input_path=cv_path, output_path=cv_path)
 work.current_step = StepName.Extract
 
 # Verify extracted CV data
-data_result = get_verifier("private-internal-verifier").verify(work)
+data_result = get_verifier("default-extract-verifier").verify(work)
 
 # Compare two CV data structures
 source_path = Path("source_cv.json")

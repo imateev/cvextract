@@ -52,7 +52,7 @@ class TestExtractedDataVerifier:
 
     def test_verifier_accepts_valid_cv_data(self, tmp_path):
         """Valid CV data should pass verification."""
-        verifier = get_verifier("private-internal-verifier")
+        verifier = get_verifier("default-extract-verifier")
         data = {
             "identity": {
                 "title": "Senior Engineer",
