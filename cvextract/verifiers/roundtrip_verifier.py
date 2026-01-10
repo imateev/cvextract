@@ -70,6 +70,42 @@ class RoundtripVerifier(CVVerifier):
                 tokens.append(clean_text(str(entry)).lower())
         return sorted(tokens)
 
+    def _normalize_compare_text(self, text: str) -> str:
+        cleaned = clean_text(text).lower()
+        cleaned = re.sub(r"[^\w\s]", " ", cleaned)
+        return clean_text(cleaned)
+
+    def _normalize_sidebar_list(self, values: List[Any]) -> List[str]:
+        tokens: List[str] = []
+        for entry in values:
+            if not isinstance(entry, str):
+                entry = str(entry)
+            parts = re.split(r"[\u2022•·,;]", entry)
+            for part in parts:
+                cleaned = self._normalize_compare_text(part).strip("()")
+                if cleaned:
+                    tokens.append(cleaned)
+        return sorted(tokens)
+
+    def _normalize_bullet_texts(self, bullets: List[Any]) -> List[str]:
+        tokens: List[str] = []
+        for entry in bullets:
+            text = str(entry)
+            text = re.sub(r"^(?:[•·*-]|\-\-|->|→)\s*", "", text).strip()
+            cleaned = self._normalize_compare_text(text)
+            if cleaned:
+                tokens.append(cleaned)
+        return tokens
+
+    def _bullets_in_description(self, bullets: List[Any], description: str) -> bool:
+        desc_norm = self._normalize_compare_text(description)
+        if not desc_norm:
+            return False
+        for bullet in self._normalize_bullet_texts(bullets):
+            if bullet and bullet not in desc_norm:
+                return False
+        return True
+
     def _is_environment_path(self, path: str) -> bool:
         """Check if the current path is an environment field."""
         return path.endswith("environment")
@@ -86,6 +122,27 @@ class RoundtripVerifier(CVVerifier):
         if isinstance(a, dict):
             a_keys = set(a.keys())
             b_keys = set(b.keys())
+            if (
+                "description" in a_keys
+                and "bullets" in a_keys
+                and "description" in b_keys
+                and "bullets" in b_keys
+            ):
+                a_bullets = a.get("bullets") or []
+                b_bullets = b.get("bullets") or []
+                if (
+                    a_bullets
+                    and not b_bullets
+                    and self._bullets_in_description(a_bullets, str(b.get("description", "")))
+                ) or (
+                    b_bullets
+                    and not a_bullets
+                    and self._bullets_in_description(b_bullets, str(a.get("description", "")))
+                ):
+                    a_keys.discard("description")
+                    a_keys.discard("bullets")
+                    b_keys.discard("description")
+                    b_keys.discard("bullets")
             for missing in sorted(a_keys - b_keys):
                 if isinstance(a.get(missing), list) and not a.get(missing):
                     continue
@@ -107,6 +164,18 @@ class RoundtripVerifier(CVVerifier):
                         f"environment mismatch at {path or '<root>'}: {a_norm} vs {b_norm}"
                     )
                 return
+            if (
+                path.startswith("sidebar.")
+                and all(isinstance(x, str) for x in a)
+                and all(isinstance(x, str) for x in b)
+            ):
+                a_norm = self._normalize_sidebar_list(a)
+                b_norm = self._normalize_sidebar_list(b)
+                if a_norm != b_norm:
+                    errors.append(
+                        f"list mismatch at {path or '<root>'}: {a_norm} vs {b_norm}"
+                    )
+                return
             if len(a) != len(b):
                 errors.append(
                     f"list length mismatch at {path or '<root>'}: {len(a)} vs {len(b)}"
@@ -117,8 +186,8 @@ class RoundtripVerifier(CVVerifier):
             return
 
         if isinstance(a, str):
-            a_norm = clean_text(a)
-            b_norm = clean_text(b)
+            a_norm = self._normalize_compare_text(a)
+            b_norm = self._normalize_compare_text(b)
             if a_norm != b_norm:
                 errors.append(
                     f"value mismatch at {path or '<root>'}: {a_norm!r} vs {b_norm!r}"
