@@ -13,12 +13,10 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-if TYPE_CHECKING:
-    from .cli_config import UserConfig
-
-from .logging_utils import LOG, fmt_issues
+from .cli_config import UserConfig
+from .logging_utils import LOG
 
 
 # ------------------------- Models -------------------------
@@ -33,8 +31,8 @@ class UnitOfWork:
 
     config: "UserConfig"
     initial_input: Optional[Path] = None
-    step_states: Dict["StepName", "StepStatus"] = field(default_factory=dict)
-    current_step: Optional["StepName"] = None
+    step_states: Dict[StepName, StepStatus] = field(default_factory=dict)
+    current_step: Optional[StepName] = None
 
     def __post_init__(self) -> None:
         if self.initial_input is None:
@@ -42,23 +40,23 @@ class UnitOfWork:
             if extract_status and extract_status.input is not None:
                 self.initial_input = extract_status.input
 
-    def _get_step_status(self, step: "StepName") -> "StepStatus":
+    def _get_step_status(self, step: StepName) -> StepStatus:
         status = self.step_states.get(step)
         if status is None:
             status = StepStatus(step=step)
             self.step_states[step] = status
         return status
 
-    def ensure_step_status(self, step: "StepName") -> "StepStatus":
+    def ensure_step_status(self, step: StepName) -> StepStatus:
         return self._get_step_status(step)
 
     def set_step_paths(
         self,
-        step: "StepName",
+        step: StepName,
         *,
         input_path: Optional[Path] = None,
         output_path: Optional[Path] = None,
-    ) -> "StepStatus":
+    ) -> StepStatus:
         status = self._get_step_status(step)
         if input_path is not None:
             status.input = input_path
@@ -68,23 +66,23 @@ class UnitOfWork:
             status.output = output_path
         return status
 
-    def get_step_input(self, step: "StepName") -> Optional[Path]:
+    def get_step_input(self, step: StepName) -> Optional[Path]:
         status = self.step_states.get(step)
         return status.input if status else None
 
-    def get_step_output(self, step: "StepName") -> Optional[Path]:
+    def get_step_output(self, step: StepName) -> Optional[Path]:
         status = self.step_states.get(step)
         return status.output if status else None
 
-    def add_warning(self, step: "StepName", message: str) -> None:
+    def add_warning(self, step: StepName, message: str) -> None:
         status = self._get_step_status(step)
         status.warnings.append(message)
 
-    def add_error(self, step: "StepName", message: str) -> None:
+    def add_error(self, step: StepName, message: str) -> None:
         status = self._get_step_status(step)
         status.errors.append(message)
 
-    def resolve_verification_step(self) -> "StepName":
+    def resolve_verification_step(self) -> StepName:
         if self.current_step is not None:
             return self.current_step
         if len(self.step_states) == 1:
@@ -93,7 +91,7 @@ class UnitOfWork:
 
     def ensure_path_exists(
         self,
-        step: "StepName",
+        step: StepName,
         path: Optional[Path],
         label: str,
         must_be_file: bool = False,
@@ -109,13 +107,13 @@ class UnitOfWork:
             return False
         return True
 
-    def has_no_errors(self, step: Optional["StepName"] = None) -> bool:
+    def has_no_errors(self, step: Optional[StepName] = None) -> bool:
         if step is None:
             return all(not status.errors for status in self.step_states.values())
         status = self.step_states.get(step)
         return not status.errors if status else True
 
-    def has_no_warnings_or_errors(self, step: Optional["StepName"] = None) -> bool:
+    def has_no_warnings_or_errors(self, step: Optional[StepName] = None) -> bool:
         if step is None:
             return all(
                 (not status.errors and not status.warnings)
@@ -127,7 +125,7 @@ class UnitOfWork:
         return not status.errors and not status.warnings
 
 
-def load_input_json(work: UnitOfWork, *, step: "StepName" = None) -> Dict[str, Any]:
+def load_input_json(work: UnitOfWork, *, step: StepName = None) -> Dict[str, Any]:
     """
     Load JSON from the step input path.
 
@@ -145,7 +143,7 @@ def load_input_json(work: UnitOfWork, *, step: "StepName" = None) -> Dict[str, A
 
 
 def write_output_json(
-    work: UnitOfWork, data: Dict[str, Any], *, step: "StepName" = None
+    work: UnitOfWork, data: Dict[str, Any], *, step: StepName = None
 ) -> UnitOfWork:
     """
     Write JSON to the step output path.
@@ -190,7 +188,7 @@ class StepStatus:
         return not self.warnings and not self.errors
 
 
-def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
+def get_status_icons(work: "UnitOfWork") -> Dict[StepName, str]:
     """Generate status icons for pipeline steps based on UnitOfWork statuses."""
 
     def icon_for(step_name: StepName) -> str:
@@ -211,7 +209,7 @@ def get_status_icons(work: "UnitOfWork") -> Dict["StepName", str]:
     return {step_name: icon_for(step_name) for step_name in StepName}
 
 
-def select_issue_step(work: "UnitOfWork") -> "StepName":
+def select_issue_step(work: "UnitOfWork") -> StepName:
     for candidate in (
         StepName.VerifyRender,
         StepName.VerifyAdjust,
@@ -226,7 +224,24 @@ def select_issue_step(work: "UnitOfWork") -> "StepName":
     return StepName.Extract
 
 
-def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> str:
+def fmt_issues(work: "UnitOfWork", step: StepName) -> str:
+    """
+    Compact error/warning string for the one-line-per-file log.
+    """
+    status = work.step_states.get(step)
+    if status is None:
+        return "-"
+    errors = status.errors
+    warnings = status.warnings
+    parts: List[str] = []
+    if errors:
+        parts.append("errors: " + ", ".join(errors))
+    if warnings:
+        parts.append("warnings: " + ", ".join(warnings))
+    return " | ".join(parts) if parts else "-"
+
+
+def emit_work_status(work: "UnitOfWork", step: Optional[StepName] = None) -> str:
     icons = get_status_icons(work)
     issue_step = step
     if issue_step is None:

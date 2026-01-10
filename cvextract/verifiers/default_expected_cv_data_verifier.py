@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from ..shared import UnitOfWork
+from ..shared import StepName, UnitOfWork
 from .base import CVVerifier
 
 
@@ -97,7 +97,7 @@ class DefaultExpectedCvDataVerifier(CVVerifier):
         return self._record(work, errs, warns)
 
     def _load_output_json(
-        self, work: UnitOfWork, step: "StepName"
+        self, work: UnitOfWork, step: StepName
     ) -> tuple[Dict[str, Any] | None, List[str]]:
         output_path = work.get_step_output(step)
         if output_path is None:

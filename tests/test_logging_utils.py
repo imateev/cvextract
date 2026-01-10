@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 
 from cvextract.cli_config import UserConfig
-from cvextract.logging_utils import LOG, fmt_issues, setup_logging
-from cvextract.shared import StepName, StepStatus, UnitOfWork
+from cvextract.logging_utils import LOG, setup_logging
+from cvextract.shared import StepName, StepStatus, UnitOfWork, fmt_issues
 
 
 class TestIssueFormatting:
