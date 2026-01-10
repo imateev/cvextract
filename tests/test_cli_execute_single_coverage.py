@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from cvextract.cli_config import (
     AdjusterConfig,
     AdjustStage,
@@ -426,3 +428,37 @@ def test_roundtrip_verify_sets_comparer_input(tmp_path):
     comparer_status = result.step_states[StepName.VerifyRender]
     assert comparer_status.input == expected_roundtrip
     assert dummy.called
+
+
+def test_roundtrip_verify_raises_for_unknown_verifier(tmp_path):
+    """roundtrip_verify should raise when verifier name is unknown."""
+    source = tmp_path / "input.docx"
+    source.touch()
+    render_output = tmp_path / "rendered.docx"
+    render_output.touch()
+    extract_output = tmp_path / "original.json"
+    extract_output.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        render=RenderStage(template=tmp_path / "template.docx", verifier="missing"),
+    )
+    work = UnitOfWork(config=config, initial_input=source)
+    work.set_step_paths(
+        StepName.Render, input_path=tmp_path / "input.json", output_path=render_output
+    )
+    work.set_step_paths(
+        StepName.Extract, input_path=source, output_path=extract_output
+    )
+
+    def _fake_extract(roundtrip_work: UnitOfWork) -> UnitOfWork:
+        output_path = roundtrip_work.get_step_output(StepName.Extract)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("{}", encoding="utf-8")
+        return roundtrip_work
+
+    with patch(
+        "cvextract.cli_execute_single.extract_cv_data", side_effect=_fake_extract
+    ), patch("cvextract.cli_execute_single.get_verifier", return_value=None):
+        with pytest.raises(ValueError, match="unknown verifier"):
+            roundtrip_verify(work)
