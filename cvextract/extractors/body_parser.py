@@ -46,11 +46,14 @@ MONTH_NAME = (
     r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
     r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
 )
+MONTH_NUM = r"(?:0?[1-9]|1[0-2])/(?:19|20)\d{2}"
 
 HEADING_PATTERN = re.compile(
     rf"^(?:"
     rf"{MONTH_NAME}\s+\d{{4}}\s*(?:--|[-–—])\s*"
-    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}})"
+    rf"(?:Present|Now|Current|{MONTH_NAME}\s+\d{{4}}|{MONTH_NUM})"
+    r"|"
+    rf"{MONTH_NUM}\s*(?:--|[-–—])\s*(?:{MONTH_NUM}|Present|Now|Current)"
     r"|"
     r"\d{4}\s*(?:--|[-–—])\s*(?:\d{4}|Present|Now|Current)"
     r"|"

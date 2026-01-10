@@ -95,3 +95,25 @@ class TestCVBodyParsing:
         assert len(exps) == 2
         assert exps[0]["heading"].startswith("2021 |")
         assert exps[1]["heading"].startswith("2022 – 2024")
+
+    def test_parse_numeric_month_headings(self, monkeypatch):
+        """Numeric month headings should be treated as experience headings."""
+        stream = [
+            ("PROFESSIONAL EXPERIENCE", False, ""),
+            ("09/2024 – Present | Junior Software Engineer", False, ""),
+            ("Did work", False, ""),
+            ("01/2022 - 08/2024 | Analyst", False, ""),
+            ("More work", False, ""),
+        ]
+
+        def fake_iter(_path: Path):
+            for t in stream:
+                yield t
+
+        monkeypatch.setattr(bp, "iter_document_paragraphs", fake_iter)
+
+        overview, exps = bp.parse_cv_from_docx_body(Path("fake.docx"))
+        assert overview == ""
+        assert len(exps) == 2
+        assert exps[0]["heading"].startswith("09/2024")
+        assert exps[1]["heading"].startswith("01/2022")
