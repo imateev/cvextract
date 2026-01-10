@@ -429,7 +429,6 @@ class TestExecutePipelineAdjust:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=False,
                 data=None,
                 output=None,
             ),
@@ -444,58 +443,6 @@ class TestExecutePipelineAdjust:
         mock_extract.assert_called_once()
         mock_adjuster.adjust.assert_called_once()
         mock_render.assert_called_once()
-
-    @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_adjust.get_adjuster")
-    def test_adjust_dry_run_skips_apply(
-        self,
-        mock_get_adjuster,
-        mock_extract,
-        tmp_path: Path,
-        mock_docx: Path,
-        mock_template: Path,
-    ):
-        """Test that dry-run mode skips apply stage."""
-
-        # Mock extract_single to create a JSON file
-        def fake_extract(work: UnitOfWork):
-            output_path = work.get_step_output(StepName.Extract)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(json.dumps(_valid_cv_payload()))
-            return _extract_result(work, True, [], [])
-
-        mock_extract.side_effect = fake_extract
-        # Mock adjuster
-        mock_adjuster = MagicMock()
-        mock_adjuster.adjust.side_effect = lambda work, **kwargs: _adjust_result(
-            work, _valid_cv_payload()
-        )
-        mock_adjuster.validate_params.return_value = None
-        mock_get_adjuster.return_value = mock_adjuster
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=AdjustStage(
-                adjusters=[
-                    AdjusterConfig(
-                        name="openai-company-research",
-                        params={"customer-url": "https://example.com"},
-                        openai_model="gpt-4",
-                    )
-                ],
-                dry_run=True,
-                data=None,
-                output=None,
-            ),
-            render=RenderStage(template=mock_template, data=None, output=None),
-            target_dir=tmp_path / "out",
-            log_file=None,
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 0
-        mock_extract.assert_called_once()
-        mock_adjuster.adjust.assert_called_once()
 
     @patch("cvextract.cli_execute_adjust.get_adjuster")
     @patch("cvextract.cli_execute_single.roundtrip_verify")
@@ -529,7 +476,6 @@ class TestExecutePipelineAdjust:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=False,
                 data=mock_json,
                 output=None,
             ),
@@ -569,7 +515,6 @@ class TestExecutePipelineAdjust:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=False,
                 data=input_json,
                 output=None,
             ),
@@ -585,52 +530,6 @@ class TestExecutePipelineAdjust:
         # CLI should not inject cache_path into adjuster params
         call_kwargs = mock_adjuster.adjust.call_args.kwargs
         assert "cache_path" not in call_kwargs
-        
-class TestExecutePipelineDebugMode:
-    """Tests for execute_pipeline with debug mode."""
-
-    @patch("cvextract.cli_execute_extract.extract_single")
-    @patch("cvextract.cli_execute_adjust.get_adjuster")
-    def test_adjust_exception_debug_mode(
-        self, mock_get_adjuster, mock_extract, tmp_path: Path, mock_docx: Path
-    ):
-        """Test that adjust exceptions in debug mode are logged."""
-
-        def fake_extract(work: UnitOfWork):
-            output_path = work.get_step_output(StepName.Extract)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(json.dumps(_valid_cv_payload()))
-            return _extract_result(work, True, [], [])
-
-        mock_extract.side_effect = fake_extract
-        # Mock adjuster to raise exception
-        mock_adjuster = MagicMock()
-        mock_adjuster.adjust.side_effect = Exception("Adjustment error")
-        mock_adjuster.validate_params.return_value = None
-        mock_get_adjuster.return_value = mock_adjuster
-
-        config = UserConfig(
-            extract=ExtractStage(source=mock_docx, output=None),
-            adjust=AdjustStage(
-                adjusters=[
-                    AdjusterConfig(
-                        name="openai-company-research",
-                        params={"customer-url": "https://example.com"},
-                        openai_model="gpt-4",
-                    )
-                ],
-                dry_run=True,
-                data=None,
-                output=None,
-            ),
-            render=None,
-            target_dir=tmp_path / "out",
-            log_file=None,
-        )
-
-        exit_code = execute_pipeline(config)
-        assert exit_code == 0  # Dry run doesn't fail on adjust error
-
 
 class TestFolderStructurePreservation:
     """Tests for preserving folder structure in output directories."""
@@ -703,7 +602,6 @@ class TestFolderStructurePreservation:
                         openai_model="gpt-4",
                     )
                 ],
-                dry_run=True,
                 data=None,
                 output=None,
             ),

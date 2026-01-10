@@ -89,7 +89,7 @@ def _parse_stage_params(param_list: List[str]) -> Dict[str, str]:
     - flag (parameter without value)
 
     Examples:
-    - ["source=cv.docx", "output=data.json", "dry-run"]
+    - ["source=cv.docx", "output=data.json"]
     - ["source=/path with spaces/file.docx", "output=data.json"]
 
     Flags without values are stored with empty string value.
@@ -110,7 +110,7 @@ def _parse_stage_params(param_list: List[str]) -> Dict[str, str]:
                 raise ValueError("Empty parameter key not allowed")
             params[key] = value  # Keep value as-is, don't strip (preserves spaces)
         else:
-            # Flag without value (e.g., dry-run)
+            # Flag without value
             params[part] = ""
 
     return params
@@ -185,7 +185,7 @@ Examples:
         action="append",
         help="Adjust stage: Adjust CV data using named adjusters (can be specified multiple times for chaining). "
         "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] "
-        "[output=<path>] [openai-model=<model>] [verifier=<verifier-name>] [skip-verify] [dry-run]. "
+        "[output=<path>] [openai-model=<model>] [verifier=<verifier-name>] [skip-verify]. "
         "Use --list adjusters to see available adjusters.",
     )
     parser.add_argument(
@@ -332,8 +332,6 @@ Examples:
         adjuster_configs = []
         data_path = None
         output_path = None
-        dry_run = False
-
         adjust_verifier: Optional[str] = None
         skip_verify = False
 
@@ -342,7 +340,7 @@ Examples:
                 adjust_params_list if adjust_params_list else []
             )
 
-            # Extract common parameters (data, output, dry-run) from first adjuster
+            # Extract common parameters (data, output) from first adjuster
             if not adjuster_configs:
                 if "data" in params:
                     data_path = Path(params["data"])
@@ -354,8 +352,6 @@ Examples:
                     adjust_verifier = params["verifier"]
                 if "skip-verify" in params:
                     skip_verify = True
-                if "dry-run" in params:
-                    dry_run = True
 
             # Get adjuster name (required)
             adjuster_name = params.get("name")
@@ -376,7 +372,6 @@ Examples:
                     "name",
                     "data",
                     "output",
-                    "dry-run",
                     "openai-model",
                     "verifier",
                     "skip-verify",
@@ -398,7 +393,6 @@ Examples:
             adjusters=adjuster_configs,
             data=data_path,
             output=output_path,
-            dry_run=dry_run,
             verifier=adjust_verifier,
             skip_verify=skip_verify,
         )

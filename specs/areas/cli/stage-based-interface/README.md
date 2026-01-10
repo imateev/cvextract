@@ -56,7 +56,7 @@ python -m cvextract.cli \
 
 - **`--adjust`**: Adjust CV data (can be repeated for chaining)
   - Required params: `name=<adjuster>`, adjuster-specific params
-  - Optional params: `data=<path>` (when not chained), `output=<path>`, `openai-model=<model>`, `verifier=<verifier-name>`, `skip-verify`, `dry-run`
+  - Optional params: `data=<path>` (when not chained), `output=<path>`, `openai-model=<model>`, `verifier=<verifier-name>`, `skip-verify`
 
 - **`--render`**: Apply CV data to template
   - Required params: `template=<path>`

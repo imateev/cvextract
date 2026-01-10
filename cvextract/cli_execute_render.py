@@ -10,7 +10,7 @@ from .shared import StepName, UnitOfWork
 
 def execute(work: UnitOfWork) -> UnitOfWork:
     config = work.config
-    if not config.render or (config.adjust and config.adjust.dry_run):
+    if not config.render:
         return work
 
     input_path = (

@@ -150,7 +150,7 @@ python -m cvextract.cli \
 - Parameters are space-separated: `--extract source=file.docx output=data.json`
 - Values can contain spaces: `source=/path with spaces/file.docx`
 - Multiple `--adjust` flags can be used to chain adjusters sequentially
-- Boolean flags have no value: `--adjust name=... dry-run`
+- Boolean flags have no value: `--adjust name=... skip-verify`
 - Verifiers are optional per stage: `verifier=<verifier-name>` or `skip-verify` (global override: `--skip-all-verify`)
 
 ### Execution Modes
@@ -213,7 +213,6 @@ python -m cvextract.cli \
   - Directory: processes all `.json` files recursively
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
 - `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
-- `dry-run` - Only adjust without rendering (optional flag, prevents render stage execution)
 - `verifier=<verifier-name>` - Verifier to run after adjustment (optional, defaults to `cv-schema-verifier`)
 - `skip-verify` - Skip adjustment verification (optional flag)
 - **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
@@ -438,7 +437,7 @@ python -m cvextract.cli \
   --target /output
 ```
 
-#### Adjust Only (Dry-Run - No Rendering)
+#### Adjust Only (No Rendering)
 
 ```bash
 # Extract and adjust without rendering (useful for preview/testing)
@@ -446,7 +445,7 @@ export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --extract source=/path/to/cv.docx \
-  --adjust name=openai-company-research customer-url=https://example.com dry-run \
+  --adjust name=openai-company-research customer-url=https://example.com \
   --target /output
 
 # Outputs:
@@ -740,7 +739,6 @@ Use `--list adjusters` to see all available adjusters:
 
 - Company research results are cached in `{target}/research_data/` for reuse
 - Roundtrip comparison (JSON ↔ DOCX ↔ JSON) is intentionally skipped when adjustment is used; the compare icon shows as `➖`
-- In dry-run mode, adjustment is performed but rendering is skipped
 
 ### How it achieves this
 - DOCX parsing:

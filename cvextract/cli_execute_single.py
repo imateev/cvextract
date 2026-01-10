@@ -209,7 +209,7 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
             if config.render:
                 config = replace(config, render=None)
 
-    # Step 3: Render (if configured and not dry-run)
+    # Step 3: Render (if configured)
     if config.render:
         work = execute_render(work)
 

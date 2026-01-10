@@ -70,15 +70,15 @@ class TestParseStageParams:
 
     def test_parse_flags(self):
         """Flags without values are stored with empty string."""
-        params = cli_gather._parse_stage_params(["dry-run"])
-        assert params == {"dry-run": ""}
+        params = cli_gather._parse_stage_params(["skip-verify"])
+        assert params == {"skip-verify": ""}
 
     def test_parse_mixed_params_and_flags(self):
         """Mix of parameters and flags."""
         params = cli_gather._parse_stage_params(
-            ["source=cv.docx", "dry-run", "output=data.json"]
+            ["source=cv.docx", "skip-verify", "output=data.json"]
         )
-        assert params == {"source": "cv.docx", "dry-run": "", "output": "data.json"}
+        assert params == {"source": "cv.docx", "skip-verify": "", "output": "data.json"}
 
     def test_parse_empty_list(self):
         """Empty parameter list returns empty dict."""
@@ -243,23 +243,6 @@ class TestGatherUserRequirements:
         )
 
         assert config.adjust.data == Path("existing.json")
-
-    def test_adjust_with_dry_run(self):
-        """--adjust dry-run flag is stored."""
-        config = cli_gather.gather_user_requirements(
-            [
-                "--extract",
-                "source=cv.docx",
-                "--adjust",
-                "name=openai-company-research",
-                "customer-url=https://example.com",
-                "dry-run",
-                "--target",
-                "/output",
-            ]
-        )
-
-        assert config.adjust.dry_run is True
 
     def test_adjust_with_verifier_and_skip_verify(self):
         """--adjust verifier and skip-verify parameters are stored."""

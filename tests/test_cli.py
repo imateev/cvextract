@@ -109,22 +109,6 @@ class TestStageBasedParsing:
         assert config.adjust is not None
         assert config.render is not None
 
-    def test_parse_adjust_with_dry_run(self):
-        """Adjust stage with dry-run flag should be parsed."""
-        config = cli.gather_user_requirements(
-            [
-                "--extract",
-                "source=/path/to/cvs",
-                "--adjust",
-                "name=openai-company-research",
-                "customer-url=https://example.com",
-                "dry-run",
-                "--target",
-                "/path/to/output",
-            ]
-        )
-        assert config.adjust.dry_run is True
-
     def test_parse_adjust_with_openai_model(self):
         """Adjust stage with openai-model parameter should be parsed."""
         config = cli.gather_user_requirements(

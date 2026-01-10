@@ -7,7 +7,6 @@ These tests cover missing error paths and validation logic.
 import json
 from pathlib import Path
 
-import pytest
 from docx import Document
 
 from cvextract.cli_config import RenderStage, UserConfig
@@ -39,35 +38,6 @@ class TestCliExecuteRenderCoverage:
 
         config = UserConfig(target_dir=tmp_path, render=RenderStage(template=template))
         work = UnitOfWork(config=config)
-
-        result = execute(work)
-
-        assert result == work
-
-    def test_execute_returns_work_when_adjust_dry_run(self, tmp_path):
-        """Test execute returns work when adjust.dry_run is True."""
-        from cvextract.cli_config import AdjusterConfig, AdjustStage
-
-        template = tmp_path / "template.docx"
-        template.touch()
-
-        config = UserConfig(
-            target_dir=tmp_path,
-            adjust=AdjustStage(
-                data=tmp_path / "data.json",
-                adjusters=[AdjusterConfig(name="test", params={})],
-                dry_run=True,
-            ),
-            render=RenderStage(template=template),
-        )
-        work = UnitOfWork(
-            config=config,
-        )
-        work.set_step_paths(
-            StepName.Render,
-            input_path=tmp_path / "input.json",
-            output_path=tmp_path / "output.json",
-        )
 
         result = execute(work)
 
