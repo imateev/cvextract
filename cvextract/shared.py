@@ -193,16 +193,36 @@ def emit_work_status(work: "UnitOfWork", step: Optional["StepName"] = None) -> s
         issue_step = select_issue_step(work)
     input_path = work.initial_input or work.get_step_input(StepName.Extract)
     input_name = input_path.name if input_path else "<unknown>"
+    config = work.config
+    show_extract = config.extract is not None
+    show_adjust = config.adjust is not None
+    show_render = config.render is not None
+    show_extract_verify = show_extract and not (
+        config.skip_all_verify or config.extract.skip_verify
+    )
+    show_adjust_verify = show_adjust and not (
+        config.skip_all_verify or config.adjust.skip_verify
+    )
+    show_render_verify = show_render and config.should_compare
+
+    segments: List[str] = []
+    if show_extract:
+        segment = f"E:{icons[StepName.Extract]}"
+        if show_extract_verify:
+            segment += f"·{icons[StepName.VerifyExtract]}"
+        segments.append(segment)
+    if show_adjust:
+        segment = f"A:{icons[StepName.Adjust]}"
+        if show_adjust_verify:
+            segment += f"·{icons[StepName.VerifyAdjust]}"
+        segments.append(segment)
+    if show_render:
+        segment = f"R:{icons[StepName.Render]}"
+        if show_render_verify:
+            segment += f"·{icons[StepName.VerifyRender]}"
+        segments.append(segment)
     return (
-        f"E:"
-        f"{icons[StepName.Extract]}"
-        f"·{icons[StepName.VerifyExtract]}"
-        f"·A:"
-        f"·{icons[StepName.Adjust]}"
-        f"·{icons[StepName.VerifyAdjust]}"
-        f"·R:"
-        f"·{icons[StepName.Render]}"
-        f"·{icons[StepName.VerifyRender]} "
+        f"{'·'.join(segments)} "
         f"{input_name} | "
         f"{fmt_issues(work, issue_step)}"
     )
