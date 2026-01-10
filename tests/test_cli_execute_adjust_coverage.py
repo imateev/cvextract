@@ -245,8 +245,8 @@ class TestCliExecuteAdjustCoverage:
         assert adjust_status is not None
         assert any("not a file" in e for e in adjust_status.errors)
 
-    def test_execute_skips_verification_when_configured(self, tmp_path):
-        """execute should skip verification when skip_verify is set."""
+    def test_execute_ignores_skip_verify(self, tmp_path):
+        """execute should not perform verification here."""
         json_file = tmp_path / "test.json"
         json_file.write_text("{}", encoding="utf-8")
 
@@ -275,16 +275,15 @@ class TestCliExecuteAdjustCoverage:
 
         with patch(
             "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
-        ), patch(
-            "cvextract.cli_execute_adjust.get_verifier",
-            side_effect=AssertionError("should not verify"),
         ):
             result = execute(work)
 
-        assert result == work
+        adjust_status = result.step_states.get(StepName.Adjust)
+        assert adjust_status is not None
+        assert adjust_status.errors == []
 
-    def test_execute_unknown_verifier_adds_error(self, tmp_path):
-        """execute should add error when verifier is unknown."""
+    def test_execute_ignores_verifier_config(self, tmp_path):
+        """execute should ignore verifier config; verification happens later."""
         json_file = tmp_path / "test.json"
         json_file.write_text("{}", encoding="utf-8")
 
@@ -313,51 +312,12 @@ class TestCliExecuteAdjustCoverage:
 
         with patch(
             "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
-        ), patch("cvextract.cli_execute_adjust.get_verifier", return_value=None):
+        ):
             result = execute(work)
 
         adjust_status = result.step_states.get(StepName.Adjust)
         assert adjust_status is not None
-        assert any("unknown verifier" in e for e in adjust_status.errors)
-
-    def test_execute_verifier_exception_is_reported(self, tmp_path):
-        """execute should add error when verifier raises."""
-        json_file = tmp_path / "test.json"
-        json_file.write_text("{}", encoding="utf-8")
-
-        config = UserConfig(
-            target_dir=tmp_path,
-            adjust=AdjustStage(
-                data=json_file,
-                adjusters=[AdjusterConfig(name="test-adjuster", params={})],
-            ),
-        )
-        work = UnitOfWork(config=config, initial_input=json_file)
-        work.set_step_paths(
-            StepName.Adjust, input_path=json_file, output_path=json_file
-        )
-
-        mock_adjuster = MagicMock()
-        mock_adjuster.validate_params = MagicMock()
-        def fake_adjust(work, **_kwargs):
-            output_path = work.get_step_output(StepName.Adjust)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text("{}", encoding="utf-8")
-            return work
-
-        mock_adjuster.adjust = MagicMock(side_effect=fake_adjust)
-
-        verifier = MagicMock()
-        verifier.verify.side_effect = RuntimeError("boom")
-
-        with patch(
-            "cvextract.cli_execute_adjust.get_adjuster", return_value=mock_adjuster
-        ), patch("cvextract.cli_execute_adjust.get_verifier", return_value=verifier):
-            result = execute(work)
-
-        adjust_status = result.step_states.get(StepName.Adjust)
-        assert adjust_status is not None
-        assert any("verify failed" in e for e in adjust_status.errors)
+        assert adjust_status.errors == []
 
     def test_execute_handles_relative_to_value_error(self, tmp_path):
         """Test execute handles ValueError from relative_to."""

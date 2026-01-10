@@ -12,7 +12,6 @@ from pathlib import Path
 from .adjusters import get_adjuster
 from .logging_utils import LOG
 from .shared import StepName, UnitOfWork
-from .verifiers import get_verifier
 
 
 def execute(work: UnitOfWork) -> UnitOfWork:
@@ -104,37 +103,6 @@ def execute(work: UnitOfWork) -> UnitOfWork:
             output_path = adjust_work.get_step_output(StepName.Adjust)
             if output_path is not None:
                 adjust_work.set_step_paths(StepName.Adjust, input_path=output_path)
-
-        skip_verify = bool(
-            config.skip_all_verify or (config.adjust and config.adjust.skip_verify)
-        )
-        if skip_verify:
-            return adjust_work
-
-        output_path = adjust_work.get_step_output(StepName.Adjust)
-        if not output_path or not output_path.exists():
-            adjust_work.add_error(
-                StepName.Adjust, "adjust: output JSON not found for verification"
-            )
-            return adjust_work
-
-        verifier_name = "cv-schema-verifier"
-        if config.adjust and config.adjust.verifier:
-            verifier_name = config.adjust.verifier
-        verifier = get_verifier(verifier_name)
-        if not verifier:
-            adjust_work.add_error(StepName.Adjust, f"unknown verifier: {verifier_name}")
-            return adjust_work
-
-        adjust_work.ensure_step_status(StepName.Adjust)
-        adjust_work.current_step = StepName.Adjust
-        try:
-            adjust_work = verifier.verify(adjust_work)
-        except Exception as e:
-            adjust_work.add_error(
-                StepName.Adjust, f"adjust: verify failed ({type(e).__name__})"
-            )
-            return adjust_work
 
         return adjust_work
     except Exception:

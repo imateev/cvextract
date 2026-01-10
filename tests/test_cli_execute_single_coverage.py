@@ -9,7 +9,12 @@ from cvextract.cli_config import (
     RenderStage,
     UserConfig,
 )
-from cvextract.cli_execute_single import execute_single, extract_verify, roundtrip_verify
+from cvextract.cli_execute_single import (
+    adjust_verify,
+    execute_single,
+    extract_verify,
+    roundtrip_verify,
+)
 from cvextract.shared import StepName, StepStatus, UnitOfWork
 
 
@@ -186,6 +191,102 @@ def test_extract_verify_records_verifier_exception(tmp_path):
 
     extract_status = result.step_states[StepName.Extract]
     assert any("verify failed" in e for e in extract_status.errors)
+
+
+def test_execute_single_calls_adjust_verify_on_success(tmp_path):
+    """execute_single should invoke adjust_verify after a successful adjust."""
+    source = tmp_path / "input.docx"
+    source.touch()
+    output_path = tmp_path / "adjusted.json"
+    output_path.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        extract=ExtractStage(source=source),
+        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})]),
+    )
+
+    extracted = UnitOfWork(config=config, initial_input=source)
+    extracted.set_step_paths(
+        StepName.Extract, input_path=source, output_path=tmp_path / "out.json"
+    )
+    extracted.step_states[StepName.Extract] = StepStatus(step=StepName.Extract)
+
+    adjusted = UnitOfWork(config=config, initial_input=source)
+    adjusted.set_step_paths(
+        StepName.Adjust, input_path=tmp_path / "out.json", output_path=output_path
+    )
+    adjusted.step_states[StepName.Adjust] = StepStatus(step=StepName.Adjust)
+
+    with patch(
+        "cvextract.cli_execute_single.execute_extract", return_value=extracted
+    ), patch(
+        "cvextract.cli_execute_single.extract_verify", side_effect=lambda w: w
+    ), patch(
+        "cvextract.cli_execute_single.execute_adjust", return_value=adjusted
+    ), patch(
+        "cvextract.cli_execute_single.adjust_verify",
+        side_effect=lambda w: w.add_error(StepName.Adjust, "bad") or w,
+    ) as mock_verify:
+        rc, work = execute_single(config)
+
+    assert rc == 1
+    assert work is adjusted
+    mock_verify.assert_called_once()
+
+
+def test_adjust_verify_handles_unknown_verifier(tmp_path):
+    """adjust_verify should record an error for unknown verifiers."""
+    json_file = tmp_path / "adjusted.json"
+    json_file.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        adjust=AdjustStage(
+            adjusters=[AdjusterConfig(name="noop", params={})],
+            verifier="missing-verifier",
+        ),
+    )
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Adjust, input_path=json_file, output_path=json_file
+    )
+
+    with patch("cvextract.cli_execute_single.get_verifier", return_value=None):
+        result = adjust_verify(work)
+
+    adjust_status = result.step_states[StepName.Adjust]
+    assert any("unknown verifier" in e for e in adjust_status.errors)
+
+
+def test_adjust_verify_records_verifier_exception(tmp_path):
+    """adjust_verify should record verifier failures as errors."""
+    json_file = tmp_path / "adjusted.json"
+    json_file.write_text("{}", encoding="utf-8")
+
+    config = UserConfig(
+        target_dir=tmp_path,
+        adjust=AdjustStage(adjusters=[AdjusterConfig(name="noop", params={})]),
+    )
+    work = UnitOfWork(config=config, initial_input=json_file)
+    work.set_step_paths(
+        StepName.Adjust, input_path=json_file, output_path=json_file
+    )
+
+    verifier = patch(
+        "cvextract.cli_execute_single.get_verifier",
+        return_value=type(
+            "Verifier",
+            (),
+            {"verify": staticmethod(lambda _w: (_ for _ in ()).throw(ValueError("boom")))},
+        )(),
+    )
+
+    with verifier:
+        result = adjust_verify(work)
+
+    adjust_status = result.step_states[StepName.Adjust]
+    assert any("verify failed" in e for e in adjust_status.errors)
 
 
 def test_roundtrip_verify_skips_without_render_status(tmp_path):

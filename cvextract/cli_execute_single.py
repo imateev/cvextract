@@ -126,6 +126,41 @@ def extract_verify(work: UnitOfWork) -> UnitOfWork:
     return work
 
 
+def adjust_verify(work: UnitOfWork) -> UnitOfWork:
+    config = work.config
+    if not config.adjust:
+        return work
+
+    skip_verify = bool(
+        config.skip_all_verify or (config.adjust and config.adjust.skip_verify)
+    )
+    if skip_verify:
+        return work
+
+    output_path = work.get_step_output(StepName.Adjust)
+    if not output_path or not output_path.exists():
+        work.add_error(StepName.Adjust, "adjust: output JSON not found for verification")
+        return work
+
+    verifier_name = "cv-schema-verifier"
+    if config.adjust and config.adjust.verifier:
+        verifier_name = config.adjust.verifier
+    verifier = get_verifier(verifier_name)
+    if not verifier:
+        work.add_error(StepName.Adjust, f"unknown verifier: {verifier_name}")
+        return work
+
+    work.ensure_step_status(StepName.Adjust)
+    work.current_step = StepName.Adjust
+    try:
+        work = verifier.verify(work)
+    except Exception as e:
+        work.add_error(StepName.Adjust, f"adjust: verify failed ({type(e).__name__})")
+        return work
+
+    return work
+
+
 def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     source = _resolve_input_source(config)
     if source is None:
@@ -172,6 +207,9 @@ def execute_single(config: UserConfig) -> tuple[int, UnitOfWork | None]:
     # Step 2: Adjust (if configured)
     if config.adjust:
         work = execute_adjust(work)
+
+        if work.has_no_errors(StepName.Adjust):
+            work = adjust_verify(work)
 
         if not work.has_no_errors(StepName.Adjust):
             if config.render:
