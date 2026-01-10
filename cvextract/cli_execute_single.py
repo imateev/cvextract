@@ -107,24 +107,31 @@ def extract_verify(work: UnitOfWork) -> UnitOfWork:
         )
         return work
 
-    verifier_name = "default-extract-verifier"
+    verifier_names = ["cv-schema-verifier", "default-extract-verifier"]
     if config.extract and config.extract.verifier:
-        verifier_name = config.extract.verifier
-    verifier = get_verifier(verifier_name)
-    if not verifier:
-        work.add_error(StepName.VerifyExtract, f"unknown verifier: {verifier_name}")
-        return work
+        verifier_names = [
+            name.strip()
+            for name in config.extract.verifier.split(",")
+            if name.strip()
+        ]
 
     work.set_step_paths(StepName.VerifyExtract, output_path=output_path)
     work.ensure_step_status(StepName.VerifyExtract)
     work.current_step = StepName.VerifyExtract
-    try:
-        work = verifier.verify(work)
-    except Exception as e:
-        work.add_error(
-            StepName.VerifyExtract, f"extract: verify failed ({type(e).__name__})"
-        )
-        return work
+    for verifier_name in verifier_names:
+        verifier = get_verifier(verifier_name)
+        if not verifier:
+            work.add_error(StepName.VerifyExtract, f"unknown verifier: {verifier_name}")
+            return work
+        try:
+            work = verifier.verify(work)
+        except Exception as e:
+            work.add_error(
+                StepName.VerifyExtract, f"extract: verify failed ({type(e).__name__})"
+            )
+            return work
+        if not work.has_no_errors(StepName.VerifyExtract):
+            return work
 
     return work
 
@@ -147,22 +154,31 @@ def adjust_verify(work: UnitOfWork) -> UnitOfWork:
         )
         return work
 
-    verifier_name = "cv-schema-verifier"
+    verifier_names = ["cv-schema-verifier"]
     if config.adjust and config.adjust.verifier:
-        verifier_name = config.adjust.verifier
-    verifier = get_verifier(verifier_name)
-    if not verifier:
-        work.add_error(StepName.VerifyAdjust, f"unknown verifier: {verifier_name}")
-        return work
+        verifier_names = [
+            name.strip()
+            for name in config.adjust.verifier.split(",")
+            if name.strip()
+        ]
 
     work.set_step_paths(StepName.VerifyAdjust, output_path=output_path)
     work.ensure_step_status(StepName.VerifyAdjust)
     work.current_step = StepName.VerifyAdjust
-    try:
-        work = verifier.verify(work)
-    except Exception as e:
-        work.add_error(StepName.VerifyAdjust, f"adjust: verify failed ({type(e).__name__})")
-        return work
+    for verifier_name in verifier_names:
+        verifier = get_verifier(verifier_name)
+        if not verifier:
+            work.add_error(StepName.VerifyAdjust, f"unknown verifier: {verifier_name}")
+            return work
+        try:
+            work = verifier.verify(work)
+        except Exception as e:
+            work.add_error(
+                StepName.VerifyAdjust, f"adjust: verify failed ({type(e).__name__})"
+            )
+            return work
+        if not work.has_no_errors(StepName.VerifyAdjust):
+            return work
 
     return work
 

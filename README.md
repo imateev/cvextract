@@ -199,7 +199,7 @@ python -m cvextract.cli \
   - `openai-extractor`: OpenAI-based extraction (supports TXT, DOCX)
   - Use `--list extractors` to see all available extractors
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
-- `verifier=<verifier-name>` - Verifier to run after extraction (optional, defaults to `default-extract-verifier`)
+- `verifier=<verifier-name[,verifier-name,...]>` - Verifier(s) to run after extraction (optional, defaults to `cv-schema-verifier,default-extract-verifier`)
 - `skip-verify` - Skip extraction verification (optional flag)
 
 **`--adjust`**: Adjust CV data using named adjusters (can be specified multiple times for chaining)
@@ -213,7 +213,7 @@ python -m cvextract.cli \
   - Directory: processes all `.json` files recursively
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
 - `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
-- `verifier=<verifier-name>` - Verifier to run after adjustment (optional, defaults to `cv-schema-verifier`)
+- `verifier=<verifier-name[,verifier-name,...]>` - Verifier(s) to run after adjustment (optional, defaults to `cv-schema-verifier`)
 - `skip-verify` - Skip adjustment verification (optional flag)
 - **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
 

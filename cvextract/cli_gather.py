@@ -175,7 +175,7 @@ Examples:
         metavar="PARAM",
         help="Extract stage: Extract CV data from source file to JSON. "
         "Parameters: source=<file> (required) [name=<extractor-name>] [output=<path>] "
-        "[verifier=<verifier-name>] [skip-verify]. "
+        "[verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
         "Use --list extractors to see available extractors.",
     )
     parser.add_argument(
@@ -185,7 +185,7 @@ Examples:
         action="append",
         help="Adjust stage: Adjust CV data using named adjusters (can be specified multiple times for chaining). "
         "Parameters: name=<adjuster-name> [adjuster-specific params] [data=<file>] "
-        "[output=<path>] [openai-model=<model>] [verifier=<verifier-name>] [skip-verify]. "
+        "[output=<path>] [openai-model=<model>] [verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
         "Use --list adjusters to see available adjusters.",
     )
     parser.add_argument(
