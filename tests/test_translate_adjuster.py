@@ -4,7 +4,17 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from cvextract.adjusters.openai_translate_adjuster import OpenAITranslateAdjuster
+import pytest
+
+from cvextract.adjusters.openai_translate_adjuster import (
+    OpenAITranslateAdjuster,
+    _TextProtector,
+    _collect_protected_terms,
+    _load_cv_schema,
+    _map_strings,
+    _restore_protected_fields,
+    _validate_cv_data,
+)
 from cvextract.cli_config import ExtractStage, UserConfig
 from cvextract.shared import StepName, UnitOfWork
 
@@ -242,6 +252,224 @@ def test_translate_adjuster_missing_api_key_returns_original(
     assert output_path is not None
     output = json.loads(output_path.read_text(encoding="utf-8"))
     assert output == cv_data
+
+
+def test_translate_adjuster_openai_unavailable_returns_original(
+    tmp_path: Path, monkeypatch
+):
+    cv_data = _load_fixture("translate_input.json")
+
+    import cvextract.adjusters.openai_translate_adjuster as translate_module
+
+    monkeypatch.setattr(translate_module, "OpenAI", None)
+
+    adjuster = OpenAITranslateAdjuster(api_key="test-key")
+    work = _make_work(tmp_path, cv_data)
+    result = adjuster.adjust(work, language="de")
+
+    output_path = result.get_step_output(StepName.Adjust)
+    assert output_path is not None
+    output = json.loads(output_path.read_text(encoding="utf-8"))
+    assert output == cv_data
+
+
+def test_translate_adjuster_requires_language_param(tmp_path: Path):
+    adjuster = OpenAITranslateAdjuster(api_key="test-key")
+    work = _make_work(tmp_path, _load_fixture("translate_input.json"))
+
+    with pytest.raises(ValueError, match="requires non-empty 'language'"):
+        adjuster.adjust(work)
+
+
+def test_text_protector_skips_empty_and_duplicate_terms():
+    protector = _TextProtector(["Python", "", "Python", "Go"])
+
+    assert len(protector._term_patterns) == 2
+
+
+def test_validate_cv_data_experiences_errors():
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / "cvextract"
+        / "contracts"
+        / "cv_schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    data = {
+        "identity": {
+            "title": "Engineer",
+            "full_name": "Ada Lovelace",
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+        },
+        "sidebar": {},
+        "overview": "Summary",
+        "experiences": [
+            "not-a-dict",
+            {"heading": 123, "description": 456},
+            {"description": "ok"},
+            {"heading": "Head"},
+            {"heading": "Head", "description": "Desc", "bullets": "nope"},
+            {"heading": "Head", "description": "Desc", "bullets": [1, "ok"]},
+        ],
+    }
+
+    errs = _validate_cv_data(data, schema)
+    expected = [
+        "experiences[0] must be an object",
+        "experiences[1].heading must be a string",
+        "experiences[1].description must be a string",
+        "experiences[2] missing required field: heading",
+        "experiences[3] missing required field: description",
+        "experiences[4].bullets must be an array",
+        "experiences[5].bullets items must be strings",
+    ]
+    for message in expected:
+        assert message in errs
+
+
+def test_validate_cv_data_sidebar_overview_and_experiences_type_errors():
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / "cvextract"
+        / "contracts"
+        / "cv_schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    data = {
+        "identity": {
+            "title": "Engineer",
+            "full_name": "Ada Lovelace",
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+        },
+        "sidebar": "not-a-dict",
+        "overview": ["not", "a", "string"],
+        "experiences": "not-a-list",
+    }
+
+    errs = _validate_cv_data(data, schema)
+    assert "sidebar must be an object" in errs
+    assert "overview must be a string" in errs
+    assert "experiences must be an array" in errs
+
+
+def test_validate_cv_data_identity_required_and_non_empty():
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / "cvextract"
+        / "contracts"
+        / "cv_schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    data = {
+        "identity": {"title": "", "full_name": "Ada Lovelace", "first_name": "Ada"},
+        "sidebar": {},
+        "overview": "Summary",
+        "experiences": [],
+    }
+
+    errs = _validate_cv_data(data, schema)
+    assert "identity missing required field: last_name" in errs
+    assert "identity.title must be a non-empty string" in errs
+
+
+def test_validate_cv_data_non_object_returns_error():
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / "cvextract"
+        / "contracts"
+        / "cv_schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    errs = _validate_cv_data(["not", "an", "object"], schema)
+    assert errs == ["translated JSON must be an object"]
+
+
+def test_load_cv_schema_without_path_returns_none(monkeypatch):
+    import cvextract.adjusters.openai_translate_adjuster as translate_module
+
+    monkeypatch.setattr(translate_module, "_SCHEMA_PATH", None)
+    monkeypatch.setattr(translate_module, "_CV_SCHEMA", None)
+
+    assert _load_cv_schema() is None
+
+
+def test_load_cv_schema_bad_json_returns_none(tmp_path: Path, monkeypatch):
+    import cvextract.adjusters.openai_translate_adjuster as translate_module
+
+    schema_path = tmp_path / "bad_schema.json"
+    schema_path.write_text("not-json", encoding="utf-8")
+
+    monkeypatch.setattr(translate_module, "_SCHEMA_PATH", schema_path)
+    monkeypatch.setattr(translate_module, "_CV_SCHEMA", None)
+
+    assert _load_cv_schema() is None
+
+
+def test_validate_cv_data_environment_errors():
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / "cvextract"
+        / "contracts"
+        / "cv_schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    data = {
+        "identity": {
+            "title": "Engineer",
+            "full_name": "Ada Lovelace",
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+        },
+        "sidebar": {},
+        "overview": "Summary",
+        "experiences": [
+            {"heading": "Head", "description": "Desc", "environment": "oops"},
+            {"heading": "Head", "description": "Desc", "environment": [1, "ok"]},
+        ],
+    }
+
+    errs = _validate_cv_data(data, schema)
+    assert "experiences[0].environment must be an array or null" in errs
+    assert "experiences[1].environment items must be strings" in errs
+
+
+def test_collect_protected_terms_skips_non_dict_experiences():
+    cv_data = {
+        "identity": {},
+        "sidebar": {},
+        "overview": "",
+        "experiences": ["not-a-dict", {"environment": ["Python"]}],
+    }
+
+    terms = _collect_protected_terms(cv_data)
+    assert terms == ["Python"]
+
+
+def test_map_strings_returns_unmodified_non_string():
+    assert _map_strings(5, lambda s: s.upper()) == 5
+
+
+def test_restore_protected_fields_skips_invalid_experiences():
+    original = {
+        "identity": {"full_name": "Ada"},
+        "sidebar": {},
+        "experiences": ["not-a-dict"],
+    }
+    translated = {
+        "identity": {"full_name": "Translated"},
+        "sidebar": {},
+        "experiences": ["still-not-a-dict"],
+    }
+
+    restored = _restore_protected_fields(original, translated)
+    assert restored["experiences"] == ["still-not-a-dict"]
 
 
 def test_translate_adjuster_schema_unavailable_returns_original(
