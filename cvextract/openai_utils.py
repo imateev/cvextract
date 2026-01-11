@@ -75,18 +75,21 @@ def normalize_provider(provider: Optional[str]) -> str:
     return normalized
 
 
+_CLIENT_SENTINEL = object()
+
+
 def get_openai_client(
     provider: Optional[str],
     *,
     api_key: Optional[str] = None,
     azure_endpoint: Optional[str] = None,
     azure_api_version: Optional[str] = None,
-    openai_cls: Optional[Any] = None,
-    azure_openai_cls: Optional[Any] = None,
+    openai_cls: Any = _CLIENT_SENTINEL,
+    azure_openai_cls: Any = _CLIENT_SENTINEL,
 ) -> Optional[Any]:
     provider_name = normalize_provider(provider)
     if provider_name == "openai":
-        client_cls = openai_cls or OpenAI
+        client_cls = OpenAI if openai_cls is _CLIENT_SENTINEL else openai_cls
         if client_cls is None:
             return None
         key = api_key or os.environ.get("OPENAI_API_KEY")
@@ -95,7 +98,11 @@ def get_openai_client(
         return client_cls(api_key=key)
 
     if provider_name == "azure":
-        client_cls = azure_openai_cls or AzureOpenAI
+        client_cls = (
+            AzureOpenAI
+            if azure_openai_cls is _CLIENT_SENTINEL
+            else azure_openai_cls
+        )
         if client_cls is None:
             return None
         key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")

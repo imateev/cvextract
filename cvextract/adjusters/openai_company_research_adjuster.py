@@ -329,20 +329,6 @@ def _research_company_profile(
         Dict containing company profile data, or None if research fails
     """
     provider_name = _normalize_provider(provider)
-    schema = _load_research_schema()
-    if not schema:
-        LOG.warning("Company research skipped: schema not available")
-        return None
-
-    research_prompt = format_prompt(
-        "website_analysis_prompt",
-        customer_url=customer_url,
-        schema=json.dumps(schema, indent=2),
-    )
-    if not research_prompt:
-        LOG.warning("Company research skipped: failed to load prompt template")
-        return None
-
     if client is None:
         client = _get_openai_client(
             provider_name,
@@ -358,6 +344,20 @@ def _research_company_profile(
                 provider_name,
             )
             return None
+
+    schema = _load_research_schema()
+    if not schema:
+        LOG.warning("Company research skipped: schema not available")
+        return None
+
+    research_prompt = format_prompt(
+        "website_analysis_prompt",
+        customer_url=customer_url,
+        schema=json.dumps(schema, indent=2),
+    )
+    if not research_prompt:
+        LOG.warning("Company research skipped: failed to load prompt template")
+        return None
     retryer = _OpenAIRetry(retry=retry or _RetryConfig(), sleep=sleep)
 
     try:
@@ -464,21 +464,6 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         cv_data = load_input_json(work)
         self.validate_params(**kwargs)
 
-        client = _get_openai_client(
-            self._provider,
-            api_key=self._api_key,
-            azure_endpoint=self._azure_endpoint,
-            azure_api_version=self._azure_api_version,
-            openai_cls=OpenAI,
-            azure_openai_cls=AzureOpenAI,
-        )
-        if client is None:
-            LOG.warning(
-                "Company research adjust skipped: OpenAI client unavailable for provider '%s'.",
-                self._provider,
-            )
-            return write_output_json(work, cv_data)
-
         customer_url = kwargs.get("customer_url", kwargs.get("customer-url"))
         cache_dir = work.config.workspace.research_dir
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -495,7 +480,6 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 provider=self._provider,
                 azure_endpoint=self._azure_endpoint,
                 azure_api_version=self._azure_api_version,
-                client=client,
                 retry=self._retry,
                 sleep=self._sleep,
                 request_timeout_s=self._request_timeout_s,
@@ -506,6 +490,21 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         if not research_data:
             LOG.warning(
                 "Company research adjust: failed to research company; using original CV."
+            )
+            return write_output_json(work, cv_data)
+
+        client = _get_openai_client(
+            self._provider,
+            api_key=self._api_key,
+            azure_endpoint=self._azure_endpoint,
+            azure_api_version=self._azure_api_version,
+            openai_cls=OpenAI,
+            azure_openai_cls=AzureOpenAI,
+        )
+        if client is None:
+            LOG.warning(
+                "Company research adjust skipped: OpenAI client unavailable for provider '%s'.",
+                self._provider,
             )
             return write_output_json(work, cv_data)
 
@@ -577,7 +576,6 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
             "adjusted_json": "",
         }
 
-        client = OpenAI(api_key=self._api_key)
         retryer = _OpenAIRetry(retry=self._retry, sleep=self._sleep)
 
         # Step 5: Call OpenAI (with retries)
