@@ -152,6 +152,13 @@ Examples:
       --render template=template.docx \\
       --target output/
 
+  Translate a CV and render a template:
+    python -m cvextract.cli \\
+      --extract source=cv.docx \\
+      --adjust name=openai-translate language=de \\
+      --render template=template.docx \\
+      --target output/
+
   Render a template to existing JSON file:
     python -m cvextract.cli \\
       --render template=template.docx data=extracted.json \\

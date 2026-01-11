@@ -63,6 +63,7 @@ python -m cvextract.cli \
 
 - **`openai-company-research`**: Company-based CV adjustment
 - **`openai-job-specific`**: Job-based CV adjustment
+- **`openai-translate`**: Translation of CV JSON into a target language
 
 ### Registry Functions
 

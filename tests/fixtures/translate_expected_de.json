@@ -1,0 +1,28 @@
+{
+  "identity": {
+    "title": "Softwareingenieur",
+    "full_name": "Ada Lovelace",
+    "first_name": "Ada",
+    "last_name": "Lovelace"
+  },
+  "sidebar": {
+    "languages": ["Python", "C++"],
+    "tools": ["Docker", "Kubernetes"],
+    "certifications": ["AWS Certified Developer"],
+    "industries": ["Finanzen"],
+    "spoken_languages": ["Englisch"],
+    "academic_background": ["BSc Informatik"]
+  },
+  "overview": "Erfahrener Ingenieur mit Fokus auf Datenpipelines.",
+  "experiences": [
+    {
+      "heading": "Jan 2020 - Heute | Senior-Ingenieur bei Acme Corp",
+      "description": "Entwickelte skalierbare Services fur Analysen.",
+      "bullets": [
+        "Leitete ein Team von 5 Ingenieuren.",
+        "Reduzierte die Latenz um 30%."
+      ],
+      "environment": ["Python", "PostgreSQL"]
+    }
+  ]
+}

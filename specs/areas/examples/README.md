@@ -8,6 +8,7 @@ The examples area provides sample CVs and documentation to help users understand
 
 - [Sample CVs](sample-cvs/README.md) - Example CV files for testing and demonstration
 - [Documentation](documentation/README.md) - Template guides and usage documentation
+- [Translation Example](translation-example/README.md) - Example of translate + render pipeline
 
 ## Architectural Notes
 
@@ -23,6 +24,7 @@ The examples area provides sample CVs and documentation to help users understand
 - **Sample CVs**: `examples/cvs/*.docx` - Ready-to-use example CVs
 - **Template Guide**: `examples/templates/TEMPLATE_GUIDE.md` - Complete templating documentation
 - **Templates**: `examples/templates/*.docx` - Sample templates
+- **Translation Example**: `examples/translation/README.md` - Translate + render walkthrough
 
 ### Integration Points
 
@@ -40,3 +42,4 @@ The examples area provides sample CVs and documentation to help users understand
 - Sample CVs: `examples/cvs/*.docx`
 - Templates: `examples/templates/*.docx`
 - Template Guide: `examples/templates/TEMPLATE_GUIDE.md`
+- Translation Example: `examples/translation/README.md`

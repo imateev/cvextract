@@ -18,6 +18,7 @@ class TestHandleListCommand:
         assert "Available Adjusters" in captured.out
         assert "openai-company-research" in captured.out
         assert "openai-job-specific" in captured.out
+        assert "openai-translate" in captured.out
 
     def test_list_renderers(self, capsys):
         """--list renderers should print available renderers."""

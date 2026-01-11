@@ -51,6 +51,7 @@ class TestPromptPackaging:
         adjuster_expected_prompts = [
             "adjuster_promp_for_a_company.md",
             "adjuster_promp_for_specific_job.md",
+            "adjuster_prompt_translate_cv.md",
             "website_analysis_prompt.md",
         ]
 
@@ -74,6 +75,7 @@ class TestPromptPackaging:
         prompts_to_test = [
             "website_analysis_prompt",
             "adjuster_promp_for_specific_job",
+            "adjuster_prompt_translate_cv",
             "cv_extraction_system",
             "cv_extraction_user",
         ]
