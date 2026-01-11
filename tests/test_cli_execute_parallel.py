@@ -343,6 +343,19 @@ class TestExecuteParallelPipeline:
 class TestScanDirectoryForFiles:
     """Tests for scan_directory_for_files function - new generic version."""
 
+    def test_scan_directory_missing_path_raises(self, tmp_path: Path):
+        """Missing directory should raise FileNotFoundError."""
+        missing_dir = tmp_path / "missing"
+        with pytest.raises(FileNotFoundError, match="Directory not found"):
+            scan_directory_for_files(missing_dir, "*.docx")
+
+    def test_scan_directory_file_path_raises(self, tmp_path: Path):
+        """Non-directory path should raise ValueError."""
+        file_path = tmp_path / "not_a_dir.txt"
+        file_path.write_text("not a directory", encoding="utf-8")
+        with pytest.raises(ValueError, match="Path is not a directory"):
+            scan_directory_for_files(file_path, "*.docx")
+
     def test_scan_directory_for_docx_files(self, test_directory: Path):
         """Test scanning directory for .docx files using generic function."""
         from cvextract.cli_execute_parallel import scan_directory_for_files
