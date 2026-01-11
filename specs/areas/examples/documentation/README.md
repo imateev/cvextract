@@ -13,7 +13,8 @@ The documentation feature provides comprehensive guides and reference materials 
 Included documentation:
 1. **TEMPLATE_GUIDE.md**: Complete guide to creating and using CV templates
 2. **Main README.md**: Comprehensive project documentation with examples
-3. **Module READMEs**: Documentation in each module directory
+3. **Translation Example**: End-to-end translate + render walkthrough
+4. **Module READMEs**: Documentation in each module directory
 
 Features:
 - Step-by-step guides
@@ -134,6 +135,7 @@ Documentation has evolved alongside the project:
 
 **Key Files**:
 - `examples/templates/TEMPLATE_GUIDE.md`
+- `examples/translation/README.md`
 - `README.md`
 - `cvextract/*/README.md` (module docs)
 
@@ -202,6 +204,7 @@ cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 ## File Paths
 
 - Template Guide: `examples/templates/TEMPLATE_GUIDE.md`
+- Translation Example: `examples/translation/README.md`
 - Main README: `README.md`
 - Module READMEs: `cvextract/*/README.md`
 - Contributing: `.github/CONTRIBUTING.md`

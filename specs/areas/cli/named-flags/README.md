@@ -72,6 +72,7 @@ python -m cvextract.cli \
 - `customer-url=<url>` - For company research
 - `job-url=<url>` - For job-specific
 - `job-description=<text>` - For job-specific
+- `language=<target>` - For translation
 - `openai-model=<model>` - OpenAI model override
 
 **Apply**:
@@ -152,6 +153,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 # Multiple parameters
 --extract source=cv.docx name=openai-extractor output=data.json
 --adjust name=openai-job-specific job-url=https://example.com/job/123 openai-model=gpt-4
+--adjust name=openai-translate language=de openai-model=gpt-4o-mini
 ```
 
 ### Boolean Flags

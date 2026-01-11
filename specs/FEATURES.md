@@ -58,6 +58,7 @@ The adjustment area provides ML-based CV optimization and transformation capabil
 |---------|--------|-------------|--------------|------------|
 | [Company Research Adjuster](areas/adjustment/company-research-adjuster/README.md) | Active | OpenAI-based CV adjustment with company research and caching | `cvextract.adjusters.OpenAICompanyResearchAdjuster` | `OPENAI_API_KEY`, `customer-url=<url>` |
 | [Job-Specific Adjuster](areas/adjustment/job-specific-adjuster/README.md) | Active | Optimizes CV for specific job postings | `cvextract.adjusters.OpenAIJobSpecificAdjuster` | `job-url=<url>` or `job-description=<text>` |
+| [Translate Adjuster](areas/adjustment/openai-translate-adjuster/README.md) | Active | Translates CV JSON into a target language with schema validation | `cvextract.adjusters.OpenAITranslateAdjuster` | `language=<target>` |
 | [Named Adjusters](areas/adjustment/named-adjusters/README.md) | Active | Registry-based adjuster lookup system | `cvextract.adjusters.{register_adjuster, get_adjuster, list_adjusters}` | `--adjust name=<adjuster-name>` |
 | [Adjuster Chaining](areas/adjustment/adjuster-chaining/README.md) | Active | Sequential application of multiple adjusters | Multiple `--adjust` CLI flags | N/A |
 
@@ -155,6 +156,7 @@ The examples area provides sample CVs and documentation for users.
 |---------|--------|-------------|--------------|------------|
 | [Sample CVs](areas/examples/sample-cvs/README.md) | Active | Example CV files for testing and demonstration | `examples/cvs/*.docx` | N/A |
 | [Documentation](areas/examples/documentation/README.md) | Active | Template guides and usage documentation | `examples/templates/TEMPLATE_GUIDE.md` | N/A |
+| [Translation Example](areas/examples/translation-example/README.md) | Active | Translate + render pipeline walkthrough | `examples/translation/README.md` | `OPENAI_API_KEY` |
 
 ---
 

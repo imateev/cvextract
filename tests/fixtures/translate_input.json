@@ -1,0 +1,28 @@
+{
+  "identity": {
+    "title": "Software Engineer",
+    "full_name": "Ada Lovelace",
+    "first_name": "Ada",
+    "last_name": "Lovelace"
+  },
+  "sidebar": {
+    "languages": ["Python", "C++"],
+    "tools": ["Docker", "Kubernetes"],
+    "certifications": ["AWS Certified Developer"],
+    "industries": ["Finance"],
+    "spoken_languages": ["English"],
+    "academic_background": ["BSc Computer Science"]
+  },
+  "overview": "Experienced engineer focused on data pipelines.",
+  "experiences": [
+    {
+      "heading": "Jan 2020 - Present | Senior Engineer at Acme Corp",
+      "description": "Built scalable services for analytics.",
+      "bullets": [
+        "Led a team of 5 engineers.",
+        "Reduced latency by 30%."
+      ],
+      "environment": ["Python", "PostgreSQL"]
+    }
+  ]
+}

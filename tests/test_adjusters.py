@@ -247,10 +247,11 @@ class TestAdjusterRegistry:
     def test_list_adjusters_returns_builtin_adjusters(self):
         """list_adjusters should return all registered adjusters."""
         adjusters = list_adjusters()
-        assert len(adjusters) >= 2
+        assert len(adjusters) >= 3
         adjuster_names = [a["name"] for a in adjusters]
         assert "openai-company-research" in adjuster_names
         assert "openai-job-specific" in adjuster_names
+        assert "openai-translate" in adjuster_names
 
     def test_get_adjuster_returns_instance(self):
         """get_adjuster should return an instance of the requested adjuster."""
@@ -1928,6 +1929,7 @@ class TestCLIListAdjusters:
 
         assert "openai-company-research" in captured.out
         assert "openai-job-specific" in captured.out
+        assert "openai-translate" in captured.out
         assert "Available Adjusters" in captured.out
 
 

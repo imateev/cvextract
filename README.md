@@ -15,6 +15,48 @@ cvextract already supports reliable CV extraction and adaptation workflows and i
 
 Modern hiring systems reward frequent CV customization, which is time-consuming, emotionally draining, and error-prone. cvextract aims to make CV adaptation a mechanical, repeatable process—so people can focus on opportunities rather than formatting and rewriting.
 
+### Translation module
+
+The `openai-translate` adjuster translates the structured CV JSON into a target language while preserving schema, names, emails, URLs, and technical terms. It accepts language codes or names and keeps the JSON layout stable for rendering.
+
+Examples:
+```bash
+# Hindi
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-translate language=hi \
+  --render template=/path/to/template.docx \
+  --target /output
+
+# German
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-translate language=de \
+  --render template=/path/to/template.docx \
+  --target /output
+
+# English
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-translate language=en \
+  --render template=/path/to/template.docx \
+  --target /output
+
+# Russian
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-translate language=ru \
+  --render template=/path/to/template.docx \
+  --target /output
+
+# Ukrainian
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-translate language=uk \
+  --render template=/path/to/template.docx \
+  --target /output
+```
+
 ### How it started
 
 This project started as a small, three-day after-hours effort to help a resourcing team migrate consultant CVs from a legacy Word template to a new standardized format. It has since evolved into a standalone playground for experimenting with CV parsing, transformation, and document rendering workflows, and is now published as an open-source project.
@@ -207,6 +249,7 @@ python -m cvextract.cli \
 - Adjuster-specific parameters (varies by adjuster):
   - For `openai-company-research`: `customer-url=<url>` (required)
   - For `openai-job-specific`: `job-url=<url>` OR `job-description=<text>` (one required)
+  - For `openai-translate`: `language=<target>` (required)
 - `data=<path>` - Input JSON file or directory (only used when NOT chained after extract)
   - When chained after extract, this is ignored and the extracted JSON is used automatically
   - Single file: processes one file
@@ -520,6 +563,19 @@ python -m cvextract.cli \
   --target /output
 ```
 
+#### Translate CV to a Target Language
+
+```bash
+# Translate structured JSON and render with a template
+export OPENAI_API_KEY="sk-proj-..."
+
+python -m cvextract.cli \
+  --extract source=/path/to/cv.docx \
+  --adjust name=openai-translate language=de \
+  --render template=/path/to/template.docx \
+  --target /output
+```
+
 #### Chaining Multiple Adjusters
 
 ```bash
@@ -721,6 +777,11 @@ Use `--list adjusters` to see all available adjusters:
    - Highlights matching experience and skills
    - Adjusts terminology to match job description
    - Parameters: `job-url=<url>` OR `job-description=<text>` (one required)
+
+3. **`openai-translate`** - Translates CV JSON into a target language
+   - Preserves schema, keys, and formatting structure
+   - Keeps names, emails, URLs, tools, and programming languages unchanged
+   - Parameters: `language=<target>` (required)
 
 #### How Adjustment Works
 

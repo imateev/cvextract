@@ -73,6 +73,36 @@ adjusted_work = adjuster.adjust(
 adjusted_json = adjusted_work.get_step_output(StepName.Adjust)
 ```
 
+### `openai-translate`
+
+Translates CV JSON to a target language while preserving schema and identifiers.
+
+**Parameters:**
+- `language` (required): Target language (ISO code or name)
+
+**Example:**
+```python
+from pathlib import Path
+from cvextract.adjusters import get_adjuster
+from cvextract.cli_config import UserConfig, ExtractStage
+from cvextract.shared import StepName, UnitOfWork
+
+adjuster = get_adjuster("openai-translate", model="gpt-4o-mini")
+work = UnitOfWork(
+    config=UserConfig(target_dir=Path("out"), extract=ExtractStage(source=Path("cv.json"))),
+)
+work.set_step_paths(
+    StepName.Adjust,
+    input_path=Path("cv.json"),
+    output_path=Path("cv.json"),
+)
+adjusted_work = adjuster.adjust(
+    work,
+    language="de"
+)
+adjusted_json = adjusted_work.get_step_output(StepName.Adjust)
+```
+
 ## Creating Custom Adjusters
 
 To create a custom adjuster:
@@ -155,4 +185,5 @@ When creating custom adjusters, follow these testing guidelines:
 3. **Log Appropriately**: Use the logging module to inform users of progress and errors
 4. **Preserve Schema**: Never add or remove fields from the CV data structure
 5. **Defer Output Verification**: Return adjusted CV data and let the pipeline run verifiers after the step completes
+   - The translation adjuster performs a schema validation check before returning.
 6. **Document Parameters**: Clearly document what parameters your adjuster expects
