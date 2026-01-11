@@ -258,7 +258,6 @@ def emit_work_status(work: "UnitOfWork", step: Optional[StepName] = None) -> str
     show_adjust_verify = show_adjust and not (
         config.skip_all_verify or config.adjust.skip_verify
     )
-    show_render_verify = show_render and config.should_compare
 
     segments: List[str] = []
     if show_extract:
@@ -273,7 +272,7 @@ def emit_work_status(work: "UnitOfWork", step: Optional[StepName] = None) -> str
         segments.append(segment)
     if show_render:
         segment = f"R:{icons[StepName.Render]}"
-        if show_render_verify:
+        if show_render:
             segment += f"·{icons[StepName.VerifyRender]}"
         segments.append(segment)
     return f"{'·'.join(segments)} " f"{input_name} | " f"{fmt_issues(work, issue_step)}"
