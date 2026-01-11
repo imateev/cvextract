@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 dependencies = ["lxml", "docxtpl", "requests", "openai"]
 name = "cvextract"
-version = "0.9.1"
+version = "0.10.0"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "black", "isort"]
