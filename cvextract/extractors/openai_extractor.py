@@ -20,7 +20,6 @@ import random
 import re
 import tempfile
 import time
-from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
@@ -35,23 +34,11 @@ except ModuleNotFoundError:
     from importlib_resources import files, as_file  # type: ignore
 
 from ..shared import StepName, UnitOfWork, format_prompt, load_prompt, write_output_json
+from ..openai_utils import OpenAIRetry as _OpenAIRetry
+from ..openai_utils import RetryConfig as _RetryConfig
 from .base import CVExtractor
 
 T = TypeVar("T")
-
-
-@dataclass(frozen=True)
-class _RetryConfig:
-    # Total attempts includes the first call.
-    max_attempts: int = 8
-    # Base for exponential backoff when Retry-After is missing.
-    base_delay_s: float = 0.75
-    # Cap sleep to avoid unbounded waits.
-    max_delay_s: float = 20.0
-    # Extra multiplier for "write" operations (create/upload) that often hit stricter buckets.
-    write_multiplier: float = 1.6
-    # If True, disables jitter (useful for deterministic tests).
-    deterministic: bool = False
 
 
 class OpenAICVExtractor(CVExtractor):
@@ -94,6 +81,11 @@ class OpenAICVExtractor(CVExtractor):
         self._retry = retry_config or _RetryConfig()
         self._sleep = _sleep
         self._time = _time
+        self._retry_helper = _OpenAIRetry(
+            retry=self._retry,
+            sleep=_sleep,
+            random_func=lambda: random.random(),
+        )
 
     @property
     def client(self) -> OpenAI:
@@ -178,145 +170,25 @@ class OpenAICVExtractor(CVExtractor):
     # --------------------------
 
     def _get_status_code(self, exc: Exception) -> Optional[int]:
-        """
-        Best-effort extraction of HTTP status from OpenAI SDK exceptions.
-
-        The OpenAI python SDK has evolved; we defensively check common shapes.
-        """
-        for attr in ("status_code", "status", "http_status"):
-            val = getattr(exc, attr, None)
-            if isinstance(val, int):
-                return val
-
-        # Some SDK errors include a response object with status_code / headers
-        resp = getattr(exc, "response", None)
-        if resp is not None:
-            sc = getattr(resp, "status_code", None)
-            if isinstance(sc, int):
-                return sc
-
-        return None
+        return self._retry_helper._get_status_code(exc)
 
     def _get_retry_after_s(self, exc: Exception) -> Optional[float]:
-        """
-        Best-effort extraction of Retry-After header, if present.
-        """
-        # SDK error may include headers directly
-        headers = getattr(exc, "headers", None)
-
-        # Or nested in response
-        resp = getattr(exc, "response", None)
-        if headers is None and resp is not None:
-            headers = getattr(resp, "headers", None)
-
-        if not headers:
-            return None
-
-        # headers might be dict-like
-        ra = None
-        try:
-            ra = headers.get("retry-after") or headers.get("Retry-After")
-        except Exception:
-            return None
-
-        if ra is None:
-            return None
-
-        try:
-            return float(ra)
-        except Exception:
-            return None
+        return self._retry_helper._get_retry_after_s(exc)
 
     def _is_transient(self, exc: Exception) -> bool:
-        """
-        Decide if the error is worth retrying.
-
-        We retry:
-        - 429 (rate limit)
-        - 5xx
-        - common transient transport errors (best-effort)
-        """
-        status = self._get_status_code(exc)
-        if status == 429:
-            return True
-        if status is not None and 500 <= status <= 599:
-            return True
-
-        # Transport-ish errors: connection resets, timeouts, etc.
-        msg = str(exc).lower()
-        transient_markers = (
-            "timeout",
-            "timed out",
-            "temporarily unavailable",
-            "connection reset",
-            "connection aborted",
-            "connection refused",
-            "remote disconnected",
-            "bad gateway",
-            "service unavailable",
-            "gateway timeout",
-            "tls",
-            "ssl",
-        )
-        return any(m in msg for m in transient_markers)
+        return self._retry_helper._is_transient(exc)
 
     def _sleep_with_backoff(
         self, attempt_idx: int, *, is_write: bool, exc: Exception
     ) -> None:
-        """
-        Sleep according to Retry-After when present, else exponential backoff with jitter.
-        attempt_idx is 0-based (0 => after first failure).
-        """
-        retry_after = self._get_retry_after_s(exc)
-        if retry_after is not None and retry_after > 0:
-            delay = min(self._retry.max_delay_s, retry_after)
-            self._sleep(delay)
-            return
-
-        # exponential backoff
-        mult = self._retry.write_multiplier if is_write else 1.0
-        raw = self._retry.base_delay_s * (2**attempt_idx) * mult
-        capped = min(self._retry.max_delay_s, raw)
-
-        if self._retry.deterministic:
-            delay = capped
-        else:
-            # full jitter: uniform(0, capped)
-            delay = random.random() * capped
-
-        # avoid extremely small sleeps that can hammer the API
-        delay = max(0.25, delay)
-        self._sleep(delay)
+        self._retry_helper._sleep_with_backoff(
+            attempt_idx, is_write=is_write, exc=exc
+        )
 
     def _call_with_retry(
         self, fn: Callable[[], T], *, is_write: bool, op_name: str
     ) -> T:
-        """
-        Centralized retry wrapper for OpenAI calls.
-        """
-        last_exc: Optional[Exception] = None
-        for attempt in range(self._retry.max_attempts):
-            try:
-                return fn()
-            except Exception as e:
-                last_exc = e
-                if not self._is_transient(e):
-                    raise RuntimeError(f"{op_name} failed (non-retryable): {e}") from e
-
-                # last attempt -> raise
-                if attempt >= self._retry.max_attempts - 1:
-                    status = self._get_status_code(e)
-                    raise RuntimeError(
-                        f"{op_name} failed after {self._retry.max_attempts} attempts"
-                        + (f" (HTTP {status})" if status else "")
-                        + f": {e}"
-                    ) from e
-
-                # back off and retry
-                self._sleep_with_backoff(attempt, is_write=is_write, exc=e)
-
-        # Should never reach here
-        raise RuntimeError(f"{op_name} failed unexpectedly: {last_exc}")
+        return self._retry_helper.call(fn, is_write=is_write, op_name=op_name)
 
     # --------------------------
     # OpenAI operations

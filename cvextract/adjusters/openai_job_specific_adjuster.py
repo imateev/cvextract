@@ -34,13 +34,13 @@ except Exception:  # pragma: no cover
 
 from ..shared import UnitOfWork, format_prompt, load_input_json, write_output_json
 from .base import CVAdjuster
-from .openai_utils import OpenAIRetry as _OpenAIRetry
-from .openai_utils import RetryConfig as _RetryConfig
-from .openai_utils import extract_json_object as _extract_json_object
-from .openai_utils import (
+from ..openai_utils import OpenAIRetry as _OpenAIRetry
+from ..openai_utils import RetryConfig as _RetryConfig
+from ..openai_utils import extract_json_object as _extract_json_object
+from ..openai_utils import (
     get_cached_resource_path,
 )
-from .openai_utils import strip_markdown_fences as _strip_markdown_fences
+from ..openai_utils import strip_markdown_fences as _strip_markdown_fences
 
 LOG = logging.getLogger("cvextract")
 

@@ -84,7 +84,7 @@ python -m cvextract.cli \
 - `cvextract.adjusters.base.CVAdjuster` - Base class
 - `cvextract.shared.format_prompt` - Prompt formatting
 - `cvextract.contracts.cv_schema.json` - CV schema for validation
-- `cvextract.adjusters.openai_utils` - Retry/backoff and schema access helpers
+- `cvextract.openai_utils` - Retry/backoff and schema access helpers
 
 ### External Dependencies
 
