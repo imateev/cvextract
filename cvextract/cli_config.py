@@ -20,6 +20,7 @@ class ExtractStage:
     name: str = (
         "default-docx-cv-extractor"  # Extractor name (default: default-docx-cv-extractor)
     )
+    openai_model: Optional[str] = None  # OpenAI/Azure deployment name for extractor
     output: Optional[Path] = (
         None  # Output JSON (optional, defaults to target_dir/structured_data/)
     )
@@ -89,6 +90,10 @@ class UserConfig:
     skip_all_verify: bool = False  # Skip all verification steps (global override)
     debug_external: bool = False  # Capture external provider logs (OpenAI, httpx, etc.)
     log_file: Optional[str] = None
+    provider: str = "openai"  # LLM provider: openai or azure
+    azure_openai_endpoint: Optional[str] = None
+    azure_openai_api_version: Optional[str] = None
+    azure_openai_api_key: Optional[str] = None
     log_failed: Optional[Path] = None  # Optional file path to write failed files
     rerun_failed: Optional[Path] = None  # Optional file path to re-run failed files
     suppress_summary: bool = False  # Suppress summary logging (used in parallel mode)

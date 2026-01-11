@@ -11,6 +11,7 @@ The CLI area provides a command-line interface with stage-based architecture, mo
 - [Parallel Processing](parallel-processing/README.md) - Multi-worker parallel file processing
 - [Directory Structure Preservation](directory-structure-preservation/README.md) - Maintains source directory hierarchy
 - [Named Flags](named-flags/README.md) - Modern key=value parameter syntax
+- Provider selection for OpenAI-based steps (OpenAI or Azure OpenAI)
 
 ## Architectural Notes
 

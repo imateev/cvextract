@@ -78,10 +78,21 @@ def execute(work: UnitOfWork) -> UnitOfWork:
                 adjuster_config.name,
             )
 
-            adjuster = get_adjuster(
-                adjuster_config.name,
-                model=adjuster_config.openai_model or "gpt-4o-mini",
-            )
+            adjuster_kwargs = {
+                "model": adjuster_config.openai_model or "gpt-4o-mini",
+            }
+            if adjuster_config.name.startswith("openai-"):
+                adjuster_kwargs.update(
+                    provider=config.provider,
+                    api_key=(
+                        config.azure_openai_api_key
+                        if config.provider == "azure"
+                        else None
+                    ),
+                    azure_endpoint=config.azure_openai_endpoint,
+                    azure_api_version=config.azure_openai_api_version,
+                )
+            adjuster = get_adjuster(adjuster_config.name, **adjuster_kwargs)
 
             if not adjuster:
                 LOG.warning("Unknown adjuster '%s', skipping", adjuster_config.name)

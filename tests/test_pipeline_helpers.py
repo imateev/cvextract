@@ -105,7 +105,7 @@ def test_extract_single_falls_back_to_next_extractor(monkeypatch, tmp_path: Path
                 work, {"extracted": True}, step=StepName.Extract
             )
 
-    def fake_get_extractor(name: str):
+    def fake_get_extractor(name: str, **_kwargs):
         if name == "default-docx-cv-extractor":
             return FailingExtractor()
         if name == "openai-extractor":

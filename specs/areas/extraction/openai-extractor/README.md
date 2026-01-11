@@ -105,12 +105,17 @@ cv_data = json.loads(output_path.read_text(encoding="utf-8"))
 
 - `source=<path>`: Path to TXT or DOCX file (required)
 - `name=openai-extractor`: Extractor name (required to use this extractor)
+- `openai-model=<model>`: OpenAI model or Azure deployment name (optional)
 - `output=<path>`: Output JSON path (optional, defaults to `{target}/structured_data/`)
 
 ### Environment Variables
 
 - **`OPENAI_API_KEY`** (required): OpenAI API key for authentication
 - **`OPENAI_MODEL`** (optional): Model name, defaults to `gpt-4o`
+- **`AZURE_OPENAI_API_KEY`** (optional): Azure OpenAI API key (required for provider="azure")
+- **`AZURE_OPENAI_ENDPOINT`** (optional): Azure OpenAI endpoint (required for provider="azure")
+- **`AZURE_OPENAI_API_VERSION`** (optional): Azure OpenAI API version (required for provider="azure")
+- **`AZURE_OPENAI_DEPLOYMENT`** (optional): Default deployment name when provider="azure"
 
 ### Programmatic Configuration
 

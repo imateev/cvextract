@@ -181,8 +181,8 @@ Examples:
         nargs="*",
         metavar="PARAM",
         help="Extract stage: Extract CV data from source file to JSON. "
-        "Parameters: source=<file> (required) [name=<extractor-name[,extractor-name,...]>] [output=<path>] "
-        "[verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
+        "Parameters: source=<file> (required) [name=<extractor-name[,extractor-name,...]>] "
+        "[openai-model=<model>] [output=<path>] [verifier=<verifier-name[,verifier-name,...]>] [skip-verify]. "
         "Defaults to default-docx-cv-extractor. Provide a comma-separated list to enable fallback. "
         "Use --list extractors to see available extractors.",
     )
@@ -232,6 +232,24 @@ Examples:
         action="store_true",
         help="Capture logs from external providers (e.g., OpenAI SDK, HTTP clients) in parallel mode. "
         "By default, external provider logs are suppressed to ensure deterministic output.",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "azure"],
+        default="openai",
+        help="LLM provider for OpenAI-based steps (default: openai).",
+    )
+    parser.add_argument(
+        "--azure-endpoint",
+        help="Azure OpenAI endpoint (e.g., https://<resource>.openai.azure.com).",
+    )
+    parser.add_argument(
+        "--azure-api-version",
+        help="Azure OpenAI API version (e.g., 2024-02-01).",
+    )
+    parser.add_argument(
+        "--azure-api-key",
+        help="Azure OpenAI API key (overrides AZURE_OPENAI_API_KEY).",
     )
     parser.add_argument(
         "--log-file",
@@ -325,6 +343,7 @@ Examples:
                 Path(params["source"]) if "source" in params else Path(".")
             ),  # Placeholder when parallel or rerun-failed
             name=extractor_name,
+            openai_model=params.get("openai-model"),
             output=(
                 _resolve_output_path(params["output"], Path(args.target))
                 if "output" in params
@@ -432,6 +451,10 @@ Examples:
         skip_all_verify=args.skip_all_verify,
         debug_external=args.debug_external,
         log_file=args.log_file,
+        provider=args.provider,
+        azure_openai_endpoint=args.azure_endpoint,
+        azure_openai_api_version=args.azure_api_version,
+        azure_openai_api_key=args.azure_api_key,
         log_failed=Path(args.log_failed) if args.log_failed else None,
         rerun_failed=Path(args.rerun_failed) if args.rerun_failed else None,
     )

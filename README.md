@@ -240,6 +240,7 @@ python -m cvextract.cli \
   - `default-docx-cv-extractor`: Internal DOCX parser (default, DOCX only)
   - `openai-extractor`: OpenAI-based extraction (supports TXT, DOCX)
   - Use `--list extractors` to see all available extractors
+- `openai-model=<model>` - OpenAI model or Azure deployment name (optional, defaults to `gpt-4o`)
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/structured_data/`)
 - `verifier=<verifier-name[,verifier-name,...]>` - Verifier(s) to run after extraction (optional, defaults to `cv-schema-verifier,default-extract-verifier`)
 - `skip-verify` - Skip extraction verification (optional flag)
@@ -255,7 +256,7 @@ python -m cvextract.cli \
   - Single file: processes one file
   - Directory: processes all `.json` files recursively
 - `output=<path>` - Output JSON path (optional, defaults to `{target}/adjusted_structured_data/`)
-- `openai-model=<model>` - OpenAI model to use (optional, defaults to `gpt-4o-mini`)
+- `openai-model=<model>` - OpenAI model or Azure deployment name (optional, defaults to `gpt-4o-mini`)
 - `verifier=<verifier-name[,verifier-name,...]>` - Verifier(s) to run after adjustment (optional, defaults to `cv-schema-verifier`)
 - `skip-verify` - Skip adjustment verification (optional flag)
 - **Chaining**: Multiple `--adjust` flags can be specified to chain adjusters in sequence
@@ -287,6 +288,10 @@ python -m cvextract.cli \
   - `minimal`: One line per file with status icons, no third-party library output
   - `verbose`: Grouped per-file output blocks with warnings and major steps
   - `debug`: Full per-file output including application logs and stack traces
+- `--provider {openai,azure}` - LLM provider for OpenAI-based extractors/adjusters (default: openai)
+- `--azure-endpoint <url>` - Azure OpenAI endpoint (required for `--provider azure` unless set in env)
+- `--azure-api-version <version>` - Azure OpenAI API version (required for `--provider azure` unless set in env)
+- `--azure-api-key <key>` - Azure OpenAI API key (optional, overrides `AZURE_OPENAI_API_KEY`)
 - `--debug-external` - Capture logs from external providers (e.g., OpenAI SDK, HTTP clients)
   - By default, external provider logs are suppressed in parallel mode to ensure deterministic output
   - When enabled, external logs are routed through the buffered output controller
@@ -376,6 +381,20 @@ export OPENAI_API_KEY="sk-proj-..."
 
 python -m cvextract.cli \
   --extract source=/path/to/cv.txt name=openai-extractor \
+  --target /output
+
+# Output: /output/structured_data/cv.json
+```
+
+```bash
+# Extract a text CV file using Azure OpenAI (Foundry)
+export AZURE_OPENAI_ENDPOINT="https://example.openai.azure.com"
+export AZURE_OPENAI_API_VERSION="2024-02-01"
+export AZURE_OPENAI_API_KEY="..."
+
+python -m cvextract.cli \
+  --provider azure \
+  --extract source=/path/to/cv.txt name=openai-extractor openai-model=<deployment> \
   --target /output
 
 # Output: /output/structured_data/cv.json

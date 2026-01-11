@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import time
 from typing import Any, Callable, Dict, Optional
@@ -28,9 +27,10 @@ except Exception:  # pragma: no cover
     requests = None  # type: ignore
 
 try:
-    from openai import OpenAI  # type: ignore
+    from openai import AzureOpenAI, OpenAI  # type: ignore
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
+    AzureOpenAI = None  # type: ignore
 
 from ..shared import UnitOfWork, format_prompt, load_input_json, write_output_json
 from .base import CVAdjuster
@@ -40,6 +40,8 @@ from ..openai_utils import extract_json_object as _extract_json_object
 from ..openai_utils import (
     get_cached_resource_path,
 )
+from ..openai_utils import get_openai_client as _get_openai_client
+from ..openai_utils import normalize_provider as _normalize_provider
 from ..openai_utils import strip_markdown_fences as _strip_markdown_fences
 
 LOG = logging.getLogger("cvextract")
@@ -135,13 +137,19 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         self,
         model: str = "gpt-4o-mini",
         api_key: Optional[str] = None,
+        provider: str = "openai",
+        azure_endpoint: Optional[str] = None,
+        azure_api_version: Optional[str] = None,
         *,
         retry_config: Optional[_RetryConfig] = None,
         request_timeout_s: float = 60.0,
         _sleep: Callable[[float], None] = time.sleep,
     ):
+        self._provider = _normalize_provider(provider)
         self._model = model
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self._api_key = api_key
+        self._azure_endpoint = azure_endpoint
+        self._azure_api_version = azure_api_version
         self._retry = retry_config or _RetryConfig()
         self._request_timeout_s = float(request_timeout_s)
         self._sleep = _sleep
@@ -173,9 +181,18 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
         cv_data = load_input_json(work)
         self.validate_params(**kwargs)
 
-        if not self._api_key or OpenAI is None:
+        client = _get_openai_client(
+            self._provider,
+            api_key=self._api_key,
+            azure_endpoint=self._azure_endpoint,
+            azure_api_version=self._azure_api_version,
+            openai_cls=OpenAI,
+            azure_openai_cls=AzureOpenAI,
+        )
+        if client is None:
             LOG.warning(
-                "Job-specific adjust skipped: OpenAI unavailable or API key missing."
+                "Job-specific adjust skipped: OpenAI client unavailable for provider '%s'.",
+                self._provider,
             )
             return write_output_json(work, cv_data)
 
@@ -207,7 +224,6 @@ class OpenAIJobSpecificAdjuster(CVAdjuster):
             LOG.warning("Job-specific adjust skipped: failed to load prompt template")
             return write_output_json(work, cv_data)
 
-        client = OpenAI(api_key=self._api_key)
         retryer = _OpenAIRetry(retry=self._retry, sleep=self._sleep)
 
         user_payload = {

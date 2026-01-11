@@ -24,8 +24,6 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
-from openai import OpenAI
-
 try:
     # Python 3.9+
     from importlib.resources import as_file, files
@@ -36,6 +34,8 @@ except ModuleNotFoundError:
 from ..shared import StepName, UnitOfWork, format_prompt, load_prompt, write_output_json
 from ..openai_utils import OpenAIRetry as _OpenAIRetry
 from ..openai_utils import RetryConfig as _RetryConfig
+from ..openai_utils import get_openai_client as _get_openai_client
+from ..openai_utils import normalize_provider as _normalize_provider
 from .base import CVExtractor
 
 T = TypeVar("T")
@@ -53,6 +53,9 @@ class OpenAICVExtractor(CVExtractor):
         model: str = "gpt-4o",
         *,
         api_key: Optional[str] = None,
+        provider: str = "openai",
+        azure_endpoint: Optional[str] = None,
+        azure_api_version: Optional[str] = None,
         # Polling / rate-limit knobs
         run_timeout_s: float = 180.0,
         # Retry config knobs
@@ -67,15 +70,22 @@ class OpenAICVExtractor(CVExtractor):
 
         Args:
             model: OpenAI model to use (default: gpt-4o)
+            provider: LLM provider ("openai" or "azure")
+            azure_endpoint: Azure OpenAI endpoint (for provider="azure")
+            azure_api_version: Azure OpenAI API version (for provider="azure")
             run_timeout_s: Hard timeout for an assistant run.
             retry_config: Override retry/backoff behavior.
             _sleep: Injected sleep (tests).
             _time: Injected time function (tests).
             **kwargs: Additional arguments (reserved for future use)
         """
-        self.model = model
+        self._provider = _normalize_provider(provider)
         self._api_key = api_key
-        self._client: Optional[OpenAI] = None
+        self._azure_endpoint = azure_endpoint
+        self._azure_api_version = azure_api_version
+
+        self.model = self._resolve_model(model)
+        self._client: Optional[Any] = None
 
         self._run_timeout_s = float(run_timeout_s)
         self._retry = retry_config or _RetryConfig()
@@ -87,15 +97,34 @@ class OpenAICVExtractor(CVExtractor):
             random_func=lambda: random.random(),
         )
 
+    def _resolve_model(self, model: str) -> str:
+        if (
+            self._provider == "azure"
+            and model == "gpt-4o"
+            and os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+        ):
+            return os.environ["AZURE_OPENAI_DEPLOYMENT"]
+        return model
+
     @property
-    def client(self) -> OpenAI:
+    def client(self) -> Any:
         if self._client is None:
-            api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
-            if not api_key:
+            client = _get_openai_client(
+                self._provider,
+                api_key=self._api_key,
+                azure_endpoint=self._azure_endpoint,
+                azure_api_version=self._azure_api_version,
+            )
+            if client is None:
+                if self._provider == "azure":
+                    raise RuntimeError(
+                        "AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and "
+                        "AZURE_OPENAI_API_VERSION must be set to use OpenAICVExtractor"
+                    )
                 raise RuntimeError(
                     "OPENAI_API_KEY must be set to use OpenAICVExtractor"
                 )
-            self._client = OpenAI(api_key=api_key)
+            self._client = client
         return self._client
 
     def extract(self, work: UnitOfWork) -> UnitOfWork:

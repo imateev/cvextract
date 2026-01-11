@@ -59,13 +59,16 @@ python -m cvextract.cli \
 ### Parameters
 
 - **`language`** (required): Target language (ISO code or descriptive name)
-- **`openai-model`** (optional): OpenAI model name, defaults to `gpt-4o-mini`
+- **`openai-model`** (optional): OpenAI model or Azure deployment name, defaults to `gpt-4o-mini`
 - **`temperature`** (optional): OpenAI temperature (default `0.0` for deterministic output)
 
 ### Environment Variables
 
-- **`OPENAI_API_KEY`** (required): OpenAI API key
+- **`OPENAI_API_KEY`** (required): OpenAI API key (when provider="openai")
 - **`OPENAI_MODEL`** (optional): Default model name
+- **`AZURE_OPENAI_API_KEY`** (optional): Azure OpenAI API key (when provider="azure")
+- **`AZURE_OPENAI_ENDPOINT`** (optional): Azure OpenAI endpoint (when provider="azure")
+- **`AZURE_OPENAI_API_VERSION`** (optional): Azure OpenAI API version (when provider="azure")
 
 ## Interfaces
 

@@ -99,11 +99,14 @@ adjusted_cv = adjuster.adjust(
 
 - `name=openai-company-research`: Adjuster name (required to select this adjuster)
 - `customer-url=<url>`: Company website URL (required)
-- `openai-model=<model>`: OpenAI model to use (optional, defaults to `gpt-4o-mini`)
+- `openai-model=<model>`: OpenAI model or Azure deployment name (optional, defaults to `gpt-4o-mini`)
 
 ### Environment Variables
 
-- **`OPENAI_API_KEY`** (required): OpenAI API key for company research and CV adjustment
+- **`OPENAI_API_KEY`** (required): OpenAI API key for company research and CV adjustment (when provider="openai")
+- **`AZURE_OPENAI_API_KEY`** (optional): Azure OpenAI API key (when provider="azure")
+- **`AZURE_OPENAI_ENDPOINT`** (optional): Azure OpenAI endpoint (when provider="azure")
+- **`AZURE_OPENAI_API_VERSION`** (optional): Azure OpenAI API version (when provider="azure")
 
 ### Cache Configuration
 

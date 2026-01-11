@@ -154,6 +154,21 @@ class TestGatherUserRequirements:
         assert config.extract.verifier == "custom-verifier"
         assert config.extract.skip_verify is True
 
+    def test_extract_with_openai_model(self):
+        """--extract openai-model parameter is stored."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--extract",
+                "source=cv.docx",
+                "name=openai-extractor",
+                "openai-model=gpt-4o",
+                "--target",
+                "/output",
+            ]
+        )
+
+        assert config.extract.openai_model == "gpt-4o"
+
     def test_adjust_requires_name(self):
         """--adjust requires 'name' parameter."""
         with pytest.raises(ValueError, match="requires 'name' parameter"):
@@ -405,6 +420,30 @@ class TestGatherUserRequirements:
             ]
         )
         assert config.debug is True
+
+    def test_provider_azure_parsed(self):
+        """--provider azure should set Azure config fields."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--extract",
+                "source=cv.docx",
+                "--target",
+                "/output",
+                "--provider",
+                "azure",
+                "--azure-endpoint",
+                "https://example.openai.azure.com",
+                "--azure-api-version",
+                "2024-02-01",
+                "--azure-api-key",
+                "test-key",
+            ]
+        )
+
+        assert config.provider == "azure"
+        assert config.azure_openai_endpoint == "https://example.openai.azure.com"
+        assert config.azure_openai_api_version == "2024-02-01"
+        assert config.azure_openai_api_key == "test-key"
 
     def test_log_file_parameter(self):
         """--log-file parameter is stored."""

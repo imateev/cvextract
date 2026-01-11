@@ -24,9 +24,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 try:
-    from openai import OpenAI  # type: ignore
+    from openai import AzureOpenAI, OpenAI  # type: ignore
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
+    AzureOpenAI = None  # type: ignore
 
 try:
     import requests
@@ -47,6 +48,8 @@ from ..openai_utils import extract_json_object as _extract_json_object
 from ..openai_utils import (
     get_cached_resource_path,
 )
+from ..openai_utils import get_openai_client as _get_openai_client
+from ..openai_utils import normalize_provider as _normalize_provider
 from ..openai_utils import strip_markdown_fences as _strip_markdown_fences
 
 LOG = logging.getLogger("cvextract")
@@ -308,9 +311,13 @@ def _validate_research_data(data: Any) -> bool:
 
 def _research_company_profile(
     customer_url: str,
-    api_key: str,
+    api_key: Optional[str],
     model: str,
     *,
+    provider: str = "openai",
+    azure_endpoint: Optional[str] = None,
+    azure_api_version: Optional[str] = None,
+    client: Optional[Any] = None,
     retry: Optional[_RetryConfig] = None,
     sleep: Callable[[float], None] = time.sleep,
     request_timeout_s: float = 60.0,
@@ -321,10 +328,7 @@ def _research_company_profile(
     Returns:
         Dict containing company profile data, or None if research fails
     """
-    if not OpenAI:
-        LOG.warning("Company research skipped: OpenAI unavailable")
-        return None
-
+    provider_name = _normalize_provider(provider)
     schema = _load_research_schema()
     if not schema:
         LOG.warning("Company research skipped: schema not available")
@@ -339,7 +343,21 @@ def _research_company_profile(
         LOG.warning("Company research skipped: failed to load prompt template")
         return None
 
-    client = OpenAI(api_key=api_key)
+    if client is None:
+        client = _get_openai_client(
+            provider_name,
+            api_key=api_key,
+            azure_endpoint=azure_endpoint,
+            azure_api_version=azure_api_version,
+            openai_cls=OpenAI,
+            azure_openai_cls=AzureOpenAI,
+        )
+        if client is None:
+            LOG.warning(
+                "Company research skipped: OpenAI unavailable for provider '%s'",
+                provider_name,
+            )
+            return None
     retryer = _OpenAIRetry(retry=retry or _RetryConfig(), sleep=sleep)
 
     try:
@@ -398,6 +416,9 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         self,
         model: str = "gpt-4o-mini",
         api_key: Optional[str] = None,
+        provider: str = "openai",
+        azure_endpoint: Optional[str] = None,
+        azure_api_version: Optional[str] = None,
         *,
         retry_config: Optional[_RetryConfig] = None,
         request_timeout_s: float = 60.0,
@@ -408,12 +429,18 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
 
         Args:
             model: OpenAI model to use (default: "gpt-4o-mini")
-            api_key: Optional OpenAI API key (defaults to OPENAI_API_KEY env var)
+            api_key: Provider API key (OpenAI or Azure OpenAI)
+            provider: LLM provider ("openai" or "azure")
+            azure_endpoint: Azure OpenAI endpoint (for provider="azure")
+            azure_api_version: Azure OpenAI API version (for provider="azure")
             retry_config: Retry/backoff configuration for OpenAI calls
             _sleep: Injected sleep (tests)
         """
+        self._provider = _normalize_provider(provider)
         self._model = model
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self._api_key = api_key
+        self._azure_endpoint = azure_endpoint
+        self._azure_api_version = azure_api_version
         self._retry = retry_config or _RetryConfig()
         self._request_timeout_s = float(request_timeout_s)
         self._sleep = _sleep
@@ -437,9 +464,18 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
         cv_data = load_input_json(work)
         self.validate_params(**kwargs)
 
-        if not self._api_key or OpenAI is None:
+        client = _get_openai_client(
+            self._provider,
+            api_key=self._api_key,
+            azure_endpoint=self._azure_endpoint,
+            azure_api_version=self._azure_api_version,
+            openai_cls=OpenAI,
+            azure_openai_cls=AzureOpenAI,
+        )
+        if client is None:
             LOG.warning(
-                "Company research adjust skipped: OpenAI unavailable or API key missing."
+                "Company research adjust skipped: OpenAI client unavailable for provider '%s'.",
+                self._provider,
             )
             return write_output_json(work, cv_data)
 
@@ -456,6 +492,10 @@ class OpenAICompanyResearchAdjuster(CVAdjuster):
                 customer_url,
                 self._api_key,
                 self._model,
+                provider=self._provider,
+                azure_endpoint=self._azure_endpoint,
+                azure_api_version=self._azure_api_version,
+                client=client,
                 retry=self._retry,
                 sleep=self._sleep,
                 request_timeout_s=self._request_timeout_s,

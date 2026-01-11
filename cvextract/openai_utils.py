@@ -5,11 +5,18 @@ Shared OpenAI helper utilities.
 from __future__ import annotations
 
 import json
+import os
 import random
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
+
+try:
+    from openai import AzureOpenAI, OpenAI  # type: ignore
+except Exception:
+    OpenAI = None  # type: ignore
+    AzureOpenAI = None  # type: ignore
 
 try:
     # Python 3.9+
@@ -48,6 +55,61 @@ def get_cached_resource_path(
         return cache_path if cache_path.exists() else None
     except Exception:
         return None
+
+
+def normalize_provider(provider: Optional[str]) -> str:
+    if not provider:
+        return "openai"
+    normalized = provider.strip().lower()
+    if normalized in ("openai", "open-ai"):
+        return "openai"
+    if normalized in (
+        "azure",
+        "azure-openai",
+        "azure_openai",
+        "azure-openai-foundry",
+        "azure-foundry",
+        "foundry",
+    ):
+        return "azure"
+    return normalized
+
+
+def get_openai_client(
+    provider: Optional[str],
+    *,
+    api_key: Optional[str] = None,
+    azure_endpoint: Optional[str] = None,
+    azure_api_version: Optional[str] = None,
+    openai_cls: Optional[Any] = None,
+    azure_openai_cls: Optional[Any] = None,
+) -> Optional[Any]:
+    provider_name = normalize_provider(provider)
+    if provider_name == "openai":
+        client_cls = openai_cls or OpenAI
+        if client_cls is None:
+            return None
+        key = api_key or os.environ.get("OPENAI_API_KEY")
+        if not key:
+            return None
+        return client_cls(api_key=key)
+
+    if provider_name == "azure":
+        client_cls = azure_openai_cls or AzureOpenAI
+        if client_cls is None:
+            return None
+        key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")
+        endpoint = azure_endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT")
+        api_version = azure_api_version or os.environ.get("AZURE_OPENAI_API_VERSION")
+        if not key or not endpoint or not api_version:
+            return None
+        return client_cls(
+            api_key=key,
+            azure_endpoint=endpoint,
+            api_version=api_version,
+        )
+
+    raise ValueError(f"Unknown OpenAI provider: {provider}")
 
 
 @dataclass(frozen=True)

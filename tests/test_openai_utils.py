@@ -94,3 +94,63 @@ def test_get_cached_resource_path_returns_none_on_exception(tmp_path):
         result = openai_utils.get_cached_resource_path("resource.json")
 
     assert result is None
+
+
+def test_normalize_provider_maps_known_values():
+    """normalize_provider should map Azure/OpenAI variants."""
+    assert openai_utils.normalize_provider(None) == "openai"
+    assert openai_utils.normalize_provider("OpenAI") == "openai"
+    assert openai_utils.normalize_provider("azure") == "azure"
+    assert openai_utils.normalize_provider("azure-openai") == "azure"
+    assert openai_utils.normalize_provider("foundry") == "azure"
+
+
+def test_get_openai_client_openai_uses_passed_key():
+    """get_openai_client should build OpenAI client with explicit key."""
+
+    class DummyClient:
+        def __init__(self, api_key):
+            self.api_key = api_key
+
+    client = openai_utils.get_openai_client(
+        "openai", api_key="test-key", openai_cls=DummyClient
+    )
+    assert isinstance(client, DummyClient)
+    assert client.api_key == "test-key"
+
+
+def test_get_openai_client_azure_uses_passed_settings():
+    """get_openai_client should build Azure client with explicit settings."""
+
+    class DummyAzureClient:
+        def __init__(self, api_key, azure_endpoint, api_version):
+            self.api_key = api_key
+            self.azure_endpoint = azure_endpoint
+            self.api_version = api_version
+
+    client = openai_utils.get_openai_client(
+        "azure",
+        api_key="azure-key",
+        azure_endpoint="https://example.openai.azure.com",
+        azure_api_version="2024-02-01",
+        azure_openai_cls=DummyAzureClient,
+    )
+    assert isinstance(client, DummyAzureClient)
+    assert client.api_key == "azure-key"
+    assert client.azure_endpoint == "https://example.openai.azure.com"
+    assert client.api_version == "2024-02-01"
+
+
+def test_get_openai_client_azure_missing_settings_returns_none():
+    """get_openai_client should return None when Azure settings are incomplete."""
+
+    class DummyAzureClient:
+        def __init__(self, api_key, azure_endpoint, api_version):
+            self.api_key = api_key
+            self.azure_endpoint = azure_endpoint
+            self.api_version = api_version
+
+    client = openai_utils.get_openai_client(
+        "azure", api_key="azure-key", azure_openai_cls=DummyAzureClient
+    )
+    assert client is None

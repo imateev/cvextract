@@ -72,12 +72,15 @@ python -m cvextract.cli \
 
 - **`job-url`** (required if no job-description): URL of job posting
 - **`job-description`** (required if no job-url): Direct text of job description
-- **`openai-model`** (optional): OpenAI model name, defaults to `gpt-4o-mini`
+- **`openai-model`** (optional): OpenAI model or Azure deployment name, defaults to `gpt-4o-mini`
 
 ### Environment Variables
 
-- **`OPENAI_API_KEY`** (required): OpenAI API key
+- **`OPENAI_API_KEY`** (required): OpenAI API key (when provider="openai")
 - **`OPENAI_MODEL`** (optional): Default model name
+- **`AZURE_OPENAI_API_KEY`** (optional): Azure OpenAI API key (when provider="azure")
+- **`AZURE_OPENAI_ENDPOINT`** (optional): Azure OpenAI endpoint (when provider="azure")
+- **`AZURE_OPENAI_API_VERSION`** (optional): Azure OpenAI API version (when provider="azure")
 
 ## Interfaces
 

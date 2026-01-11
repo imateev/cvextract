@@ -15,7 +15,7 @@ import os
 import traceback
 from dataclasses import replace
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from .extractors import CVExtractor, DocxCVExtractor, get_extractor
 from .extractors.docx_utils import dump_body_sample
@@ -198,7 +198,20 @@ def extract_single(work: UnitOfWork) -> UnitOfWork:
         attempt_states[StepName.Extract] = attempt_status
         attempt_work = replace(work, step_states=attempt_states)
 
-        extractor = get_extractor(extractor_name)
+        extractor_kwargs: Dict[str, Any] = {}
+        if extractor_name == "openai-extractor":
+            extractor_kwargs = {
+                "model": work.config.extract.openai_model or "gpt-4o",
+                "provider": work.config.provider,
+                "api_key": (
+                    work.config.azure_openai_api_key
+                    if work.config.provider == "azure"
+                    else None
+                ),
+                "azure_endpoint": work.config.azure_openai_endpoint,
+                "azure_api_version": work.config.azure_openai_api_version,
+            }
+        extractor = get_extractor(extractor_name, **extractor_kwargs)
         if not extractor:
             last_errors.append(f"unknown extractor: {extractor_name}")
             last_work = attempt_work

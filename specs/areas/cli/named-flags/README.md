@@ -151,7 +151,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 --render template=template.docx
 
 # Multiple parameters
---extract source=cv.docx name=openai-extractor output=data.json
+--extract source=cv.docx name=openai-extractor openai-model=gpt-4o output=data.json
 --adjust name=openai-job-specific job-url=https://example.com/job/123 openai-model=gpt-4
 --adjust name=openai-translate language=de openai-model=gpt-4o-mini
 ```
@@ -164,6 +164,9 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 
 # Global boolean flags
 --debug
+
+# Provider flags
+--provider azure --azure-endpoint=https://example.openai.azure.com --azure-api-version=2024-02-01
 ```
 
 ### Paths with Spaces
