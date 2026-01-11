@@ -1,5 +1,5 @@
 """
-Shared OpenAI helper utilities for adjusters.
+Shared OpenAI helper utilities.
 """
 
 from __future__ import annotations
@@ -109,9 +109,11 @@ class OpenAIRetry:
         *,
         retry: RetryConfig,
         sleep: Callable[[float], None],
+        random_func: Optional[Callable[[], float]] = None,
     ):
         self._retry = retry
         self._sleep = sleep
+        self._random_func = random_func
 
     def _get_status_code(self, exc: Exception) -> Optional[int]:
         for attr in ("status_code", "status", "http_status"):
@@ -182,7 +184,11 @@ class OpenAIRetry:
         if self._retry.deterministic:
             delay = capped
         else:
-            delay = random.random() * capped  # full jitter
+            if self._random_func is None:
+                jitter = random.random()
+            else:
+                jitter = self._random_func()
+            delay = jitter * capped  # full jitter
 
         delay = max(0.25, delay)
         self._sleep(delay)

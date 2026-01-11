@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import cvextract.adjusters.openai_utils as openai_utils
+import cvextract.openai_utils as openai_utils
 
 
 def _mock_files_resource():
@@ -22,13 +22,13 @@ def test_get_cached_resource_path_uses_existing_cache(tmp_path):
     cache_path.write_text("cached", encoding="utf-8")
 
     with patch(
-        "cvextract.adjusters.openai_utils.tempfile.gettempdir",
+        "cvextract.openai_utils.tempfile.gettempdir",
         return_value=str(tmp_path),
     ), patch(
-        "cvextract.adjusters.openai_utils.files",
+        "cvextract.openai_utils.files",
         return_value=_mock_files_resource(),
     ), patch(
-        "cvextract.adjusters.openai_utils.as_file"
+        "cvextract.openai_utils.as_file"
     ) as mock_as_file:
         result = openai_utils.get_cached_resource_path("resource.json")
 
@@ -46,13 +46,13 @@ def test_get_cached_resource_path_writes_cache_from_resource(tmp_path):
         yield resource_path
 
     with patch(
-        "cvextract.adjusters.openai_utils.tempfile.gettempdir",
+        "cvextract.openai_utils.tempfile.gettempdir",
         return_value=str(tmp_path),
     ), patch(
-        "cvextract.adjusters.openai_utils.files",
+        "cvextract.openai_utils.files",
         return_value=_mock_files_resource(),
     ), patch(
-        "cvextract.adjusters.openai_utils.as_file",
+        "cvextract.openai_utils.as_file",
         fake_as_file,
     ):
         result = openai_utils.get_cached_resource_path("resource.json")
@@ -71,13 +71,13 @@ def test_get_cached_resource_path_returns_none_when_resource_missing(tmp_path):
         yield missing_path
 
     with patch(
-        "cvextract.adjusters.openai_utils.tempfile.gettempdir",
+        "cvextract.openai_utils.tempfile.gettempdir",
         return_value=str(tmp_path),
     ), patch(
-        "cvextract.adjusters.openai_utils.files",
+        "cvextract.openai_utils.files",
         return_value=_mock_files_resource(),
     ), patch(
-        "cvextract.adjusters.openai_utils.as_file",
+        "cvextract.openai_utils.as_file",
         fake_as_file,
     ):
         result = openai_utils.get_cached_resource_path("resource.json")
@@ -88,7 +88,7 @@ def test_get_cached_resource_path_returns_none_when_resource_missing(tmp_path):
 def test_get_cached_resource_path_returns_none_on_exception(tmp_path):
     """get_cached_resource_path returns None when resource lookup fails."""
     with patch(
-        "cvextract.adjusters.openai_utils.files",
+        "cvextract.openai_utils.files",
         side_effect=RuntimeError("boom"),
     ):
         result = openai_utils.get_cached_resource_path("resource.json")
