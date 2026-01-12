@@ -288,10 +288,13 @@ python -m cvextract.cli \
   - `minimal`: One line per file with status icons, no third-party library output
   - `verbose`: Grouped per-file output blocks with warnings and major steps
   - `debug`: Full per-file output including application logs and stack traces
-- `--provider {openai,azure}` - LLM provider for OpenAI-based extractors/adjusters (default: openai)
-- `--azure-endpoint <url>` - Azure OpenAI endpoint (required for `--provider azure` unless set in env)
-- `--azure-api-version <version>` - Azure OpenAI API version (required for `--provider azure` unless set in env)
-- `--azure-api-key <key>` - Azure OpenAI API key (optional, overrides `AZURE_OPENAI_API_KEY`)
+- `--provider <name> [azure-endpoint=<url> azure-api-version=<version> azure-api-key=<key>]`
+  - LLM provider for OpenAI-based extractors/adjusters (default: openai)
+  - Azure params are required for `--provider azure` unless set in env
+- Legacy Azure flags (still supported):
+  - `--azure-endpoint <url>`
+  - `--azure-api-version <version>`
+  - `--azure-api-key <key>`
 - `--debug-external` - Capture logs from external providers (e.g., OpenAI SDK, HTTP clients)
   - By default, external provider logs are suppressed in parallel mode to ensure deterministic output
   - When enabled, external logs are routed through the buffered output controller

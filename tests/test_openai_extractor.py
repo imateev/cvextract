@@ -404,7 +404,9 @@ class TestOpenAIOperations:
             test_file.write_text("content")
 
             mock_response = MagicMock(id="file_123")
-            extractor.client.files.create = MagicMock(return_value=mock_response)
+            mock_client = MagicMock()
+            mock_client.files.create = MagicMock(return_value=mock_response)
+            extractor._client = mock_client
 
             file_id = extractor._upload_file(test_file)
             assert file_id == "file_123"

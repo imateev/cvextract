@@ -116,6 +116,37 @@ def _parse_stage_params(param_list: List[str]) -> Dict[str, str]:
     return params
 
 
+def _parse_provider_args(param_list: List[str]) -> tuple[str, Dict[str, str]]:
+    """
+    Parse --provider arguments into provider name and optional parameters.
+
+    Supported forms:
+    - --provider azure
+    - --provider azure azure-endpoint=... azure-api-version=... azure-api-key=...
+    - --provider provider=azure azure-endpoint=...
+    """
+    if not param_list:
+        return "openai", {}
+
+    first = param_list[0].strip()
+    provider = "openai"
+    params: Dict[str, str] = {}
+
+    if "=" in first:
+        params = _parse_stage_params(param_list)
+        provider = params.pop("provider", params.pop("name", "")) or provider
+        if not provider and any(
+            key in params
+            for key in ("azure-endpoint", "azure-api-version", "azure-api-key")
+        ):
+            provider = "azure"
+    else:
+        provider = first or provider
+        params = _parse_stage_params(param_list[1:])
+
+    return provider.strip(), params
+
+
 def gather_user_requirements(argv: Optional[List[str]] = None) -> UserConfig:
     """
     Phase 1: Parse command-line arguments and return user configuration.
@@ -235,9 +266,14 @@ Examples:
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "azure"],
-        default="openai",
-        help="LLM provider for OpenAI-based steps (default: openai).",
+        nargs="+",
+        default=["openai"],
+        metavar="PARAM",
+        help=(
+            "LLM provider for OpenAI-based steps (default: openai). "
+            "Optional params: azure-endpoint=<url> azure-api-version=<version> "
+            "azure-api-key=<key>."
+        ),
     )
     parser.add_argument(
         "--azure-endpoint",
@@ -441,6 +477,16 @@ Examples:
             skip_verify="skip-verify" in params,
         )
 
+    provider, provider_params = _parse_provider_args(args.provider if args.provider else [])
+    if provider not in ("openai", "azure"):
+        raise ValueError(f"Unknown provider: {provider}")
+
+    azure_endpoint = provider_params.get("azure-endpoint") or args.azure_endpoint
+    azure_api_version = (
+        provider_params.get("azure-api-version") or args.azure_api_version
+    )
+    azure_api_key = provider_params.get("azure-api-key") or args.azure_api_key
+
     return UserConfig(
         extract=extract_stage,
         adjust=adjust_stage,
@@ -451,10 +497,10 @@ Examples:
         skip_all_verify=args.skip_all_verify,
         debug_external=args.debug_external,
         log_file=args.log_file,
-        provider=args.provider,
-        azure_openai_endpoint=args.azure_endpoint,
-        azure_openai_api_version=args.azure_api_version,
-        azure_openai_api_key=args.azure_api_key,
+        provider=provider,
+        azure_openai_endpoint=azure_endpoint,
+        azure_openai_api_version=azure_api_version,
+        azure_openai_api_key=azure_api_key,
         log_failed=Path(args.log_failed) if args.log_failed else None,
         rerun_failed=Path(args.rerun_failed) if args.rerun_failed else None,
     )

@@ -473,6 +473,44 @@ class TestResearchCompanyProfile:
         assert result is None
         assert "empty completion" in caplog.text
 
+    def test_research_company_profile_completion_parse_error(
+        self, caplog, monkeypatch
+    ):
+        """Test when completion choices parsing raises an exception."""
+        caplog.set_level(logging.WARNING)
+
+        class BadChoices:
+            def __init__(self):
+                self.touched = False
+
+            def __bool__(self):
+                self.touched = True
+                raise RuntimeError("boom")
+
+        bad_choices = BadChoices()
+        mock_openai = Mock()
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_completion.choices = bad_choices
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai.return_value = mock_client
+
+        monkeypatch.setattr(
+            "cvextract.adjusters.openai_company_research_adjuster.OpenAI", mock_openai
+        )
+        monkeypatch.setattr(
+            "cvextract.adjusters.openai_company_research_adjuster._load_research_schema",
+            Mock(return_value={"type": "object"}),
+        )
+
+        result = _research_company_profile(
+            "https://example.com", "test-key", "gpt-4o-mini"
+        )
+
+        assert result is None
+        assert bad_choices.touched is True
+        assert "empty completion" in caplog.text
+
     def test_research_company_profile_invalid_json(self, caplog, monkeypatch):
         """Test when OpenAI returns invalid JSON."""
         mock_openai = Mock()

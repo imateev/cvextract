@@ -1,6 +1,7 @@
 """Tests for adjuster framework and registry."""
 
 import json
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -584,6 +585,35 @@ class TestOpenAICompanyResearchAdjuster:
         mock_openai.assert_not_called()
 
     @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._get_openai_client",
+        return_value=None,
+    )
+    @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._load_cached_research",
+        return_value={"name": "Test Corp", "domains": [], "description": "Test"},
+    )
+    def test_adjust_skips_when_client_unavailable(
+        self,
+        mock_load_cache,
+        mock_get_client,
+        tmp_path: Path,
+        caplog,
+    ):
+        """adjust should return original CV when OpenAI client cannot be created."""
+        caplog.set_level(logging.WARNING)
+
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        work = make_work(tmp_path, cv_data)
+        result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
+
+        assert result_data == cv_data
+        assert "OpenAI client unavailable" in caplog.text
+        mock_load_cache.assert_called_once()
+        mock_get_client.assert_called_once()
+
+    @patch(
         "cvextract.adjusters.openai_company_research_adjuster._research_company_profile"
     )
     @patch("cvextract.adjusters.openai_company_research_adjuster.format_prompt")
@@ -744,6 +774,98 @@ class TestOpenAICompanyResearchAdjuster:
 
         # Should return original CV due to API exception
         assert result_data == cv_data
+
+    @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._research_company_profile"
+    )
+    @patch("cvextract.adjusters.openai_company_research_adjuster.format_prompt")
+    @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._get_openai_client"
+    )
+    def test_adjust_handles_completion_parse_error(
+        self,
+        mock_get_client,
+        mock_format_prompt,
+        mock_research,
+        tmp_path: Path,
+        caplog,
+    ):
+        """adjust should return original CV when completion parsing fails."""
+        caplog.set_level(logging.WARNING)
+
+        mock_research.return_value = {
+            "name": "Test Corp",
+            "domains": [],
+            "description": "Test",
+        }
+        mock_format_prompt.return_value = "System prompt"
+
+        class BadChoices:
+            def __bool__(self):
+                raise RuntimeError("boom")
+
+        mock_completion = MagicMock()
+        mock_completion.choices = BadChoices()
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_get_client.return_value = mock_client
+
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        work = make_work(tmp_path, cv_data)
+        result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
+
+        assert result_data == cv_data
+        assert "empty response" in caplog.text
+
+    @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._research_company_profile"
+    )
+    @patch("cvextract.adjusters.openai_company_research_adjuster.format_prompt")
+    @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._get_openai_client"
+    )
+    @patch(
+        "cvextract.adjusters.openai_company_research_adjuster._extract_json_object",
+        return_value=["not-a-dict"],
+    )
+    def test_adjust_result_not_dict(
+        self,
+        mock_extract_json,
+        mock_get_client,
+        mock_format_prompt,
+        mock_research,
+        tmp_path: Path,
+        caplog,
+    ):
+        """adjust should return original CV when result is not a dict."""
+        caplog.set_level(logging.WARNING)
+
+        mock_research.return_value = {
+            "name": "Test Corp",
+            "domains": [],
+            "description": "Test",
+        }
+        mock_format_prompt.return_value = "System prompt"
+
+        mock_message = MagicMock()
+        mock_message.content = json.dumps({"unused": True})
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=mock_message)]
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_get_client.return_value = mock_client
+
+        adjuster = OpenAICompanyResearchAdjuster(model="test-model", api_key="test-key")
+        cv_data = {"identity": {}, "sidebar": {}, "overview": "", "experiences": []}
+        work = make_work(tmp_path, cv_data)
+        result = adjuster.adjust(work, customer_url="https://example.com")
+        result_data = read_output(result)
+
+        assert result_data == cv_data
+        assert "result is not a dict" in caplog.text
+        mock_extract_json.assert_called_once()
 
     @patch(
         "cvextract.adjusters.openai_company_research_adjuster._research_company_profile"
@@ -1059,8 +1181,9 @@ class TestOpenAIJobSpecificAdjuster:
                 read_output(result) == cv_data
             )  # Returns original CV due to first check
 
-    def test_adjust_with_job_description(self, tmp_path: Path):
+    def test_adjust_with_job_description(self, tmp_path: Path, monkeypatch):
         """adjust should work with job_description parameter (no API call)."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         adjuster = OpenAIJobSpecificAdjuster(api_key=None)  # No API key
         # Override the API key to ensure it's None (in case OPENAI_API_KEY env var is set)
         adjuster._api_key = None
@@ -1071,8 +1194,9 @@ class TestOpenAIJobSpecificAdjuster:
         result = adjuster.adjust(work, job_description="Test job")
         assert read_output(result) == cv_data
 
-    def test_adjust_missing_api_key(self, tmp_path: Path):
+    def test_adjust_missing_api_key(self, tmp_path: Path, monkeypatch):
         """adjust should return original CV when API key is missing."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         adjuster = OpenAIJobSpecificAdjuster(api_key=None)
         # Override the API key to ensure it's None (in case OPENAI_API_KEY env var is set)
         adjuster._api_key = None
@@ -2637,6 +2761,25 @@ class TestResearchCompanyProfileCache:
         research_data = {"name": "Fresh Co", "description": "Fresh", "domains": []}
         _cache_research_data(cache_path, research_data)
         assert json.loads(cache_path.read_text(encoding="utf-8")) == research_data
+
+    def test_research_company_profile_cache_logs_on_failure(self, tmp_path, caplog):
+        """_cache_research_data() logs warning on write failure."""
+        from cvextract.adjusters.openai_company_research_adjuster import (
+            _cache_research_data,
+        )
+
+        cache_path = tmp_path / "research.json"
+        research_data = {"name": "Fresh Co", "description": "Fresh", "domains": []}
+        with (
+            patch(
+                "cvextract.adjusters.openai_company_research_adjuster._atomic_write_json",
+                side_effect=OSError("nope"),
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            _cache_research_data(cache_path, research_data)
+
+        assert "Failed to cache research" in caplog.text
 
     def test_load_cached_research_rejects_invalid_cache(self, tmp_path):
         """_load_cached_research() returns None when cached data fails validation."""

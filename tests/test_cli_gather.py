@@ -431,6 +431,27 @@ class TestGatherUserRequirements:
                 "/output",
                 "--provider",
                 "azure",
+                "azure-endpoint=https://example.openai.azure.com",
+                "azure-api-version=2024-02-01",
+                "azure-api-key=test-key",
+            ]
+        )
+
+        assert config.provider == "azure"
+        assert config.azure_openai_endpoint == "https://example.openai.azure.com"
+        assert config.azure_openai_api_version == "2024-02-01"
+        assert config.azure_openai_api_key == "test-key"
+
+    def test_provider_azure_legacy_flags_parsed(self):
+        """Legacy Azure flags still set Azure config fields."""
+        config = cli_gather.gather_user_requirements(
+            [
+                "--extract",
+                "source=cv.docx",
+                "--target",
+                "/output",
+                "--provider",
+                "azure",
                 "--azure-endpoint",
                 "https://example.openai.azure.com",
                 "--azure-api-version",

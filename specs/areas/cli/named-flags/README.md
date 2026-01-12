@@ -166,7 +166,7 @@ Named flags replaced earlier positional argument syntax to improve clarity and m
 --debug
 
 # Provider flags
---provider azure --azure-endpoint=https://example.openai.azure.com --azure-api-version=2024-02-01
+--provider azure azure-endpoint=https://example.openai.azure.com azure-api-version=2024-02-01
 ```
 
 ### Paths with Spaces
